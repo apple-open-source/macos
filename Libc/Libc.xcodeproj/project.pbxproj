@@ -111,6 +111,15 @@
 		63D4061113DDF4340094DD56 /* strncat.c in Sources */ = {isa = PBXBuildFile; fileRef = 63D4060F13DDF4340094DD56 /* strncat.c */; };
 		63D4061313DDF6A30094DD56 /* strlcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 63D4061213DDF6A20094DD56 /* strlcat.c */; };
 		63D4061413DDF6A30094DD56 /* strlcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 63D4061213DDF6A20094DD56 /* strlcat.c */; };
+		928BD1001D76072200EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1011D76072200EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1021D76072C00EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1031D76073300EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1041D76073400EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1051D76073400EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1061D76073500EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1071D76073600EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
+		928BD1081D76073600EC01FC /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */; };
 		92ABC7E91D375FC2000DF880 /* compatibility_hacks.c in Sources */ = {isa = PBXBuildFile; fileRef = 92ABC7E81D375FC2000DF880 /* compatibility_hacks.c */; };
 		B10BC41C14338AEB005E4366 /* regcomp.c in Sources */ = {isa = PBXBuildFile; fileRef = B122F2B11432B95B00AF95D0 /* regcomp.c */; settings = {COMPILER_FLAGS = "-DHAVE_CONFIG_H -I$(SRCROOT)/regex/TRE -I$(SRCROOT)/regex/FreeBSD"; }; };
 		B122F2C71432B95B00AF95D0 /* regcomp.c in Sources */ = {isa = PBXBuildFile; fileRef = B122F2B11432B95B00AF95D0 /* regcomp.c */; };
@@ -5736,7 +5745,6 @@
 /* Begin PBXFileReference section */
 		147CDFCF1B7C14FA00831EC6 /* clock_gettime.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = clock_gettime.3; sourceTree = "<group>"; };
 		147CDFD01B7C14FA00831EC6 /* clock_gettime.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = clock_gettime.c; sourceTree = "<group>"; };
-		2B9D61B6157D667000AF25B8 /* trace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = trace.h; path = os/trace.h; sourceTree = "<group>"; };
 		2DF67CDD184F9CBE00B83A3D /* debug_private.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = debug_private.c; path = os/debug_private.c; sourceTree = "<group>"; };
 		2DF67CE7184F9CD000B83A3D /* debug_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = debug_private.h; path = os/debug_private.h; sourceTree = "<group>"; };
 		3F169A3C1643B7BA0029E851 /* memccpy_chk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = memccpy_chk.c; sourceTree = "<group>"; };
@@ -5766,6 +5774,9 @@
 		63D4060C13DDF26A0094DD56 /* strcat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strcat.c; sourceTree = "<group>"; };
 		63D4060F13DDF4340094DD56 /* strncat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strncat.c; sourceTree = "<group>"; };
 		63D4061213DDF6A20094DD56 /* strlcat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strlcat.c; sourceTree = "<group>"; };
+		928BD0FD1D7606EA00EC01FC /* timingsafe_bcmp.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = timingsafe_bcmp.3; sourceTree = "<group>"; };
+		928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timingsafe_bcmp.c; sourceTree = "<group>"; };
+		928BD1091D7608A400EC01FC /* environ.7 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = environ.7; sourceTree = "<group>"; };
 		92ABC7E81D375FC2000DF880 /* compatibility_hacks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = compatibility_hacks.c; sourceTree = "<group>"; };
 		B122F2AD1432B8E600AF95D0 /* libTRE.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libTRE.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B122F2AF1432B95B00AF95D0 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
@@ -6414,7 +6425,6 @@
 		C9B539F8138D9E990028D27C /* xlocale_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xlocale_private.h; sourceTree = "<group>"; };
 		C9B53A05138D9E990028D27C /* assert.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = assert.3; sourceTree = "<group>"; };
 		C9B53A06138D9E990028D27C /* bitstring.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = bitstring.3; sourceTree = "<group>"; };
-		C9B53A07138D9E990028D27C /* environ.7 */ = {isa = PBXFileReference; lastKnownFileType = text; path = environ.7; sourceTree = "<group>"; };
 		C9B53A09138D9E990028D27C /* stdarg.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = stdarg.3; sourceTree = "<group>"; };
 		C9B53A0B138D9E990028D27C /* gethostuuid.2 */ = {isa = PBXFileReference; lastKnownFileType = text; path = gethostuuid.2; sourceTree = "<group>"; };
 		C9B53A0D138D9E990028D27C /* utmp.5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = utmp.5; sourceTree = "<group>"; };
@@ -6795,7 +6805,6 @@
 		C9B53D24138D9E9A0028D27C /* strcoll.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = strcoll.3; sourceTree = "<group>"; };
 		C9B53D26138D9E9A0028D27C /* strcoll.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = strcoll.c; sourceTree = "<group>"; };
 		C9B53D28138D9E9A0028D27C /* strcpy.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = strcpy.3; sourceTree = "<group>"; };
-		C9B53D2B138D9E9A0028D27C /* strcspn.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = strcspn.3; sourceTree = "<group>"; };
 		C9B53D2D138D9E9A0028D27C /* strcspn.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = strcspn.c; sourceTree = "<group>"; };
 		C9B53D2E138D9E9A0028D27C /* strdup.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = strdup.3; sourceTree = "<group>"; };
 		C9B53D30138D9E9A0028D27C /* strdup.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = strdup.c; sourceTree = "<group>"; };
@@ -7094,7 +7103,6 @@
 			children = (
 				2DF67CE7184F9CD000B83A3D /* debug_private.h */,
 				2DF67CDD184F9CBE00B83A3D /* debug_private.c */,
-				2B9D61B6157D667000AF25B8 /* trace.h */,
 				4B2C64AB15519C3400342BFA /* assumes.h */,
 				4B2C64A215519BAF00342BFA /* assumes.c */,
 			);
@@ -8168,7 +8176,6 @@
 			children = (
 				C9B53A05138D9E990028D27C /* assert.3 */,
 				C9B53A06138D9E990028D27C /* bitstring.3 */,
-				C9B53A07138D9E990028D27C /* environ.7 */,
 				C9B53A08138D9E990028D27C /* FreeBSD */,
 				C9B53A0B138D9E990028D27C /* gethostuuid.2 */,
 				C9B53A0D138D9E990028D27C /* utmp.5 */,
@@ -8180,6 +8187,7 @@
 		C9B53A08138D9E990028D27C /* FreeBSD */ = {
 			isa = PBXGroup;
 			children = (
+				928BD1091D7608A400EC01FC /* environ.7 */,
 				C9B53A09138D9E990028D27C /* stdarg.3 */,
 			);
 			path = FreeBSD;
@@ -8763,7 +8771,6 @@
 				C9B53D24138D9E9A0028D27C /* strcoll.3 */,
 				C9B53D26138D9E9A0028D27C /* strcoll.c */,
 				C9B53D28138D9E9A0028D27C /* strcpy.3 */,
-				C9B53D2B138D9E9A0028D27C /* strcspn.3 */,
 				C9B53D2D138D9E9A0028D27C /* strcspn.c */,
 				C9B53D2E138D9E9A0028D27C /* strdup.3 */,
 				C9B53D30138D9E9A0028D27C /* strdup.c */,
@@ -8794,6 +8801,8 @@
 				C9B53D5D138D9E9A0028D27C /* strxfrm.c */,
 				C9B53D5F138D9E9A0028D27C /* swab.3 */,
 				C9B53D61138D9E9A0028D27C /* swab.c */,
+				928BD0FD1D7606EA00EC01FC /* timingsafe_bcmp.3 */,
+				928BD0FE1D7606EA00EC01FC /* timingsafe_bcmp.c */,
 				C9B53D63138D9E9A0028D27C /* wcpcpy.c */,
 				C9B53D64138D9E9A0028D27C /* wcpncpy.c */,
 				C9B53D65138D9E9A0028D27C /* wcscasecmp.c */,
@@ -9960,6 +9969,7 @@
 				C0E343931C582ECB00E749C2 /* strcpy.s in Sources */,
 				C0E343941C582ECB00E749C2 /* strlcat.s in Sources */,
 				C0E343951C582ECB00E749C2 /* strlcpy.s in Sources */,
+				928BD1011D76072200EC01FC /* timingsafe_bcmp.c in Sources */,
 				C0E343961C582ECB00E749C2 /* strlen.s in Sources */,
 				C0E343971C582ECB00E749C2 /* strncpy.s in Sources */,
 				C0E343981C582ECB00E749C2 /* strlen.s in Sources */,
@@ -10585,6 +10595,7 @@
 				C9257EF8138E1C5D00B3107C /* rec_search.c in Sources */,
 				C9257EF9138E1C5D00B3107C /* rec_seq.c in Sources */,
 				C9257EFA138E1C5D00B3107C /* rec_utils.c in Sources */,
+				928BD1021D76072C00EC01FC /* timingsafe_bcmp.c in Sources */,
 				C9257EFB138E1C6A00B3107C /* _hdtoa.c in Sources */,
 				C9257EFC138E1C6A00B3107C /* gdtoa-dmisc.c in Sources */,
 				C9257EFD138E1C6A00B3107C /* gdtoa-dtoa.c in Sources */,
@@ -11339,6 +11350,7 @@
 				C94211CA13900C8A004BA536 /* getchar.c in Sources */,
 				C94211CB13900C8A004BA536 /* getdelim.c in Sources */,
 				C94211CC13900C8A004BA536 /* getline.c in Sources */,
+				928BD1001D76072200EC01FC /* timingsafe_bcmp.c in Sources */,
 				C94211CD13900C8A004BA536 /* gets.c in Sources */,
 				C94211CE13900C8A004BA536 /* getw.c in Sources */,
 				C94211CF13900C8A004BA536 /* getwc.c in Sources */,
@@ -11893,6 +11905,7 @@
 				C95B8075138F3C55004311DA /* getchar.c in Sources */,
 				C95B8076138F3C55004311DA /* getdelim.c in Sources */,
 				C95B8077138F3C55004311DA /* getline.c in Sources */,
+				928BD1041D76073400EC01FC /* timingsafe_bcmp.c in Sources */,
 				C95B8078138F3C55004311DA /* gets.c in Sources */,
 				C95B8079138F3C55004311DA /* getw.c in Sources */,
 				C95B807A138F3C55004311DA /* getwc.c in Sources */,
@@ -12431,6 +12444,7 @@
 				C95B8320138F52B0004311DA /* getchar.c in Sources */,
 				C95B8321138F52B0004311DA /* getdelim.c in Sources */,
 				C95B8322138F52B0004311DA /* getline.c in Sources */,
+				928BD1051D76073400EC01FC /* timingsafe_bcmp.c in Sources */,
 				C95B8323138F52B0004311DA /* gets.c in Sources */,
 				C95B8324138F52B0004311DA /* getw.c in Sources */,
 				C95B8325138F52B0004311DA /* getwc.c in Sources */,
@@ -12969,6 +12983,7 @@
 				C95B85C6138F53DB004311DA /* getchar.c in Sources */,
 				C95B85C7138F53DB004311DA /* getdelim.c in Sources */,
 				C95B85C8138F53DB004311DA /* getline.c in Sources */,
+				928BD1061D76073500EC01FC /* timingsafe_bcmp.c in Sources */,
 				C95B85C9138F53DB004311DA /* gets.c in Sources */,
 				C95B85CA138F53DB004311DA /* getw.c in Sources */,
 				C95B85CB138F53DB004311DA /* getwc.c in Sources */,
@@ -14243,6 +14258,7 @@
 				C976604A138EC61A00741512 /* getchar.c in Sources */,
 				C976604B138EC61A00741512 /* getdelim.c in Sources */,
 				C976604C138EC61A00741512 /* getline.c in Sources */,
+				928BD1031D76073300EC01FC /* timingsafe_bcmp.c in Sources */,
 				C976604D138EC61A00741512 /* gets.c in Sources */,
 				C976604E138EC61A00741512 /* getw.c in Sources */,
 				C976604F138EC61A00741512 /* getwc.c in Sources */,
@@ -14640,6 +14656,7 @@
 				C9EB3090138F6D880075BB52 /* nftw.c in Sources */,
 				C9EB3091138F6D880075BB52 /* nlist.c in Sources */,
 				C9EB3093138F6D880075BB52 /* oldsyslog.c in Sources */,
+				928BD1071D76073600EC01FC /* timingsafe_bcmp.c in Sources */,
 				C9EB3096138F6D880075BB52 /* setlogin.c in Sources */,
 				C9EB3097138F6D880075BB52 /* sigsetops.c in Sources */,
 				C9EB309A138F6D880075BB52 /* strtofflags.c in Sources */,
@@ -15179,6 +15196,7 @@
 				C9EB3337138F75580075BB52 /* nftw.c in Sources */,
 				C9EB3338138F75580075BB52 /* nlist.c in Sources */,
 				C9EB333A138F75580075BB52 /* oldsyslog.c in Sources */,
+				928BD1081D76073600EC01FC /* timingsafe_bcmp.c in Sources */,
 				C9EB333D138F75580075BB52 /* setlogin.c in Sources */,
 				C9EB333E138F75580075BB52 /* sigsetops.c in Sources */,
 				C9EB3341138F75580075BB52 /* strtofflags.c in Sources */,

@@ -125,18 +125,19 @@ typedef struct index_record index_record;
 
 struct _OpaqueSecOTAPKI
 {
-	CFRuntimeBase 		_base;
-	CFSetRef			_blackListSet;
-	CFSetRef			_grayListSet;
-    CFDictionaryRef     _allowList;
-    CFArrayRef          _trustedCTLogs;
-    CFDataRef           _CTWhiteListData;
-	CFArrayRef			_escrowCertificates;
-	CFArrayRef			_escrowPCSCertificates;
-	CFDictionaryRef		_evPolicyToAnchorMapping;
-	CFDictionaryRef		_anchorLookupTable;
-	const char*			_anchorTable;
-	int					_assetVersion;
+	CFRuntimeBase       _base;
+	CFSetRef            _blackListSet;
+	CFSetRef            _grayListSet;
+	CFDictionaryRef     _allowList;
+	CFArrayRef          _trustedCTLogs;
+	CFDataRef           _CTWhiteListData;
+	CFArrayRef          _escrowCertificates;
+	CFArrayRef          _escrowPCSCertificates;
+	CFDictionaryRef     _evPolicyToAnchorMapping;
+	CFDictionaryRef     _anchorLookupTable;
+	const char*         _anchorTable;
+	const char*         _assetPath;
+	int                 _assetVersion;
 };
 
 CFGiblisFor(SecOTAPKI)
@@ -159,10 +160,17 @@ static void SecOTAPKIDestroy(CFTypeRef cf)
     CFReleaseNull(otapkiref->_evPolicyToAnchorMapping);
     CFReleaseNull(otapkiref->_anchorLookupTable);
 
-	free((void *)otapkiref->_anchorTable);
-
     CFReleaseNull(otapkiref->_trustedCTLogs);
     CFReleaseNull(otapkiref->_CTWhiteListData);
+
+    if (otapkiref->_anchorTable) {
+        free((void *)otapkiref->_anchorTable);
+        otapkiref->_anchorTable = NULL;
+    }
+    if (otapkiref->_assetPath) {
+        free((void *)otapkiref->_assetPath);
+        otapkiref->_assetPath = NULL;
+    }
 }
 
 static CFDataRef SecOTACopyFileContents(const char *path)
@@ -965,7 +973,7 @@ static SecOTAPKIRef SecOTACreate()
 
 	SecOTAPKIRef otapkiref = NULL;
 
-    otapkiref = CFTypeAllocate(SecOTAPKI, struct _OpaqueSecOTAPKI , kCFAllocatorDefault);
+	otapkiref = CFTypeAllocate(SecOTAPKI, struct _OpaqueSecOTAPKI , kCFAllocatorDefault);
 
 	if (NULL == otapkiref)
 	{
@@ -976,19 +984,21 @@ static SecOTAPKIRef SecOTACreate()
 	// will do the right thing
 	otapkiref->_blackListSet = NULL;
 	otapkiref->_grayListSet = NULL;
-    otapkiref->_allowList = NULL;
-    otapkiref->_trustedCTLogs = NULL;
-    otapkiref->_CTWhiteListData = NULL;
+	otapkiref->_allowList = NULL;
+	otapkiref->_trustedCTLogs = NULL;
+	otapkiref->_CTWhiteListData = NULL;
 	otapkiref->_escrowCertificates = NULL;
 	otapkiref->_escrowPCSCertificates = NULL;
 	otapkiref->_evPolicyToAnchorMapping = NULL;
 	otapkiref->_anchorLookupTable = NULL;
 	otapkiref->_anchorTable = NULL;
+	otapkiref->_assetPath = NULL;
 	otapkiref->_assetVersion = 0;
 
 	// Start off by getting the correct asset directory info
 	int asset_version = 0;
 	const char* path_ptr = InitOTADirectory(&asset_version);
+	otapkiref->_assetPath = path_ptr;
 	otapkiref->_assetVersion = asset_version;
 
 	TestOTALog("SecOTACreate: asset_path = %s\n", path_ptr);
@@ -998,9 +1008,6 @@ static SecOTAPKIRef SecOTACreate()
 	CFSetRef blackKeysSet = InitializeBlackList(path_ptr);
 	if (NULL == blackKeysSet)
 	{
-		if (path_ptr) {
-			free((void *)path_ptr);
-		}
 		CFReleaseNull(otapkiref);
 		return otapkiref;
 	}
@@ -1010,31 +1017,25 @@ static SecOTAPKIRef SecOTACreate()
 	CFSetRef grayKeysSet = InitializeGrayList(path_ptr);
 	if (NULL == grayKeysSet)
 	{
-		if (path_ptr) {
-			free((void *)path_ptr);
-		}
 		CFReleaseNull(otapkiref);
 		return otapkiref;
 	}
 	otapkiref->_grayListSet = grayKeysSet;
 
-    // Get the allow list dictionary
-    otapkiref->_allowList = InitializeAllowList(path_ptr);
+	// Get the allow list dictionary
+	// (now loaded lazily in SecOTAPKICopyAllowList)
 
-    // Get the trusted Certificate Transparency Logs
-    otapkiref->_trustedCTLogs = InitializeTrustedCTLogs(path_ptr);
+	// Get the trusted Certificate Transparency Logs
+	otapkiref->_trustedCTLogs = InitializeTrustedCTLogs(path_ptr);
 
-    // Get the EV whitelist
-    otapkiref->_CTWhiteListData = InitializeCTWhiteListData(path_ptr);
+	// Get the EV whitelist
+	otapkiref->_CTWhiteListData = InitializeCTWhiteListData(path_ptr);
 
 	CFArrayRef escrowCerts = NULL;
 	CFArrayRef escrowPCSCerts = NULL;
 	InitializeEscrowCertificates(path_ptr, &escrowCerts, &escrowPCSCerts);
 	if (NULL == escrowCerts || NULL == escrowPCSCerts)
 	{
-		if (path_ptr) {
-			free((void *)path_ptr);
-		}
 		CFReleaseNull(escrowCerts);
 		CFReleaseNull(escrowPCSCerts);
 		CFReleaseNull(otapkiref);
@@ -1047,9 +1048,6 @@ static SecOTAPKIRef SecOTACreate()
 	CFDictionaryRef evOidToAnchorDigestMap = InitializeEVPolicyToAnchorDigestsTable(path_ptr);
 	if (NULL == evOidToAnchorDigestMap)
 	{
-		if (path_ptr) {
-			free((void *)path_ptr);
-		}
 		CFReleaseNull(otapkiref);
 		return otapkiref;
 	}
@@ -1063,9 +1061,6 @@ static SecOTAPKIRef SecOTACreate()
 		CFReleaseSafe(anchorLookupTable);
 		if (anchorTablePtr) {
 			free((void *)anchorTablePtr);
-		}
-		if (path_ptr) {
-			free((void *)path_ptr);
 		}
 		CFReleaseNull(otapkiref);
 		return otapkiref;
@@ -1127,15 +1122,54 @@ CFSetRef SecOTAPKICopyGrayList(SecOTAPKIRef otapkiRef)
 
 CFDictionaryRef SecOTAPKICopyAllowList(SecOTAPKIRef otapkiRef)
 {
-    CFDictionaryRef result = NULL;
-    if (NULL == otapkiRef)
-    {
-        return result;
-    }
+	CFDictionaryRef result = NULL;
+	if (NULL == otapkiRef)
+	{
+		return result;
+	}
 
-    result = otapkiRef->_allowList;
-    CFRetainSafe(result);
-    return result;
+	result = otapkiRef->_allowList;
+	if (!result) {
+		result = InitializeAllowList(otapkiRef->_assetPath);
+		otapkiRef->_allowList = result;
+	}
+
+	CFRetainSafe(result);
+	return result;
+}
+
+CFArrayRef SecOTAPKICopyAllowListForAuthKeyID(SecOTAPKIRef otapkiRef, CFStringRef authKeyID)
+{
+	// %%% temporary performance optimization:
+	// only load dictionary if we know an allow list exists for this key
+	const CFStringRef keyIDs[3] = {
+		CFSTR("7C724B39C7C0DB62A54F9BAA183492A2CA838259"),
+		CFSTR("65F231AD2AF7F7DD52960AC702C10EEFA6D53B11"),
+		CFSTR("D2A716207CAFD9959EEB430A19F2E0B9740EA8C7")
+	};
+	CFArrayRef result = NULL;
+	bool hasAllowList = false;
+	CFIndex count = (sizeof(keyIDs) / sizeof(keyIDs[0]));
+	for (CFIndex ix=0; ix<count && authKeyID; ix++) {
+		if (kCFCompareEqualTo == CFStringCompare(authKeyID, keyIDs[ix], 0)) {
+			hasAllowList = true;
+			break;
+		}
+	}
+	if (!hasAllowList || !otapkiRef) {
+		return result;
+	}
+
+	CFDictionaryRef allowListDict = SecOTAPKICopyAllowList(otapkiRef);
+	if (!allowListDict) {
+		return result;
+	}
+
+	// return a retained copy of the allow list array (or NULL)
+	result = CFDictionaryGetValue(allowListDict, authKeyID);
+	CFRetainSafe(result);
+	CFReleaseSafe(allowListDict);
+	return result;
 }
 
 CFArrayRef SecOTAPKICopyTrustedCTLogs(SecOTAPKIRef otapkiRef)

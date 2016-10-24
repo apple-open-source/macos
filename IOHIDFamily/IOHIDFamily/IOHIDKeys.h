@@ -397,7 +397,8 @@ typedef uint32_t IOHIDValueScaleType;
  */
 enum {
     kIOHIDValueOptionsFlagRelativeSimple    = (1<<0),
-    kIOHIDValueOptionsFlagPrevious          = (1<<1)
+    kIOHIDValueOptionsFlagPrevious          = (1<<1),
+    kIOHIDValueOptionsUpdateElementValues   = (1<<2)
 };
 typedef uint32_t IOHIDValueOptions;
 

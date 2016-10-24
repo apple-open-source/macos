@@ -1833,38 +1833,6 @@ static void alloc_curl_handle(php_curl **ch)
 /* }}} */
 
 #if LIBCURL_VERSION_NUM >= 0x071301 /* Available since 7.19.1 */
-/* {{{ split_certinfo
- */
-static void split_certinfo(char *string, zval *hash)
-{
-	char *org = estrdup(string);
-	char *s = org;
-	char *split;
-
-	if(org) {
-		do {
-			char *key;
-			char *val;
-			char *tmp;
-
-			split = strstr(s, "; ");
-			if(split)
-				*split = '\0';
-
-			key = s;
-			tmp = memchr(key, '=', 64);
-			if(tmp) {
-				*tmp = '\0';
-				val = tmp+1;
-				add_assoc_string(hash, key, val, 1);
-			}
-			s = split+2;
-		} while(split);
-		efree(org);
-	}
-}
-/* }}} */
-
 /* {{{ create_certinfo
  */
 static void create_certinfo(struct curl_certinfo *ci, zval *listcode TSRMLS_DC)
@@ -1888,17 +1856,7 @@ static void create_certinfo(struct curl_certinfo *ci, zval *listcode TSRMLS_DC)
 				if(tmp) {
 					*tmp = '\0';
 					len = strlen(s);
-					if(!strcmp(s, "Subject") || !strcmp(s, "Issuer")) {
-						zval *hash;
-
-						MAKE_STD_ZVAL(hash);
-						array_init(hash);
-
-						split_certinfo(&slist->data[len+1], hash);
-						add_assoc_zval(certhash, s, hash);
-					} else {
-						add_assoc_string(certhash, s, &slist->data[len+1], 1);
-					}
+					add_assoc_string(certhash, s, &slist->data[len+1], 1);
 				} else {
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not extract hash key from certificate info");
 				}
@@ -1925,7 +1883,9 @@ static void _php_curl_set_default_options(php_curl *ch)
 	curl_easy_setopt(ch->cp, CURLOPT_INFILE,            (void *) ch);
 	curl_easy_setopt(ch->cp, CURLOPT_HEADERFUNCTION,    curl_write_header);
 	curl_easy_setopt(ch->cp, CURLOPT_WRITEHEADER,       (void *) ch);
+#if !defined(ZTS)
 	curl_easy_setopt(ch->cp, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);
+#endif
 	curl_easy_setopt(ch->cp, CURLOPT_DNS_CACHE_TIMEOUT, 120);
 	curl_easy_setopt(ch->cp, CURLOPT_MAXREDIRS, 20); /* prevent infinite redirects */
 
@@ -2263,7 +2223,14 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue TSRMLS_DC) 
 					return 1;
 			}
 #endif
+# if defined(ZTS)
+			if (option == CURLOPT_DNS_USE_GLOBAL_CACHE) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "CURLOPT_DNS_USE_GLOBAL_CACHE cannot be activated when thread safety is enabled");
+				return 1;
+			}
+# endif
 			error = curl_easy_setopt(ch->cp, option, Z_LVAL_PP(zvalue));
+
 			break;
 		case CURLOPT_SAFE_UPLOAD:
 			convert_to_long_ex(zvalue);
@@ -2547,12 +2514,13 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue TSRMLS_DC) 
 				}
 			}
 
-			if (Z_REFCOUNT_P(ch->clone) <= 1) {
-				zend_hash_index_update(ch->to_free->slist, (ulong) option, &slist, sizeof(struct curl_slist *), NULL);
-			} else {
-				zend_hash_next_index_insert(ch->to_free->slist, &slist, sizeof(struct curl_slist *), NULL);
+			if (slist) {
+				if (Z_REFCOUNT_P(ch->clone) <= 1) {
+					zend_hash_index_update(ch->to_free->slist, (ulong) option, &slist, sizeof(struct curl_slist *), NULL);
+				} else {
+					zend_hash_next_index_insert(ch->to_free->slist, &slist, sizeof(struct curl_slist *), NULL);
+				}
 			}
-
 			error = curl_easy_setopt(ch->cp, option, slist);
 
 			break;
@@ -3510,6 +3478,10 @@ PHP_FUNCTION(curl_escape)
 	ZEND_FETCH_RESOURCE(ch, php_curl *, &zid, -1, le_curl_name, le_curl);
 
 	if ((res = curl_easy_escape(ch->cp, str, str_len))) {
+		if (strlen(res) > INT_MAX) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Escaped string is too long, maximum is %d", INT_MAX);
+			RETURN_FALSE;
+		}
 		RETVAL_STRING(res, 1);
 		curl_free(res);
 	} else {

@@ -80,7 +80,7 @@ verify_req_hash(krb5_context context,
     CCHmacFinal(&ctx, digest);
     memset(&ctx, 0, sizeof(ctx));
 
-    if (memcmp(req->pk_hash.data, digest, sizeof(digest)) != 0) {
+    if (ct_memcmp(req->pk_hash.data, digest, sizeof(digest)) != 0) {
 	krb5_set_error_message(context, KRB5KDC_ERR_PREAUTH_FAILED,
 			       "pk-hash is not correct");
 	return KRB5KDC_ERR_PREAUTH_FAILED;

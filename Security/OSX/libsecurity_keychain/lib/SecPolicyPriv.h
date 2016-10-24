@@ -24,8 +24,8 @@
 /*!
  @header SecPolicyPriv
  The functions provided in SecPolicyPriv provide an interface to various
-	X.509 certificate trust policies.
- */
+ X.509 certificate trust policies.
+*/
 
 #ifndef _SECURITY_SECPOLICYPRIV_H_
 #define _SECURITY_SECPOLICYPRIV_H_
@@ -95,6 +95,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	@constant kSecPolicyAppleUniqueDeviceIdentifierCertificate
 	@constant kSecPolicyAppleEscrowProxyCompatibilityServerAuth
 	@constant kSecPolicyAppleMMCSCompatibilityServerAuth
+	@constant kSecPolicyAppleSecureIOStaticAsset
+	@constant kSecPolicyAppleWarsaw
  */
 extern const CFStringRef kSecPolicyAppleMobileStore
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
@@ -200,6 +202,11 @@ extern const CFStringRef kSecPolicyAppleEscrowProxyCompatibilityServerAuth
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 extern const CFStringRef kSecPolicyAppleMMCSCompatibilityServerAuth
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+extern const CFStringRef kSecPolicyAppleSecureIOStaticAsset
+    __OSX_AVAILABLE(10.12.1) __IOS_AVAILABLE(10.1) __TVOS_AVAILABLE(10.0.1) __WATCHOS_AVAILABLE(3.1);
+extern const CFStringRef kSecPolicyAppleWarsaw
+    __OSX_AVAILABLE(10.12.1) __IOS_AVAILABLE(10.1) __TVOS_AVAILABLE(10.0.1) __WATCHOS_AVAILABLE(3.1);
+
 
 /*!
  @enum Policy Value Constants
@@ -265,7 +272,7 @@ extern const CFStringRef kSecPolicyRootDigest
     * The intermediate has a marker extension with OID matching the intermediateMarkerOID
     parameter.
     * The leaf has a marker extension with OID matching the leafMarkerOID parameter.
-    * Revocation is checked via OCSP or CRL.
+    * Revocation is checked via any available method.
     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
  @result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.
@@ -298,12 +305,8 @@ SecPolicyRef SecPolicyCreateApplePinned(CFStringRef policyName,
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
     extension or Common Name.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via OCSP or CRL.
+    * Revocation is checked via any available method.
     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
- For developers who need to disable pinning this function is equivalent to SecPolicyCreateSSL
- on internal releases if the value true is set for the key "AppleServerAuthenticationNoPinning%@"
- (where %@ is the policyName parameter) in the com.apple.Security preferences for the user
- of the calling application.
  @result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.
  */
@@ -318,13 +321,14 @@ SecPolicyRef SecPolicyCreateAppleSSLPinned(CFStringRef policyName, CFStringRef h
  certificate chains.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in chain.
     * The intermediate has Common Name "Apple iPhone Certification Authority".
     * The leaf has Common Name "iPhone Activation".
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiPhoneActivation(void);
 
@@ -334,12 +338,13 @@ SecPolicyRef SecPolicyCreateiPhoneActivation(void);
  chains.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * There are exactly 4 certs in chain.
-    * The chain is anchored to "Apple Root CA" certificate.
-    * The first intermediate has Common Name "Apple iPhone Device CA".
+     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+     * There are exactly 4 certs in chain.
+     * The first intermediate has Common Name "Apple iPhone Device CA".
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiPhoneDeviceCertificate(void);
 
@@ -349,10 +354,10 @@ SecPolicyRef SecPolicyCreateiPhoneDeviceCertificate(void);
  chains.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to the Factory Device CA.
+     * The chain is anchored to the Factory Device CA.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateFactoryDeviceCertificate(void);
 
@@ -361,13 +366,13 @@ SecPolicyRef SecPolicyCreateFactoryDeviceCertificate(void);
  @abstract Returns a policy object for verifying iAP certificate chains.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The leaf has notBefore date after 5/31/2006 midnight GMT.
-    * The leaf has Common Name beginning with "IPA_".
+     * The leaf has notBefore date after 5/31/2006 midnight GMT.
+     * The leaf has Common Name beginning with "IPA_".
  The intended use of this policy is that the caller pass in the
  intermediates for iAP1 and iAP2 to SecTrustSetAnchorCertificates().
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiAP(void);
 
@@ -377,13 +382,13 @@ SecPolicyRef SecPolicyCreateiAP(void);
  certificates.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to the iTMS CA.
-    * There are exactly 2 certs in the chain.
-    * The leaf has Organization "Apple Inc.".
-    * The leaf has Common Name "iTunes Store URL Bag".
+     * The chain is anchored to the iTMS CA.
+     * There are exactly 2 certs in the chain.
+     * The leaf has Organization "Apple Inc.".
+     * The leaf has Common Name "iTunes Store URL Bag".
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiTunesStoreURLBag(void);
 
@@ -402,8 +407,8 @@ SecPolicyRef SecPolicyCreateiTunesStoreURLBag(void);
  to contain either the ServerAuth OID, if the server param is true or
  ClientAuth OID, otherwise.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateEAP(Boolean server, CFArrayRef __nullable trustedServerNames);
 
@@ -416,8 +421,8 @@ SecPolicyRef SecPolicyCreateEAP(Boolean server, CFArrayRef __nullable trustedSer
  hostname or ip address to match the hostname in the leaf certificate.
  @discussion This policy uses the Basic X.509 policy with validity check.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateIPSec(Boolean server, CFStringRef __nullable  hostname);
 
@@ -426,12 +431,14 @@ SecPolicyRef SecPolicyCreateIPSec(Boolean server, CFStringRef __nullable  hostna
  @abstract Returns a policy object for evaluating SW update signing certs.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
-    * There are exactly 3 certs in the chain.
-    * The leaf ExtendedKeyUsage extension contains 1.2.840.113635.100.4.1.
+     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+     * There are exactly 3 certs in the chain.
+     * The intermediate ExtendedKeyUsage Extension contains 1.2.840.113635.100.4.1.
+     * The leaf ExtendedKeyUsage extension contains 1.2.840.113635.100.4.1.
  @result A policy object. The caller is responsible for calling CFRelease
  on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleSWUpdateSigning(void);
 
@@ -440,11 +447,14 @@ SecPolicyRef SecPolicyCreateAppleSWUpdateSigning(void);
  @abstract Returns a policy object for evaluating installer package signing certs.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
-    * There are exactly 3 certs in the chain.
+     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+     * There are exactly 3 certs in the chain.
+     * The leaf KeyUsage extension has the digital signature bit set.
+     * The leaf ExtendedKeyUsage extension has the CodeSigning OID.
  @result A policy object. The caller is responsible for calling CFRelease
  on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateApplePackageSigning(void);
 
@@ -454,18 +464,18 @@ SecPolicyRef SecPolicyCreateApplePackageSigning(void);
  signatures.  This is for apps signed directly by the app store.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
-    * There are exactly 3 certs in the chain.
-    * The intermediate has Common Name "Apple iPhone Certification Authority".
-    * The leaf has Common Name "Apple iPhone OS Application Signing".
-    * If the device is not a production device and is running an internal
-    release, the leaf may have the Common Name "TEST Apple iPhone OS
-    Application Signing TEST".
-    * The leaf has ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID
-    or the CodeSigning OID.
+     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has Common Name "Apple iPhone Certification Authority".
+     * The leaf has Common Name "Apple iPhone OS Application Signing".
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.3 or OID
+     1.2.840.113635.100.6.1.6.
+     * The leaf has ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID
+       or the CodeSigning OID.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiPhoneApplicationSigning(void);
 
@@ -475,10 +485,10 @@ SecPolicyRef SecPolicyCreateiPhoneApplicationSigning(void);
  signatures. This policy is for certificates inside a UPP or regular
  profile.
  @discussion  This policy only verifies that the leaf is temporally valid
- and not revoked.
+ and not revoked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiPhoneProfileApplicationSigning(void);
 
@@ -487,16 +497,17 @@ SecPolicyRef SecPolicyCreateiPhoneProfileApplicationSigning(void);
  @abstract Returns a policy object for evaluating provisioning profile signatures.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
-    * There are exactly 3 certs in the chain.
-    * The intermediate has Common Name "Apple iPhone Certification Authority".
-    * The leaf has Common Name "Apple iPhone OS Provisioning Profile Signing".
-    * If the device is not a production device and is running an internal
-    release, the leaf may have the Common Name "TEST Apple iPhone OS
-    Provisioning Profile Signing TEST".
+     * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+     the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has Common Name "Apple iPhone Certification Authority".
+     * The leaf has Common Name "Apple iPhone OS Provisioning Profile Signing".
+     * If the device is not a production device and is running an internal
+       release, the leaf may have the Common Name "TEST Apple iPhone OS
+       Provisioning Profile Signing TEST".
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateiPhoneProvisioningProfileSigning(void);
 
@@ -507,17 +518,17 @@ SecPolicyRef SecPolicyCreateiPhoneProvisioningProfileSigning(void);
  and allows for both the prod and the dev/test certs.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to any of the production Apple Root CAs.
-    Test roots are never permitted.
-    * There are exactly 3 certs in the chain.
-    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
-    * The leaf has ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID or
-    the CodeSigning OID.
-    * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.24 or OID
- 1.2.840.113635.100.6.1.24.1.
+     * The chain is anchored to any of the production Apple Root CAs.
+       Test roots are never permitted.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
+     * The leaf has ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID or
+       the CodeSigning OID.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.24 or OID
+       1.2.840.113635.100.6.1.24.1.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleTVOSApplicationSigning(void);
 
@@ -527,8 +538,8 @@ SecPolicyRef SecPolicyCreateAppleTVOSApplicationSigning(void);
  @discussion This policy uses the Basic X.509 policy with validity check and
  requires the leaf to have an ExtendedKeyUsage of OCSPSigning.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateOCSPSigner(void);
 
@@ -541,27 +552,27 @@ enum {
     kSecKeyExchangeEncryptSMIMEUsage = (1 << 4),
     kSecKeyExchangeBothSMIMEUsage = (1 << 5),
     kSecAnyEncryptSMIME = kSecKeyEncryptSMIMEUsage | kSecDataEncryptSMIMEUsage |
-    kSecKeyExchangeDecryptSMIMEUsage | kSecKeyExchangeEncryptSMIMEUsage
+        kSecKeyExchangeDecryptSMIMEUsage | kSecKeyExchangeEncryptSMIMEUsage
 };
 
 /*!
  @function SecPolicyCreateSMIME
  @abstract Returns a policy object for evaluating S/MIME certificate chains.
-	@param smimeUsage Pass the bitwise or of one or more kSecXXXSMIMEUsage
+ @param smimeUsage Pass the bitwise or of one or more kSecXXXSMIMEUsage
  flags, to indicate the intended usage of this certificate.
-	@param email Optional; if present, the policy will require the specified
-	email to match the email in the leaf certificate.
+ @param email Optional; if present, the policy will require the specified
+ email to match the email in the leaf certificate.
  @discussion This policy uses the Basic X.509 policy with validity check and
  requires the leaf to have
-    * a KeyUsage matching the smimeUsage,
-    * an ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID or the
-    EmailProtection OID, and
-    * if the email param is specified, the email address in the RFC822Name in the
-    SubjectAlternativeName extension or in the Email Address field of the
-    Subject Name.
+     * a KeyUsage matching the smimeUsage,
+     * an ExtendedKeyUsage, if any, with the AnyExtendedKeyUsage OID or the
+       EmailProtection OID, and
+     * if the email param is specified, the email address in the RFC822Name in the
+       SubjectAlternativeName extension or in the Email Address field of the
+       Subject Name.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef __nullable email);
 
@@ -570,11 +581,11 @@ SecPolicyRef SecPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef __nullable ema
  @abstract Returns a policy object for evaluating code signing certificate chains.
  @discussion This policy uses the Basic X.509 policy with validity check and
  requires the leaf to have
-    * a KeyUsage with both the DigitalSignature and NonRepudiation bits set, and
-    * an ExtendedKeyUsage with the AnyExtendedKeyUsage OID or the CodeSigning OID.
+     * a KeyUsage with both the DigitalSignature and NonRepudiation bits set, and
+     * an ExtendedKeyUsage with the AnyExtendedKeyUsage OID or the CodeSigning OID.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateCodeSigning(void);
 
@@ -584,8 +595,8 @@ SecPolicyRef SecPolicyCreateCodeSigning(void);
  @disucssion This policy checks some of the Basic X.509 policy options with no
  validity check. It explicitly allows for empty subjects.
  @result A policy object. The caller is responsible for calling CFRelease
-	on this when it is no longer needed.
- */
+ on this when it is no longer needed.
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateLockdownPairing(void);
 
@@ -605,8 +616,10 @@ SecPolicyRef SecPolicyCreateURLBag(void);
  @abstract  Returns a policy object for evaluating certificate chains for signing OTA Tasking.
  @discussion This policy uses the Basic X.509 policy with validity check and
  pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
+    * The intermediate has Common Name "Apple iPhone Certification Authority".
     * The leaf has Common Name "OTA Task Signing".
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
@@ -619,8 +632,10 @@ SecPolicyRef SecPolicyCreateOTATasking(void);
  @abstract  Returns a policy object for evaluating certificate chains for signing Mobile Assets.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
+    * The intermediate has Common Name "Apple iPhone Certification Authority".
     * The leaf has Common Name "Asset Manifest Signing".
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
@@ -633,9 +648,10 @@ SecPolicyRef SecPolicyCreateMobileAsset(void);
  @abstract Returns a policy object for evaluating certificate chains for Apple ID Authority.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * The intermediate(s) has(have) a marker extension with OID 1.2.840.113635.100.6.2.3
-    or OID 1.2.840.113635.100.6.2.7.
+      or OID 1.2.840.113635.100.6.2.7.
     * The leaf has a marker extension with OID 1.2.840.113635.100.4.7.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
@@ -649,7 +665,13 @@ SecPolicyRef SecPolicyCreateAppleIDAuthorityPolicy(void);
  Mac App Store Receipts.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
+    * The leaf has CertificatePolicy extension with OID 1.2.840.113635.100.5.6.1.
+    * The leaf has a marker extension with OID 1.2.840.113635.100.6.11.1.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -664,9 +686,10 @@ SecPolicyRef SecPolicyCreateMacAppStoreReceipt(void);
  team ID to match the organizationalUnit field in the leaf certificate's subject.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.1.16 and containing the
-    cardIssuer.
+      cardIssuer.
     * The leaf has ExtendedKeyUsage with OID 1.2.840.113635.100.4.14.
     * The leaf has a Organizational Unit matching the TeamID.
  @result A policy object. The caller is responsible for calling CFRelease
@@ -674,14 +697,15 @@ SecPolicyRef SecPolicyCreateMacAppStoreReceipt(void);
  */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreatePassbookCardSigner(CFStringRef cardIssuer,
-                                               CFStringRef __nullable teamIdentifier);
+	CFStringRef __nullable teamIdentifier);
 
 /*!
  @function SecPolicyCreateMobileStoreSigner
  @abstract Returns a policy object for evaluating Mobile Store certificate chains.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
     * The intermediate has Common Name "Apple System Integration 2 Certification Authority".
     * The leaf has KeyUsage with the DigitalSignature bit set.
@@ -697,7 +721,8 @@ SecPolicyRef SecPolicyCreateMobileStoreSigner(void);
  @abstract  Returns a policy object for evaluating Test Mobile Store certificate chains.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
     * The intermediate has Common Name "Apple System Integration 2 Certification Authority".
     * The leaf has KeyUsage with the DigitalSignature bit set.
@@ -742,14 +767,15 @@ SecPolicyRef SecPolicyCreatePCSEscrowServiceSigner(void);
  Provisioning Profiles.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.1.
     * The leaf has KeyUsage with the DigitalSignature bit set.
     * The leaf has a marker extension with OID 1.2.840.113635.100.4.11.
     * Revocation is checked via OCSP.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void);
 
@@ -759,25 +785,31 @@ SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void);
  Configuration Profiles.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.3.
     * The leaf has ExtendedKeyUsage with OID 1.2.840.113635.100.4.16.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateConfigurationProfileSigner(void);
 
 /*!
  @function SecPolicyCreateQAConfigurationProfileSigner
  @abstract Returns a policy object for evaluating certificate chains for signing
- QA Configuration Profiles.
+ QA Configuration Profiles. On customer builds, this function returns the same
+ policy as SecPolicyCreateConfigurationProfileSigner.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.3.
     * The leaf has ExtendedKeyUsage with OID 1.2.840.113635.100.4.17.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateQAConfigurationProfileSigner(void);
 
@@ -790,7 +822,7 @@ SecPolicyRef SecPolicyCreateQAConfigurationProfileSigner(void);
     * There are exactly 2 certs in the chain.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateOTAPKISigner(void);
 
@@ -803,7 +835,7 @@ SecPolicyRef SecPolicyCreateOTAPKISigner(void);
     * There are exactly 2 certs in the chain.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateTestOTAPKISigner(void);
 
@@ -813,14 +845,15 @@ SecPolicyRef SecPolicyCreateTestOTAPKISigner(void);
  Apple ID Validation Records.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * The intermediate(s) has(have) a marker extension with OID 1.2.840.113635.100.6.2.3
-    or OID 1.2.840.113635.100.6.2.10.
+      or OID 1.2.840.113635.100.6.2.10.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.25.
     * Revocation is checked via OCSP.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
- */
+*/
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleIDValidationRecordSigningPolicy(void);
 
@@ -829,7 +862,8 @@ SecPolicyRef SecPolicyCreateAppleIDValidationRecordSigningPolicy(void);
  @abstract Returns a policy object for evaluating SMP certificate chains.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA - ECC" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.13.
     * The leaf has KeyUsage with the KeyEncipherment bit set.
@@ -862,10 +896,11 @@ SecPolicyRef SecPolicyCreateTestAppleSMPEncryption(void);
  @abstract Returns a policy object for verifying production PPQ Signing certificates.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
     * The intermediate has Common Name "Apple System Integration 2 Certification
-    Authority".
+      Authority".
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.10.
     * The leaf has KeyUsage with the DigitalSignature bit set.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.38.2.
@@ -877,13 +912,15 @@ SecPolicyRef SecPolicyCreateApplePPQSigning(void);
 
 /*!
  @function SecPolicyCreateTestApplePPQSigning
- @abstract Returns a policy object for verifying test PPQ Signing certificates.
+ @abstract Returns a policy object for verifying test PPQ Signing certificates. On
+ customer builds, this function returns the same policy as SecPolicyCreateApplePPQSigning.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
     * The intermediate has Common Name "Apple System Integration 2 Certification
-    Authority".
+      Authority".
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.10.
     * The leaf has KeyUsage with the DigitalSignature bit set.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.38.1.
@@ -912,16 +949,16 @@ SecPolicyRef SecPolicyCreateAppleIDSService(CFStringRef __nullable hostname);
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
     * The chain is anchored to any of the production Apple Root CAs. Test Apple Root CAs
-    are permitted only on internal releases either using the context dictionary or with
-    defaults write.
+      are permitted only on internal releases either using the context dictionary or with
+      defaults write.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.12.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.4.2 or,
-    if Test Roots are allowed, OID 1.2.840.113635.100.6.27.4.1.
+      if Test Roots are allowed, OID 1.2.840.113635.100.6.27.4.1.
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
-    extension or Common Name.
+      extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via OCSP.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -937,16 +974,16 @@ SecPolicyRef SecPolicyCreateAppleIDSServiceContext(CFStringRef hostname, CFDicti
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
     * The chain is anchored to any of the production Apple Root CAs. Test Apple Root CAs
-    are permitted only on internal releases either using the context dictionary or with
-    defaults write.
+      are permitted only on internal releases either using the context dictionary or with
+      defaults write.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.12.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.5.2 or,
-    if Test Roots are allowed, OID 1.2.840.113635.100.6.27.5.1.
+      if Test Roots are allowed, OID 1.2.840.113635.100.6.27.5.1.
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
-    extension or Common Name.
+      extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via OCSP.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -961,10 +998,10 @@ SecPolicyRef SecPolicyCreateApplePushService(CFStringRef hostname, CFDictionaryR
  and pinning options:
     * The chain is anchored to an Entrust Intermediate.
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
-    extension or Common Name.
+      extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via OCSP.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -976,7 +1013,7 @@ SecPolicyRef SecPolicyCreateApplePushServiceLegacy(CFStringRef hostname);
  @abstract Ensure we're appropriately pinned to the MMCS service (SSL + Apple restrictions)
  @param hostname Required; hostname to verify the certificate name against.
  @param context Optional; if present, "AppleServerAuthenticationAllowUATMMCS" with value
- Boolean true will allow Test Apple rotos and test OIDs on internal releases.
+ Boolean true will allow Test Apple roots and test OIDs on internal releases.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
     * The chain is anchored to any of the production Apple Root CAs.
@@ -1025,15 +1062,15 @@ SecPolicyRef SecPolicyCreateAppleCompatibilityMMCSService(CFStringRef hostname)
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
     * The chain is anchored to any of the production Apple Root CAs. Test Apple Root CAs
-    are permitted only on internal releases either using the context dictionary or with
-    defaults write.
+      are permitted only on internal releases either using the context dictionary or with
+      defaults write.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.12.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.2.
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
-    extension or Common Name.
+      extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via OCSP.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -1050,16 +1087,16 @@ SecPolicyRef SecPolicyCreateAppleGSService(CFStringRef hostname, CFDictionaryRef
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
     * The chain is anchored to any of the production Apple Root CAs. Test Apple Root CAs
-    are permitted only on internal releases either using the context dictionary or with
-    defaults write.
+      are permitted only on internal releases either using the context dictionary or with
+      defaults write.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.12.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.3.2 or,
-    if Test Roots are allowed, OID 1.2.840.113635.100.6.27.3.1.
+      if Test Roots are allowed, OID 1.2.840.113635.100.6.27.3.1.
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
-    extension or Common Name.
+      extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via OCSP.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -1076,15 +1113,15 @@ SecPolicyRef SecPolicyCreateApplePPQService(CFStringRef hostname, CFDictionaryRe
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
     * The chain is anchored to any of the production Apple Root CAs. Test Apple Root CAs
-    are permitted either using the context dictionary or with defaults write.
+      are permitted either using the context dictionary or with defaults write.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.12.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.8.2 or,
-    if Test Roots are allowed, OID 1.2.840.113635.100.6.27.8.1.
+      if Test Roots are allowed, OID 1.2.840.113635.100.6.27.8.1.
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
-    extension or Common Name.
+      extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via OCSP.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -1097,26 +1134,50 @@ SecPolicyRef SecPolicyCreateAppleAST2Service(CFStringRef hostname, CFDictionaryR
  @abstract Ensure we're appropriately pinned to the iCloud Escrow Proxy service (SSL + Apple restrictions)
  @param hostname Required; hostname to verify the certificate name against.
  @param context Optional; if present, "AppleServerAuthenticationAllowUATEscrow" with value
- Boolean true will allow Test Apple roots on internal releases.
+Boolean true will allow Test Apple roots on internal releases.
  @discussion This policy uses the Basic X.509 policy with validity check
- and pinning options:
+and pinning options:
     * The chain is anchored to any of the production Apple Root CAs via full certificate
-    comparison. Test Apple Root CAs are permitted only on internal releases either
-    using the context dictionary or with defaults write.
+      comparison. Test Apple Root CAs are permitted only on internal releases either
+      using the context dictionary or with defaults write.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.12.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.7.2 or,
-    if Test Roots are allowed, OID 1.2.840.113635.100.6.27.7.1.
+      if Test Roots are allowed, OID 1.2.840.113635.100.6.27.7.1.
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
-    extension or Common Name.
+      extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via CRL.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
- on this when it is no longer needed.
+on this when it is no longer needed.
  */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleEscrowProxyService(CFStringRef hostname, CFDictionaryRef __nullable context)
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+
+/*!
+ @function SecPolicyCreateAppleCompatibilityEscrowProxyService
+ @abstract Ensure we're appropriately pinned to the iCloud Escrow Proxy service using compatibility certs
+ @param hostname Required; hostname to verify the certificate name against.
+ @discussion This policy uses the Basic X.509 policy with validity check
+ and pinning options:
+    * The chain is anchored to the GeoTrust Global CA
+    * The intermediate has a subject public key info hash matching the public key of
+    the Apple IST CA G1 intermediate.
+    * The chain length is 3.
+    * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.7.2 or,
+    if UAT is enabled with a defaults write (internal devices only),
+    OID 1.2.840.113635.100.6.27.7.1.
+    * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
+    extension or Common Name.
+    * The leaf is checked against the Black and Gray lists.
+    * The leaf has ExtendedKeyUsage with the ServerAuth OID.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleCompatibilityEscrowProxyService(CFStringRef hostname)
+__OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /*!
  @function SecPolicyCreateAppleFMiPService
@@ -1136,7 +1197,7 @@ SecPolicyRef SecPolicyCreateAppleEscrowProxyService(CFStringRef hostname, CFDict
     extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via CRL.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
  on this when it is no longer needed.
  */
@@ -1150,14 +1211,15 @@ SecPolicyRef SecPolicyCreateAppleFMiPService(CFStringRef hostname, CFDictionaryR
  @param hostname Optional; hostname to verify the certificate name against.
  @discussion This policy uses the Basic X.509 policy with validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.12.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.1
     * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
     extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage, if any, with the ServerAuth OID.
-    * Revocation is checked via OCSP.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
 	on this when it is no longer needed.
  */
@@ -1180,7 +1242,8 @@ SecPolicyRef SecPolicyCreateAppleTimeStamping(void);
  @abstract  Returns a policy object for evaluating Apple Pay Issuer Encryption certificate chains.
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
-    * The chain is anchored to "Apple Root CA - ECC" certificate.
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
     * There are exactly 3 certs in the chain.
     * The intermediate has Common Name "Apple Worldwide Developer Relations CA - G2".
     * The leaf has KeyUsage with the KeyEncipherment bit set.
@@ -1198,7 +1261,7 @@ SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
  @discussion This policy uses the Basic X.509 policy with no validity check
  and pinning options:
     * The chain is anchored to any of the production Apple Root CAs. Test Apple Root CAs
-    are permitted only on internal releases.
+      are permitted only on internal releases.
     * There are exactly 3 certs in the chain.
     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.10.
     * The leaf has a marker extension with OID 1.2.840.113635.100.6.43.
@@ -1224,7 +1287,7 @@ SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
     extension or Common Name.
     * The leaf is checked against the Black and Gray lists.
     * The leaf has ExtendedKeyUsage with the ServerAuth OID.
-    * Revocation is checked via CRL.
+    * Revocation is checked via any available method.
  @result A policy object. The caller is responsible for calling CFRelease
  on this when it is no longer needed.
  */
@@ -1257,7 +1320,7 @@ SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
         * 1.2.840.113635.100.4.8    ("Safari Developer" EKU)
         * 1.2.840.113635.100.4.9    ("3rd Party Mac Developer Installer" EKU)
         * 1.2.840.113635.100.4.13   ("Developer ID Installer" EKU)
-    * Revocation is checked via OCSP or CRL.
+    * Revocation is checked via any available method.
     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
  @result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.
@@ -1277,7 +1340,7 @@ SecPolicyRef SecPolicyCreateAppleExternalDeveloper(void)
     * The intermediate has the Common Name "Apple Code Signing Certification Authority".
     * The leaf has a marker extension with OID matching 1.2.840.113635.100.6.22.
     * The leaf has an ExtendedKeyUsage OID matching 1.3.6.1.5.5.7.3.3 (Code Signing).
-    * Revocation is checked via OCSP or CRL.
+    * Revocation is checked via any available method.
     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
  @result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.
@@ -1318,13 +1381,50 @@ CFStringRef SecPolicyGetOidString(SecPolicyRef policy)
     * The intermediate has an extension with OID matching 1.2.840.113635.100.6.44 and value
     of "ucrt".
     * The leaf has a marker extension with OID matching 1.2.840.113635.100.10.1.
-    * RSA key sizes are are disallowed. EC key sizes are P-256 or larger.
- @result A policy object. The caller is responsible for calling CFRelease on this when
+    * RSA key sizes are disallowed. EC key sizes are P-256 or larger.
+@result A policy object. The caller is responsible for calling CFRelease on this when
  it is no longer needed.
  */
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleUniqueDeviceCertificate(CFDataRef __nullable testRootHash)
     __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+/*!
+ @function SecPolicyCreateAppleWarsaw
+ @abstract Returns a policy object for verifying signed Warsaw assets.
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has an extension with OID matching 1.2.840.113635.100.6.2.14.
+    * The leaf has a marker extension with OID matching 1.2.840.113635.100.6.29.
+    * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleWarsaw(void)
+    __OSX_AVAILABLE(10.12.1) __IOS_AVAILABLE(10.1) __TVOS_AVAILABLE(10.0.1) __WATCHOS_AVAILABLE(3.1);
+
+/*!
+ @function SecPolicyCreateAppleSecureIOStaticAsset
+ @abstract Returns a policy object for verifying signed static assets for Secure IO.
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+    * The chain is anchored to any of the production Apple Root CAs. Internal releases allow
+    the chain to be anchored to Test Apple Root CAs if a defaults write for the policy is set.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has an extension with OID matching 1.2.840.113635.100.6.2.10.
+    * The leaf has a marker extension with OID matching 1.2.840.113635.100.6.50.
+    * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleSecureIOStaticAsset(void)
+    __OSX_AVAILABLE(10.12.1) __IOS_AVAILABLE(10.1) __TVOS_AVAILABLE(10.0.1) __WATCHOS_AVAILABLE(3.1);
+
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

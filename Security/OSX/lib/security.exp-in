@@ -18,6 +18,7 @@ _SecAsn1Decode
 _SecAsn1DecodeData
 _SecAsn1EncodeItem
 _SecAsn1Malloc
+_SecAsn1OidCompare
 _kSecAsn1AnyTemplate
 _kSecAsn1BMPStringTemplate
 _kSecAsn1BitStringTemplate
@@ -403,6 +404,9 @@ _SecTaskCreateFromSelf
 _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
 _SecTaskCopySigningIdentifier
+#if TARGET_OS_OSX
+_SecTaskEntitlementsValidated
+#endif
 _SecTaskGetCodeSignStatus
 _SecTaskGetTypeID
 _SecTaskValidateForRequirement
@@ -1411,6 +1415,7 @@ _kSecPolicyAppleProfileSigner
 _kSecPolicyApplePushService
 _kSecPolicyAppleQAProfileSigner
 _kSecPolicyAppleRevocation
+_kSecPolicyAppleSecureIOStaticAsset
 _kSecPolicyAppleServerAuthentication
 _kSecPolicyAppleSMIME
 _kSecPolicyAppleSMPEncryption
@@ -1425,6 +1430,7 @@ _kSecPolicyAppleTimeStamping
 _kSecPolicyAppleTVOSApplicationSigning
 _kSecPolicyAppleUniqueDeviceIdentifierCertificate
 _kSecPolicyAppleURLBag
+_kSecPolicyAppleWarsaw
 _kSecPolicyAppleX509Basic
 _kSecPolicyMacAppStoreReceipt
 _kSecPolicyAppleAnchorIncludeTestRoots
@@ -1745,7 +1751,8 @@ _SecCertificateIsCA
 _SecCertificateIsSelfSigned
 _SecCertificateIsSelfSignedCA
 _SecCertificateIsSignedBy
-_SecCertificateIsWeak
+_SecCertificateIsWeakHash
+_SecCertificateIsWeakKey
 _SecCertificateParseGeneralNameContentProperty
 _SecCertificateParseGeneralNames
 _SecCertificatePathCopyAddingLeaf
@@ -1763,6 +1770,7 @@ _SecCertificatePathGetRoot
 _SecCertificatePathGetUsageConstraintsAtIndex
 _SecCertificatePathHasWeakHash
 _SecCertificatePathIsAnchored
+_SecCertificatePathIsValid
 _SecCertificatePathScore
 _SecCertificatePathSelfSignedIndex
 _SecCertificatePathSetIsAnchored
@@ -1821,6 +1829,9 @@ _SecItemCopyDisplayNames
 _SecItemCopyMatching
 _SecItemCopyParentCertificates
 _SecItemCopyStoredCertificate
+#if TARGET_OS_OSX
+_SecItemCreateFromAttributeDictionary_osx
+#endif
 #if TARGET_OS_EMBEDDED
 _SecCopyLastError
 _SecItemUpdateWithError
@@ -1874,6 +1885,7 @@ _SecKeyCopyModulus
 _SecKeyCreate
 _SecKeyCreateAttestation
 _SecKeyCreateDecryptedData
+_SecKeyCreateDuplicate
 _SecKeyCreateEncryptedData
 _SecKeyCreateFromAttributeDictionary
 _SecKeyCreateFromPublicBytes
@@ -2072,12 +2084,14 @@ _SecPolicyCreateApplePPQService
 _SecPolicyCreateApplePPQSigning
 _SecPolicyCreateApplePushService
 _SecPolicyCreateApplePushServiceLegacy
+_SecPolicyCreateAppleSecureIOStaticAsset
 _SecPolicyCreateAppleSMPEncryption
 _SecPolicyCreateAppleSoftwareSigning
 _SecPolicyCreateAppleSSLPinned
 _SecPolicyCreateAppleSSLService
 _SecPolicyCreateAppleTimeStamping
 _SecPolicyCreateAppleTVOSApplicationSigning
+_SecPolicyCreateAppleWarsaw
 _SecPolicyCreateBasicX509
 _SecPolicyCreateCodeSigning
 _SecPolicyCreateConfigurationProfileSigner

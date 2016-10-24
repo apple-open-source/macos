@@ -1,3 +1,156 @@
+2016-10-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r207246. rdar://problem/28732731
+
+    2016-10-12  Beth Dakin  <bdakin@apple.com>
+
+            Adobe Contribute CS 6.5 Trial crashes on launch
+            https://bugs.webkit.org/show_bug.cgi?id=163365
+            -and corresponding-
+            <rdar://problem/28732731>
+
+            Reviewed by Tim Horton.
+
+            * Carbon/CarbonWindowFrame.m:
+            (-[CarbonWindowFrame contentFill]):
+
+2016-09-26  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206238. rdar://problem/28450514
+
+    2016-09-21  Anders Carlsson  <andersca@apple.com>
+
+            Support openPaymentSetup API on ApplePaySession object
+            https://bugs.webkit.org/show_bug.cgi?id=162357
+            rdar://problem/26776939
+
+            Reviewed by Tim Horton.
+
+            Add openPaymentSetup stub.
+
+            * WebCoreSupport/WebPaymentCoordinatorClient.h:
+            * WebCoreSupport/WebPaymentCoordinatorClient.mm:
+            (WebPaymentCoordinatorClient::openPaymentSetup):
+
+2016-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206006. rdar://problem/27991573
+
+    2016-09-15  Brady Eidson  <beidson@apple.com>
+
+            WKWebView.hasOnlySecureContent always returns "YES" after going back to a CachedPage (even if it has http resources).
+            <rdar://problem/27681261> and https://bugs.webkit.org/show_bug.cgi?id=162043
+
+            Reviewed by Brent Fulgham.
+
+            * WebCoreSupport/WebFrameLoaderClient.h:
+            * WebCoreSupport/WebFrameLoaderClient.mm:
+            (WebFrameLoaderClient::dispatchDidCommitLoad):
+
+2016-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205991. rdar://problem/28272353
+
+    2016-09-15  Beth Dakin  <bdakin@apple.com>
+
+            Need hasMarkedText on Mac
+            https://bugs.webkit.org/show_bug.cgi?id=162026
+            -and corresponding-
+            rdar://problem/28272353
+
+            Reviewed by Anders Carlsson.
+
+            * WebView/WebHTMLViewInternal.h:
+
+2016-09-12  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205765. rdar://problem/28033492
+
+    2016-09-09  Tim Horton  <timothy_horton@apple.com>
+
+            Text replacement candidates don't always overwrite the entire original string
+            https://bugs.webkit.org/show_bug.cgi?id=161779
+            <rdar://problem/28033492>
+
+            Reviewed by Simon Fraser.
+
+            * WebCoreSupport/WebEditorClient.mm:
+            (WebEditorClient::requestCandidatesForSelection):
+            Make use of the shared implementation of contextRangeForCandidateRequest.
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204456. rdar://problem/27860536
+
+    2016-08-14  Daniel Bates  <dabates@apple.com>
+
+            Fix compiler errors when building iOS WebKit using the iOS 10 beta SDK
+            https://bugs.webkit.org/show_bug.cgi?id=160725
+
+            Reviewed by Sam Weinig.
+
+            OSAtomicCompareAndSwap32() has been deprecated as of the iOS 10 beta SDK. For now,
+            silence the complier warning.
+
+            * WebView/WebView.mm:
+            (-[WebView _dispatchTileDidDraw:]):
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203381. rdar://problem/27860536
+
+    2016-07-18  Anders Carlsson  <andersca@apple.com>
+
+            WebKit nightly fails to build on macOS Sierra
+            https://bugs.webkit.org/show_bug.cgi?id=159902
+            rdar://problem/27365672
+
+            Reviewed by Tim Horton.
+
+            * icu/unicode/ucurr.h: Added.
+            Add ucurr.h from ICU.
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205381. rdar://problem/27806012
+
+    2016-09-02  Beth Dakin  <bdakin@apple.com>
+
+            Need to updateEditorState if an element change edit-ability without changing
+            selection
+            https://bugs.webkit.org/show_bug.cgi?id=161546
+            -and corresponding-
+            rdar://problem/27806012
+
+            Reviewed by Ryosuke Niwa.
+
+            Every time WebEditorClient::respondToChangedSelection is called, we now save
+            whether the last state was contentEditable. That way in
+            updateEditorStateAfterLayoutIfNeeded() we can assess whether or not edit-ability
+            has changed.
+
+            * WebCoreSupport/WebEditorClient.h:
+            * WebCoreSupport/WebEditorClient.mm:
+            (WebEditorClient::respondToChangedSelection):
+            (WebEditorClient:: updateEditorStateAfterLayoutIfEditabilityChanged):
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205365. rdar://problem/28020157
+
+    2016-07-08  Jer Noble  <jer.noble@apple.com>
+
+            Refactor WebPlaybackSessionModelMediaElement to be client based.
+            https://bugs.webkit.org/show_bug.cgi?id=159580
+
+            Reviewed by Eric Carlson.
+
+            No longer necessary to tell the models and interfaces about each other.
+
+            * WebView/WebView.mm:
+            (-[WebView _setUpPlaybackControlsManagerForMediaElement:]):
+            (-[WebView _clearPlaybackControlsManager]):
+
 2016-07-28  Babak Shafiei  <bshafiei@apple.com>
 
         Merge r203855. rdar://problem/27557968

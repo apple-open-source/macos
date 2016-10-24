@@ -258,11 +258,17 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 /*
 	This terminates the GCM state gcm and stores the tag in tag of length
     taglen octets.
+ 
+    The tag must be verified by comparing the computed and expected values
+    using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
+    must not be used as they may be vulnerable to practical timing attacks,
+    leading to tag forgery.
+
 */
 
 CCCryptorStatus CCCryptorGCMFinal(
 	CCCryptorRef cryptorRef,
-	const void *tag,
+	void   *tagOut,
 	size_t *tagLength)
 __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
@@ -282,6 +288,12 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
     the manual functions. If you are processing many packets under the same 
     key you shouldn’t use this function as it invokes the pre–computation 
     with each call.
+
+    The tag must be verified by comparing the computed and expected values
+    using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
+    must not be used as they may be vulnerable to practical timing attacks,
+    leading to tag forgery.
+
 */
 
 CCCryptorStatus CCCryptorGCM(
@@ -296,7 +308,7 @@ CCCryptorStatus CCCryptorGCM(
 	const void 		*dataIn,
 	size_t 			dataInLength,
   	void 			*dataOut,
-	const void 		*tag,
+	void 		    *tagOut,
 	size_t 			*tagLength)
 __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
     

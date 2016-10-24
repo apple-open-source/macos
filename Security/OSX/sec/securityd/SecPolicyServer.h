@@ -63,6 +63,7 @@ struct OpaqueSecPVC {
     bool is_ev;
     bool is_ct;
     bool is_ct_whitelisted;
+    bool is_allowlisted;
     bool result;
 };
 

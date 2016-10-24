@@ -66,6 +66,12 @@ PHPAPI unsigned char *php_base64_encode(const unsigned char *str, int length, in
 		return NULL;
 	}
 
+	if (((size_t)length + 2) / 3 > INT_MAX/4 ) {
+		TSRMLS_FETCH();
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "String too long, maximum is %d", INT_MAX/4);
+		return NULL;
+	}
+
 	result = (unsigned char *) safe_emalloc((length + 2) / 3, 4 * sizeof(char), 1);
 	p = result;
 

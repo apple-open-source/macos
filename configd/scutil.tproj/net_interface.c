@@ -273,6 +273,13 @@ _find_interface(int argc, char **argv, int *nArgs)
 		goto done;
 	}
 
+	// try to select an [Apple] pre-configured / hidden interface by its BSD name
+
+	selected = _SCNetworkInterfaceCreateWithBSDName(NULL, select_name, kIncludeNoVirtualInterfaces);
+	if (selected != NULL) {
+		goto done;
+	}
+
 	// try to select the interface by its interface type
 
 	for (i = 0; i < n; i++) {
@@ -763,6 +770,10 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 	SCPrint(TRUE, stdout, CFSTR("%@  is%s physical ethernet\n"),
 		prefix,
 		isPhysicalEthernet ? "" : " not");
+
+	if (_SCNetworkInterfaceIsApplePreconfigured(interface)) {
+		SCPrint(TRUE, stdout, CFSTR("%@  is pre-configured\n"), prefix);
+	}
 
 	if (configuration != NULL) {
 		CFMutableDictionaryRef	effective;

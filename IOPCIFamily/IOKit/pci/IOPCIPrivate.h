@@ -259,6 +259,19 @@ enum
 
 enum
 {
+	kCheckLinkParents  = 0x00000001,
+	kCheckLinkForPower = 0x00000002,
+};
+
+enum
+{
+	kLinkCapDataLinkLayerActiveReportingCapable = (1 << 20),
+	kLinkStatusDataLinkLayerLinkActive 			= (1 << 13),
+	kSlotCapHotplug					 			= (1 << 6)
+};
+
+enum
+{
 	kIOPCIExpressASPML0s = 0x00000001,
 	kIOPCIExpressASPML1  = 0x00000002
 };

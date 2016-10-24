@@ -958,6 +958,13 @@ DLDbListCFPref::searchList()
 void
 DLDbListCFPref::searchList(const vector<DLDbIdentifier> &searchList)
 {
+    if(searchList.size() == 0) {
+        mSearchList.clear();
+        mSearchListSet = false;
+        changed(true);
+        return;
+    }
+
 	vector<DLDbIdentifier> newList(searchList);
 	mSearchList.swap(newList);
     mSearchListSet = true;

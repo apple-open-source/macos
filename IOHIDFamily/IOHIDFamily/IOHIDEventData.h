@@ -45,7 +45,7 @@
 enum {
     kIOHIDEventOptionIgnore         = 0xf0000000,
     kIOHIDEventOptionIsRepeat       = 0x00010000,
-    kIOHIDEventOptionIsZeroEvent    = 0x08000000,
+    kIOHIDEventOptionIsZeroEvent    = 0x00800000,
 };
 
 #define IOHIDEVENT_BASE             \
@@ -84,8 +84,7 @@ enum {
     kIOHIDKeyboardStickyKeyLocked   = 0x00040000,
     kIOHIDKeyboardStickyKeyUp       = 0x00080000,
     kIOHIDKeyboardStickyKeysOn      = 0x00200000,
-    kIOHIDKeyboardStickyKeysOff     = 0x00400000,
-    kIOHIDKeyboardDelayedKey        = 0x00800000,
+    kIOHIDKeyboardStickyKeysOff     = 0x00400000
 };
 
 typedef struct _IOHIDKeyboardEventData {

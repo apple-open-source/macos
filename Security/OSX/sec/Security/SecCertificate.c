@@ -5045,7 +5045,7 @@ SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
     return CFRetainSafe(certificate->_pubKey);
 }
 
-bool SecCertificateIsWeak(SecCertificateRef certificate) {
+bool SecCertificateIsWeakKey(SecCertificateRef certificate) {
     bool weak = true;
     SecKeyRef pubKey = NULL;
 #if SECTRUST_OSX
@@ -5068,6 +5068,19 @@ bool SecCertificateIsWeak(SecCertificateRef certificate) {
 out:
     CFReleaseSafe(pubKey);
     return weak;
+}
+
+bool SecCertificateIsWeakHash(SecCertificateRef certificate) {
+    SecSignatureHashAlgorithm certAlg = 0;
+    certAlg = SecCertificateGetSignatureHashAlgorithm(certificate);
+    if (certAlg == kSecSignatureHashAlgorithmUnknown ||
+        certAlg == kSecSignatureHashAlgorithmMD2 ||
+        certAlg == kSecSignatureHashAlgorithmMD4 ||
+        certAlg == kSecSignatureHashAlgorithmMD5 ||
+        certAlg == kSecSignatureHashAlgorithmSHA1) {
+        return true;
+    }
+    return false;
 }
 
 bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,

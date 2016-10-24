@@ -326,7 +326,7 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 			goto end;
 		}
 
-		if (memcmp(p, hash->v, hash->l) != 0) {
+		if (timingsafe_bcmp(p, hash->v, hash->l) != 0) {
 			plog(ASL_LEVEL_ERR, 
 			    "ignore information due to hash mismatch\n");
 

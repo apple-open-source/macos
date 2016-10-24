@@ -281,11 +281,11 @@ namespace WebCore {
 
 #if PLATFORM(MAC)
     WEBCORE_EXPORT String insertListTypeNone();
-    WEBCORE_EXPORT String insertListTypeNoneAccessibilityTitle();
     WEBCORE_EXPORT String insertListTypeBulleted();
     WEBCORE_EXPORT String insertListTypeBulletedAccessibilityTitle();
     WEBCORE_EXPORT String insertListTypeNumbered();
     WEBCORE_EXPORT String insertListTypeNumberedAccessibilityTitle();
+    WEBCORE_EXPORT String exitFullScreenButtonAccessibilityTitle();
 #endif
 
 #define WEB_UI_STRING(string, description) WebCore::localizedString(string)

@@ -162,6 +162,7 @@
 		C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F4439914C626D4000A01E6 /* quarantine++.h */; };
 		C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F6566C0BCBFB250078779E /* cserror.cpp */; };
 		DC1418651CCEE2EC00CFD769 /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1418641CCEE2EC00CFD769 /* libutilities.a */; };
+		DC529B311D63C78000D617E8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC529B301D63C78000D617E8 /* IOKit.framework */; };
 		EB68B111150DAEEA00B4013D /* RequirementLexer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB68B10B150DAEBB00B4013D /* RequirementLexer.cpp */; };
 		EB68B112150DAEEA00B4013D /* RequirementParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB68B10D150DAEBB00B4013D /* RequirementParser.cpp */; };
 		EB68B133150DB04400B4013D /* RequirementKeywords.h in Headers */ = {isa = PBXBuildFile; fileRef = EB68B10A150DAEBB00B4013D /* RequirementKeywords.h */; };
@@ -503,6 +504,7 @@
 		C2F6566D0BCBFB250078779E /* cserror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cserror.h; sourceTree = "<group>"; };
 		CDCBE8941A1A96E8002CB2B7 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		DC1418641CCEE2EC00CFD769 /* libutilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libutilities.a; path = "../../../Users/kmowery/Library/Developer/Xcode/DerivedData/Security-fkwwcnddijtngfaslvsedvgyzbou/Build/Products/Debug/libutilities.a"; sourceTree = "<group>"; };
+		DC529B301D63C78000D617E8 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		EB68B10A150DAEBB00B4013D /* RequirementKeywords.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RequirementKeywords.h; sourceTree = "<group>"; };
 		EB68B10B150DAEBB00B4013D /* RequirementLexer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RequirementLexer.cpp; sourceTree = "<group>"; };
 		EB68B10C150DAEBB00B4013D /* RequirementLexer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RequirementLexer.hpp; sourceTree = "<group>"; };
@@ -636,6 +638,7 @@
 				C200424E15D425D9004AE0A1 /* libsecurity_utilities.a in Frameworks */,
 				DC1418651CCEE2EC00CFD769 /* libutilities.a in Frameworks */,
 				7ACF261219958B6F00849B25 /* CoreFoundation.framework in Frameworks */,
+				DC529B311D63C78000D617E8 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -932,6 +935,7 @@
 		C2CC30EF0B8519CF005FA59D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DC529B301D63C78000D617E8 /* IOKit.framework */,
 				DC1418641CCEE2EC00CFD769 /* libutilities.a */,
 				C2D6EA461C8F5265009B586F /* libsecurity_utilities.a */,
 				C2D6EA441C8F5257009B586F /* Security.framework */,

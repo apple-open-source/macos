@@ -60,6 +60,7 @@ struct _auth_token_s {
     
     bool least_privileged;
     bool appleSigned;
+	bool firstPartySigned;
     
     bool sandboxed;
     char * code_url;

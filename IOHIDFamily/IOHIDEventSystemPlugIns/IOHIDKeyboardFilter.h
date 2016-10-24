@@ -29,8 +29,7 @@
     kIOHIDKeyboardStickyKeyLocked   | \
     kIOHIDKeyboardStickyKeyUp       | \
     kIOHIDKeyboardStickyKeysOn      | \
-    kIOHIDKeyboardStickyKeysOff     | \
-    kIOHIDKeyboardDelayedKey        )
+    kIOHIDKeyboardStickyKeysOff     )
 
 enum {
     kStickyKeysEnableCount = 5,
@@ -45,11 +44,6 @@ enum {
     kStickyKeyState_Down_Locked     = 1 << 3,
     // State where modifier pressed and hold  and non modifier key was already dispatched at least once.
     kStickyKeyState_Down_Unlocked   = 1 << 4
-};
-
-struct KeyAttribute {
-    uint32_t  _flags;
-    KeyAttribute (uint32_t  flags = 0):_flags(flags) {};
 };
 
 typedef UInt32 StickyKeyState;
@@ -199,11 +193,9 @@ private:
     void resetCapsLockDelay(void);
     
   
-    KeyMap createMapFromModifiersMap(CFArrayRef mappings);
+    KeyMap createMapFromArrayOfPairs(CFArrayRef mappings);
     KeyMap createMapFromStringMap(CFStringRef mappings);
-    KeyMap createMapFromUserDefinedMap(CFArrayRef mappings);
     IOHIDEventRef processKeyMappings(IOHIDEventRef event);
-    //void setModifierMappings(CFArrayRef mappings);
 
 #if !TARGET_OS_EMBEDDED
     IOHIDEventRef   processEjectKeyDelay(IOHIDEventRef event);

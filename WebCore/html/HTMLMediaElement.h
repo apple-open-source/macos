@@ -115,6 +115,8 @@ public:
 
     static HashSet<HTMLMediaElement*>& allMediaElements();
 
+    static HTMLMediaElement* bestMediaElementForShowingPlaybackControlsManager(MediaElementSession::PlaybackControlsPurpose);
+
     void rewind(double timeDelta);
     WEBCORE_EXPORT void returnToRealtime() override;
 
@@ -468,6 +470,15 @@ public:
 
     RenderMedia* renderer() const;
 
+    void resetPlaybackSessionState();
+    bool isVisibleInViewport() const;
+    bool hasEverNotifiedAboutPlaying() const;
+
+    bool hasEverHadAudio() const { return m_hasEverHadAudio; }
+    bool hasEverHadVideo() const { return m_hasEverHadVideo; }
+
+    double playbackStartedTime() const { return m_playbackStartedTime; }
+
 protected:
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLMediaElement();
@@ -615,9 +626,12 @@ private:
     GraphicsDeviceAdapter* mediaPlayerGraphicsDeviceAdapter(const MediaPlayer*) const override;
 #endif
 
+    void mediaPlayerActiveSourceBuffersChanged(const MediaPlayer*) override;
+
     bool mediaPlayerShouldWaitForResponseToAuthenticationChallenge(const AuthenticationChallenge&) override;
-    void mediaPlayerHandlePlaybackCommand(PlatformMediaSession::RemoteControlCommandType command) override { didReceiveRemoteControlCommand(command); }
-    String mediaPlayerSourceApplicationIdentifier() const override;
+    void mediaPlayerHandlePlaybackCommand(PlatformMediaSession::RemoteControlCommandType command) override { didReceiveRemoteControlCommand(command, nullptr); }
+    String sourceApplicationIdentifier() const override;
+    String mediaPlayerSourceApplicationIdentifier() const override { return sourceApplicationIdentifier(); }
     Vector<String> mediaPlayerPreferredAudioCharacteristics() const override;
 
 #if PLATFORM(IOS)
@@ -757,7 +771,8 @@ private:
     double mediaSessionDuration() const override { return duration(); }
     double mediaSessionCurrentTime() const override { return currentTime(); }
     bool canReceiveRemoteControlCommands() const override { return true; }
-    void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType) override;
+    void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument*) override;
+    bool supportsSeeking() const override;
     bool shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSession::InterruptionType) const override;
     bool shouldOverrideBackgroundLoadingRestriction() const override;
 
@@ -786,6 +801,7 @@ private:
     void pauseAfterDetachedTask();
     void updatePlaybackControlsManager();
     void scheduleUpdatePlaybackControlsManager();
+    void playbackControlsManagerBehaviorRestrictionsTimerFired();
 
     void updateRenderer();
 
@@ -793,16 +809,23 @@ private:
     void updateUsesLTRUserInterfaceLayoutDirectionJSProperty();
     void setControllerJSProperty(const char*, JSC::JSValue);
 
+    void addBehaviorRestrictionsOnEndIfNecessary();
+    void handleSeekToPlaybackPosition(double);
+    void seekToPlaybackPositionEndedTimerFired();
+
     Timer m_pendingActionTimer;
     Timer m_progressEventTimer;
     Timer m_playbackProgressTimer;
     Timer m_scanTimer;
+    Timer m_playbackControlsManagerBehaviorRestrictionsTimer;
+    Timer m_seekToPlaybackPositionEndedTimer;
     GenericTaskQueue<Timer> m_seekTaskQueue;
     GenericTaskQueue<Timer> m_resizeTaskQueue;
     GenericTaskQueue<Timer> m_shadowDOMTaskQueue;
     GenericTaskQueue<Timer> m_promiseTaskQueue;
     GenericTaskQueue<Timer> m_pauseAfterDetachedTaskQueue;
     GenericTaskQueue<Timer> m_updatePlaybackControlsManagerQueue;
+    GenericTaskQueue<Timer> m_playbackControlsManagerBehaviorRestrictionsQueue;
     RefPtr<TimeRanges> m_playedTimeRanges;
     GenericEventQueue m_asyncEventQueue;
 
@@ -840,6 +863,7 @@ private:
     MediaTime m_lastSeekTime;
     
     double m_previousProgressTime;
+    double m_playbackStartedTime { 0 };
 
     // The last time a timeupdate event was sent (based on monotonic clock).
     double m_clockTimeAtLastUpdateEvent;
@@ -937,11 +961,17 @@ private:
     bool m_elementIsHidden : 1;
     bool m_creatingControls : 1;
     bool m_receivedLayoutSizeChanged : 1;
+    bool m_hasEverNotifiedAboutPlaying : 1;
+
+    bool m_hasEverHadAudio : 1;
+    bool m_hasEverHadVideo : 1;
 
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
     bool m_mediaControlsDependOnPageScaleFactor : 1;
     bool m_haveSetUpCaptionContainer : 1;
 #endif
+
+    bool m_isScrubbingRemotely : 1;
 
 #if ENABLE(VIDEO_TRACK)
     bool m_tracksAreReady : 1;

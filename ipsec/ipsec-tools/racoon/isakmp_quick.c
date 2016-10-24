@@ -691,7 +691,7 @@ quick_i2recv(iph2, msg0)
 		goto end;
 	}
 
-	result = memcmp(my_hash->v, r_hash, my_hash->l);
+	result = timingsafe_bcmp(my_hash->v, r_hash, my_hash->l);
 	vfree(my_hash);
 
 	if (result) {
@@ -1020,7 +1020,7 @@ quick_i4recv(iph2, msg0)
 		goto end;
 	}
 
-	result = memcmp(my_hash->v, r_hash, my_hash->l);
+	result = timingsafe_bcmp(my_hash->v, r_hash, my_hash->l);
 	vfree(my_hash);
 
 	if (result) {
@@ -1357,7 +1357,7 @@ quick_r1recv(iph2, msg0)
 		goto end;
 	}
 
-	result = memcmp(my_hash->v, r_hash, my_hash->l);
+	result = timingsafe_bcmp(my_hash->v, r_hash, my_hash->l);
 	vfree(my_hash);
 
 	if (result) {
@@ -1891,7 +1891,7 @@ quick_r3recv(iph2, msg0)
 		goto end;
 	}
 
-	result = memcmp(my_hash->v, r_hash, my_hash->l);
+	result = timingsafe_bcmp(my_hash->v, r_hash, my_hash->l);
 	vfree(my_hash);
 
 	if (result) {

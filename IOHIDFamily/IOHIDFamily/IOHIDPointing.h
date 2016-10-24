@@ -38,6 +38,7 @@ private:
     IOItemCount             _numButtons;
     IOFixed                 _resolution;
     IOFixed                 _scrollResolution;
+    IOFixed                 _rate;
     bool                    _isDispatcher;
 
 public:

@@ -433,7 +433,7 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
       xy[0] = IOHIDEventGetFloatValue (event, kIOHIDEventFieldPointerX);
       xy[1] = IOHIDEventGetFloatValue (event, kIOHIDEventFieldPointerY);
       if (xy[0] || xy[1]) {
-        accelerated = _pointerAccelerator->accelerate(xy, sizeof (xy) / sizeof(xy[0]));
+        accelerated = _pointerAccelerator->accelerate(xy, sizeof (xy) / sizeof(xy[0]), IOHIDEventGetTimeStamp(event));
         
         if (accelerated && (accelEvent = IOHIDEventCreateCopy(kCFAllocatorDefault, event)) != NULL) {
           CFMutableArrayRef children = (CFMutableArrayRef)IOHIDEventGetChildren(accelEvent);
@@ -508,6 +508,14 @@ void IOHIDPointerScrollFilter::setupPointerAcceleration()
     }
   }
   
+    CFNumberRefWrap defaultRate = CFNumberRefWrap((CFNumberRef)IOHIDServiceCopyProperty (_service, CFSTR(kHIDPointerReportRateKey)), true);
+    if (defaultRate.Reference() == NULL) {
+        defaultRate = CFNumberRefWrap((SInt32) 0);
+        if (defaultRate.Reference () == NULL) {
+            HIDLogError("(%p) Could not get/create pointer report rate", this);
+            return;
+        }
+    }
   CFNumberRefWrap pointerAcceleration;
   
   CFRefWrap<CFStringRef>  accelerationType ((CFStringRef)copyCachedProperty (CFSTR(kIOHIDPointerAccelerationTypeKey)), true);
@@ -569,7 +577,7 @@ void IOHIDPointerScrollFilter::setupPointerAcceleration()
     }
   }
   if (algorithm) {
-    _pointerAccelerator = new IOHIDPointerAccelerator (algorithm, FIXED_TO_DOUBLE((SInt32)resolution), FRAME_RATE);
+    _pointerAccelerator = new IOHIDPointerAccelerator (algorithm, FIXED_TO_DOUBLE((SInt32)resolution), (SInt32)defaultRate);
   } else {
     HIDLogDebug("(%p) Could not create accelerator", this);
   }

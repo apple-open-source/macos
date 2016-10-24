@@ -82,7 +82,9 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDElement,  4);
     virtual UInt32                          getValue(IOOptionBits options) = 0;
 
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  5);
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  5);
+    virtual OSData *                        getDataValue(IOOptionBits options) = 0;
+    
     OSMetaClassDeclareReservedUnused(IOHIDElement,  6);
     OSMetaClassDeclareReservedUnused(IOHIDElement,  7);
     OSMetaClassDeclareReservedUnused(IOHIDElement,  8);

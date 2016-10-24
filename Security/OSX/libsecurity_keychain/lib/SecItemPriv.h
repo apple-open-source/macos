@@ -453,6 +453,8 @@ bool _SecSystemKeychainTransfer(CFErrorRef *error);
 
 OSStatus SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes);
 
+CFTypeRef SecItemCreateFromAttributeDictionary_osx(CFDictionaryRef refAttributes);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECITEMPRIV_H_ */

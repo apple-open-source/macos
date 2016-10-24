@@ -67,7 +67,7 @@ OSMetaClassDefineReservedUsed(IOHIDElement,  1);
 OSMetaClassDefineReservedUsed(IOHIDElement,  2);
 OSMetaClassDefineReservedUsed(IOHIDElement,  3);
 OSMetaClassDefineReservedUsed(IOHIDElement,  4);
-OSMetaClassDefineReservedUnused(IOHIDElement,  5);
+OSMetaClassDefineReservedUsed(IOHIDElement,  5);
 OSMetaClassDefineReservedUnused(IOHIDElement,  6);
 OSMetaClassDefineReservedUnused(IOHIDElement,  7);
 OSMetaClassDefineReservedUnused(IOHIDElement,  8);
@@ -1753,6 +1753,14 @@ OSData * IOHIDElementPrivate::getDataValue()
 #endif
     
     return _dataValue;
+}
+
+OSData * IOHIDElementPrivate::getDataValue(IOOptionBits options)
+{
+    if (options & kIOHIDValueOptionsUpdateElementValues) {
+        _owner->updateElementValues(&_cookie, 1);
+    }
+    return getDataValue();
 }
 
 void IOHIDElementPrivate::setValue(UInt32 value)

@@ -47,6 +47,7 @@
 
 #include "IOHIDEventData.h"
 
+#include "IOHIDPrivate.h"
 #include "IOHIDFamilyPrivate.h"
 #include "IOHIDevicePrivateKeys.h"
 #include "ev_private.h"
@@ -202,6 +203,7 @@ bool IOHIDEventService::start ( IOService * provider )
     OSObject    *obj          = NULL;
     OSNumber    *number       = NULL;
     OSString    *string       = NULL;
+    OSBoolean   *boolean      = NULL;
 
     _provider = provider;
 
@@ -247,6 +249,12 @@ bool IOHIDEventService::start ( IOService * provider )
     string = OSDynamicCast(OSString, obj);
     if (string)
         setProperty(kIOHIDPhysicalDeviceUniqueIDKey, string);
+    OSSafeReleaseNULL(obj);
+    
+    obj = provider->copyProperty(kIOHIDBuiltInKey);
+    boolean = OSDynamicCast(OSBoolean, obj);
+    if (boolean)
+        setProperty(kIOHIDBuiltInKey, boolean);
     OSSafeReleaseNULL(obj);
 
 #if !TARGET_OS_EMBEDDED
@@ -2629,6 +2637,13 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
     Action                  action;
 
     event->setSenderID(getRegistryEntryID());
+    
+#if !TARGET_OS_EMBEDDED
+    if (event->getType() == kIOHIDEventTypeKeyboard &&
+        event->getIntegerValue(kIOHIDEventFieldKeyboardDown)) {
+        _sleepDisplayTickle();
+    }
+#endif
 
     IOHID_DEBUG(kIOHIDDebugCode_DispatchHIDEvent, options, 0, 0, 0);
 

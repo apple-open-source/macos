@@ -95,9 +95,11 @@ class IOHIDPointerAccelerator : public IOHIDAccelerator {
 private:
   
   IOHIDAccelerationAlgorithm *_algorithm;
+  uint64_t                    _lastTimeStamp;
   double                      _resolution;
   double                      _rate;
   
+  static mach_timebase_info_data_t    _timebase;
 public:
   
   IOHIDPointerAccelerator (IOHIDAccelerationAlgorithm *algorithm, double resolution, double rate):
@@ -105,6 +107,9 @@ public:
     _resolution (resolution),
     _rate (rate) {
       
+    if ( _timebase.denom == 0 ) {
+       (void) mach_timebase_info(&_timebase);
+    }
   };
   virtual ~IOHIDPointerAccelerator() {
     if (_algorithm) {

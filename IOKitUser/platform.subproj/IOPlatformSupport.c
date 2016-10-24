@@ -44,7 +44,7 @@
 #endif
 
 
-/* CopyModel
+/* IOCopyModel
  *
  * Argument:
  *	char** model: returns the model name
@@ -52,46 +52,44 @@
  *  uint32_t *minorRev: returns the minor revision number
  * Return value:
  * 	true on success
- * Note: In case of success, CopyModel allocates memory for *model,
+ * Note: In case of success, IOCopyModel allocates memory for *model,
  *       it is the caller's responsibility to free *model.
  * Note: model format is expected to be %s%u,%u
  *       If the revision number is partial, the value is assumed to be %u,0 or 0,0
  */
 
-static Boolean CopyModel(char** model, uint32_t *majorRev, uint32_t *minorRev)
+IOReturn IOCopyModel(char** model, uint32_t *majorRev, uint32_t *minorRev)
 {
     int mib[2];
-    char *machineModel; // must free
+    char *machineModel = NULL; // must free
     char *revStr;
     int count;
     unsigned long modelLen;
-    Boolean success = true;
     size_t length = 1024;
+    IOReturn rc = kIOReturnError;
     
     if (!model || !majorRev || !minorRev) {
-        DLOG_ERROR("CopyModel: Passing NULL arguments\n");
-        return false;
+        DLOG_ERROR("IOCopyModel: Passing NULL arguments\n");
+        rc =  kIOReturnBadArgument;
+        goto exit;
     }
 
     machineModel = malloc(length);
     mib[0] = CTL_HW;
     mib[1] = HW_MODEL;
     if (sysctl(mib, 2, machineModel, &length, NULL, 0)) {
-        printf("CopyModel: sysctl (error %d)\n", errno);
-        success = false;
+        DLOG_ERROR1("IOCopyModel: sysctl (error %d)\n", errno);
         goto exit;
     }
     
     modelLen = strcspn(machineModel, "0123456789");
     if (modelLen == 0) {
-        DLOG_ERROR("CopyModel: Could not find machine model name\n");
-        success = false;
+        DLOG_ERROR("IOCopyModel: Could not find machine model name\n");
         goto exit;
     }
     *model = strndup(machineModel, modelLen);
     if (*model == NULL) {
-        DLOG_ERROR("CopyModel: Could not find machine model name\n");
-        success = false;
+        DLOG_ERROR("IOCopyModel: Could not find machine model name\n");
         goto exit;
     }
     
@@ -99,32 +97,33 @@ static Boolean CopyModel(char** model, uint32_t *majorRev, uint32_t *minorRev)
     *minorRev = 0;
     revStr = strpbrk(machineModel, "0123456789");
     if (!revStr) {
-        DLOG_ERROR("CopyModel: Could not find machine version number, inferred value is 0,0\n");
-        success = true;
+        DLOG_ERROR("IOCopyModel: Could not find machine version number, inferred value is 0,0\n");
         goto exit;
     }
     
     count = sscanf(revStr, "%d,%d", majorRev, minorRev);
     if (count < 2) {
-        DLOG_ERROR("CopyModel: Could not find machine version number\n");
+        DLOG_ERROR("IOCopyModel: Could not find machine version number\n");
         if (count<1) {
             *majorRev = 0;
         }
         *minorRev = 0;
-        success = true;
         goto exit;
     }
+    rc = kIOReturnSuccess;
 
 exit:
     if (machineModel) free(machineModel);
-    if (!success) {
-        if (*model) free(*model);
-        *model = NULL;
+    if (rc != kIOReturnSuccess) {
+        if(model && (*model)) {
+            free (*model);
+            *model = NULL;
+        }
         *majorRev = 0;
         *minorRev = 0;
     }
-    return success;
-} // CopyModel
+    return rc;
+} // IOCopyModel
 
 /* IOSMCKeyProxyPresent
  *
@@ -138,8 +137,8 @@ Boolean IOSMCKeyProxyPresent()
     uint32_t minorRev;
     Boolean success = false;
     
-    Boolean modelFound = CopyModel(&model, &majorRev, &minorRev);
-    if (!modelFound) {
+    IOReturn modelFound = IOCopyModel(&model, &majorRev, &minorRev);
+    if (modelFound != kIOReturnSuccess) {
         DLOG_ERROR("IOSMCKeyProxySupported: Could not find machine model\n");
         return false;
     }
@@ -178,8 +177,8 @@ Boolean IONoteToSelfSupported()
     uint32_t minorRev;
     Boolean success = false;
     
-    Boolean modelFound = CopyModel(&model, &majorRev, &minorRev);
-    if (!modelFound) {
+    IOReturn modelFound = IOCopyModel(&model, &majorRev, &minorRev);
+    if (modelFound != kIOReturnSuccess) {
         DLOG_ERROR("IONoteToSelfSupported: Could not find machine model\n");
         return false;
     }

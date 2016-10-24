@@ -257,6 +257,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_25_cms_skid"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_26_sectrust_copyproperties"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -410,6 +414,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_83_seccertificate_sighashalg"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_84_sectrust_allowlist"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

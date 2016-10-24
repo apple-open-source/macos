@@ -231,6 +231,8 @@ static OSStatus osstatus_for_ctk_error(CFIndex ctkError) {
             return errSecUnimplemented;
         case kTKErrorCodeCanceledByUser:
             return errSecUserCanceled;
+        case kTKErrorCodeCorruptedData:
+            return errSecDecode;
         default:
             return errSecInternal;
     }
@@ -1028,6 +1030,23 @@ out:
     return ok;
 }
 
+CFDataRef SecItemAttributesCopyPreparedAuthContext(CFTypeRef la_context, CFErrorRef *error) {
+    void *la_lib = NULL;
+    CFDataRef acm_context = NULL;
+    require_action_quiet(la_lib = dlopen("/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication", RTLD_LAZY), out,
+                         SecError(errSecInternal, error, CFSTR("failed to open LocalAuthentication.framework")));
+    LAFunctionCopyExternalizedContext fnCopyExternalizedContext = NULL;
+    require_action_quiet(fnCopyExternalizedContext = dlsym(la_lib, "LACopyExternalizedContext"), out,
+                         SecError(errSecInternal, error, CFSTR("failed to obtain LACopyExternalizedContext")));
+    require_action_quiet(acm_context = fnCopyExternalizedContext(la_context), out,
+                         SecError(errSecInternal, error, CFSTR("failed to get ACM handle from LAContext")));
+out:
+    if (la_lib != NULL) {
+        dlclose(la_lib);
+    }
+    return acm_context;
+}
+
 static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, CFErrorRef *error) {
     bool ok = false;
     CFDataRef ac_data = NULL, acm_context = NULL;
@@ -1043,13 +1062,7 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
     if (la_context) {
         require_action_quiet(!CFDictionaryContainsKey(attrs->dictionary, kSecUseCredentialReference), out,
                              SecError(errSecParam, error, CFSTR("kSecUseAuthenticationContext cannot be used together with kSecUseCredentialReference")));
-        require_action_quiet(la_lib = dlopen("/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication", RTLD_LAZY), out,
-                             SecError(errSecInternal, error, CFSTR("failed to open LocalAuthentication.framework")));
-        LAFunctionCopyExternalizedContext fnCopyExternalizedContext = NULL;
-        require_action_quiet(fnCopyExternalizedContext = dlsym(la_lib, "LACopyExternalizedContext"), out,
-                             SecError(errSecInternal, error, CFSTR("failed to obtain LACopyExternalizedContext")));
-        require_action_quiet(acm_context = fnCopyExternalizedContext(la_context), out,
-                             SecError(errSecInternal, error, CFSTR("failed to get ACM handle from LAContext")));
+        require_quiet(acm_context = SecItemAttributesCopyPreparedAuthContext(la_context, error), out);
         CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(attrs), kSecUseAuthenticationContext);
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(attrs), kSecUseCredentialReference, acm_context);
     }

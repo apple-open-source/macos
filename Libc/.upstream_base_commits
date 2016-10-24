@@ -31,11 +31,14 @@ stdlib/FreeBSD/getopt_long.3	freebsd	lib/libc/stdlib/getopt_long.3	5b882020081a1
 stdlib/FreeBSD/reallocf.c	freebsd	lib/libc/stdlib/reallocf.c	3dc97c4341b6c5a0163c12badc7f50628cecf4e6
 stdtime/FreeBSD/strptime.c	freebsd	lib/libc/stdtime/strptime.c	52d53d171566c2cd975d2db86a291e516d34d9fe
 stdtime/FreeBSD/strptime.3	freebsd	lib/libc/stdtime/strptime.3	52d53d171566c2cd975d2db86a291e516d34d9fe
+string/FreeBSD/bcmp.3	freebsd	lib/libc/string/bcmp.3	408f4a1ab49f89368c80edb4485895658fc81598
 string/FreeBSD/memcmp.3	freebsd	lib/libc/string/memcmp.3	3eb0ea4663f0ae19c4983e80963a121463224508
 string/FreeBSD/strcpy.3	freebsd	lib/libc/string/strcpy.3	cfc3df2b8f708ce8494d9d556e3472a5c8c21b8a
 string/FreeBSD/strpbrk.3	freebsd	lib/libc/string/strpbrk.3	5b882020081a138285227631c46a406c08e17bc8
 string/FreeBSD/strspn.3	freebsd	lib/libc/string/strspn.3	5b882020081a138285227631c46a406c08e17bc8
 string/FreeBSD/strstr.3	freebsd	lib/libc/string/strstr.3	cfc3df2b8f708ce8494d9d556e3472a5c8c21b8a
+string/FreeBSD/timingsafe_bcmp.3	freebsd	lib/libc/string/timingsafe_bcmp.3	408f4a1ab49f89368c80edb4485895658fc81598
+string/FreeBSD/timingsafe_bcmp.c	freebsd	lib/libc/string/timingsafe_bcmp.c	408f4a1ab49f89368c80edb4485895658fc81598
 tests/netbsd_getcwd.c	freebsd	contrib/netbsd-tests/lib/libc/gen/t_getcwd.c	6f5b3c1fa3e9554a26cbf6401366ff8b0f0506fe
 tests/netbsd_getenv_thread.c	freebsd	contrib/netbsd-tests/lib/libc/stdlib/t_getenv_thread.c	3f09b8d0af642c2aeb96a4d667cefb7fe3bce443
 tests/netbsd_stat.c	freebsd	contrib/netbsd-tests/lib/libc/sys/t_stat.c	6f5b3c1fa3e9554a26cbf6401366ff8b0f0506fe

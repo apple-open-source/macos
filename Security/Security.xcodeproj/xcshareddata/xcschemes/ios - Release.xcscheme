@@ -387,6 +387,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_84_sectrust_allowlist"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_85_sectrust_ssl_policy"
             isEnabled = "NO">
          </CommandLineArgument>

@@ -228,7 +228,7 @@ _path_stat_check_access(const char *path, pid_t pid, uid_t uid, gid_t gid, uint3
 	}
 
 	/* Don't perform stat if sandbox won't allow it. (15907527) */
-	if (sandbox_check(pid, "file-read-metadata", SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT, path) != 0) {
+	if (pid != getpid() && sandbox_check(pid, "file-read-metadata", SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT, path) != 0) {
 		return PATH_STAT_ACCESS;
 	}
 

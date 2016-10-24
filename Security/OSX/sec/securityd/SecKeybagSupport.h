@@ -43,11 +43,7 @@
 
 __BEGIN_DECLS
 
-// TODO: Get this out of this file
-#if USE_KEYSTORE
-typedef int32_t keyclass_t;
-#else
-
+#if !USE_KEYSTORE
 /* TODO: this needs to be available in the sim! */
 typedef int32_t keyclass_t;
 typedef int32_t key_handle_t;

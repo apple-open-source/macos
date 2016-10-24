@@ -489,6 +489,7 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 	CFArrayRef certs = NULL;
 	CFDateRef date = NULL;
 	SecTrustRef trust = NULL;
+	OSStatus status;
 
 	isnt(leafCert = SecCertificateCreateWithBytes(NULL, kPCSEscrowLeafCert, sizeof(kPCSEscrowLeafCert)),
 	    NULL, "could not create leafCert from kPCSEscrowLeafCert");
@@ -503,7 +504,8 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 
 	/* Set explicit verify date: Mar 18 2016. */
 	isnt(date = CFDateCreate(NULL, 480000000.0), NULL, "create verify date");
-	ok_status(SecTrustSetVerifyDate(trust, date), "set date");
+	status = (date) ? SecTrustSetVerifyDate(trust, date) : errSecParam;
+	ok_status(status, "set date");
 
 	SecTrustSetAnchorCertificates(trust, anchors);
 

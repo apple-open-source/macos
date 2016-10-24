@@ -2474,8 +2474,11 @@ BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length
 		if (locked) {
 			count = BC_discard_bytes((*p), offset, length);
 			UNLOCK_EXTENT(*p);
-			if (count == 0)
-				break;
+			/* rdar://28284713
+			 * Do not break if count is 0
+			 * The previous extent (p - 1) may still have blocks that need to be discarded.
+			 * BC_check_intersection will handle loop termination
+			 */
 			total_discards += count;
 		} else {
 			count = BC_intersection_size((*p), offset, length);
@@ -2500,8 +2503,11 @@ BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length
 		if (locked) {
 			count = BC_discard_bytes((*p), offset, length);
 			UNLOCK_EXTENT(*p);
-			if (count == 0)
-				break;
+			/* rdar://28284713
+			 * Do not break if count is 0
+			 * The next extent (p + 1) may still have blocks that need to be discarded.
+			 * BC_check_intersection will handle loop termination
+			 */
 			total_discards += count;
 		} else {
 			count = BC_intersection_size((*p), offset, length);

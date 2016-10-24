@@ -314,6 +314,7 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
                                               unsigned long   stateNumber, 
                                               IOService*      whatDevice)
 {
+    IOReturn ret;
     uint16_t pmcsr;
 
     if (stateNumber == kIOPCIDeviceOffState)
@@ -339,11 +340,14 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
             }
         }
     }
-    else if ((stateNumber == kIOPCIDeviceOnState) && reserved->pmControlStatus)
+    else if ((stateNumber == kIOPCIDeviceOnState) && reserved->pmSleepEnabled && reserved->pmControlStatus && reserved->sleepControlBits)
     {
-        pmcsr = (kIOPCIDeviceOnState == reserved->pciPMState) 
-                ? reserved->pmLastWakeBits : extendedConfigRead16(reserved->pmControlStatus);
-        updateWakeReason(pmcsr);
+        ret = (kIOPCIDeviceOnState == reserved->pciPMState)
+         ? kIOReturnNotReady : checkLink(kCheckLinkForPower);
+		pmcsr = (kIOReturnSuccess == ret)
+		 ?  extendedConfigRead16(reserved->pmControlStatus) : reserved->pmLastWakeBits;
+		updateWakeReason(pmcsr);
+		DLOG("%s[%p]::powerStateWillChangeTo(ON) - ps %d lnk(0x%x) - PMCS(0x%x, 0x%x)\n", getName(), this, reserved->pciPMState, ret, pmcsr, reserved->pmLastWakeBits);
     }
 
     return super::powerStateWillChangeTo(capabilities, stateNumber, whatDevice);
@@ -903,6 +907,8 @@ OSMetaClassDefineReservedUsed(IOPCIDevice,  1);
 IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
 {
     IOReturn    ret = kIOReturnSuccess;
+
+    if (0xffffffff == state) state = kPCIPMCSPowerStateD3;
 
     if (!reserved->pmControlStatus)
     {

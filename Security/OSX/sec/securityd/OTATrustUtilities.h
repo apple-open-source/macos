@@ -50,10 +50,15 @@ CFSetRef SecOTAPKICopyBlackListSet(SecOTAPKIRef otapkiRef);
 CF_EXPORT
 CFSetRef SecOTAPKICopyGrayList(SecOTAPKIRef otapkiRef);
 
-// Accessor to retrieve a copy of the current allow list.
+// Accessor to retrieve a copy of the current allow list dictionary.
 // Caller is responsible for releasing the returned CFDictionaryRef
 CF_EXPORT
 CFDictionaryRef SecOTAPKICopyAllowList(SecOTAPKIRef otapkiRef);
+
+// Accessor to retrieve a copy of the allow list for a specific authority key ID.
+// Caller is responsible for releasing the returned CFArrayRef
+CF_EXPORT
+CFArrayRef SecOTAPKICopyAllowListForAuthKeyID(SecOTAPKIRef otapkiRef, CFStringRef authKeyID);
 
 // Accessor to retrieve a copy of the current trusted certificate transparency logs.
 // Caller is responsible for releasing the returned CFArrayRef

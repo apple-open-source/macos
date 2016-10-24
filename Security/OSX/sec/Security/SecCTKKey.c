@@ -30,6 +30,7 @@
 #include <Security/SecBasePriv.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/array_size.h>
 #include <ctkclient.h>
 #include <libaks_acl_cf_keys.h>
 
@@ -227,6 +228,8 @@ out:
     return attrs;
 }
 
+static SecKeyRef SecCTKKeyCreateDuplicate(SecKeyRef key);
+
 static SecKeyDescriptor kSecCTKKeyDescriptor = {
     .version = kSecKeyDescriptorVersion,
     .name = "CTKKey",
@@ -239,7 +242,25 @@ static SecKeyDescriptor kSecCTKKeyDescriptor = {
     .getAlgorithmID = SecCTKGetAlgorithmID,
     .copyPublic = SecCTKKeyCopyPublicOctets,
     .copyOperationResult = SecCTKKeyCopyOperationResult,
+    .createDuplicate = SecCTKKeyCreateDuplicate,
 };
+
+static SecKeyRef SecCTKKeyCreateDuplicate(SecKeyRef key) {
+    SecKeyRef result = SecKeyCreate(CFGetAllocator(key), &kSecCTKKeyDescriptor, 0, 0, 0);
+    SecCTKKeyData *kd = key->key, *rd = result->key;
+    rd->token = CFRetainSafe(kd->token);
+    rd->objectID = CFRetainSafe(kd->objectID);
+    rd->token_id = CFRetainSafe(kd->token_id);
+    if (kd->attributes.dictionary != NULL) {
+        rd->attributes.dictionary = kd->attributes.dictionary;
+        SecCFDictionaryCOWGetMutable(&rd->attributes);
+    }
+    if (kd->auth_params.dictionary != NULL) {
+        rd->auth_params.dictionary = kd->auth_params.dictionary;
+        SecCFDictionaryCOWGetMutable(&rd->auth_params);
+    }
+    return result;
+}
 
 SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttributes, CFErrorRef *error) {
     SecKeyRef key = SecKeyCreate(allocator, &kSecCTKKeyDescriptor, 0, 0, 0);
@@ -425,18 +446,57 @@ out:
 }
 
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
+    CFTypeRef acm_reference = NULL;
     require_action_quiet(key->key_class == &kSecCTKKeyDescriptor, out,
                          SecError(errSecUnimplemented, error, CFSTR("SecKeySetParameter() not supported for key %@"), key));
     SecCTKKeyData *kd = key->key;
-    if (kd->params == NULL) {
-        kd->params = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+
+    static const CFStringRef *const knownUseFlags[] = {
+        &kSecUseOperationPrompt,
+        &kSecUseAuthenticationContext,
+        &kSecUseAuthenticationUI,
+        &kSecUseCallerName,
+        &kSecUseCredentialReference,
+    };
+
+    // Check, whether name is part of known use flags.
+    bool isUseFlag = false;
+    for (size_t i = 0; i < array_size(knownUseFlags); i++) {
+        if (CFEqual(*knownUseFlags[i], name)) {
+            isUseFlag = true;
+            break;
+        }
     }
-    if (value != NULL) {
-        CFDictionarySetValue(kd->params, name, value);
+
+    if (CFEqual(name, kSecUseAuthenticationContext)) {
+        // Preprocess LAContext to ACMRef value.
+        if (value != NULL) {
+            require_quiet(acm_reference = SecItemAttributesCopyPreparedAuthContext(value, error), out);
+            value = acm_reference;
+        }
+        name = kSecUseCredentialReference;
+    }
+
+    if (isUseFlag) {
+        // Release existing token connection to enforce creation of new connection with new auth params.
+        CFReleaseNull(kd->token);
+        if (value != NULL) {
+            CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->auth_params), name, value);
+        } else {
+            CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->auth_params), name);
+        }
     } else {
-        CFDictionaryRemoveValue(kd->params, name);
+        if (kd->params == NULL) {
+            kd->params = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+        }
+        if (value != NULL) {
+            CFDictionarySetValue(kd->params, name, value);
+        } else {
+            CFDictionaryRemoveValue(kd->params, name);
+        }
     }
 
 out:
+    CFReleaseSafe(acm_reference);
     return TRUE;
 }

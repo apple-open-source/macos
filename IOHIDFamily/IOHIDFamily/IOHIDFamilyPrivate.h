@@ -93,7 +93,7 @@ bool CompareNumberPropertyMask( IOService *owner, OSDictionary *matching, const 
 bool CompareNumberPropertyArray( IOService * owner, OSDictionary * matching, const char * arrayName, const char * key, SInt32 * score, SInt32 increment);
 bool CompareNumberPropertyArrayWithMask( IOService * owner, OSDictionary * matching, const char * arrayName, const char * key, const char * maskKey, SInt32 * score, SInt32 increment);
 
-#define     kEjectKeyDelayMS        100     // the delay for a dedicated eject key
+#define     kEjectKeyDelayMS        0       // the delay for a dedicated eject key
 #define     kEjectF12DelayMS        250     // the delay for an F12/eject key
 
 void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender);

@@ -241,7 +241,7 @@ struct vtd_unit_t
 	uint32_t msi_data;
     uint32_t num_fault;
     uint32_t rounding;
-    uint16_t domains;
+    uint32_t domains;
 
     uint8_t  global:1;
     uint8_t  caching:1;

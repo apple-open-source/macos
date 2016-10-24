@@ -172,8 +172,12 @@ static PROPERTY_INFO PropertyInfoTable [] = {
         kPropertyInfoProviderOnly
     },
     {
-        CFSTR(kIOHIDMouseClickNotification),
+        CFSTR(kIOHIDResetStickyKeyNotification),
         kPropertyNotification
+    },
+    {
+        CFSTR(kIOHIDBuiltInKey),
+        kPropertyInfoProviderOnly
     }
 };
 

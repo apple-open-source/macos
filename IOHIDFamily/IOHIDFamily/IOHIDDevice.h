@@ -272,10 +272,10 @@ protected:
                                    UInt32          type,
                                    OSDictionary *  properties,
                                    IOUserClient ** handler );
-    IOReturn newUserClientGated(task_t          owningTask,
-                                void *          security_id,
-                                OSDictionary *  properties,
-                                IOUserClient ** handler );
+    IOReturn newUserClientInternal(task_t          owningTask,
+                                   void *          security_id,
+                                   OSDictionary *  properties,
+                                   IOUserClient ** handler );
 
 /*! @function publishProperties
     @abstract Publish HID properties to the I/O Kit registry.

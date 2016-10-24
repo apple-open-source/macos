@@ -246,7 +246,7 @@ isakmp_cfg_r(iph1, msg)
 				goto out;
 			}
 
-			if (memcmp(ph + 1, check->v, check->l) != 0) {
+			if (timingsafe_bcmp(ph + 1, check->v, check->l) != 0) {
 				plog(ASL_LEVEL_ERR, 
 				    "Hash verification failed\n");
 				vfree(payload);

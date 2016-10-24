@@ -476,40 +476,40 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 }
 
 /* --------------------------------------------------------------------------
- * Assemble allowlist from root certificates and associated allowed leaves.
- * Leaves are stored in a directory named with the auth key ID of the root.
+ * Assemble allowlist from issuer certificates and associated allowed leaves.
+ * Leaves are stored in a directory named with the subj key ID of the issuer.
  * The resulting plist is a dictionary:
- *	key: auth Key ID of the root
- *	value: array of SHA256 hashes of leaf certificates
+ *	key: subj key ID of the issuing CA
+ *	value: array of SHA-256 hashes of leaf certificates
  -------------------------------------------------------------------------- */
 - (BOOL)buildAllowListData
 {
 	BOOL result = NO;
 
 	PSAssetFlags certFlags = isAnchor | isAllowListed;
-	NSNumber *rootFlags = [NSNumber numberWithUnsignedLong:certFlags];
-	NSString *rootdir =[self.allowlist_directory stringByAppendingPathComponent: @"roots"];
+	NSNumber *issuersFlags = [NSNumber numberWithUnsignedLong:certFlags];
+	NSString *issuersDir =[self.allowlist_directory stringByAppendingPathComponent: @"issuers"];
 
-	PSCerts* pscerts_alroots = [[PSCerts alloc] initWithCertFilePath:rootdir withFlags:rootFlags];
-	if (nil == pscerts_alroots || nil == pscerts_alroots.certs)
+	PSCerts* pscerts_alissuers = [[PSCerts alloc] initWithCertFilePath:issuersDir withFlags:issuersFlags recurse:NO];
+	if (nil == pscerts_alissuers || nil == pscerts_alissuers.certs)
 	{
 		return result;
 	}
 
 	certFlags = isAllowListed;
 	NSNumber *leafFlags = [NSNumber numberWithUnsignedLong:certFlags];
-	for (PSCert *alRoot in pscerts_alroots.certs)
+	for (PSCert *alIssuer in pscerts_alissuers.certs)
 	{
-		// find leaf certificates in directory named after auth key ID
-		if (nil == alRoot.auth_key_id)
+		// find leaf certificates in directory named with this issuer's subject key ID
+		if (nil == alIssuer.subj_key_id)
 		{
 			return result;
 		}
 
-		NSString *leaf_dir_path = [self.allowlist_directory stringByAppendingPathComponent:alRoot.auth_key_id];
-		PSCerts *leaf_certs = [[PSCerts alloc] initWithCertFilePath:leaf_dir_path withFlags:leafFlags];
+		NSString *leaf_dir_path = [self.allowlist_directory stringByAppendingPathComponent:alIssuer.subj_key_id];
+		PSCerts *leaf_certs = [[PSCerts alloc] initWithCertFilePath:leaf_dir_path withFlags:leafFlags recurse:NO];
 
-		// set allowlist dictionary entry: <auth key id>:<leaf hashes>
+		// set allowlist dictionary entry: <issuer subj key id>:<issued leaf hashes>
 		NSMutableArray *leaf_hashes = [NSMutableArray array];
 		for (PSCert *leaf in leaf_certs.certs)
 		{
@@ -540,7 +540,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 				return (NSComparisonResult)NSOrderedSame;
 			}
 		}];
-		[_allow_list_data setValue:leaf_hashes forKey:alRoot.auth_key_id];
+		[_allow_list_data setValue:leaf_hashes forKey:alIssuer.subj_key_id];
 	}
 
 	result = YES;

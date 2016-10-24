@@ -283,6 +283,7 @@
 		BE53FA301B0AC5C300719A63 /* SecKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563C14CB6EB9008233F2 /* SecKey.c */; };
 		BE53FA311B0AC65500719A63 /* SecECKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562C14CB6EB9008233F2 /* SecECKey.c */; };
 		BE53FA321B0AC65B00719A63 /* SecRSAKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564714CB6EB9008233F2 /* SecRSAKey.c */; };
+		BE5C5BD11D8C90F500A97339 /* si-84-sectrust-whitelist.c in Sources */ = {isa = PBXBuildFile; fileRef = BE5C5BD01D8C90C200A97339 /* si-84-sectrust-whitelist.c */; };
 		BE5EC1F018C80108005E7682 /* swcagent_client.c in Sources */ = {isa = PBXBuildFile; fileRef = BEF9640A18B418A400813FA3 /* swcagent_client.c */; };
 		BE62D7601747FF3E001EAA9D /* si-72-syncableitems.c in Sources */ = {isa = PBXBuildFile; fileRef = BE62D75F1747FF3E001EAA9D /* si-72-syncableitems.c */; };
 		BE642BB2188F32C200C899A2 /* SecSharedCredential.c in Sources */ = {isa = PBXBuildFile; fileRef = BE642BB1188F32C200C899A2 /* SecSharedCredential.c */; };
@@ -373,6 +374,8 @@
 		D40771BE1C9B50590016AA66 /* si-82-seccertificate-ct.c in Sources */ = {isa = PBXBuildFile; fileRef = D40771AB1C9B4C530016AA66 /* si-82-seccertificate-ct.c */; };
 		D40771BF1C9B50590016AA66 /* si-82-sectrust-ct.m in Sources */ = {isa = PBXBuildFile; fileRef = D40771AC1C9B4C530016AA66 /* si-82-sectrust-ct.m */; };
 		D4273AA61B5D54E70007D67B /* nameconstraints.c in Sources */ = {isa = PBXBuildFile; fileRef = D4273AA21B5D54CA0007D67B /* nameconstraints.c */; };
+		D43091551D84D7FE004097DA /* si-25-cms-skid.m in Sources */ = {isa = PBXBuildFile; fileRef = D43091511D84D482004097DA /* si-25-cms-skid.m */; };
+		D43091561D84D80B004097DA /* si-25-cms-skid.h in Headers */ = {isa = PBXBuildFile; fileRef = D43091531D84D494004097DA /* si-25-cms-skid.h */; };
 		D43CDF731C9C77540020217E /* si-28-sectrustsettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 4CC92A2E15A3ABD400C6D578 /* si-28-sectrustsettings.m */; };
 		D442160A1CCAD9C200D2D455 /* si-22-sectrust-iap.h in Headers */ = {isa = PBXBuildFile; fileRef = D44216091CCAD9C200D2D455 /* si-22-sectrust-iap.h */; };
 		D44C81E81CD1944C00BE9A0D /* si-97-sectrust-path-scoring.m in Sources */ = {isa = PBXBuildFile; fileRef = D44C81E71CD1944C00BE9A0D /* si-97-sectrust-path-scoring.m */; };
@@ -918,6 +921,7 @@
 		BE4AC7DC1C938698002A28FE /* SecSignatureVerificationSupport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecSignatureVerificationSupport.c; sourceTree = "<group>"; };
 		BE4AC7DD1C938698002A28FE /* SecSignatureVerificationSupport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecSignatureVerificationSupport.h; sourceTree = "<group>"; };
 		BE556A5D19550E1600E6EE8C /* SecPolicyCerts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecPolicyCerts.h; sourceTree = "<group>"; };
+		BE5C5BD01D8C90C200A97339 /* si-84-sectrust-whitelist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "si-84-sectrust-whitelist.c"; sourceTree = "<group>"; };
 		BE62D75F1747FF3E001EAA9D /* si-72-syncableitems.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-72-syncableitems.c"; sourceTree = "<group>"; };
 		BE62D7611747FF51001EAA9D /* si-70-sectrust-unified.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-70-sectrust-unified.c"; sourceTree = "<group>"; };
 		BE642BAF188F32AD00C899A2 /* SecSharedCredential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecSharedCredential.h; sourceTree = "<group>"; };
@@ -999,6 +1003,8 @@
 		D40771B81C9B4D200016AA66 /* libSharedRegressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSharedRegressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4273AA21B5D54CA0007D67B /* nameconstraints.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nameconstraints.c; sourceTree = "<group>"; };
 		D4273AA31B5D54CA0007D67B /* nameconstraints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nameconstraints.h; sourceTree = "<group>"; };
+		D43091511D84D482004097DA /* si-25-cms-skid.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "si-25-cms-skid.m"; sourceTree = "<group>"; };
+		D43091531D84D494004097DA /* si-25-cms-skid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-25-cms-skid.h"; sourceTree = "<group>"; };
 		D44216091CCAD9C200D2D455 /* si-22-sectrust-iap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-22-sectrust-iap.h"; sourceTree = "<group>"; };
 		D44C81E71CD1944C00BE9A0D /* si-97-sectrust-path-scoring.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "si-97-sectrust-path-scoring.m"; sourceTree = "<group>"; };
 		D44C81E91CD1947200BE9A0D /* si-97-sectrust-path-scoring.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-97-sectrust-path-scoring.h"; sourceTree = "<group>"; };
@@ -1574,6 +1580,8 @@
 				4CC92A2615A3ABD400C6D578 /* si-24-sectrust-itms.c */,
 				4CC92A2815A3ABD400C6D578 /* si-24-sectrust-nist.c */,
 				4CC92A2A15A3ABD400C6D578 /* si-24-sectrust-passbook.c */,
+				D43091511D84D482004097DA /* si-25-cms-skid.m */,
+				D43091531D84D494004097DA /* si-25-cms-skid.h */,
 				4CC92A2C15A3ABD400C6D578 /* si-26-sectrust-copyproperties.c */,
 				4CC92A2D15A3ABD400C6D578 /* si-27-sectrust-exceptions.c */,
 				4CC92A2E15A3ABD400C6D578 /* si-28-sectrustsettings.m */,
@@ -1620,6 +1628,7 @@
 				D40771AC1C9B4C530016AA66 /* si-82-sectrust-ct.m */,
 				440BF8F41A7A7EC9001760A7 /* si-82-token-ag.c */,
 				BE0CC6061A96B68400662E69 /* si-83-seccertificate-sighashalg.c */,
+				BE5C5BD01D8C90C200A97339 /* si-84-sectrust-whitelist.c */,
 				D4B4A9A61B8801960097B393 /* si-85-sectrust-ssl-policy.c */,
 				D4C6E1681B9A0AE800E42591 /* si-85-sectrust-ssl-policy.h */,
 				D4DFC9481B9958D00040945C /* si-87-sectrust-name-constraints.c */,
@@ -2223,6 +2232,7 @@
 			files = (
 				0C0C887A1CCED00E00617D1B /* shared_regressions.h in Headers */,
 				D44C81EA1CD1947200BE9A0D /* si-97-sectrust-path-scoring.h in Headers */,
+				D43091561D84D80B004097DA /* si-25-cms-skid.h in Headers */,
 				D4653DEB1C9E2299002ED6D5 /* si-28-sectrustsettings.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2965,11 +2975,13 @@
 				09AE116F1CEDA1E4004C617D /* si-44-seckey-ies.m in Sources */,
 				09EC947F1CEDEA70003E5101 /* si-44-seckey-rsa.m in Sources */,
 				D4D887531CED0A9100DC7583 /* si-24-sectrust-digicert-malaysia.c in Sources */,
+				D43091551D84D7FE004097DA /* si-25-cms-skid.m in Sources */,
 				D4D886C21CEB9FC600DC7583 /* si-85-sectrust-ssl-policy.c in Sources */,
 				D4D887541CED0A9700DC7583 /* si-24-sectrust-diginotar.c in Sources */,
 				D4D887571CED0B9400DC7583 /* si-27-sectrust-exceptions.c in Sources */,
 				0982E02C1D19695B0060002E /* si-44-seckey-ec.m in Sources */,
 				D44C81E81CD1944C00BE9A0D /* si-97-sectrust-path-scoring.m in Sources */,
+				BE5C5BD11D8C90F500A97339 /* si-84-sectrust-whitelist.c in Sources */,
 				D4D886F01CEC008600DC7583 /* si-23-sectrust-ocsp.c in Sources */,
 				D4D8875E1CED490700DC7583 /* si-74-OTAPKISigner.c in Sources */,
 				D4D886C11CEB9FAC00DC7583 /* si-87-sectrust-name-constraints.c in Sources */,

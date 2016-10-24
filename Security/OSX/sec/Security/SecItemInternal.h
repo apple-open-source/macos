@@ -88,6 +88,8 @@ TKTokenRef SecTokenCreate(CFStringRef token_id, CFDictionaryRef auth_params, CFE
 
 CFDataRef _SecTokenItemCopyValueData(CFDataRef db_value, CFErrorRef *error);
 
+CFDataRef SecItemAttributesCopyPreparedAuthContext(CFTypeRef la_context, CFErrorRef *error);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECITEMINTERNAL_H_ */

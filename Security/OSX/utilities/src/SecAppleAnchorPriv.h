@@ -47,6 +47,8 @@ bool
 SecIsAppleTrustAnchorData(CFDataRef cert,
 			  SecAppleTrustAnchorFlags flags);
 
+CFArrayRef SecGetAppleTrustAnchors(bool allowNonProduction);
+
 __END_DECLS
 
 

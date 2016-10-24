@@ -2342,7 +2342,8 @@ errno_t ntfs_index_move_root_to_allocation_block(ntfs_index_context *ictx)
 	ir_ictx = ntfs_index_ctx_get(idx_ni);
 	if (!ir_ictx)
 		return ENOMEM;
-	ir_ictx->entries = OSMalloc(ictx->max_entries * sizeof(INDEX_ENTRY*),
+    ir_ictx->max_entries = ictx->max_entries;
+	ir_ictx->entries = OSMalloc(ir_ictx->max_entries * sizeof(INDEX_ENTRY*),
 			ntfs_malloc_tag);
 	if (!ir_ictx->entries) {
 		err = ENOMEM;
@@ -2378,7 +2379,7 @@ errno_t ntfs_index_move_root_to_allocation_block(ntfs_index_context *ictx)
 			goto err;
 		}
 		/* Allocate/get the first page and zero it out. */
-		ntfs_page_grab(idx_ni, 0, &upl, &pl, (u8**)&ia, TRUE);
+		err = ntfs_page_grab(idx_ni, 0, &upl, &pl, (u8**)&ia, TRUE);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to grab first page.");
 			goto page_err;

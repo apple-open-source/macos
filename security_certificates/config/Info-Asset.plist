@@ -17,7 +17,7 @@
 		<key>FormatVersion</key>
 		<integer>1</integer>
 		<key>ContentVersion</key>
-		<integer>2016060200</integer>
+		<integer>2016092000</integer>
 		<key>__AssetDefaultGarbageCollectionBehavior</key>
 		<string>NeverCollected</string>
 	</dict>

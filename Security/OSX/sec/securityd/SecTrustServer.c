@@ -33,6 +33,7 @@
 
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecDispatchRelease.h>
+#include <utilities/SecAppleAnchorPriv.h>
 
 #include <Security/SecTrustPriv.h>
 #include <Security/SecItem.h>
@@ -61,6 +62,8 @@
 #include <ipc/securityd_client.h>
 #include <CommonCrypto/CommonDigest.h>
 #include "OTATrustUtilities.h"
+#include "personalization.h"
+#include <utilities/SecInternalReleasePriv.h>
 
 
 /********************************************************
@@ -770,6 +773,7 @@ struct SecPathBuilder {
     SecCertificateSourceRef certificateSource;
     SecCertificateSourceRef itemCertificateSource;
     SecCertificateSourceRef anchorSource;
+    SecCertificateSourceRef appleAnchorSource;
     CFMutableArrayRef       anchorSources;
     CFIndex                 nextParentSource;
     CFMutableArrayRef       parentSources;
@@ -861,11 +865,8 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
     builder->queue = dispatch_queue_create("builder", DISPATCH_QUEUE_SERIAL);
 
     builder->nextParentSource = 1;
-    builder->considerPartials = false;
 #if !TARGET_OS_WATCH
     builder->canAccessNetwork = true;
-#else
-    builder->canAccessNetwork = false;
 #endif
 
     builder->anchorSources = CFArrayCreateMutable(allocator, 0, NULL);
@@ -876,70 +877,90 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
     builder->partialPaths = CFArrayCreateMutable(allocator, 0, NULL);
     builder->rejectedPaths = CFArrayCreateMutable(allocator, 0, NULL);
     builder->candidatePaths = CFArrayCreateMutable(allocator, 0, NULL);
-    builder->partialIX = 0;
 
     /* Init the policy verification context. */
     SecPVCInit(&builder->path, builder, policies, verifyTime);
-	builder->bestPath = NULL;
-	builder->bestPathIsEV = false;
-    builder->bestPathIsSHA2 = false;
-    builder->denyBestPath = false;
-	builder->bestPathScore = 0;
 
 	/* Let's create all the certificate sources we might want to use. */
 	builder->certificateSource =
 		SecMemoryCertificateSourceCreate(certificates);
-	if (anchors)
+    if (anchors) {
 		builder->anchorSource = SecMemoryCertificateSourceCreate(anchors);
-	else
-		builder->anchorSource = NULL;
+    }
+
+    bool allowNonProduction = false;
+    builder->appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(allowNonProduction));
+
 
     /** Parent Sources
      ** The order here avoids the most expensive methods if the cheaper methods
      ** produce an acceptable chain: client-provided, keychains, network-fetched.
      **/
+#if !TARGET_OS_BRIDGE
     CFArrayAppendValue(builder->parentSources, builder->certificateSource);
     builder->itemCertificateSource = SecItemCertificateSourceCreate(accessGroups);
     if (keychainsAllowed) {
         CFArrayAppendValue(builder->parentSources, builder->itemCertificateSource);
-#if !TARGET_OS_IPHONE
+ #if TARGET_OS_OSX
         /* On OS X, need additional parent source to search legacy keychain files. */
         if (kSecLegacyCertificateSource.contains && kSecLegacyCertificateSource.copyParents) {
             CFArrayAppendValue(builder->parentSources, &kSecLegacyCertificateSource);
         }
-#endif
+ #endif
     }
     if (anchorsOnly) {
-        /* Add the system and user anchor certificate db to the search list
+        /* Add the Apple, system, and user anchor certificate db to the search list
          if we don't explicitly trust them. */
+        CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
         CFArrayAppendValue(builder->parentSources, &kSecSystemAnchorSource);
-#if TARGET_OS_IPHONE
+ #if TARGET_OS_IPHONE
         CFArrayAppendValue(builder->parentSources, &kSecUserAnchorSource);
-#endif
+ #endif
     }
     if (keychainsAllowed && builder->canAccessNetwork) {
         CFArrayAppendValue(builder->parentSources, &kSecCAIssuerSource);
     }
+#else /* TARGET_OS_BRIDGE */
+    /* Bridge can only access memory sources. */
+    CFArrayAppendValue(builder->parentSources, builder->certificateSource);
+    if (anchorsOnly) {
+        /* Add the Apple, system, and user anchor certificate db to the search list
+         if we don't explicitly trust them. */
+        CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
+    }
+#endif /* !TARGET_OS_BRIDGE */
 
     /** Anchor Sources
      ** The order here allows a client-provided anchor to overrule
      ** a user or admin trust setting which can overrule the system anchors.
+     ** Apple's anchors cannot be overriden by a trust setting.
      **/
+#if !TARGET_OS_BRIDGE
 	if (builder->anchorSource) {
 		CFArrayAppendValue(builder->anchorSources, builder->anchorSource);
 	}
     if (!anchorsOnly) {
         /* Only add the system and user anchor certificate db to the
          anchorSources if we are supposed to trust them. */
-#if TARGET_OS_IPHONE
+        CFArrayAppendValue(builder->anchorSources, builder->appleAnchorSource);
+ #if TARGET_OS_IPHONE
         CFArrayAppendValue(builder->anchorSources, &kSecUserAnchorSource);
-#else
+ #else /* TARGET_OS_OSX */
         if (keychainsAllowed && kSecLegacyAnchorSource.contains && kSecLegacyAnchorSource.copyParents) {
             CFArrayAppendValue(builder->anchorSources, &kSecLegacyAnchorSource);
         }
-#endif
+ #endif
         CFArrayAppendValue(builder->anchorSources, &kSecSystemAnchorSource);
     }
+#else /* TARGET_OS_BRIDGE */
+    /* Bridge can only access memory sources. */
+    if (builder->anchorSource) {
+        CFArrayAppendValue(builder->anchorSources, builder->anchorSource);
+    }
+    if (!anchorsOnly) {
+        CFArrayAppendValue(builder->anchorSources, builder->appleAnchorSource);
+    }
+#endif /* !TARGET_OS_BRIDGE */
 
 	/* Now let's get the leaf cert and turn it into a path. */
 	SecCertificateRef leaf =
@@ -975,7 +996,6 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
         CFReleaseSafe(otapkiref);
     }
 
-    builder->activations = 0;
     builder->state = SecPathBuilderGetNext;
     builder->completed = completed;
     builder->context = context;
@@ -988,6 +1008,7 @@ SecPathBuilderRef SecPathBuilderCreate(CFDataRef clientAuditToken,
     CFAbsoluteTime verifyTime, CFArrayRef accessGroups,
     SecPathBuilderCompleted completed, const void *context) {
     SecPathBuilderRef builder = malloc(sizeof(*builder));
+    memset(builder, 0, sizeof(*builder));
     SecPathBuilderInit(builder, clientAuditToken, certificates,
         anchors, anchorsOnly, keychainsAllowed, policies, ocspResponses,
         signedCertificateTimestamps, trustedLogs, verifyTime,
@@ -998,12 +1019,14 @@ SecPathBuilderRef SecPathBuilderCreate(CFDataRef clientAuditToken,
 static void SecPathBuilderDestroy(SecPathBuilderRef builder) {
     secdebug("alloc", "%p", builder);
     dispatch_release_null(builder->queue);
-	if (builder->anchorSource)
-		SecMemoryCertificateSourceDestroy(builder->anchorSource);
-	if (builder->certificateSource)
-		SecMemoryCertificateSourceDestroy(builder->certificateSource);
-    if (builder->itemCertificateSource)
-        SecItemCertificateSourceDestroy(builder->itemCertificateSource);
+    if (builder->anchorSource) {
+        SecMemoryCertificateSourceDestroy(builder->anchorSource); }
+    if (builder->certificateSource) {
+        SecMemoryCertificateSourceDestroy(builder->certificateSource); }
+    if (builder->itemCertificateSource) {
+        SecItemCertificateSourceDestroy(builder->itemCertificateSource); }
+    if (builder->appleAnchorSource) {
+        SecMemoryCertificateSourceDestroy(builder->appleAnchorSource); }
 	CFReleaseSafe(builder->clientAuditToken);
 	CFReleaseSafe(builder->anchorSources);
 	CFReleaseSafe(builder->parentSources);
@@ -1419,6 +1442,7 @@ static void SecPathBuilderAccept(SecPathBuilderRef builder) {
     check(builder);
     SecPVCRef pvc = &builder->path;
     bool isSHA2 = !SecCertificatePathHasWeakHash(pvc->path);
+    bool isOptionallySHA2 = !SecCertificateIsWeakHash(SecPVCGetCertificateAtIndex(pvc, 0));
     CFIndex bestScore = builder->bestPathScore;
     /* Score this path. Note that all points awarded or deducted in
      * SecCertificatePathScore are < 100,000 */
@@ -1442,7 +1466,7 @@ static void SecPathBuilderAccept(SecPathBuilderRef builder) {
 
     /* If we found the best accept we can, we want to switch directly to the
        SecPathBuilderComputeDetails state here, since we're done. */
-    if ((pvc->is_ev || !pvc->optionally_ev) && isSHA2)
+    if ((pvc->is_ev || !pvc->optionally_ev) && (isSHA2 || !isOptionallySHA2))
         builder->state = SecPathBuilderComputeDetails;
     else
         builder->state = SecPathBuilderGetNext;
@@ -1509,6 +1533,14 @@ static bool SecPathBuilderComputeDetails(SecPathBuilderRef builder) {
     /* Reject the certificate if it was accepted before but we failed it now. */
     if (builder->bestPathScore > ACCEPT_PATH_SCORE && !pvc->result) {
         builder->bestPathScore = 0;
+    }
+
+    /* Accept a partial path if certificate is on the allow list
+       and is temporally valid. */
+    if (completed && pvc->is_allowlisted &&
+        builder->bestPathScore < ACCEPT_PATH_SCORE &&
+        SecCertificatePathIsValid(pvc->path, pvc->verifyTime)) {
+        builder->bestPathScore += ACCEPT_PATH_SCORE;
     }
 
     CFReleaseSafe(details);

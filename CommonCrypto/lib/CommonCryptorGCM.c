@@ -157,12 +157,12 @@ CCCryptorStatus CCCryptorGCMDecrypt(CCCryptorRef cryptorRef,
 
 
 CCCryptorStatus CCCryptorGCMFinal(CCCryptorRef cryptorRef,
-                                  const void *tag,
+                                  void   *tagOut,
                                   size_t *tagLength)
 {
     CCCryptorGCMprologue();
-    if(tag == NULL || tagLength == NULL)  return kCCParamError;
-    int rc = ccgcm_finalize(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, *tagLength, (void *) tag);
+    if(tagOut == NULL || tagLength == NULL)  return kCCParamError;
+    int rc = ccgcm_finalize(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, *tagLength, (void *) tagOut);
     if(rc == -1)
         return kCCUnspecifiedError;
     else
@@ -186,7 +186,7 @@ CCCryptorStatus CCCryptorGCM(CCOperation op,				/* kCCEncrypt, kCCDecrypt */
                              const void  *aData,  size_t aDataLen,
                              const void  *dataIn, size_t dataInLength,
                              void 		 *dataOut,
-                             const void  *tag,    size_t *tagLength)
+                             void        *tagOut,    size_t *tagLength)
 
 {
     CCCryptorRef cryptorRef;
@@ -208,7 +208,7 @@ CCCryptorStatus CCCryptorGCM(CCOperation op,				/* kCCEncrypt, kCCDecrypt */
     retval = gcm_update(cryptorRef, dataIn, dataInLength, dataOut);
     if(retval) return retval;
 
-    retval = CCCryptorGCMFinal(cryptorRef, tag, tagLength);
+    retval = CCCryptorGCMFinal(cryptorRef, tagOut, tagLength);
     CCCryptorRelease(cryptorRef);
     
     return retval;

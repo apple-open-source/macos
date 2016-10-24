@@ -87,7 +87,7 @@ typedef struct {
 static uint64_t __IOHIDEventTranslatorGetServiceIDForObject (CFTypeRef service);
 CFTypeRef __IOHIDEventTranslatorCopyServiceProperty (CFTypeRef service, CFStringRef key);
 
-void __IOHIDPointerEventTranslatorCreateMouseUpDownEvent (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context);
+void __IOHIDPointerEventTranslatorCreateMouseUpDownEvent (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context, IOHIDEventRef pointerEvent);
 void __IOHIDPointerEventTranslatorCreateSysdefineEvent (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context);
 
 static void __IOHIDPointerEventTranslatorFree( CFTypeRef object );
@@ -157,6 +157,13 @@ typedef struct  __IOHIDPointerEventTranslator {
   uint32_t                  lastLeftEventNum;
   uint32_t                  lastRightEventNum;
   uint32_t                  buttonMode;
+  double                    deltaAxisX;
+  double                    deltaAxisY;
+  double                    deltaAxisZ;
+  double                    fixedAxisX;
+  double                    fixedAxisY;
+  double                    fixedAxisZ;
+  
 } __IOHIDPointerEventTranslator;
 
 static dispatch_once_t  __pointerTranslatorTypeInit            = 0;
@@ -394,16 +401,16 @@ CFArrayRef IOHIDPointerEventTranslatorCreateEventCollection (IOHIDPointerEventTr
 
         __IOHIDPointerEventTranslatorCreateSysdefineEvent (translator, &context);
 
-        __IOHIDPointerEventTranslatorCreateMouseUpDownEvent (translator, &context);
+        __IOHIDPointerEventTranslatorCreateMouseUpDownEvent (translator, &context, pointerEvent);
     
     }
-  }
-  if (pointerEvent) {
+    
     translatedEvent = __IOHIDPointerEventTranslatorCreateMouseMoveEvent (translator, &context, pointerEvent);
     if (translatedEvent) {
       CFArrayAppendValue(eventCollection, translatedEvent);
       CFRelease(translatedEvent);
     }
+  
     if (IOHIDEventIsAbsolute(pointerEvent)) {
       context.serviceRecord->lastAbsoluteX = IOHIDEventGetFloatValue (pointerEvent, kIOHIDEventFieldPointerX);
       context.serviceRecord->lastAbsoluteY = IOHIDEventGetFloatValue (pointerEvent, kIOHIDEventFieldPointerY);
@@ -599,7 +606,7 @@ void __IOHIDPointerEventTranslatorCreateSysdefineEvent (IOHIDPointerEventTransla
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDPointerEventTranslatorCreateMouseUpDownEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDPointerEventTranslatorCreateMouseUpDownEvent (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context) {
+void __IOHIDPointerEventTranslatorCreateMouseUpDownEvent (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context, IOHIDEventRef pointerEvent) {
 
   uint32_t      changedButtons;
   uint32_t      buttons;
@@ -620,7 +627,13 @@ void __IOHIDPointerEventTranslatorCreateMouseUpDownEvent (IOHIDPointerEventTrans
   if (context->serviceRecord->isMultiTouchService) {
     nxEvent.payload.data.mouse.subType = NX_SUBTYPE_MOUSE_TOUCH;
   }
-  
+
+  if (IOHIDEventIsAbsolute(pointerEvent)) {
+    *((float*)&nxEvent.payload.location.x) = (float)IOHIDEventGetFloatValue (pointerEvent, kIOHIDEventFieldPointerX);
+    *((float*)&nxEvent.payload.location.y) = (float)IOHIDEventGetFloatValue (pointerEvent, kIOHIDEventFieldPointerY);
+    nxEvent.extension.flags = NX_EVENT_EXTENSION_LOCATION_TYPE_FLOAT | NX_EVENT_EXTENSION_LOCATION_DEVICE_SCALED;
+  }
+
   if (changedButtons & 1) {
     if (buttons & 1) {
       nxEvent.payload.type = NX_LMOUSEDOWN;
@@ -684,14 +697,34 @@ IOHIDEventRef __IOHIDPointerEventTranslatorCreateScrollEvent (IOHIDPointerEventT
   double dy = IOHIDEventGetFloatValue (scrollEvent, kIOHIDEventFieldScrollY);
   double dz = IOHIDEventGetFloatValue (scrollEvent, kIOHIDEventFieldScrollZ);
   
-  
-  nxEvent.payload.data.scrollWheel.deltaAxis1 = (SInt16)round(dy);
-  nxEvent.payload.data.scrollWheel.deltaAxis2 = (SInt16)round(dx);
-  nxEvent.payload.data.scrollWheel.deltaAxis3 = (SInt16)round(dz);
+  translator->deltaAxisX += dx;
+  translator->deltaAxisY += dy;
+  translator->deltaAxisZ += dz;
 
-  nxEvent.payload.data.scrollWheel.fixedDeltaAxis1 = (SInt32)(dy * 65536);
-  nxEvent.payload.data.scrollWheel.fixedDeltaAxis2 = (SInt32)(dx * 65536);
-  nxEvent.payload.data.scrollWheel.fixedDeltaAxis3 = (SInt32)(dz * 65536);
+  translator->fixedAxisX += dx;
+  translator->fixedAxisY += dy;
+  translator->fixedAxisZ += dz;
+  
+  nxEvent.payload.data.scrollWheel.deltaAxis1 = (SInt16)translator->deltaAxisY;
+  if (nxEvent.payload.data.scrollWheel.deltaAxis1) {
+    nxEvent.payload.data.scrollWheel.fixedDeltaAxis1 = (SInt32)(translator->fixedAxisY * 65536);
+    translator->fixedAxisY  = 0;
+    translator->deltaAxisY -= nxEvent.payload.data.scrollWheel.deltaAxis1;
+  }
+
+  nxEvent.payload.data.scrollWheel.deltaAxis2 = (SInt16)translator->deltaAxisX;
+  if (nxEvent.payload.data.scrollWheel.deltaAxis2) {
+    nxEvent.payload.data.scrollWheel.fixedDeltaAxis2 = (SInt32)(translator->fixedAxisX * 65536);
+    translator->fixedAxisX  = 0;
+    translator->deltaAxisX -= nxEvent.payload.data.scrollWheel.deltaAxis2;
+  }
+
+  nxEvent.payload.data.scrollWheel.deltaAxis3 = (SInt16)translator->deltaAxisZ;
+  if (nxEvent.payload.data.scrollWheel.deltaAxis3) {
+    nxEvent.payload.data.scrollWheel.fixedDeltaAxis3 = (SInt32)(translator->fixedAxisZ * 65536);
+    translator->fixedAxisZ  = 0;
+    translator->deltaAxisZ -= nxEvent.payload.data.scrollWheel.deltaAxis3;
+  }
 
   nxEvent.payload.data.scrollWheel.pointDeltaAxis1 =  dy < 0 ? floor(dy*10) : ceil(dy*10);
   nxEvent.payload.data.scrollWheel.pointDeltaAxis2 =  dx < 0 ? floor(dx*10) : ceil(dx*10);

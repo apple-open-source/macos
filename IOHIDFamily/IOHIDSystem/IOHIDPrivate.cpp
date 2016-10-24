@@ -35,3 +35,10 @@ uint32_t _GetGlobalEventFlags () {
     }
     return hidSystem->eventFlags();
 }
+
+void _sleepDisplayTickle () {
+    IOHIDSystem *           hidSystem  = IOHIDSystem::instance();
+    if (hidSystem) {
+        hidSystem->sleepDisplayTickle();
+    }
+}

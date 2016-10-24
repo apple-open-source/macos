@@ -33,7 +33,8 @@ struct _process_s {
     
     mach_port_t bootstrap;
     
-    bool appleSigned;
+    bool appStoreSigned;
+	bool firstPartySigned;
 };
 
 static void
@@ -182,14 +183,20 @@ process_create(const audit_info_s * auditInfo, session_t session)
     }
 
     // This is the clownfish supported way to check for a Mac App Store or B&I signed build
-    CFStringRef requirementString = CFSTR("(anchor apple) or (anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9])");
+	// AppStore apps must have resource envelope 2. Check with spctl -a -t exec -vv <path>
+    CFStringRef firstPartyRequirement = CFSTR("anchor apple");
+	CFStringRef appStoreRequirement = CFSTR("anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9] exists");
     SecRequirementRef  secRequirementRef = NULL;
-    status = SecRequirementCreateWithString(requirementString, kSecCSDefaultFlags, &secRequirementRef);
+    status = SecRequirementCreateWithString(firstPartyRequirement, kSecCSDefaultFlags, &secRequirementRef);
     if (status == errSecSuccess) {
-        proc->appleSigned = process_verify_requirment(proc, secRequirementRef);
+        proc->firstPartySigned = process_verify_requirement(proc, secRequirementRef);
+		CFReleaseNull(secRequirementRef);
     }
-    CFReleaseSafe(secRequirementRef);
-
+	status = SecRequirementCreateWithString(appStoreRequirement, kSecCSDefaultFlags, &secRequirementRef);
+	if (status == errSecSuccess) {
+		proc->appStoreSigned = process_verify_requirement(proc, secRequirementRef);
+		CFReleaseSafe(secRequirementRef);
+	}
     LOGV("process[%i]: created (sid=%i) %s %p", proc->auditInfo.pid, proc->auditInfo.asid, proc->code_url, proc);
 
 done:
@@ -456,7 +463,7 @@ process_get_requirement(process_t proc)
     return proc->code_requirement;
 }
 
-bool process_verify_requirment(process_t proc, SecRequirementRef requirment)
+bool process_verify_requirement(process_t proc, SecRequirementRef requirment)
 {
     OSStatus status = SecCodeCheckValidity(proc->codeRef, kSecCSDefaultFlags, requirment);
     if (status != errSecSuccess) {
@@ -467,7 +474,12 @@ bool process_verify_requirment(process_t proc, SecRequirementRef requirment)
 
 // Returns true if the process was signed by B&I or the Mac App Store
 bool process_apple_signed(process_t proc) {
-    return proc->appleSigned;
+    return (proc->firstPartySigned || proc->appStoreSigned);
+}
+
+// Returns true if the process was signed by B&I
+bool process_firstparty_signed(process_t proc) {
+	return proc->firstPartySigned;
 }
 
 mach_port_t process_get_bootstrap(process_t proc)

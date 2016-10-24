@@ -139,7 +139,7 @@
 
 //
 //
-#define kIOHIDMouseClickNotification    "HIDClickNotification"
+#define kIOHIDResetStickyKeyNotification    "HIDResetStickyKeyNotification"
 
 // if kIOHIDMouseKeysOptionTogglesKey is 1, then a sequence of five
 // option keys in sequence will toggle mouse keys on or off
@@ -162,6 +162,7 @@
 
 // Parametric Acceleration Keys
 #define kHIDAccelParametricCurvesKey            "HIDAccelCurves"
+#define kHIDPointerReportRateKey                "HIDPointerReportRate"
 #define kHIDTrackingAccelParametricCurvesKey    "HIDTrackingAccelCurves"
 #define kHIDScrollAccelParametricCurvesKey      "HIDScrollAccelCurves"
 #define kHIDAccelParametricCurvesDebugKey       "HIDAccelCurvesDebug"

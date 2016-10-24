@@ -1,0 +1,9 @@
+
+# /
+/build
+
+# /IOKitUser.xcodeproj/
+/IOKitUser.xcodeproj/*.pbxuser
+/IOKitUser.xcodeproj/*.mode1v3
+IOKitUser.xcodeproj/project.xcworkspace
+IOKitUser.xcodeproj/xcuserdata

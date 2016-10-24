@@ -46,12 +46,18 @@ class PlatformMediaSessionManager : private RemoteCommandListenerClient, private
 public:
     WEBCORE_EXPORT static PlatformMediaSessionManager* sharedManagerIfExists();
     WEBCORE_EXPORT static PlatformMediaSessionManager& sharedManager();
+
+    static void updateNowPlayingInfoIfNecessary();
+
     virtual ~PlatformMediaSessionManager() { }
 
+    virtual void scheduleUpdateNowPlayingInfo() { }
     bool has(PlatformMediaSession::MediaType) const;
     int count(PlatformMediaSession::MediaType) const;
     bool activeAudioSessionRequired() const;
     bool canProduceAudio() const;
+
+    WEBCORE_EXPORT virtual bool hasActiveNowPlayingSession() const { return false; }
 
     bool willIgnoreSystemInterruptions() const { return m_willIgnoreSystemInterruptions; }
     void setWillIgnoreSystemInterruptions(bool ignore) { m_willIgnoreSystemInterruptions = ignore; }
@@ -82,6 +88,7 @@ public:
     virtual bool sessionWillBeginPlayback(PlatformMediaSession&);
     virtual void sessionWillEndPlayback(PlatformMediaSession&);
     virtual bool sessionCanLoadMedia(const PlatformMediaSession&) const;
+    virtual void sessionDidEndRemoteScrubbing(const PlatformMediaSession&) { };
     virtual void clientCharacteristicsChanged(PlatformMediaSession&) { }
 
 #if PLATFORM(IOS)
@@ -90,9 +97,9 @@ public:
 #endif
 
     void setCurrentSession(PlatformMediaSession&);
-    PlatformMediaSession* currentSession();
+    PlatformMediaSession* currentSession() const;
 
-    PlatformMediaSession* currentSessionMatching(std::function<bool(const PlatformMediaSession&)>);
+    Vector<PlatformMediaSession*> currentSessionsMatching(std::function<bool(const PlatformMediaSession&)>);
 
     void sessionIsPlayingToWirelessPlaybackTargetChanged(PlatformMediaSession&);
     void sessionCanProduceAudioChanged(PlatformMediaSession&);
@@ -112,7 +119,8 @@ private:
     void updateSessionState();
 
     // RemoteCommandListenerClient
-    WEBCORE_EXPORT void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType) override;
+    WEBCORE_EXPORT void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument*) override;
+    WEBCORE_EXPORT bool supportsSeeking() const override;
 
     // AudioHardwareListenerClient
     void audioHardwareDidBecomeActive() override { }

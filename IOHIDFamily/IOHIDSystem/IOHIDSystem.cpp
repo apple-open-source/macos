@@ -419,6 +419,7 @@ bool IOHIDSystem::init(OSDictionary * properties)
     AbsoluteTime_to_scalar(&displayStateChangeDeadline) = 0;
     AbsoluteTime_to_scalar(&displaySleepWakeupDeadline) = 0;
     AbsoluteTime_to_scalar(&gIOHIDZeroAbsoluteTime) = 0;
+    powerState        = 0;
 
     nanoseconds_to_absolutetime(kIOHIDPowerOnThresholdNS, &gIOHIDPowerOnThresoldAbsoluteTime);
     nanoseconds_to_absolutetime(kIOHIDDispaySleepAbortThresholdNS, &gIOHIDDisplaySleepAbortThresholdAbsoluteTime);
@@ -535,7 +536,7 @@ bool IOHIDSystem::start(IOService * provider)
     if (rootDomain)
         rootDomain->registerInterestedDriver(this);
     
-    //registerPrioritySleepWakeInterest(powerStateHandler, this, 0);
+    registerPrioritySleepWakeInterest(powerStateHandler, this, 0);
         
     _displayWranglerMatching = addMatchingNotification(gIOPublishNotification,
                                                        matchingWrangler,
@@ -566,6 +567,23 @@ exit_early:
         evInstance = 0;
     
     return iWasStarted;
+}
+
+void IOHIDSystem::updatePowerState(UInt32 messageType)
+{
+    powerState = messageType;
+}
+
+IOReturn IOHIDSystem::powerStateHandler( void *target, void *refCon __unused,
+                        UInt32 messageType, IOService *service __unused, void *messageArgs __unused, vm_size_t argSize __unused)
+{
+    IOHIDSystem*  myThis = OSDynamicCast( IOHIDSystem, (OSObject*)target );
+    
+    if (messageType != kIOMessageSystemCapabilityChange) {
+        myThis->updatePowerState(messageType);
+    }
+    
+    return kIOReturnSuccess;
 }
 
 // powerStateDidChangeTo
@@ -1446,6 +1464,13 @@ void IOHIDSystem::initShmem(bool clean)
 UInt32 IOHIDSystem::eventFlags()
 {
     return evg ? (evg->eventFlags) : 0;
+}
+
+void IOHIDSystem::sleepDisplayTickle()
+{
+    if (powerState == kIOMessageSystemWillSleep) {
+        TICKLE_DISPLAY(kIOHIDEventTypeKeyboard);
+    }
 }
 
 void IOHIDSystem::dispatchEvent(IOHIDEvent *event, IOOptionBits options __unused)
@@ -3708,17 +3733,15 @@ IOReturn IOHIDSystem::setProperties( OSObject * properties )
             if (num = OSDynamicCast( OSNumber, tickleType)) {
                 type = num->unsigned32BitValue();
             }
-            displayManager->activityTickle(type);
-            dict->removeObject("DisplayTickle");
+            if (displayManager) {
+                displayManager->activityTickle(type);
+            }
             return ret;
         }
         OSNumber *modifiersValue =  OSDynamicCast( OSNumber, dict->getObject(kIOHIDKeyboardGlobalModifiersKey));
         if (modifiersValue) {
             updateEventFlags (modifiersValue->unsigned32BitValue());
-            dict->removeObject(kIOHIDKeyboardGlobalModifiersKey);
-            if (dict->getCount() == 0) {
-                return ret;
-            }
+            return ret;
         }
         OSDictionary *paramDict = OSDynamicCast( OSDictionary, dict->getObject(kIOHIDParametersKey));
         if (paramDict) {

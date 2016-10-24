@@ -24,6 +24,7 @@ ONE_TEST(si_24_sectrust_nist)
 ONE_TEST(si_24_sectrust_diginotar)
 ONE_TEST(si_24_sectrust_digicert_malaysia)
 ONE_TEST(si_24_sectrust_passbook)
+ONE_TEST(si_25_cms_skid)
 ONE_TEST(si_26_sectrust_copyproperties)
 ONE_TEST(si_27_sectrust_exceptions)
 ONE_TEST(si_28_sectrustsettings)
@@ -33,8 +34,10 @@ ONE_TEST(si_44_seckey_ec)
 ONE_TEST(si_44_seckey_ies)
 #if !TARGET_OS_WATCH
 ONE_TEST(si_67_sectrust_blacklist)
+ONE_TEST(si_84_sectrust_allowlist)
 #else
 DISABLED_ONE_TEST(si_67_sectrust_blacklist)
+DISABLED_ONE_TEST(si_84_sectrust_allowlist)
 #endif
 ONE_TEST(si_70_sectrust_unified)
 ONE_TEST(si_71_mobile_store_policy)

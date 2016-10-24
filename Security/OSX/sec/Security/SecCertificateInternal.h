@@ -329,7 +329,7 @@ OSStatus SecCertificateParseGeneralNameContentProperty(DERTag tag,
 OSStatus SecCertificateParseGeneralNames(const DERItem *generalNames, void *context,
                                          parseGeneralNameCallback callback);
 
-bool SecCertificateIsWeak(SecCertificateRef certificate);
+bool SecCertificateIsWeakKey(SecCertificateRef certificate);
 bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,
                                        CFDictionaryRef keySizes);
 
@@ -342,6 +342,8 @@ extern const CFStringRef kSecSignatureDigestAlgorithmSHA224;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA256;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA384;
 extern const CFStringRef kSecSignatureDigestAlgorithmSHA512;
+
+bool SecCertificateIsWeakHash(SecCertificateRef certificate);
 
 CFDataRef SecCertificateCreateOidDataFromString(CFAllocatorRef allocator, CFStringRef string);
 bool SecCertificateIsOidString(CFStringRef oid);

@@ -412,7 +412,7 @@ static inline long object_common1(UNSERIALIZE_PARAMETER, zend_class_entry *ce)
 	elements = parse_iv2((*p) + 2, p);
 
 	(*p) += 2;
-	
+
 	if (ce->serialize == NULL) {
 		object_init_ex(*rval, ce);
 	} else {
@@ -438,8 +438,17 @@ static inline int object_common2(UNSERIALIZE_PARAMETER, long elements)
 	}
 
 	if (!process_nested_data(UNSERIALIZE_PASSTHRU, Z_OBJPROP_PP(rval), elements, 1)) {
+	    /* We've got partially constructed object on our hands here. Wipe it. */
+	    if(Z_TYPE_PP(rval) == IS_OBJECT) {
+	       zend_hash_clean(Z_OBJPROP_PP(rval));
+	    }
+	    ZVAL_NULL(*rval);
 		return 0;
 	}
+
+    if (Z_TYPE_PP(rval) != IS_OBJECT) {
+        return 0;
+    }
 
 	if (Z_OBJCE_PP(rval) != PHP_IC_ENTRY &&
 		zend_hash_exists(&Z_OBJCE_PP(rval)->function_table, "__wakeup", sizeof("__wakeup"))) {

@@ -313,9 +313,9 @@ static Optional<PaymentRequest::MerchantCapabilities> createMerchantCapabilities
     return result;
 }
 
-static Optional<PaymentRequest::SupportedNetworks> createSupportedNetworks(DOMWindow& window, const ArrayValue& supportedNetworksArray)
+static Optional<Vector<String>> createSupportedNetworks(unsigned version, DOMWindow& window, const ArrayValue& supportedNetworksArray)
 {
-    PaymentRequest::SupportedNetworks result;
+    Vector<String> result;
 
     size_t supportedNetworksCount;
     if (!supportedNetworksArray.length(supportedNetworksCount))
@@ -326,25 +326,13 @@ static Optional<PaymentRequest::SupportedNetworks> createSupportedNetworks(DOMWi
         if (!supportedNetworksArray.get(i, supportedNetwork))
             return Nullopt;
 
-        if (supportedNetwork == "amex")
-            result.amex = true;
-        else if (supportedNetwork == "chinaUnionPay")
-            result.chinaUnionPay = true;
-        else if (supportedNetwork == "discover")
-            result.discover = true;
-        else if (supportedNetwork == "interac")
-            result.interac = true;
-        else if (supportedNetwork == "masterCard")
-            result.masterCard = true;
-        else if (supportedNetwork == "privateLabel")
-            result.privateLabel = true;
-        else if (supportedNetwork == "visa")
-            result.visa = true;
-        else {
+        if (!PaymentRequest::isValidSupportedNetwork(version, supportedNetwork)) {
             auto message = makeString("\"" + supportedNetwork, "\" is not a valid payment network.");
             window.printErrorMessage(message);
             return Nullopt;
         }
+
+        result.append(WTFMove(supportedNetwork));
     }
 
     return result;
@@ -482,7 +470,7 @@ static bool isValidPaymentRequestPropertyName(const String& propertyName)
     return false;
 }
 
-static Optional<PaymentRequest> createPaymentRequest(DOMWindow& window, const Dictionary& dictionary)
+static Optional<PaymentRequest> createPaymentRequest(unsigned version, DOMWindow& window, const Dictionary& dictionary)
 {
     PaymentRequest paymentRequest;
 
@@ -516,7 +504,7 @@ static Optional<PaymentRequest> createPaymentRequest(DOMWindow& window, const Di
     }
 
     if (auto supportedNetworksArray = dictionary.get<ArrayValue>("supportedNetworks")) {
-        auto supportedNetworks = createSupportedNetworks(window, *supportedNetworksArray);
+        auto supportedNetworks = createSupportedNetworks(version, window, *supportedNetworksArray);
         if (!supportedNetworks)
             return Nullopt;
 
@@ -672,7 +660,7 @@ RefPtr<ApplePaySession> ApplePaySession::create(Document& document, unsigned ver
         return nullptr;
     }
 
-    auto paymentRequest = createPaymentRequest(window, dictionary);
+    auto paymentRequest = createPaymentRequest(version, window, dictionary);
     if (!paymentRequest) {
         ec = TYPE_MISMATCH_ERR;
         return nullptr;
@@ -771,6 +759,31 @@ void ApplePaySession::canMakePaymentsWithActiveCard(ScriptExecutionContext& scri
 
     paymentCoordinator.canMakePaymentsWithActiveCard(merchantIdentifier, document.domain(), [promise](bool canMakePayments) mutable {
         promise.resolve(canMakePayments);
+    });
+}
+
+void ApplePaySession::openPaymentSetup(ScriptExecutionContext& scriptExecutionContext, const String& merchantIdentifier, DeferredWrapper&& promise, ExceptionCode& ec)
+{
+    auto& document = downcast<Document>(scriptExecutionContext);
+    DOMWindow& window = *document.domWindow();
+
+    String errorMessage;
+    if (!canCallApplePaySessionAPIs(document, errorMessage)) {
+        window.printErrorMessage(errorMessage);
+        ec = INVALID_ACCESS_ERR;
+        return;
+    }
+
+    if (!ScriptController::processingUserGesture()) {
+        window.printErrorMessage("Must call ApplePaySession.openPaymentSetup from a user gesture handler.");
+        ec = INVALID_ACCESS_ERR;
+        return;
+    }
+
+    auto& paymentCoordinator = document.frame()->mainFrame().paymentCoordinator();
+
+    paymentCoordinator.openPaymentSetup(merchantIdentifier, document.domain(), [promise](bool result) mutable {
+        promise.resolve(result);
     });
 }
 

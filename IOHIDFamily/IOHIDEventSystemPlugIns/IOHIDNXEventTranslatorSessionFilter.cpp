@@ -246,6 +246,10 @@ void IOHIDNXEventTranslatorSessionFilter::registerService(IOHIDServiceRef servic
         _keyboards.SetValue(service);
     }
     
+    if (IOHIDServiceConformsTo(service, kHIDPage_AppleVendor, kHIDUsage_AppleVendor_DFR)) {
+        _dfr = service;
+    }
+    
     if (_modifiers) {
         CFNumberRefWrap modifiersMask (IOHIDServiceCopyProperty (service, CFSTR(kHIDEventTranslationModifierFlags)), true);
         if (modifiersMask) {
@@ -293,6 +297,10 @@ void IOHIDNXEventTranslatorSessionFilter::unregisterService(IOHIDServiceRef serv
 {
     if (_keyboards) {
         _keyboards.RemoveValue(service);
+    }
+    
+    if (service == _dfr) {
+        _dfr = NULL;
     }
   
     if (_updateModifiers) {
@@ -410,7 +418,7 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
         return event;
     }
     
-    if (!displayStateFilter (event)) {
+    if (!displayStateFilter (sender, event)) {
         CFRelease(event);
         return NULL;
     }
@@ -419,7 +427,11 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
         CFRelease(event);
         return NULL;
     }
-  
+    
+    if (!sender) {
+        return event;
+    }
+    
     if (IOHIDEventConformsTo(event, kIOHIDEventTypeKeyboard) && _modifiers.ContainKey(sender)) {
         CFArrayRefWrap childrens (IOHIDEventGetChildren(event));
         if (childrens.Reference()) {
@@ -428,7 +440,7 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
                 if (childEvent && IOHIDEventGetType(childEvent) == kIOHIDEventTypeVendorDefined &&
                     IOHIDEventGetIntegerValue(childEvent, kIOHIDEventFieldVendorDefinedUsagePage) == kHIDPage_AppleVendor &&
                     IOHIDEventGetIntegerValue(childEvent, kIOHIDEventFieldVendorDefinedUsage) == kHIDUsage_AppleVendor_NXEvent_Translated) {
-
+                    
                     if (_companions) {
                         IOHIDServiceRef companion = (IOHIDServiceRef)_companions[sender];
                         if (companion) {
@@ -438,14 +450,14 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
                             }
                         }
                     }
-                  
+                    
                     if (_updateModifiers.ContainValue(sender)) {
                         IOHIDKeyboardEventTranslatorUpdateWithCompanionModifiers (childEvent, _globalModifiers);
                     }
                 }
             }
         }
-
+        
         CFNumberRefWrap currentServiceModifiers ((CFNumberRef)IOHIDServiceCopyProperty (sender, CFSTR(kHIDEventTranslationModifierFlags)), true);
         CFNumberRefWrap cachedServiceModifiers ((CFNumberRef)_modifiers[sender]);
         if (currentServiceModifiers && cachedServiceModifiers && currentServiceModifiers != cachedServiceModifiers) {
@@ -453,34 +465,47 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
             updateModifiers();
         }
     }
-  
+    
     if (_translator &&
         (IOHIDEventGetType(event) == kIOHIDEventTypePointer ||
          IOHIDEventGetType(event) == kIOHIDEventTypeScroll  ||
          (IOHIDEventGetType(event) == kIOHIDEventTypeVendorDefined &&
-         IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsage) == kHIDUsage_AppleVendor_NXEvent
-        ))) {
-      CFArrayRef collection = IOHIDPointerEventTranslatorCreateEventCollection (_translator, event, sender, _globalModifiers, 0);
-      if (collection) {
-        for (CFIndex index = 0; index < CFArrayGetCount(collection); index++) {
-          IOHIDEventRef translatedEvent = (IOHIDEventRef)CFArrayGetValueAtIndex(collection, index);
-          if (translatedEvent) {
-            IOHIDEventAppendEvent(event, translatedEvent, 0);
-          }
+          IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsage) == kHIDUsage_AppleVendor_NXEvent
+          ))) {
+        CFArrayRef collection = IOHIDPointerEventTranslatorCreateEventCollection (_translator, event, sender, _globalModifiers, 0);
+        if (collection) {
+            for (CFIndex index = 0; index < CFArrayGetCount(collection); index++) {
+                IOHIDEventRef translatedEvent = (IOHIDEventRef)CFArrayGetValueAtIndex(collection, index);
+                if (translatedEvent) {
+                    IOHIDEventAppendEvent(event, translatedEvent, 0);
+                }
+            }
+            CFRelease(collection);
         }
-        CFRelease(collection);
-      }
     }
-  
-    if (IOHIDEventConformsTo(event, kIOHIDEventTypeButton)) {
-      IOHIDEventRef buttonEvent = IOHIDEventGetEvent(event, kIOHIDEventTypeButton);
-      if (IOHIDEventGetIntegerValue (buttonEvent, kIOHIDEventFieldButtonState)) {
+    
+    if (resetStickyKeys(event)) {
         dispatch_async(_dispatch_queue, ^() {
-            _keyboards.Apply ([this](const void *value) {
-                IOHIDServiceSetProperty((IOHIDServiceRef)value, CFSTR(kIOHIDMouseClickNotification), kCFBooleanTrue);
+            _keyboards.Apply ([sender](const void *value) {
+                if (sender != (IOHIDServiceRef)value) {
+                    IOHIDServiceSetProperty((IOHIDServiceRef)value, CFSTR(kIOHIDResetStickyKeyNotification), kCFBooleanTrue);
+                }
             });
         });
-      }
+    }
+    
+    return event;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDNXEventTranslatorSessionFilter::resetStickyKeys
+//------------------------------------------------------------------------------
+boolean_t IOHIDNXEventTranslatorSessionFilter::resetStickyKeys(IOHIDEventRef event) {
+    if (IOHIDEventConformsTo(event, kIOHIDEventTypeButton)) {
+        IOHIDEventRef buttonEvent = IOHIDEventGetEvent(event, kIOHIDEventTypeButton);
+        if (IOHIDEventGetIntegerValue(buttonEvent, kIOHIDEventFieldButtonState)) {
+            return true;
+        }
     }
     
     if (IOHIDEventConformsTo(event, kIOHIDEventTypeVendorDefined)) {
@@ -493,19 +518,21 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
                 if (nxEvent->payload.type == NX_LMOUSEDOWN ||
                     nxEvent->payload.type == NX_RMOUSEDOWN ||
                     nxEvent->payload.type == NX_OMOUSEDOWN) {
-                    dispatch_async(_dispatch_queue, ^() {
-                        _keyboards.Apply ([this](const void *value) {
-                            IOHIDServiceSetProperty((IOHIDServiceRef)value, CFSTR(kIOHIDMouseClickNotification), kCFBooleanTrue);
-                        });
-                    });
+                    return true;
                 }
             }
         }
     }
     
-    return event;
+    if (IOHIDEventConformsTo(event, kIOHIDEventTypeKeyboard)) {
+        IOHIDEventRef ev = IOHIDEventGetEvent(event, kIOHIDEventTypeKeyboard);
+        if (IOHIDEventGetIntegerValue(ev, kIOHIDEventFieldKeyboardDown)) {
+            return true;
+        }
+    }
+    
+    return false;
 }
-
 
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::getPropertyForClient
@@ -671,7 +698,7 @@ IOPMAssertionID IOHIDNXEventTranslatorSessionFilter::_AssertionID = 0;
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::displayStateFilter
 //------------------------------------------------------------------------------
-IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDEventRef  event) {
+IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServiceRef sender, IOHIDEventRef  event) {
     
     __block IOHIDEventPolicyValue policy = IOHIDEventGetPolicy(event, kIOHIDEventPowerPolicy);
     IOHIDEventRef result = event;
@@ -682,7 +709,10 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDEven
     
     HIDLogDebug ("displayStateFilter: policy:%llu, display state:0x%x, duration since last state change:%lldms\n", policy, _displayState, deltaMS);
     
-    if (policy == kIOHIDEventPowerPolicyMaintainSystem && _displayState < kPMDisplayDim && deltaMS > _displaySleepAbortThreshold) {
+    if (policy == kIOHIDEventPowerPolicyMaintainSystem &&
+        _displayState < kPMDisplayDim &&
+        deltaMS > _displaySleepAbortThreshold &&
+        sender != _dfr) {
         policy = kIOHIDEventNoPolicy;
         HIDLogDebug ("displayStateFilter: upgrade policy to %llu", policy);
     }
@@ -707,11 +737,10 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDEven
             if (tempDuration > _maxDisplayTickleDuration) {
                 _maxDisplayTickleDuration = tempDuration;
             }
-          
-            // Log display wakes
-            if (_displayState < kPMDisplayDim) {
-                updateDisplayLog(senderID);
-            }
+        }
+        // Log display wakes
+        if (_displayState < kPMDisplayDim) {
+            updateDisplayLog(senderID, policy, eventType);
         }
         dispatch_async(dispatch_get_main_queue(), ^() {
             if (policy == kIOHIDEventPowerPolicyWakeSystem || policy == kIOHIDEventPowerPolicyMaintainSystem) {
@@ -755,8 +784,8 @@ boolean_t IOHIDNXEventTranslatorSessionFilter::shouldCancelEvent (IOHIDEventRef 
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::updateDisplayLog
 //------------------------------------------------------------------------------
-void IOHIDNXEventTranslatorSessionFilter::updateDisplayLog (IOHIDEventSenderID serviceID) {
-    LogEntry entry = { _displayTickleTime, serviceID };
+void IOHIDNXEventTranslatorSessionFilter::updateDisplayLog (IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType) {
+    LogEntry entry = { clock::now(), serviceID, policy, eventType };
   
     if (_displayLog.size() == LOG_MAX_ENTRIES) {
         _displayLog.pop();
@@ -801,8 +830,9 @@ void IOHIDNXEventTranslatorSessionFilter::powerNotificationCallback (void * refc
      static_cast<IOHIDNXEventTranslatorSessionFilter *>(refcon)->powerNotificationCallback(service, messageType, messageArgument);
 }
 
-void IOHIDNXEventTranslatorSessionFilter::powerNotificationCallback (io_service_t service __unused, uint32_t messageType, void * messageArgument __unused) {
+void IOHIDNXEventTranslatorSessionFilter::powerNotificationCallback (io_service_t service __unused, uint32_t messageType, void * messageArgument) {
     switch (messageType) {
+    case    kIOMessageCanSystemSleep:
     case    kIOMessageSystemWillSleep:
         IOAllowPowerChange (_powerConnect, (long)messageArgument);
     default:
@@ -841,7 +871,6 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
     CFMutableDictionaryRefWrap serializer (dict);
     serializer.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDNXEventTranslatorSessionFilter"));
     serializer.SetValueForKey(CFSTR("CanceledEventCount"), CFNumberRefWrap(_powerOnThresholdEventCount));
-    serializer.SetValueForKey(CFSTR("DisplayTickleTime"), timePointToTimeString(_displayTickleTime));
     serializer.SetValueForKey(CFSTR("DisplayPowerStateChangeTime"), timePointToTimeString(_displayStateChangeTime));
     serializer.SetValueForKey(CFSTR("DisplayPowerState"), CFNumberRefWrap(_displayState));
     serializer.SetValueForKey(CFSTR("SystemPowerStateChangeTime"), timePointToTimeString(_powerStateChangeTime));
@@ -880,8 +909,10 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
         LogEntry entry = tmpLog.front();
         tmpLog.pop();
         
-        log.SetValueForKey(CFSTR("Time"), timePointToTimeString(entry.displayTime));
+        log.SetValueForKey(CFSTR("Time"), timePointToTimeString(entry.time));
         log.SetValueForKey(CFSTR("ServiceID"), CFNumberRefWrap(entry.serviceID));
+        log.SetValueForKey(CFSTR("Policy"), CFNumberRefWrap(entry.policy));
+        log.SetValueForKey(CFSTR("EventType"), CFNumberRefWrap(entry.eventType));
         displayLog.Append(log);
     }
     

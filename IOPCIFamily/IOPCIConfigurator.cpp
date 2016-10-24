@@ -1427,11 +1427,6 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t re
     bool     			bootDefer = false;
     UInt8               scanDevice, scanFunction, lastFunction;
 	uint32_t            linkStatus;
-	enum
-	{
-		kLinkCapDataLinkLayerActiveReportingCapable = (1 << 20),
-		kLinkStatusDataLinkLayerLinkActive 			= (1 << 13)
-	};
 
 	space.bits = 0;
 	space.s.busNum = busNum;
@@ -1850,12 +1845,6 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 	{
 		if (child->isBridge)
 		{
-			enum
-			{
-				kLinkCapDataLinkLayerActiveReportingCapable = (1 << 20),
-				kLinkStatusDataLinkLayerLinkActive 			= (1 << 13),
-				kSlotCapHotplug					 			= (1 << 6)
-			};
 			uint32_t expressCaps, linkCaps, linkControl, slotCaps = kSlotCapHotplug;
 		
 			expressCaps = configRead16(child, child->expressCapBlock + 0x02);
@@ -1923,11 +1912,15 @@ uint32_t CLASS::findPCICapability(IOPCIAddressSpace space,
         while (offset)
         {
             data = configRead32(space, offset);
-            if ((offset > firstOffset) && (capabilityID == (data & 0xffff)))
+            if (capabilityID == (data & 0xffff))
             {
-                if (found)
-                    *found = offset;
-                break;
+                if (!firstOffset)
+                {
+                    if (found)
+                        *found = offset;
+                    break;
+                }
+                if (offset == firstOffset) firstOffset = 0;
             }
             offset = (data >> 20) & 0xfff;
             if ((offset < 0x100) || (offset & 3))
@@ -1942,11 +1935,15 @@ uint32_t CLASS::findPCICapability(IOPCIAddressSpace space,
         while (offset)
         {
             data = configRead32(space, offset);
-            if ((offset > firstOffset) && (capabilityID == (data & 0xff)))
+            if (capabilityID == (data & 0xff))
             {
-                if (found)
-                    *found = offset;
-                break;
+                if (!firstOffset)
+                {
+                    if (found)
+                        *found = offset;
+                    break;
+                }
+                if (offset == firstOffset) firstOffset = 0;
             }
             offset = (data >> 8) & 0xff;
             if (offset & 3)
@@ -2215,8 +2212,11 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         range = device->ranges[barNum];
         IOPCIRangeInit(range, type, start, size, size);
         range->minAddress = minBARAddressDefault[type];
-    	if (clean64 && (kIOPCIConfiguratorPFM64 & fFlags))
-            range->maxAddress = 0xFFFFFFFFFFFFFFFFULL;
+        if (clean64)
+        {
+            range->flags |= kIOPCIRangeFlagBar64;
+            if (kIOPCIConfiguratorPFM64 & fFlags) range->maxAddress = 0xFFFFFFFFFFFFFFFFULL;
+        }
 #if 0
 		if ((0x91821b4b == configRead32(device->space, kIOPCIConfigVendorID))
 		 && (0x18 == barOffset))
@@ -3502,11 +3502,11 @@ void CLASS::deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMas
                 start & 0xFFFFFFFF, configRead32(device, bar));
             if (kIOPCIConfigExpansionROMBase != bar)
             {
-                start >>= 32;
-                if (start)
+                if (kIOPCIRangeFlagBar64 & range->flags)
                 {
                     rangeIndex++;
                     bar += 4;
+                    start >>= 32;
                     configWrite32(device, bar, start);
                     DLOGI("  [0x%x %s] 0x%llx, read 0x%x\n", 
                         bar, gPCIResourceTypeName[range->type],
@@ -3565,11 +3565,11 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
 				DLOGI("  [0x%x %s] 0x%llx, read 0x%x\n", 
 					bar, gPCIResourceTypeName[range->type],
 					start & 0xFFFFFFFF, configRead32(bridge, bar));
-                start >>= 32;
-                if (start)
+                if (kIOPCIRangeFlagBar64 & range->flags)
                 {
                     rangeIndex++;
                     bar += 4;
+                    start >>= 32;
                     configWrite32(bridge, bar, start);
                     DLOGI("  [0x%x %s] 0x%llx, read 0x%x\n", 
                         bar, gPCIResourceTypeName[range->type],

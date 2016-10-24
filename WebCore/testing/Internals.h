@@ -218,7 +218,7 @@ public:
     void setAutomaticTextReplacementEnabled(bool enabled, ExceptionCode&);
     void setAutomaticSpellingCorrectionEnabled(bool enabled, ExceptionCode&);
 
-    void handleAcceptedCandidate(const String& candidate, ExceptionCode&);
+    void handleAcceptedCandidate(const String& candidate, unsigned location, unsigned length, ExceptionCode&);
 
     bool isOverwriteModeEnabled(ExceptionCode&);
     void toggleOverwriteModeEnabled(ExceptionCode&);
@@ -407,7 +407,7 @@ public:
     void applicationWillEnterBackground() const;
     void setMediaSessionRestrictions(const String& mediaType, const String& restrictions, ExceptionCode&);
     void setMediaElementRestrictions(HTMLMediaElement&, const String& restrictions);
-    void postRemoteControlCommand(const String&, ExceptionCode&);
+    void postRemoteControlCommand(const String&, float argument, ExceptionCode&);
     bool elementIsBlockingDisplaySleep(HTMLMediaElement&) const;
 #endif
 

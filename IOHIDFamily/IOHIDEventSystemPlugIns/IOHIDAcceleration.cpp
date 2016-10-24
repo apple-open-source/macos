@@ -132,15 +132,32 @@ void IOHIDScrollAccelerator::serialize(CFMutableDictionaryRef dict) const {
 }
 
 
+mach_timebase_info_data_t    IOHIDPointerAccelerator::_timebase {0,0};
 
 
-bool IOHIDPointerAccelerator::accelerate (double *values, size_t length __unused,  uint64_t timestamp __unused) {
+bool IOHIDPointerAccelerator::accelerate (double *values, size_t length __unused,  uint64_t timestamp ) {
   double mult = 0.0;
   double &dx = values[0];
   double &dy = values[1];
 
-  double  velocity = floor(sqrt(pow(dx,2) + pow(dy,2)));
-  mult = _algorithm->multiplier(velocity ) / velocity;
+  double rateMultiplier = 1;
+
+  if (_rate != 0)
+  {
+    double deltaT = ((double)(timestamp - _lastTimeStamp) * _timebase.numer/ ((double)_timebase.denom)) / 1000000;
+    if (deltaT != 0) {
+      double period_ms = 1000/_rate;
+      if (deltaT < period_ms)
+        deltaT = period_ms;
+      
+      rateMultiplier = period_ms / deltaT;
+    }
+  }
+  
+  _lastTimeStamp = timestamp;
+
+  double  velocity = rateMultiplier * floor(sqrt(pow(dx,2) + pow(dy,2)));
+  mult = _algorithm->multiplier(velocity) / velocity;
 
 //  HIDLogDebug("IOHIDPointerAccelerator: mult %x\n", mult);
 

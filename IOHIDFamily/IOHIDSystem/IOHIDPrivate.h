@@ -35,6 +35,7 @@ enum {
 
 __BEGIN_DECLS
   uint32_t _GetGlobalEventFlags ();
+  void     _sleepDisplayTickle ();
 __END_DECLS
 
 #endif

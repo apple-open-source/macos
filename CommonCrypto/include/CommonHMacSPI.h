@@ -65,6 +65,12 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 /*
  * Stateless, one-shot HMAC function using digest constants
  * Output is written to caller-supplied buffer, as in CCHmacFinal().
+ 
+ *
+ * The tag must be verified by comparing the computed and expected values
+ * using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
+ * must not be used as they may be vulnerable to practical timing attacks,
+ * leading to tag forgery.
  */
 void CCHmacOneShot(
             CCDigestAlg alg,  /* kCCHmacSHA1, kCCHmacMD5 */

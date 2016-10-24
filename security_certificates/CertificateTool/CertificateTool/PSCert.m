@@ -215,6 +215,7 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
 @synthesize public_key_hash = _public_key_hash;
 @synthesize file_path = _file_path;
 @synthesize auth_key_id = _auth_key_id;
+@synthesize subj_key_id = _subj_key_id;
 @synthesize flags = _flags;
 
 
@@ -233,13 +234,18 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
 
         PSAssetFlags assetFlags = [_flags unsignedLongValue];
 
-
         SecCertificateRef certRef = SecCertificateCreateWithData(kCFAllocatorDefault, (__bridge CFDataRef)(_cert_data));
         if (NULL == certRef)
         {
             NSLog(@"Unable to create a SecCertificateRef from the cert data for file %@", filePath);
             return nil;
         }
+
+        _normalized_subject_hash = nil;
+        _public_key_hash = nil;
+        _auth_key_id = nil;
+        _subj_key_id = nil;
+        _certificate_sha256_hash = nil;
 
         _certificate_hash = [self getCertificateHash];
 
@@ -252,11 +258,6 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
                 return nil;
             }
         }
-        else
-        {
-            _normalized_subject_hash = nil;
-        }
-
 
         if ( (isGrayListed & assetFlags) || (isBlocked & assetFlags) )
         {
@@ -267,23 +268,15 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
                 return nil;
             }
         }
-        else
-        {
-            _public_key_hash = nil;
-        }
+
         if (isAllowListed & assetFlags)
         {
             _certificate_sha256_hash = [self getCertificateSHA256Hash];
-            _auth_key_id = nil;
             if (isAnchor & assetFlags)
             {
-                _auth_key_id = [self getAuthKeyIDString:certRef];
+                _auth_key_id = [self getKeyIDString:certRef forAuthKey:YES];
+                _subj_key_id = [self getKeyIDString:certRef forAuthKey:NO];
             }
-        }
-        else
-        {
-            _certificate_sha256_hash = nil;
-            _auth_key_id = nil;
         }
 
         if (NULL != certRef)
@@ -396,12 +389,12 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
 	return result;
 }
 
-- (NSString *)getAuthKeyIDString:(SecCertificateRef)cert_ref
+- (NSString *)getKeyIDString:(SecCertificateRef)cert_ref forAuthKey:(BOOL)auth_key
 {
     NSString *result = nil;
 
     SecCertificateRefP iosCertRef = NULL;
-    NSData* authKey = NULL;
+    NSData* key_data = NULL;
     CFDataRef cert_data = SecCertificateCopyData(cert_ref);
     if (NULL == cert_data)
     {
@@ -414,32 +407,34 @@ extern CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllo
 
     if (NULL != iosCertRef)
     {
-        CFDataRef temp_data = GetAuthorityKeyID(iosCertRef);
+        CFDataRef temp_data = (auth_key) ? GetAuthorityKeyID(iosCertRef) : GetSubjectKeyID(iosCertRef);
 
         if (NULL == temp_data)
         {
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
             NSLog(@"SecCertificateGetAuthorityKeyID returned NULL for %@", name);
-            if (name)
+            if (name) {
                 CFRelease(name);
+            }
             CFRelease(iosCertRef);
             return result;
         }
-        authKey = [NSData dataWithBytes:CFDataGetBytePtr(temp_data) length:CFDataGetLength(temp_data)];
+        key_data = [NSData dataWithBytes:CFDataGetBytePtr(temp_data) length:CFDataGetLength(temp_data)];
         //%%% debug-only code to verify output
         if (false) {
-            NSString *str = [[authKey toHexString] uppercaseString];
+            NSString *str = [[key_data toHexString] uppercaseString];
             CFStringRef name = SecCertificateCopySubjectSummary(cert_ref);
             NSLog(@"AuthKeyID for %@ is %@", name, str);
-            if (name)
+            if (name) {
                 CFRelease(name);
+            }
         }
         //%%%
         CFRelease(iosCertRef);
     }
 
-    if (authKey) {
-        return [[authKey toHexString] uppercaseString];
+    if (key_data) {
+        return [[key_data toHexString] uppercaseString];
     } else {
         return NULL;
     }

@@ -242,9 +242,14 @@ bool PlatformMediaSession::canReceiveRemoteControlCommands() const
     return m_client.canReceiveRemoteControlCommands();
 }
 
-void PlatformMediaSession::didReceiveRemoteControlCommand(RemoteControlCommandType command)
+void PlatformMediaSession::didReceiveRemoteControlCommand(RemoteControlCommandType command, const PlatformMediaSession::RemoteCommandArgument* argument)
 {
-    m_client.didReceiveRemoteControlCommand(command);
+    m_client.didReceiveRemoteControlCommand(command, argument);
+}
+
+bool PlatformMediaSession::supportsSeeking() const
+{
+    return m_client.supportsSeeking();
 }
 
 void PlatformMediaSession::visibilityChanged()
@@ -282,6 +287,11 @@ void PlatformMediaSession::updateClientDataBuffering()
         m_clientDataBufferingTimer.stop();
 
     m_client.setShouldBufferData(PlatformMediaSessionManager::sharedManager().sessionCanLoadMedia(*this));
+}
+
+String PlatformMediaSession::sourceApplicationIdentifier() const
+{
+    return m_client.sourceApplicationIdentifier();
 }
 
 bool PlatformMediaSession::isHidden() const

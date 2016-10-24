@@ -28,11 +28,13 @@
 #include "IOHIKeyboard.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
+#include "ev_keymap.h"
 
 typedef struct __attribute__((packed)) GenericKeyboardRpt {
     UInt8 modifiers;
     UInt8 reserved;
     UInt8 keys[6];
+    UInt8 consumerKeys[6];
 } GenericKeyboardRpt;
 
 static UInt8 gGenLEDKeyboardDesc[] = {
@@ -67,7 +69,15 @@ static UInt8 gGenLEDKeyboardDesc[] = {
     0x19, 0x00,                               //   Usage Minimum........... (0)
     0x29, 0xFF,                               //   Usage Maximum........... (255)
     0x81, 0x00,                               //   Input...................(Data, Array, Absolute)
-    0xC0,                                     // End Collection  
+    0x05, 0x0c,                               //   Usage Page (Consumer)
+    0x19, 0x00,                               //   Usage Minimum........... (0)
+    0x2A, 0xFF, 0x00,                         //   Usage Maximum........... (255)
+    0x95, 0x06,                               //   Report Count............ (6)
+    0x75, 0x08,                               //   Report Size............. (8)
+    0x15, 0x00,                               //   Logical Minimum......... (0)
+    0x26, 0xFF, 0x00,                         //   Logical Maximum......... (255)
+    0x81, 0x00,                               //   Input...................(Data, Array, Absolute)
+    0xC0,                                     // End Collection
 };
 
 static UInt8 gGenKeyboardDesc[] = {
@@ -93,10 +103,19 @@ static UInt8 gGenKeyboardDesc[] = {
     0x19, 0x00,                               //   Usage Minimum........... (0)
     0x29, 0xFF,                               //   Usage Maximum........... (255)
     0x81, 0x00,                               //   Input...................(Data, Array, Absolute)
-    0xC0,                                     // End Collection  
+    0x05, 0x0c,                               //   Usage Page (Consumer)
+    0x19, 0x00,                               //   Usage Minimum........... (0)
+    0x2A, 0xFF, 0x00,                         //   Usage Maximum........... (255)
+    0x95, 0x05,                               //   Report Count............ (5)
+    0x75, 0x08,                               //   Report Size............. (8)
+    0x15, 0x00,                               //   Logical Minimum......... (0)
+    0x26, 0xFF, 0x00,                         //   Logical Maximum......... (255)
+    0x81, 0x00,                               //   Input...................(Data, Array, Absolute)
+    0xC0,                                     // End Collection
 };
 
 extern unsigned int hid_adb_2_usb_keymap[];  //In Cosmo_USB2ADB.cpp
+extern unsigned int hid_adb_2_usb_keymap_length;
 
 #define super IOHIDDeviceShim
 
@@ -323,15 +342,20 @@ void IOHIDKeyboardEventDevice::postKeyboardEvent(UInt8 key, bool keyDown)
         
     if (!report)
         return;
-        
+  
+    if (key == 0x90 || key == 0x91) {
+        postConsumerEvent(key - 0x90 + 1, keyDown);
+        return;
+    }
+    
     // Convert ADB scan code to USB
-    if (! (usbKey = hid_adb_2_usb_keymap[key]))
+    if (key >= hid_adb_2_usb_keymap_length || !(usbKey = hid_adb_2_usb_keymap[key]))
         return;
     
     // Check if modifier
     if ((usbKey >= 0xe0) && (usbKey <= 0xe7))
     {
-	SET_MODIFIER_BIT(report->modifiers, usbKey, keyDown);
+        SET_MODIFIER_BIT(report->modifiers, usbKey, keyDown);
     }
     else
     {
@@ -356,6 +380,73 @@ void IOHIDKeyboardEventDevice::postKeyboardEvent(UInt8 key, bool keyDown)
         }
     }
         
+    handleReport(_report);
+}
+
+void IOHIDKeyboardEventDevice::postConsumerEvent(UInt8 key, bool keyDown)
+{
+    GenericKeyboardRpt *report = (GenericKeyboardRpt *)_report->getBytesNoCopy();
+    UInt8		usbKey;
+    switch (key) {
+      case NX_KEYTYPE_BRIGHTNESS_UP:
+          usbKey = kHIDUsage_Csmr_DisplayBrightnessIncrement;
+          break;
+      case NX_KEYTYPE_BRIGHTNESS_DOWN:
+          usbKey = kHIDUsage_Csmr_DisplayBrightnessDecrement;
+          break;
+      case NX_KEYTYPE_SOUND_UP:
+          usbKey = kHIDUsage_Csmr_VolumeIncrement;
+          break;
+      case NX_KEYTYPE_SOUND_DOWN:
+          usbKey = kHIDUsage_Csmr_VolumeDecrement;
+          break;
+      case NX_KEYTYPE_EJECT:
+          usbKey = kHIDUsage_Csmr_Eject;
+          break;
+      case NX_POWER_KEY:
+          usbKey = kHIDUsage_Csmr_Power;
+          break;
+      case NX_KEYTYPE_MUTE:
+          usbKey = kHIDUsage_Csmr_Mute;
+          break;
+      case NX_KEYTYPE_PLAY:
+          usbKey = kHIDUsage_Csmr_Play;
+          break;
+      case NX_KEYTYPE_NEXT:
+          usbKey = kHIDUsage_Csmr_ScanNextTrack;
+          break;
+      case NX_KEYTYPE_PREVIOUS:
+          usbKey = kHIDUsage_Csmr_ScanPreviousTrack;
+          break;
+      case NX_KEYTYPE_FAST:
+          usbKey = kHIDUsage_Csmr_FastForward;
+          break;
+      case NX_KEYTYPE_REWIND:
+          usbKey = kHIDUsage_Csmr_Rewind;
+          break;
+      default:
+          return;
+    }
+
+    for (int i=0; i< (sizeof(report->consumerKeys)); i++)
+    {                
+        if (report->consumerKeys[i] == usbKey)
+        {
+            if (keyDown) return;
+                
+            for (int j=i; j<(sizeof(report->consumerKeys) - 1); j++)
+                report->consumerKeys[j] = report->consumerKeys[j+1];
+                
+            report->consumerKeys[sizeof(report->consumerKeys) - 1] = 0;
+            break;
+        }
+            
+        else if ((report->consumerKeys[i] == 0) && keyDown)
+        {
+            report->consumerKeys[i] = usbKey;
+            break;
+        }
+    }
     handleReport(_report);
 }
 
@@ -453,13 +544,12 @@ IOReturn IOHIDKeyboardEventDevice::message(UInt32 type, IOService * provider, vo
 {
   IOReturn     status = kIOReturnSuccess;
   
-  switch (type)
-  {
-    case kIOMessageServiceIsTerminated:
-      if (provider) {
-        provider->close( this );
-      }
-      break;
+  switch (type) {
+      case kIOMessageServiceIsTerminated:
+          if (provider) {
+              provider->close( this );
+          }
+          break;
   }
   return status;
 }
@@ -480,16 +570,16 @@ void IOHIDKeyboardEventDevice::_keyboardEvent (
                                  void *     refcon __unused)
 {
   if (repeat) {
-    return;
+      return;
   }
   switch (eventType) {
-    case NX_KEYDOWN:
-    case NX_KEYUP:
-        self->postKeyboardEvent(key, eventType == NX_KEYDOWN);
-        break;
-    case NX_FLAGSCHANGED:
-        self->postFlagKeyboardEvent(flags);
-        break;
+      case NX_KEYDOWN:
+      case NX_KEYUP:
+          self->postKeyboardEvent(key, eventType == NX_KEYDOWN);
+          break;
+      case NX_FLAGSCHANGED:
+          self->postFlagKeyboardEvent(flags);
+          break;
   }
 }
 
@@ -506,7 +596,12 @@ void IOHIDKeyboardEventDevice::_keyboardSpecialEvent(
                                 void *     refcon __unused)
 {
 
-
+  switch (eventType) {
+      case NX_KEYDOWN:
+      case NX_KEYUP:
+          self->postConsumerEvent(flavor, eventType == NX_KEYDOWN);
+          break;
+  }
 }
 
 void IOHIDKeyboardEventDevice::_updateEventFlags(

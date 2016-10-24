@@ -81,6 +81,13 @@ static	CFNumberRef	S_pdns_timeout	= NULL;
 #pragma mark DNS resolver flags
 
 
+static __inline__ boolean_t
+dns_resolver_flags_all_queries(uint32_t query_flags)
+{
+	return ((query_flags & DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS) == DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS);
+}
+
+
 
 
 static uint32_t
@@ -329,6 +336,28 @@ add_supplemental(CFMutableArrayRef	resolvers,
 
 
 static void
+merge_configuration_flags(CFMutableDictionaryRef newDNS, uint32_t mergeFlags)
+{
+	uint32_t	flags;
+	CFNumberRef	num;
+
+	if (!CFDictionaryGetValueIfPresent(newDNS, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) ||
+	    !isA_CFNumber(num) ||
+	    !CFNumberGetValue(num, kCFNumberSInt32Type, &flags)) {
+		flags = 0;
+	}
+
+	flags |= mergeFlags;
+
+	num = CFNumberCreate(NULL, kCFNumberSInt32Type, &flags);
+	CFDictionarySetValue(newDNS, DNS_CONFIGURATION_FLAGS_KEY, num);
+	CFRelease(num);
+
+	return;
+}
+
+
+static void
 add_supplemental_resolvers(CFMutableArrayRef	resolvers,
 			   CFDictionaryRef	services,
 			   CFArrayRef		service_order,
@@ -362,8 +391,10 @@ add_supplemental_resolvers(CFMutableArrayRef	resolvers,
 		uint32_t		dns_resolver_flags;
 		CFStringRef		interface;
 		CFMutableDictionaryRef	newDNS		= NULL;
+		uint32_t		newFlags;
 		CFDictionaryRef		service		= (CFDictionaryRef)vals[i];
 		CFStringRef		serviceID	= (CFStringRef)keys[i];
+		Boolean			trusted		= FALSE;	// trusted config w/interface
 
 		if (!isA_CFDictionary(service)) {
 			continue;
@@ -447,30 +478,27 @@ add_supplemental_resolvers(CFMutableArrayRef	resolvers,
 				   isA_CFBoolean(val) &&
 				   CFBooleanGetValue(val)) {
 				// leave the [trusted configuration] InterfaceName in place
+				trusted = TRUE;
 			} else {
 				CFDictionaryRemoveValue(newDNS, kSCPropInterfaceName);
 			}
 		}
 
-		if (scoped_interface != NULL) {
-			uint32_t	flags;
-			CFNumberRef	num;
+		// set "supplemental" flag
+		newFlags = DNS_RESOLVER_FLAGS_SUPPLEMENTAL;
 
-			// set "scoped" configuration flag(s)
-			if (!CFDictionaryGetValueIfPresent(newDNS, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) ||
-			    !isA_CFNumber(num) ||
-			    !CFNumberGetValue(num, kCFNumberSInt32Type, &flags)) {
-				flags = 0;
-			}
-			flags |= DNS_RESOLVER_FLAGS_SCOPED;
+		if (scoped_interface != NULL) {
+			// set "scoped" configuration flag
+			newFlags |= DNS_RESOLVER_FLAGS_SCOPED;
 
 			// add "Request A/AAAA query" flag(s)
-			flags |= dns_resolver_flags;
-
-			num = CFNumberCreate(NULL, kCFNumberSInt32Type, &flags);
-			CFDictionarySetValue(newDNS, DNS_CONFIGURATION_FLAGS_KEY, num);
-			CFRelease(num);
+			newFlags |= dns_resolver_flags;
+		} else if (trusted) {
+			// use the DNS query flags from the supplemental match service
+			newFlags |= dns_resolver_flags_service(service, 0);
 		}
+
+		merge_configuration_flags(newDNS, newFlags);
 
 		// add [scoped] resolver entry
 		add_supplemental(resolvers, serviceID, newDNS, defaultOrder, (scoped_interface != NULL));
@@ -859,11 +887,10 @@ add_scoped_resolvers(CFMutableArrayRef	scoped,
 	for (i = 0; i < n_order; i++) {
 		CFDictionaryRef		dns;
 		uint32_t		dns_resolver_flags;
-		uint32_t		flags;
 		char			if_name[IF_NAMESIZE];
 		CFStringRef		interface;
 		CFMutableDictionaryRef	newDNS;
-		CFNumberRef		num;
+		uint32_t		newFlags;
 		CFArrayRef		searchDomains;
 		CFDictionaryRef		service;
 		CFStringRef		serviceID;
@@ -917,24 +944,19 @@ add_scoped_resolvers(CFMutableArrayRef	scoped,
 			CFRelease(searchDomains);
 		}
 
-		// set "scoped" configuration flag(s)
-		if (!CFDictionaryGetValueIfPresent(newDNS, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) ||
-		    !isA_CFNumber(num) ||
-		    !CFNumberGetValue(num, kCFNumberSInt32Type, &flags)) {
-			flags = 0;
-		}
-		flags |= DNS_RESOLVER_FLAGS_SCOPED;
-
-		// add "Request A/AAAA query" flag(s)
+		// get "Request A/AAAA query" flag(s)
 		dns_resolver_flags = dns_resolver_flags_service(service, 0);
 		if (dns_resolver_flags == 0) {
 			goto skip;
 		}
-		flags |= dns_resolver_flags;
 
-		num = CFNumberCreate(NULL, kCFNumberSInt32Type, &flags);
-		CFDictionarySetValue(newDNS, DNS_CONFIGURATION_FLAGS_KEY, num);
-		CFRelease(num);
+		// set "scoped" configuration flag
+		newFlags = DNS_RESOLVER_FLAGS_SCOPED;
+
+		// add "Request A/AAAA query" flag(s)
+		newFlags |= dns_resolver_flags;
+
+		merge_configuration_flags(newDNS, newFlags);
 
 		// remove keys we don't want in a [scoped] resolver
 		CFDictionaryRemoveValue(newDNS, kSCPropNetDNSSupplementalMatchDomains);
@@ -983,9 +1005,8 @@ add_service_specific_resolvers(CFMutableArrayRef resolvers, CFDictionaryRef serv
 	for (i = 0; i < n_services; i++) {
 		CFDictionaryRef		dns;
 		CFNumberRef		dns_service_identifier;
-		CFNumberRef		flags_num;
-		int32_t			flags		= 0;
-		CFMutableDictionaryRef	new_resolver;
+		CFMutableDictionaryRef	newDNS;
+		uint32_t		newFlags		= 0;
 		CFDictionaryRef		service			= vals[i];
 		CFStringRef		serviceID		= keys[i];
 
@@ -1007,34 +1028,39 @@ add_service_specific_resolvers(CFMutableArrayRef resolvers, CFDictionaryRef serv
 		}
 		CFSetSetValue(seen, dns_service_identifier);
 
-		new_resolver = CFDictionaryCreateMutableCopy(NULL, 0, dns);
+		newDNS = CFDictionaryCreateMutableCopy(NULL, 0, dns);
 
-		if (!CFDictionaryGetValueIfPresent(new_resolver, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&flags_num) ||
-		    !isA_CFNumber(flags_num) ||
-		    !CFNumberGetValue(flags_num, kCFNumberSInt32Type, &flags)) {
-			flags = 0;
-		}
+		if (CFDictionaryContainsKey(newDNS, kSCPropInterfaceName)) {
+			CFArrayRef	searchDomains;
 
-		flags |= DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS;
+			// set "scoped" configuration flag
+			newFlags |= DNS_RESOLVER_FLAGS_SCOPED;
 
-		if (CFDictionaryContainsKey(new_resolver, kSCPropInterfaceName)) {
-			CFDictionarySetValue(new_resolver, DNS_CONFIGURATION_SCOPED_QUERY_KEY, kCFBooleanTrue);
-			CFDictionaryRemoveValue(new_resolver, kSCPropNetDNSServiceIdentifier);
-			flags |= DNS_RESOLVER_FLAGS_SCOPED;
+			CFDictionarySetValue(newDNS, DNS_CONFIGURATION_SCOPED_QUERY_KEY, kCFBooleanTrue);
+			CFDictionaryRemoveValue(newDNS, kSCPropNetDNSServiceIdentifier);
+
+			// set search list
+			searchDomains = extract_search_domains(newDNS, NULL);
+			if (searchDomains != NULL) {
+				CFDictionarySetValue(newDNS, kSCPropNetDNSSearchDomains, searchDomains);
+				CFRelease(searchDomains);
+			}
 		} else {
-			flags |= DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC;
+			// set "service specific" configuration flag
+			newFlags |= DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC;
 		}
 
-		flags_num = CFNumberCreate(NULL, kCFNumberSInt32Type, &flags);
-		CFDictionarySetValue(new_resolver, DNS_CONFIGURATION_FLAGS_KEY, flags_num);
-		CFRelease(flags_num);
+		// add "Request A/AAAA query" flag(s)
+		newFlags |= DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS;
 
-		CFDictionaryRemoveValue(new_resolver, kSCPropNetDNSSupplementalMatchDomains);
-		CFDictionaryRemoveValue(new_resolver, kSCPropNetDNSSupplementalMatchOrders);
+		merge_configuration_flags(newDNS, newFlags);
 
-		add_resolver_signature(new_resolver, "Service", serviceID, 0);
-		add_resolver(resolvers, new_resolver);
-		CFRelease(new_resolver);
+		CFDictionaryRemoveValue(newDNS, kSCPropNetDNSSupplementalMatchDomains);
+		CFDictionaryRemoveValue(newDNS, kSCPropNetDNSSupplementalMatchOrders);
+
+		add_resolver_signature(newDNS, "Service", serviceID, 0);
+		add_resolver(resolvers, newDNS);
+		CFRelease(newDNS);
 	}
 	CFRelease(seen);
 
@@ -1336,28 +1362,6 @@ create_resolver(CFDictionaryRef dns)
 
 
 static __inline__ Boolean
-isDefaultConfiguration(CFDictionaryRef dns)
-{
-	uint32_t	flags;
-	CFNumberRef	num;
-
-	if ((dns != NULL) &&
-	    CFDictionaryGetValueIfPresent(dns, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) &&
-	    (num != NULL) &&
-	    CFNumberGetValue(num, kCFNumberSInt32Type, &flags) &&
-	    (((flags & DNS_RESOLVER_FLAGS_SCOPED          ) != 0) ||
-	     ((flags & DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC) != 0))
-	   ) {
-		// if scoped or service-specific
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-
-
-static __inline__ Boolean
 isScopedConfiguration(CFDictionaryRef dns)
 {
 	uint32_t	flags;
@@ -1461,6 +1465,35 @@ compareDomain(const void *val1, const void *val2, void *context)
 }
 
 
+static __inline__ Boolean
+needsMergeWithDefaultConfiguration(CFDictionaryRef dns)
+{
+	uint32_t	flags;
+	CFNumberRef	num;
+
+	if ((dns != NULL) &&
+	    CFDictionaryGetValueIfPresent(dns, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) &&
+	    (num != NULL) &&
+	    CFNumberGetValue(num, kCFNumberSInt32Type, &flags)) {
+
+		// check if merge needed (at all)
+		if (dns_resolver_flags_all_queries(flags)) {
+			// if we are already querying for both A/AAAA
+			return FALSE;
+		}
+
+		// check if scoped or service-specific
+		if (((flags & DNS_RESOLVER_FLAGS_SCOPED          ) != 0) ||
+		    ((flags & DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC) != 0)) {
+			// yes, skip merge
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
+
 __private_extern__
 Boolean
 dns_configuration_set(CFDictionaryRef   defaultResolver,
@@ -1471,7 +1504,6 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 {
 	dns_create_config_t	_config;
 	Boolean			changed			= FALSE;
-	uint32_t		dns_resolver_flags	= 0;
 	CFIndex			i;
 	CFMutableDictionaryRef	myDefault;
 	Boolean			myOrderAdded		= FALSE;
@@ -1564,31 +1596,34 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		 */
 		_config = NULL;
 	} else {
+		uint32_t	default_resolver_flags	= 0;
+		Boolean		have_default_flags	= FALSE;
+
 		/*
 		 * if default and/or supplemental/scoped resolvers are defined
 		 */
 		_config = _dns_configuration_create();
 
-		CFDictionaryApplyFunction(services, add_dns_resolver_flags, &dns_resolver_flags);
-
 		for (i = 0; i < n_resolvers; i++) {
-			boolean_t		is_default_resolver;
+			Boolean			merge_default_flags;
 			CFDictionaryRef		resolver;
 			dns_create_resolver_t	_resolver;
 
 			resolver = CFArrayGetValueAtIndex(resolvers, i);
 
-			is_default_resolver = isDefaultConfiguration(resolver);
-			if (is_default_resolver) {
+			merge_default_flags = needsMergeWithDefaultConfiguration(resolver);
+			if (merge_default_flags) {
 				CFMutableDictionaryRef	new_resolver;
-				CFNumberRef		num;
+
+				if (!have_default_flags) {
+					CFDictionaryApplyFunction(services,
+								  add_dns_resolver_flags,
+								  &default_resolver_flags);
+					have_default_flags = TRUE;
+				}
 
 				new_resolver = CFDictionaryCreateMutableCopy(NULL, 0, resolver);
-
-				num = CFNumberCreate(NULL, kCFNumberSInt32Type, &dns_resolver_flags);
-				CFDictionarySetValue(new_resolver, DNS_CONFIGURATION_FLAGS_KEY, num);
-				CFRelease(num);
-
+				merge_configuration_flags(new_resolver, default_resolver_flags);
 				resolver = new_resolver;
 			}
 
@@ -1596,7 +1631,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 			_dns_configuration_add_resolver(&_config, _resolver);
 			_dns_resolver_free(&_resolver);
 
-			if (is_default_resolver) {
+			if (merge_default_flags) {
 				CFRelease(resolver);
 			}
 		}
@@ -1604,7 +1639,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 #if	!TARGET_OS_IPHONE
 		// add flatfile resolvers
 
-		_dnsinfo_flatfile_set_flags(dns_resolver_flags);
+		_dnsinfo_flatfile_set_flags(default_resolver_flags);
 		_dnsinfo_flatfile_add_resolvers(&_config);
 #endif	// !TARGET_OS_IPHONE
 	}

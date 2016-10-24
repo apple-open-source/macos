@@ -132,9 +132,12 @@ bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
     
     if (kernResult != KERN_SUCCESS) {
         if ((kernResult == kIOReturnNotPermitted) || (kernResult == kIOReturnNotPrivileged)) {
+            const char *substatus = "";
+            if (keyclass == key_class_ck || keyclass == key_class_cku)
+                substatus = " (hiberation ?)";
             /* Access to item attempted while keychain is locked. */
-            return SecError(errSecInteractionNotAllowed, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Access to item attempted while keychain is locked."),
-                            kernResult, operation, keyclass, keybag);
+            return SecError(errSecInteractionNotAllowed, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Access to item attempted while keychain is locked%s."),
+                            kernResult, operation, keyclass, keybag, substatus);
         } else if (kernResult == kIOReturnError) {
             /* Item can't be decrypted on this device, ever, so drop the item. */
             return SecError(errSecDecode, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),

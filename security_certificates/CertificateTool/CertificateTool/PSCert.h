@@ -18,6 +18,7 @@
 	NSData*				_public_key_hash;
     NSString*           _file_path;
     NSString*           _auth_key_id;
+    NSString*           _subj_key_id;
 }
 
 @property (readonly) NSData* cert_data;
@@ -27,6 +28,7 @@
 @property (readonly) NSData* public_key_hash;
 @property (readonly) NSString* file_path;
 @property (readonly) NSString* auth_key_id;
+@property (readonly) NSString* subj_key_id;
 @property (readonly) NSNumber* flags;
 
 - (id)initWithCertFilePath:(NSString *)filePath withFlags:(NSNumber*)flags;

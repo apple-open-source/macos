@@ -387,7 +387,11 @@ errno_t ntfs_page_map_ext(ntfs_inode *ni, s64 ofs, upl_t *upl,
 	if (size > ni->data_size)
 		size = ni->data_size;
 	lck_spin_unlock(&ni->size_lock);
-	if (ofs > size) {
+
+    // It seems that regular files can have zero size
+    bool isZeroRegFile = (ofs == 0) && (size == 0) && (vnode_isreg(ni->vn));
+    
+	if ((ofs >= size) && (!isZeroRegFile)) {
 		ntfs_error(ni->vol->mp, "Offset 0x%llx is outside the end of "
 				"the attribute (0x%llx).",
 				(unsigned long long)ofs,

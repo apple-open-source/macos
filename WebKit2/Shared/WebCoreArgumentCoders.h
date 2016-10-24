@@ -23,10 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebCoreArgumentCoders_h
-#define WebCoreArgumentCoders_h
+#pragma once
 
 #include "ArgumentCoders.h"
+#include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/PaymentHeaders.h>
 
 namespace WebCore {
@@ -521,11 +521,6 @@ template<> struct ArgumentCoder<WebCore::PaymentRequest::ShippingMethod> {
     static bool decode(ArgumentDecoder&, WebCore::PaymentRequest::ShippingMethod&);
 };
 
-template<> struct ArgumentCoder<WebCore::PaymentRequest::SupportedNetworks> {
-    static void encode(ArgumentEncoder&, const WebCore::PaymentRequest::SupportedNetworks&);
-    static bool decode(ArgumentDecoder&, WebCore::PaymentRequest::SupportedNetworks&);
-};
-
 template<> struct ArgumentCoder<WebCore::PaymentRequest::TotalAndLineItems> {
     static void encode(ArgumentEncoder&, const WebCore::PaymentRequest::TotalAndLineItems&);
     static bool decode(ArgumentDecoder&, WebCore::PaymentRequest::TotalAndLineItems&);
@@ -535,4 +530,14 @@ template<> struct ArgumentCoder<WebCore::PaymentRequest::TotalAndLineItems> {
 
 } // namespace IPC
 
-#endif // WebCoreArgumentCoders_h
+namespace WTF {
+
+template<> struct EnumTraits<WebCore::HasInsecureContent> {
+    using values = EnumValues<
+        WebCore::HasInsecureContent,
+        WebCore::HasInsecureContent::No,
+        WebCore::HasInsecureContent::Yes
+    >;
+};
+
+} // namespace WTF

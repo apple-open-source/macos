@@ -884,28 +884,17 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
             properties->setObject( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue );
         }
 
-        IOWorkLoop *loop = getWorkLoop();
-
-        IOReturn result = kIOReturnNotReady;
-
-        if ( loop ) {
-                result = loop->runAction( OSMemberFunctionCast( IOWorkLoop::Action, this, &IOHIDDevice::newUserClientGated ),
-                                          this, owningTask, security_id, properties, handler );
-            }
-            else {
-            HIDLogError( "failed to get a workloop" );
-        }
-
-        return result;
+      
+        return newUserClientInternal (owningTask, security_id, properties, handler );
     }
 
     return super::newUserClient( owningTask, security_id, type, properties, handler );
 }
 
-IOReturn IOHIDDevice::newUserClientGated( task_t          owningTask,
-										  void *          security_id,
-										  OSDictionary *  properties,
-										  IOUserClient ** handler )
+IOReturn IOHIDDevice::newUserClientInternal( task_t          owningTask,
+                                          void *          security_id,
+                                          OSDictionary *  properties,
+                                          IOUserClient ** handler )
 {
     IOUserClient * client = new IOHIDLibUserClient;
 

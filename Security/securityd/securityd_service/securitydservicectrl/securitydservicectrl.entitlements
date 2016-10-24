@@ -2,7 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>com.apple.security.keybag-unload</key>
+	<key>com.apple.private.securityd.keybag-load</key>
+	<true/>
+	<key>com.apple.private.securityd.keybag-unload</key>
 	<true/>
 </dict>
 </plist>

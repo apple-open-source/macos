@@ -153,6 +153,7 @@ class ProtectionSpace;
 class RunLoopObserver;
 class SharedBuffer;
 class TextIndicator;
+enum class HasInsecureContent;
 struct DictionaryPopupInfo;
 struct ExceptionDetails;
 struct FileChooserSettings;
@@ -562,7 +563,7 @@ public:
     void setAcceleratedCompositingRootLayer(LayerOrView*);
     LayerOrView* acceleratedCompositingRootLayer() const;
 
-    void insertTextAsync(const String& text, const EditingRange& replacementRange, bool registerUndoGroup = false, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
+    void insertTextAsync(const String& text, const EditingRange& replacementRange, bool registerUndoGroup = false, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot, bool suppressSelectionUpdate = false);
     void getMarkedRangeAsync(std::function<void (EditingRange, CallbackBase::Error)>);
     void getSelectedRangeAsync(std::function<void (EditingRange, CallbackBase::Error)>);
     void characterIndexForPointAsync(const WebCore::IntPoint&, std::function<void (uint64_t, CallbackBase::Error)>);
@@ -1031,6 +1032,10 @@ public:
 #if PLATFORM(MAC)
     void videoControlsManagerDidChange();
     bool hasActiveVideoForControlsManager() const;
+    void requestControlledElementID() const;
+    void handleControlledElementIDResponse(const String&) const;
+    void requestActiveNowPlayingSessionInfo();
+    void handleActiveNowPlayingSessionInfoResponse(bool hasActiveSession) const;
     bool isPlayingVideoInEnhancedFullscreen() const;
 #endif
 
@@ -1115,6 +1120,8 @@ public:
     void setUserInterfaceLayoutDirection(WebCore::UserInterfaceLayoutDirection);
 
     bool hasHadSelectionChangesFromUserInteraction() const { return m_hasHadSelectionChangesFromUserInteraction; }
+    bool needsHiddenContentEditableQuirk() const { return m_needsHiddenContentEditableQuirk; }
+    bool needsPlainTextQuirk() const { return m_needsPlainTextQuirk; }
 
     bool isAlwaysOnLoggingAllowed() const;
 
@@ -1162,7 +1169,7 @@ private:
     void didReceiveServerRedirectForProvisionalLoadForFrame(uint64_t frameID, uint64_t navigationID, const String&, const UserData&);
     void didChangeProvisionalURLForFrame(uint64_t frameID, uint64_t navigationID, const String& url);
     void didFailProvisionalLoadForFrame(uint64_t frameID, const WebCore::SecurityOriginData& frameSecurityOrigin, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, const UserData&);
-    void didCommitLoadForFrame(uint64_t frameID, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, uint32_t frameLoadType, const WebCore::CertificateInfo&, bool containsPluginDocument, const UserData&);
+    void didCommitLoadForFrame(uint64_t frameID, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, uint32_t frameLoadType, const WebCore::CertificateInfo&, bool containsPluginDocument, Optional<WebCore::HasInsecureContent> forcedHasInsecureContent, const UserData&);
     void didFinishDocumentLoadForFrame(uint64_t frameID, uint64_t navigationID, const UserData&);
     void didFinishLoadForFrame(uint64_t frameID, uint64_t navigationID, const UserData&);
     void didFailLoadForFrame(uint64_t frameID, uint64_t navigationID, const WebCore::ResourceError&, const UserData&);
@@ -1179,6 +1186,8 @@ private:
     void didChangeProgress(double);
     void didFinishProgress();
     void setNetworkRequestsInProgress(bool);
+
+    void hasInsecureContent(WebCore::HasInsecureContent&);
 
     void didDestroyNavigation(uint64_t navigationID);
 
@@ -1278,6 +1287,8 @@ private:
     void editorStateChanged(const EditorState&);
     void compositionWasCanceled(const EditorState&);
     void setHasHadSelectionChangesFromUserInteraction(bool);
+    void setNeedsHiddenContentEditableQuirk(bool);
+    void setNeedsPlainTextQuirk(bool);
 
     // Back/Forward list management
     void backForwardAddItem(uint64_t itemID);
@@ -1845,6 +1856,8 @@ private:
     bool m_isResourceCachingDisabled { false };
 
     bool m_hasHadSelectionChangesFromUserInteraction { false };
+    bool m_needsHiddenContentEditableQuirk { false };
+    bool m_needsPlainTextQuirk { false };
 
 #if ENABLE(MEDIA_SESSION)
     bool m_hasMediaSessionWithActiveMediaElements { false };

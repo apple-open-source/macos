@@ -40,6 +40,7 @@
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
+#include "plugin_shared.h"
 
 #if	!TARGET_OS_IPHONE
 #include <EAP8021X/EAPClientProperties.h>
@@ -76,6 +77,10 @@
 
 #ifndef	kIOUserEthernetInterfaceRoleKey
 #define	kIOUserEthernetInterfaceRoleKey	"InterfaceRole"
+#endif
+
+#ifndef	kIOUSBHostInterfaceClassName
+#define kIOUSBHostInterfaceClassName	"IOUSBHostInterface"
 #endif
 
 #include <string.h>
@@ -1711,9 +1716,6 @@ merge_override(SCNetworkInterfacePrivateRef	interfacePrivate,
 }
 
 
-#define	BT_PAN_NAME	"Bluetooth PAN"
-#define	BT_PAN_MAC	BT_PAN_NAME " (MAC)"
-
 static Boolean
 processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 			io_registry_entry_t		interface,
@@ -1926,7 +1928,8 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 						while (provider != NULL) {
 #if	!TARGET_OS_SIMULATOR
 							if (CFEqual(provider, CFSTR(kIOUSBDeviceClassName)) ||
-							    CFEqual(provider, CFSTR(kIOUSBInterfaceClassName))) {
+							    CFEqual(provider, CFSTR(kIOUSBInterfaceClassName)) ||
+							    CFEqual(provider, CFSTR(kIOUSBHostInterfaceClassName))) {
 								// get USB info (if available)
 								processUSBInterface(interfacePrivate,
 										    interface,
@@ -2670,8 +2673,10 @@ createInterface(io_registry_entry_t interface, processInterface func,
 
 
 static CF_RETURNS_RETAINED CFArrayRef
-findMatchingInterfaces(CFDictionaryRef matching, processInterface func,
-		       CFStringRef hidden_key)
+findMatchingInterfaces(CFDictionaryRef	matching,
+		       processInterface	func,
+		       CFStringRef	hidden_key,
+		       Boolean		keep_pre_configured)
 {
 	CFMutableArrayRef	interfaces;
 	io_registry_entry_t	interface;
@@ -2698,7 +2703,9 @@ findMatchingInterfaces(CFDictionaryRef matching, processInterface func,
 
 		match = createInterface(interface, func, hidden_key);
 		if (match != NULL) {
-			CFArrayAppendValue(interfaces, match);
+			if (keep_pre_configured || !_SCNetworkInterfaceIsApplePreconfigured(match)) {
+				CFArrayAppendValue(interfaces, match);
+			}
 			CFRelease(match);
 		}
 
@@ -3927,7 +3934,10 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 			if (matching == NULL) {
 				goto done;
 			}
-			matching_interfaces = findMatchingInterfaces(matching, processNetworkInterface, kSCNetworkInterfaceHiddenInterfaceKey);
+			matching_interfaces = findMatchingInterfaces(matching,
+								     processNetworkInterface,
+								     kSCNetworkInterfaceHiddenInterfaceKey,
+								     TRUE);
 			CFRelease(matching);
 		}
 	} else if (CFEqual(ifType, kSCValNetInterfaceTypePPP)) {
@@ -3953,7 +3963,10 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 							      sizeof(match_keys)/sizeof(match_keys[0]),
 							      &kCFTypeDictionaryKeyCallBacks,
 							      &kCFTypeDictionaryValueCallBacks);
-				matching_interfaces = findMatchingInterfaces(matching, processSerialInterface, kSCNetworkInterfaceHiddenPortKey);
+				matching_interfaces = findMatchingInterfaces(matching,
+									     processSerialInterface,
+									     kSCNetworkInterfaceHiddenPortKey,
+									     TRUE);
 				CFRelease(matching);
 			}
 			if (ifUnique == NULL) {
@@ -3987,7 +4000,10 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 								      sizeof(match_keys)/sizeof(match_keys[0]),
 								      &kCFTypeDictionaryKeyCallBacks,
 								      &kCFTypeDictionaryValueCallBacks);
-					matching_interfaces = findMatchingInterfaces(matching, processSerialInterface, kSCNetworkInterfaceHiddenPortKey);
+					matching_interfaces = findMatchingInterfaces(matching,
+										     processSerialInterface,
+										     kSCNetworkInterfaceHiddenPortKey,
+										     TRUE);
 					CFRelease(matching);
 				}
 			}
@@ -4393,7 +4409,10 @@ __SCNetworkInterfaceCopyAll_IONetworkInterface(void)
 	// get Ethernet, Firewire, Thunderbolt, and AirPort interfaces
 
 	matching = IOServiceMatching(kIONetworkInterfaceClass);
-	new_interfaces = findMatchingInterfaces(matching, processNetworkInterface, kSCNetworkInterfaceHiddenInterfaceKey);
+	new_interfaces = findMatchingInterfaces(matching,
+						processNetworkInterface,
+						kSCNetworkInterfaceHiddenInterfaceKey,
+						FALSE);
 	CFRelease(matching);
 
 	return new_interfaces;
@@ -4421,7 +4440,10 @@ __SCNetworkInterfaceCopyAll_Modem()
 				      sizeof(match_keys)/sizeof(match_keys[0]),
 				      &kCFTypeDictionaryKeyCallBacks,
 				      &kCFTypeDictionaryValueCallBacks);
-	new_interfaces = findMatchingInterfaces(matching, processSerialInterface, kSCNetworkInterfaceHiddenPortKey);
+	new_interfaces = findMatchingInterfaces(matching,
+						processSerialInterface,
+						kSCNetworkInterfaceHiddenPortKey,
+						FALSE);
 	CFRelease(matching);
 
 	return new_interfaces;
@@ -4449,7 +4471,10 @@ __SCNetworkInterfaceCopyAll_RS232()
 				      sizeof(match_keys)/sizeof(match_keys[0]),
 				      &kCFTypeDictionaryKeyCallBacks,
 				      &kCFTypeDictionaryValueCallBacks);
-	new_interfaces = findMatchingInterfaces(matching, processSerialInterface, kSCNetworkInterfaceHiddenPortKey);
+	new_interfaces = findMatchingInterfaces(matching,
+						processSerialInterface,
+						kSCNetworkInterfaceHiddenPortKey,
+						FALSE);
 	CFRelease(matching);
 
 	return new_interfaces;
@@ -4540,8 +4565,8 @@ __waitForInterfaces()
 		dict = SCDynamicStoreCopyValue(store, key);
 		if (dict != NULL) {
 			if (isA_CFDictionary(dict) &&
-			    (CFDictionaryContainsKey(dict, CFSTR("*QUIET*")) ||
-			     CFDictionaryContainsKey(dict, CFSTR("*TIMEOUT*")))) {
+			    (CFDictionaryContainsKey(dict, kInterfaceNamerKey_Quiet) ||
+			     CFDictionaryContainsKey(dict, kInterfaceNamerKey_Timeout))) {
 				quiet = TRUE;
 			}
 			CFRelease(dict);
@@ -7122,7 +7147,7 @@ _SCNetworkInterfaceCopyBTPANInterface(void)
 
 		if (isA_CFDictionary(dict) &&
 		    CFDictionaryGetValueIfPresent(dict,
-						  CFSTR("_" BT_PAN_NAME "_"),
+						  kInterfaceNamerKey_BT_PAN_Name,
 						  (const void **)&if_name) &&
 		    isA_CFString(if_name)) {
 			CFMutableDictionaryRef	entity;
@@ -7149,7 +7174,7 @@ _SCNetworkInterfaceCopyBTPANInterface(void)
 		if ((interfacePrivate != NULL) &&
 		    (interfacePrivate->address == NULL) &&
 		    CFDictionaryGetValueIfPresent(dict,
-						  CFSTR("_" BT_PAN_MAC "_"),
+						  kInterfaceNamerKey_BT_PAN_Mac,
 						  (const void **)&addr) &&
 		    isA_CFData(addr)) {
 			interfacePrivate->address = CFRetain(addr);
@@ -7274,6 +7299,44 @@ _SCNetworkInterfaceCopySlashDevPath(SCNetworkInterfaceRef interface)
 
 
 #pragma mark -
+
+
+Boolean
+_SCNetworkInterfaceIsApplePreconfigured(SCNetworkInterfaceRef interface)
+{
+#if	!TARGET_OS_SIMULATOR
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	if (!interfacePrivate->hidden) {
+		// if not HiddenConfiguration
+		return FALSE;
+	}
+
+	if ((interfacePrivate->overrides == NULL) ||
+	    (!CFDictionaryContainsKey(interfacePrivate->overrides, kSCNetworkProtocolTypeIPv4) &&
+	     !CFDictionaryContainsKey(interfacePrivate->overrides, kSCNetworkProtocolTypeIPv6))) {
+		// if no [IPv4/IPv6] configuration overrides
+		return FALSE;
+	}
+
+	if (interfacePrivate->builtin) {
+		// if built-in (and overrides are present)
+		return TRUE;
+	}
+
+	if (isA_CFNumber(interfacePrivate->usb.vid)) {
+		int		vid;
+
+		if (CFNumberGetValue(interfacePrivate->usb.vid, kCFNumberIntType, &vid) &&
+		    (vid == kIOUSBVendorIDAppleComputer)) {
+			// if Apple interface (and overrides are present)
+			return TRUE;
+		}
+	}
+#endif	// !TARGET_OS_SIMULATOR
+
+	return FALSE;
+}
 
 
 Boolean

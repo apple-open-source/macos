@@ -32,8 +32,7 @@ rm -rf Zend/zend_ini_parser.h
 rm -rf sapi/phpdbg/phpdbg_parser.c
 rm -rf sapi/phpdbg/phpdbg_parser.h
 rm -rf pear/install-pear-nozlib.phar
-rm -rf ext/phar/tests/tar/files/Structures_Graph-1.0.3.tgz
-rm -rf ext/phar/tests/bug71391.tar
+rm -rf ext/phar/tests
 popd
 mv $ARCHIVE ${ARCHIVE}-old
 COPYFILE_DISABLE=1 tar cj -f $ARCHIVE $ARCHIVE_DIR
@@ -49,5 +48,5 @@ ls -l
 popd
 mv $ARCHIVE ${ARCHIVE}-original
 cp ${TMP_DIR}/$ARCHIVE .
-rm -rf "$TMP_DIR"
+#rm -rf "$TMP_DIR"
 

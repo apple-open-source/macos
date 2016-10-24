@@ -36,7 +36,13 @@
 
 namespace WebCore {
 
-#if !PLATFORM(IOS) && !PLATFORM(MAC)
+#if !PLATFORM(MAC)
+
+void PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary()
+{
+}
+
+#if !PLATFORM(IOS)
 static PlatformMediaSessionManager* platformMediaSessionManager = nullptr;
 
 PlatformMediaSessionManager& PlatformMediaSessionManager::sharedManager()
@@ -50,7 +56,9 @@ PlatformMediaSessionManager* PlatformMediaSessionManager::sharedManagerIfExists(
 {
     return platformMediaSessionManager;
 }
-#endif
+#endif // !PLATFORM(IOS)
+
+#endif // !PLATFORM(MAC)
 
 PlatformMediaSessionManager::PlatformMediaSessionManager()
     : m_systemSleepListener(SystemSleepListener::create(*this))
@@ -266,11 +274,13 @@ void PlatformMediaSessionManager::setCurrentSession(PlatformMediaSession& sessio
 
     m_sessions.remove(index);
     m_sessions.insert(0, &session);
+    if (m_remoteCommandListener)
+        m_remoteCommandListener->updateSupportedCommands();
     
     LOG(Media, "PlatformMediaSessionManager::setCurrentSession - session moved from index %zu to 0", index);
 }
     
-PlatformMediaSession* PlatformMediaSessionManager::currentSession()
+PlatformMediaSession* PlatformMediaSessionManager::currentSession() const
 {
     if (!m_sessions.size())
         return nullptr;
@@ -278,13 +288,14 @@ PlatformMediaSession* PlatformMediaSessionManager::currentSession()
     return m_sessions[0];
 }
 
-PlatformMediaSession* PlatformMediaSessionManager::currentSessionMatching(std::function<bool(const PlatformMediaSession &)> filter)
+Vector<PlatformMediaSession*> PlatformMediaSessionManager::currentSessionsMatching(std::function<bool(const PlatformMediaSession &)> filter)
 {
+    Vector<PlatformMediaSession*> matchingSessions;
     for (auto& session : m_sessions) {
         if (filter(*session))
-            return session;
+            matchingSessions.append(session);
     }
-    return nullptr;
+    return matchingSessions;
 }
     
 bool PlatformMediaSessionManager::sessionCanLoadMedia(const PlatformMediaSession& session) const
@@ -344,12 +355,20 @@ void PlatformMediaSessionManager::updateSessionState()
 }
 #endif
 
-void PlatformMediaSessionManager::didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType command)
+void PlatformMediaSessionManager::didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType command, const PlatformMediaSession::RemoteCommandArgument* argument)
 {
     PlatformMediaSession* activeSession = currentSession();
     if (!activeSession || !activeSession->canReceiveRemoteControlCommands())
         return;
-    activeSession->didReceiveRemoteControlCommand(command);
+    activeSession->didReceiveRemoteControlCommand(command, argument);
+}
+
+bool PlatformMediaSessionManager::supportsSeeking() const
+{
+    PlatformMediaSession* activeSession = currentSession();
+    if (!activeSession)
+        return false;
+    return activeSession->supportsSeeking();
 }
 
 void PlatformMediaSessionManager::systemWillSleep()

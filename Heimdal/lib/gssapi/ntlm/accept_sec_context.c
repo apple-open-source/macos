@@ -438,7 +438,7 @@ _gss_ntlm_accept_sec_context
 	    CCHmacUpdate(&c, ctx->type3.data, ctx->type3.length);
 	    CCHmacFinal(&c, p);
 
-	    if (memcmp(p, type3.mic, sizeof(type3.mic)) != 0) {
+	    if (ct_memcmp(p, type3.mic, sizeof(type3.mic)) != 0) {
 		_gss_ntlm_debug_hex(10, "mic", type3.mic, sizeof(type3.mic));
 		_gss_ntlm_debug_hex(10, "ntlm-asc-type3 mic invalid", p, sizeof(type3.mic));
 		free(session.data);

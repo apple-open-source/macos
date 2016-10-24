@@ -161,6 +161,7 @@ private:
     IOService *	rootDomain;
     AbsoluteTime    displayStateChangeDeadline;
     AbsoluteTime    displaySleepWakeupDeadline;
+    UInt32          powerState;
 
     OSDictionary *  savedParameters;	// keep user settings
 
@@ -182,6 +183,10 @@ private:
 
 
   virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags, unsigned long, IOService * );
+  static IOReturn powerStateHandler( void *target, void *refCon,
+            UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize );
+  void updatePowerState(UInt32 messageType);
+
  /* Resets */
     void    _setScrollCountParameters(OSDictionary *newSettings = NULL);
 
@@ -568,6 +573,7 @@ static	IOReturn	doExtSetStateForSelector (IOHIDSystem *self, void *p1, void *p2)
 
 public:
     virtual UInt32 eventFlags();
+    virtual void   sleepDisplayTickle();
 
     virtual void dispatchEvent(IOHIDEvent *event, IOOptionBits options=0);
 

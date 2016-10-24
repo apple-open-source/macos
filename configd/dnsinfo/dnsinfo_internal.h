@@ -422,6 +422,10 @@ _dns_resolver_log(dns_resolver_t *resolver, int index, Boolean debug)
 		flags &= ~DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC;
 		CFStringAppendFormat(str, NULL, CFSTR("Service-specific%s"), flags != 0 ? ", " : "");
 	}
+	if (flags & DNS_RESOLVER_FLAGS_SUPPLEMENTAL) {
+		flags &= ~DNS_RESOLVER_FLAGS_SUPPLEMENTAL;
+		CFStringAppendFormat(str, NULL, CFSTR("Supplemental%s"), flags != 0 ? ", " : "");
+	}
 	if (flags & DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS) {
 		flags &= ~DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS;
 		CFStringAppendFormat(str, NULL, CFSTR("Request A records%s"), flags != 0 ? ", " : "");

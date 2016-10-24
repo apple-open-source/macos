@@ -1231,17 +1231,18 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
     SecAccessControlRef access_control = NULL;
     CFErrorRef localError = NULL;
 
-    /* Skip akpu items when backing up, those are intentionally lost across restores. */
-    bool skip_akpu = c->filter == kSecBackupableItemFilter;
+    /* Skip akpu items when backing up, those are intentionally lost across restores. The same applies to SEP-based keys */
+    bool skip_akpu_or_token = c->filter == kSecBackupableItemFilter;
 
     sqlite_int64 rowid = sqlite3_column_int64(stmt, 0);
-    CFMutableDictionaryRef item;
+    CFMutableDictionaryRef item = NULL;
     bool ok = s3dl_item_from_col(stmt, q, 1, c->qc.accessGroups, &item, &access_control, &localError);
 
     bool is_akpu = access_control ? CFEqualSafe(SecAccessControlGetProtection(access_control),
                                                 kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly) : false;
+    bool is_token = (ok && item != NULL) ? CFDictionaryContainsKey(item, kSecAttrTokenID) : false;
 
-    if (ok && item && !(skip_akpu && is_akpu)) {
+    if (ok && item && !(skip_akpu_or_token && (is_akpu || is_token))) {
         /* Only export sysbound items if do_sys_bound is true, only export non sysbound items otherwise. */
         bool do_sys_bound = c->filter == kSecSysBoundItemFilter;
         if (c->filter == kSecNoItemFilter ||
@@ -1286,7 +1287,7 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
     } else {
         OSStatus status = SecErrorGetOSStatus(localError);
 
-        if (status == errSecInteractionNotAllowed && is_akpu && skip_akpu) {
+        if (status == errSecInteractionNotAllowed && is_akpu && skip_akpu_or_token) {
             // We expect akpu items to be inaccessible when the device is locked.
             CFReleaseNull(localError);
         } else {
@@ -1480,6 +1481,14 @@ SecServerImportItem(const void *value, void *context)
                 secdebug("item", "Skipping KU item : %@", dict);
                 return;
             }
+        }
+
+        /* Avoid importing token-based items.  Although newer backups should not have them,
+         * older (iOS9, iOS10.0) produced backups with token-based items.
+         */
+        if (CFDictionaryContainsKey(dict, kSecAttrTokenID)) {
+            secdebug("item", "Skipping token-based item : %@", dict);
+            return;
         }
     }
 

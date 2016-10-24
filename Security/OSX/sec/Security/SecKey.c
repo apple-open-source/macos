@@ -579,7 +579,7 @@ out:
     CFReleaseSafe(in2);
     CFReleaseSafe(output);
     if (error != NULL) {
-        status = (OSStatus)CFErrorGetCode(error);
+        status = SecErrorGetOSStatus(error);
         if (status == errSecVerifyFailed) {
             // Legacy functions used errSSLCrypto, while new implementation uses errSecVerifyFailed.
             status = errSSLCrypto;
@@ -1170,6 +1170,14 @@ SecKeyRef SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
     SecError(status, error, CFSTR("Key generation failed, error %d"), (int)status);
     CFReleaseSafe(pubKey);
     return privKey;
+}
+
+SecKeyRef SecKeyCreateDuplicate(SecKeyRef key) {
+    if (key->key_class->version >= 4 && key->key_class->createDuplicate) {
+        return key->key_class->createDuplicate(key);
+    } else {
+        return (SecKeyRef)CFRetain(key);
+    }
 }
 
 #pragma mark Generic algorithm adaptor lookup and invocation

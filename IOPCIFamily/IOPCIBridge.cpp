@@ -86,11 +86,6 @@ enum
     kIOPCISubClassBridgeOther   = 0x80,
 };
 
-enum
-{
-	kCheckLinkParents = 0x00000001,
-};
-
 enum { kAERISRNum     = 4 };
 enum { kIOPCIEventNum = 8 };
 
@@ -1546,7 +1541,17 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 		{
 			if (kMachineRestoreBridges & options) 
 			{
-				if (!(kIOPCIConfigShadowBridge & shadow->flags))    continue;
+				if (!(kIOPCIConfigShadowBridge & shadow->flags))
+				{
+                    if ((kMachineRestoreDehibernate & options) && !shadow->device->space.s.busNum)
+                    {
+                        DLOG("disable %s\n", shadow->device->getName());
+                        shadow->device->configWrite16(kIOPCIConfigCommand,
+                            shadow->configSave.savedConfig[kIOPCIConfigCommand >> 2]
+                            & ~(kIOPCICommandIOSpace|kIOPCICommandMemorySpace|kIOPCICommandBusMaster));
+                    }
+                    continue;
+                }
 			}
 
 			if (!(kIOPCIConfigShadowVolatile & shadow->flags))      continue;
@@ -2832,9 +2837,20 @@ IOReturn IOPCI2PCIBridge::checkLink(uint32_t options)
 	IOReturn ret;
 	bool     present;
 	uint16_t linkStatus;
+	uint16_t linkCaps;
 
 	AbsoluteTime startTime, endTime;
 	uint64_t 	 nsec, nsec2;
+
+    if (kCheckLinkForPower & options)
+    {
+		if (!fBridgeDevice->reserved->expressCapability)               return (kIOReturnSuccess);
+		linkCaps = fBridgeDevice->configRead32(fBridgeDevice->reserved->expressCapability + 0x0C);
+		if (!(kLinkCapDataLinkLayerActiveReportingCapable & linkCaps)) return (kIOReturnSuccess);
+		linkStatus = fBridgeDevice->configRead16(fBridgeDevice->reserved->expressCapability + 0x12);
+		if (kLinkStatusDataLinkLayerLinkActive & linkStatus)           return (kIOReturnSuccess);
+		return (kIOReturnNoDevice);
+    }
 
 	ret = fBridgeDevice->checkLink(options & ~kCheckLinkParents);
 	if (kIOReturnSuccess != ret) return (kIOReturnNoDevice);

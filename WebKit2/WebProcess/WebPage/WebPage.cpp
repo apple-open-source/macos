@@ -571,7 +571,7 @@ void WebPage::reinitializeWebPage(const WebPageCreationParameters& parameters)
     if (m_viewState != parameters.viewState)
         setViewState(parameters.viewState, false, Vector<uint64_t>());
     if (m_layerHostingMode != parameters.layerHostingMode)
-        setLayerHostingMode(static_cast<unsigned>(parameters.layerHostingMode));
+        setLayerHostingMode(parameters.layerHostingMode);
 }
 
 void WebPage::setPageActivityState(PageActivityState::Flags activityState)
@@ -894,7 +894,22 @@ EditorState WebPage::editorState(IncludePostLayoutDataHint shouldIncludePostLayo
 
     platformEditorState(frame, result, shouldIncludePostLayoutData);
 
+    m_lastEditorStateWasContentEditable = result.isContentEditable ? EditorStateIsContentEditable::Yes : EditorStateIsContentEditable::No;
+
     return result;
+}
+
+void WebPage::updateEditorStateAfterLayoutIfEditabilityChanged()
+{
+    // FIXME: We should update EditorStateIsContentEditable to track whether the state is richly
+    // editable or plainttext-only.
+    if (m_lastEditorStateWasContentEditable == EditorStateIsContentEditable::Unset)
+        return;
+
+    Frame& frame = m_page->focusController().focusedOrMainFrame();
+    EditorStateIsContentEditable editorStateIsContentEditable = frame.selection().selection().isContentEditable() ? EditorStateIsContentEditable::Yes : EditorStateIsContentEditable::No;
+    if (m_lastEditorStateWasContentEditable != editorStateIsContentEditable)
+        send(Messages::WebPageProxy::EditorStateChanged(editorState()));
 }
 
 String WebPage::renderTreeExternalRepresentation() const
@@ -2578,9 +2593,9 @@ void WebPage::setViewState(ViewState::Flags viewState, bool wantsDidUpdateViewSt
         updateIsInWindow();
 }
 
-void WebPage::setLayerHostingMode(unsigned layerHostingMode)
+void WebPage::setLayerHostingMode(LayerHostingMode layerHostingMode)
 {
-    m_layerHostingMode = static_cast<LayerHostingMode>(layerHostingMode);
+    m_layerHostingMode = layerHostingMode;
 
     m_drawingArea->setLayerHostingMode(m_layerHostingMode);
 
@@ -2612,9 +2627,18 @@ void WebPage::didStartPageTransition()
 #endif
     m_hasEverFocusedElementDueToUserInteractionSincePageTransition = false;
     m_isAssistingNodeDueToUserInteraction = false;
+    m_lastEditorStateWasContentEditable = EditorStateIsContentEditable::Unset;
 #if PLATFORM(MAC)
     if (hasPreviouslyFocusedDueToUserInteraction)
         send(Messages::WebPageProxy::SetHasHadSelectionChangesFromUserInteraction(m_hasEverFocusedElementDueToUserInteractionSincePageTransition));
+    if (m_needsHiddenContentEditableQuirk) {
+        m_needsHiddenContentEditableQuirk = false;
+        send(Messages::WebPageProxy::SetNeedsHiddenContentEditableQuirk(m_needsHiddenContentEditableQuirk));
+    }
+    if (m_needsPlainTextQuirk) {
+        m_needsPlainTextQuirk = false;
+        send(Messages::WebPageProxy::SetNeedsPlainTextQuirk(m_needsPlainTextQuirk));
+    }
 #endif
 }
 
@@ -4553,14 +4577,16 @@ bool WebPage::shouldUseCustomContentProviderForResponse(const ResourceResponse& 
 
 #if PLATFORM(COCOA)
 
-void WebPage::insertTextAsync(const String& text, const EditingRange& replacementEditingRange, bool registerUndoGroup, uint32_t editingRangeIsRelativeTo)
+void WebPage::insertTextAsync(const String& text, const EditingRange& replacementEditingRange, bool registerUndoGroup, uint32_t editingRangeIsRelativeTo, bool suppressSelectionUpdate)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
 
     if (replacementEditingRange.location != notFound) {
         RefPtr<Range> replacementRange = rangeFromEditingRange(frame, replacementEditingRange, static_cast<EditingRangeIsRelativeTo>(editingRangeIsRelativeTo));
-        if (replacementRange)
+        if (replacementRange) {
+            TemporaryChange<bool> isSelectingTextWhileInsertingAsynchronously(m_isSelectingTextWhileInsertingAsynchronously, suppressSelectionUpdate);
             frame.selection().setSelection(VisibleSelection(*replacementRange, SEL_DEFAULT_AFFINITY));
+        }
     }
     
     if (registerUndoGroup)
@@ -4742,8 +4768,54 @@ void WebPage::cancelComposition()
 }
 #endif
 
+#if PLATFORM(MAC)
+static bool needsHiddenContentEditableQuirk(bool needsQuirks, const URL& url)
+{
+    if (!needsQuirks)
+        return false;
+
+    String host = url.host();
+    String path = url.path();
+    return equalLettersIgnoringASCIICase(host, "docs.google.com") || (equalLettersIgnoringASCIICase(host, "www.icloud.com") && path.contains("/pages/"));
+}
+
+static bool needsPlainTextQuirk(bool needsQuirks, const URL& url)
+{
+    if (!needsQuirks)
+        return false;
+
+    String host = url.host();
+
+    if (equalLettersIgnoringASCIICase(host, "twitter.com"))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "onedrive.live.com"))
+        return true;
+
+    String path = url.path();
+    if (equalLettersIgnoringASCIICase(host, "www.icloud.com") && (path.contains("notes") || url.fragmentIdentifier().contains("notes") || path.contains("/keynote/")))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "trix-editor.org"))
+        return true;
+
+    return false;
+}
+#endif
+
 void WebPage::didChangeSelection()
 {
+    // The act of getting Dictionary Popup info can make selection changes that we should not propagate to the UIProcess.
+    // Specifically, if there is a caret selection, it will change to a range selection of the word around the caret. And
+    // then it will change back.
+    if (m_isGettingDictionaryPopupInfo)
+        return;
+
+    // Similarly, we don't want to propagate changes to the web process when inserting text asynchronously, since we will
+    // end up with a range selection very briefly right before inserting the text.
+    if (m_isSelectingTextWhileInsertingAsynchronously)
+        return;
+
     Frame& frame = m_page->focusController().focusedOrMainFrame();
     FrameView* view = frame.view();
 
@@ -4757,8 +4829,19 @@ void WebPage::didChangeSelection()
     bool hasPreviouslyFocusedDueToUserInteraction = m_hasEverFocusedElementDueToUserInteractionSincePageTransition;
     m_hasEverFocusedElementDueToUserInteractionSincePageTransition |= m_userIsInteracting;
 
-    if (!hasPreviouslyFocusedDueToUserInteraction && m_hasEverFocusedElementDueToUserInteractionSincePageTransition)
+    if (!hasPreviouslyFocusedDueToUserInteraction && m_hasEverFocusedElementDueToUserInteractionSincePageTransition) {
+        if (needsHiddenContentEditableQuirk(m_page->settings().needsSiteSpecificQuirks(), m_page->mainFrame().document()->url())) {
+            m_needsHiddenContentEditableQuirk = true;
+            send(Messages::WebPageProxy::SetNeedsHiddenContentEditableQuirk(m_needsHiddenContentEditableQuirk));
+        }
+
+        if (needsPlainTextQuirk(m_page->settings().needsSiteSpecificQuirks(), m_page->mainFrame().document()->url())) {
+            m_needsPlainTextQuirk = true;
+            send(Messages::WebPageProxy::SetNeedsPlainTextQuirk(m_needsPlainTextQuirk));
+        }
+
         send(Messages::WebPageProxy::SetHasHadSelectionChangesFromUserInteraction(m_hasEverFocusedElementDueToUserInteractionSincePageTransition));
+    }
 
     // Abandon the current inline input session if selection changed for any other reason but an input method direct action.
     // FIXME: This logic should be in WebCore.

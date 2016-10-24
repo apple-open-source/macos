@@ -1,0 +1,7 @@
+
+# /
+/build
+
+# /IOPCIFamily.xcodeproj/
+/IOPCIFamily.xcodeproj/*.mode*
+/IOPCIFamily.xcodeproj/*.pbxuser

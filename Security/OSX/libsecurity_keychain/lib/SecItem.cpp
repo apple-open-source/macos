@@ -64,7 +64,7 @@ OSStatus SecItemUpdate_ios(CFDictionaryRef query, CFDictionaryRef attributesToUp
 OSStatus SecItemDelete_ios(CFDictionaryRef query);
 OSStatus SecItemUpdateTokenItems_ios(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes);
 
-CFTypeRef SecItemCreateFromAttributeDictionary_osx(CFDictionaryRef refAttributes);
+
 OSStatus SecItemValidateAppleApplicationGroupAccess(CFStringRef group);
 CFDictionaryRef SecItemCopyTranslatedAttributes(CFDictionaryRef inOSXDict, CFTypeRef itemClass,
 	bool iOSOut, bool pruneMatch, bool pruneSync, bool pruneReturn, bool pruneData, bool pruneAccess);

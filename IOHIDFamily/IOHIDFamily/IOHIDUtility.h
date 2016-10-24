@@ -69,4 +69,9 @@ struct Key {
     }
 };
 
+struct KeyAttribute {
+    uint32_t  _flags;
+    KeyAttribute (uint32_t  flags = 0):_flags(flags) {};
+};
+
 #endif /* IOHIDUtility_h */

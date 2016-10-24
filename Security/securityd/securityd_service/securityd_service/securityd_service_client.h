@@ -10,7 +10,7 @@ extern "C" {
 #include <bsm/audit.h>
 #include <mach/message.h>
 #include <stdbool.h>
-    
+
 enum {
     KB_Success      = 0,
     KB_GeneralError,
@@ -26,9 +26,10 @@ typedef struct {
     uid_t s_uid;
     audit_token_t procToken;
 } service_context_t;
-    
+
 int service_client_kb_create(service_context_t *context, const void * secret, int secret_len);
 int service_client_kb_load(service_context_t *context);
+int service_client_kb_load_uid(uid_t uid);
 int service_client_kb_unload(service_context_t *context);
 int service_client_kb_save(service_context_t *context);
 int service_client_kb_unlock(service_context_t *context, const void * secret, int secret_len);

@@ -88,7 +88,7 @@
  *
  * @abstract    CFArray of dictionaries that contain user defined key mappings.
  */
-#define kIOHIDUserUsageMapKey                       "UserKeyMapping"
+#define kIOHIDUserKeyUsageMapKey                     "UserKeyMapping"
 
 /*!
  * @define      kIOHIDKeyboardCapsLockDelayOverride

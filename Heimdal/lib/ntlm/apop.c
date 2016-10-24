@@ -77,9 +77,7 @@ heim_apop_create(const char *challenge, const char *password)
 
     CC_MD5_Final(hash, &ctx);
 
-    hex_encode(hash, sizeof(hash), &str);
-    if (str)
-      strlwr(str);
+    hex_encode_lower(hash, sizeof(hash), &str);
 
     return str;
 }
@@ -195,6 +193,8 @@ heim_cram_md5_verify_ctx(heim_cram_md5 ctx, const char *challenge, const char *r
 {
     uint8_t hash[CC_MD5_DIGEST_LENGTH];
     char *str = NULL;
+    char *response_lower = strdup(response);
+    size_t len;
     int res;
 
     CC_MD5_Update(&ctx->ipad, challenge, (CC_LONG)strlen(challenge));
@@ -203,11 +203,24 @@ heim_cram_md5_verify_ctx(heim_cram_md5 ctx, const char *challenge, const char *r
     CC_MD5_Update(&ctx->opad, hash, sizeof(hash));
     CC_MD5_Final(hash, &ctx->opad);
 
-    hex_encode(hash, sizeof(hash), &str);
+    hex_encode_lower(hash, sizeof(hash), &str);
     if (str == NULL)
 	return ENOMEM;
 
-    res = (strcasecmp(str, response) != 0);
+    len = strlen(response);
+    if (len != sizeof(hash) * 2) {
+	return HNTLM_ERR_INVALID_CRAM_MD5;
+    }
+
+    response_lower = strdup(response);
+    if (response_lower == NULL) {
+	free(str);
+	return ENOMEM;
+    }
+    strlwr(response_lower);
+
+    res = ct_memcmp(str, response_lower, len);
+    free(response_lower);
     free(str);
 
     if (res)
@@ -236,9 +249,7 @@ heim_cram_md5_create(const char *challenge, const char *password)
 
     memset(&ctx, 0, sizeof(ctx));
 
-    hex_encode(hash, sizeof(hash), &str);
-    if (str)
-      strlwr(str);
+    hex_encode_lower(hash, sizeof(hash), &str);
 
     return str;
 }
@@ -246,6 +257,8 @@ heim_cram_md5_create(const char *challenge, const char *password)
  int
 heim_cram_md5_verify(const char *challenge, const char *password, const char *response)
 {
+    char  *rresponse = NULL;
+    size_t len;
     char *str;
     int res;
 
@@ -253,10 +266,24 @@ heim_cram_md5_verify(const char *challenge, const char *password, const char *re
     if (str == NULL)
 	return ENOMEM;
 
-    res = (strcasecmp(str, response) != 0);
+    len = strlen(str);
+    if (len != strlen(response)) {
+	free(str);
+	return HNTLM_ERR_INVALID_CRAM_MD5;
+    }
+
+    rresponse = strdup(response);
+    if (rresponse == NULL) {
+	free(str);
+	return ENOMEM;
+    }
+    strlwr(rresponse);
+
+    res = ct_memcmp(str, response, len);
+    free(rresponse);
     free(str);
 
-    if (res)
+    if (res != 0)
 	return HNTLM_ERR_INVALID_CRAM_MD5;
     return 0;
 }

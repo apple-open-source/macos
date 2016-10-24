@@ -104,6 +104,7 @@ public:
                                 IOOptionBits         options );
                                                                 
     virtual void postKeyboardEvent(UInt8 key, bool keyDown);
+    virtual void postConsumerEvent(UInt8 key, bool keyDown);
     virtual void postFlagKeyboardEvent(UInt32 flags);
     
     virtual void setCapsLockLEDElement(bool state);

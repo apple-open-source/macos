@@ -1377,6 +1377,9 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 // units - CFNumber 0/1
 #define kIOPMUnifiedSleepSliderPrefKey                  "UnifiedSleepSliderPref"
 
+
+#define kIOPMUpdateDarkWakeBGSettingKey                 "Update DarkWakeBG Setting"
+
 // Restart on Kernel panic
 // Deprecated in 10.8. Do not use.
 #define kIOPMRestartOnKernelPanicKey                    "RestartAfterKernelPanic"

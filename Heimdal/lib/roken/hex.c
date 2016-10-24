@@ -37,21 +37,22 @@
 #include <ctype.h>
 #include "hex.h"
 
-static const char hexchar[16] = "0123456789ABCDEF";
+static const char hexchar_upper[16] = "0123456789ABCDEF";
+static const char hexchar_lower[16] = "0123456789abcdef";
 
 static int
 pos(char c)
 {
     const char *p;
     c = toupper((unsigned char)c);
-    for (p = hexchar; *p; p++)
+    for (p = hexchar_upper; *p; p++)
 	if (*p == c)
-	    return (int)(p - hexchar);
+	    return (int)(p - hexchar_upper);
     return -1;
 }
 
-ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
-hex_encode(const void *data, size_t size, char **str)
+static ssize_t ROKEN_LIB_CALL
+encode_hex(const void *data, size_t size, const char *hexchar, char **str)
 {
     const unsigned char *q = data;
     size_t i;
@@ -78,6 +79,19 @@ hex_encode(const void *data, size_t size, char **str)
     *str = p;
 
     return i * 2;
+}
+
+
+ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
+hex_encode(const void *data, size_t size, char **str)
+{
+    return encode_hex(data, size, hexchar_upper, str);
+}
+
+ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
+hex_encode_lower(const void *data, size_t size, char **str)
+{
+    return encode_hex(data, size, hexchar_lower, str);
 }
 
 ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL

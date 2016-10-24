@@ -74,6 +74,7 @@
 #include "RenderTextControl.h"
 #include "RenderedDocumentMarker.h"
 #include "RenderedPosition.h"
+#include "ReplaceRangeWithTextCommand.h"
 #include "ReplaceSelectionCommand.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
@@ -3613,27 +3614,40 @@ String Editor::stringForCandidateRequest() const
 
     return String();
 }
+    
+RefPtr<Range> Editor::contextRangeForCandidateRequest() const
+{
+    const VisibleSelection& selection = m_frame.selection().selection();
+    return makeRange(startOfParagraph(selection.visibleStart()), endOfParagraph(selection.visibleEnd()));
+}
+
+RefPtr<Range> Editor::rangeForTextCheckingResult(const TextCheckingResult& result) const
+{
+    if (!result.length)
+        return nullptr;
+
+    RefPtr<Range> contextRange = contextRangeForCandidateRequest();
+    if (!contextRange)
+        return nullptr;
+
+    return TextIterator::subrange(contextRange.get(), result.location, result.length);
+}
 
 void Editor::handleAcceptedCandidate(TextCheckingResult acceptedCandidate)
 {
     const VisibleSelection& selection = m_frame.selection().selection();
-    RefPtr<Range> candidateRange = candidateRangeForSelection(m_frame);
-    int candidateLength = acceptedCandidate.length;
 
     m_isHandlingAcceptedCandidate = true;
 
-    if (candidateWouldReplaceText(selection))
-        m_frame.selection().setSelectedRange(candidateRange.get(), UPSTREAM, true);
+    if (auto range = rangeForTextCheckingResult(acceptedCandidate)) {
+        if (shouldInsertText(acceptedCandidate.replacement, range.get(), EditorInsertActionTyped)) {
+            Ref<ReplaceRangeWithTextCommand> replaceCommand = ReplaceRangeWithTextCommand::create(range.get(), acceptedCandidate.replacement);
+            applyCommand(replaceCommand.ptr());
+        }
+    } else
+        insertText(acceptedCandidate.replacement, nullptr);
 
-    insertText(acceptedCandidate.replacement, 0);
-
-    // Some candidates come with a space built in, and we do not need to add another space in that case.
-    if (!acceptedCandidate.replacement.endsWith(' ')) {
-        insertText(ASCIILiteral(" "), 0);
-        ++candidateLength;
-    }
-
-    RefPtr<Range> insertedCandidateRange = rangeExpandedAroundPositionByCharacters(selection.visibleStart(), candidateLength);
+    RefPtr<Range> insertedCandidateRange = rangeExpandedByCharactersInDirectionAtWordBoundary(selection.visibleStart(), acceptedCandidate.replacement.length(), DirectionBackward);
     if (insertedCandidateRange)
         insertedCandidateRange->startContainer().document().markers().addMarker(insertedCandidateRange.get(), DocumentMarker::AcceptedCandidate, acceptedCandidate.replacement);
 

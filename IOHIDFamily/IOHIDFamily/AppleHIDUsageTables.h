@@ -31,8 +31,7 @@
 
 
 /* Usage Pages */
-enum
-{
+enum {
     kHIDPage_AppleVendor                        = 0xff00,
     kHIDPage_AppleVendorKeyboard                = 0xff01,
     kHIDPage_AppleVendorMouse                   = 0xff02,
@@ -49,6 +48,8 @@ enum
     kHIDPage_AppleVendorIRRemote                = 0xff0E,
     kHIDPage_AppleVendorDebug                   = 0xff0F,
     kHIDPage_AppleVendorIRInterface             = 0xff10,
+    kHIDPage_AppleVendorDFR                     = 0xff11,
+    kHIDPage_AppleVendorDFRBrightness           = 0xff12,
     kHIDPage_AppleVendorFilteredEvent           = 0xff50,
     kHIDPage_AppleVendorMultitouch              = 0xff60,
     kHIDPage_AppleVendorDisplay                 = 0xff92,
@@ -57,8 +58,7 @@ enum
 
 
 /* AppleVendor Page (0xff00) */
-enum
-{
+enum {
     kHIDUsage_AppleVendor_TopCase               = 0x0001, /* Application Collection */
     kHIDUsage_AppleVendor_Display               = 0x0002, /* Application Collection */
     kHIDUsage_AppleVendor_Accelerometer         = 0x0003, /* Application Collection */
@@ -80,19 +80,19 @@ enum
     kHIDUsage_AppleVendor_Orb                   = 0x0013, /* Application Collection */
     kHIDUsage_AppleVendor_AccessoryBattery      = 0x0014, /* Application Collection */
     kHIDUsage_AppleVendor_Humidity              = 0x0015, /* Application Collection */
-    kHIDUsage_AppleVendor_HIDEventRelay         = 0x0016, /* Application Collection */
+    kHIDUsage_AppleVendor_DFR                   = 0x0016, /* Application Collection */
     kHIDUsage_AppleVendor_NXEvent               = 0x0017, /* Application Collection */
     kHIDUsage_AppleVendor_NXEvent_Translated    = 0x0018, /* Application Collection */
     kHIDUsage_AppleVendor_NXEvent_Diagnostic    = 0x0019, /* Application Collection */
     kHIDUsage_AppleVendor_Homer                 = 0x0020, /* Application Collection */
     kHIDUsage_AppleVendor_Color                 = 0x0021, /* Dynamic Value */
     kHIDUsage_AppleVendor_Accessibility         = 0x0022, /* Application Collection */
+    kHIDUsage_AppleVendor_Message               = 0x0023, /* Application Collection */
 };
 
 
 /* AppleVendor Keyboard Page (0xff01) */
-enum
-{
+enum {
     kHIDUsage_AppleVendorKeyboard_Spotlight             = 0x0001,
     kHIDUsage_AppleVendorKeyboard_Dashboard             = 0x0002,
     kHIDUsage_AppleVendorKeyboard_Function              = 0x0003,
@@ -174,8 +174,7 @@ enum {
 };
 
 /* AppleVendor Multitouch Page (0xff60) */
-enum
-{
+enum {
     kHIDUsage_AppleVendorMultitouch_PowerOff            = 0x0001,
     kHIDUsage_AppleVendorMultitouch_DeviceReady         = 0x0002,
     kHIDUsage_AppleVendorMultitouch_ExternalMessage     = 0x0003,
@@ -197,5 +196,39 @@ enum
     kHIDUsage_AV_TopCase_Reserved_MouseData    = 0x00c0
 };
 
+/* AppleVendor DFR (0xff11) */
+enum {
+    kHIDUsage_AppleVendorDFR_TouchTimestamp    = 0x1
+};
 
+/* AppleVendor DFR Brightness (0xff12) */
+enum {
+    kHIDUsage_AppleVendorDFRBrightness_DFRBrightnes                 = 0x0001,  /* Application Collection */
+    
+    kHIDUsage_AppleVendorDFRBrightness_Update                       = 0x0010,
+    kHIDUsage_AppleVendorDFRBrightness_Absolute                     = 0x0011,
+    kHIDUsage_AppleVendorDFRBrightness_Relative                     = 0x0012,
+    kHIDUsage_AppleVendorDFRBrightness_RampLength                   = 0x0013,
+    
+    kHIDUsage_AppleVendorDFRBrightness_DimmingStepOptions           = 0x0020,
+    kHIDUsage_AppleVendorDFRBrightness_DimmingStep                  = 0x0021,
+    kHIDUsage_AppleVendorDFRBrightness_DimmingStepRampLength        = 0x0022,
+    kHIDUsage_AppleVendorDFRBrightness_DimmingStepFactor            = 0x0023,
+    
+    kHIDUsage_AppleVendorDFRBrightness_DisplayState                 = 0x0031,
+    kHIDUsage_AppleVendorDFRBrightness_DisplaySateRampLength        = 0x0032,
+    
+    kHIDUsage_AppleVendorDFRBrightness_Version                      = 0x0040,
+    kHIDUsage_AppleVendorDFRBrightness_AutoBrightness               = 0x0041,
+    kHIDUsage_AppleVendorDFRBrightness_MinNits                      = 0x0042,
+    kHIDUsage_AppleVendorDFRBrightness_MaxNits                      = 0x0043,
+    kHIDUsage_AppleVendorDFRBrightness_CurveType                    = 0x0044,
+    kHIDUsage_AppleVendorDFRBrightness_CurvePointCount              = 0x0045,
+    kHIDUsage_AppleVendorDFRBrightness_CurveUpdateRampLength        = 0x0046,
+    kHIDUsage_AppleVendorDFRBrightness_CurveIlluminanceCoordinates  = 0x0047,
+    kHIDUsage_AppleVendorDFRBrightness_CurveLuminanceCoordinates    = 0x0048,
+    
+    kHIDUsage_AppleVendorDFRBrightness_DFRBurninCounterUpdate       = 0x0050,
+    kHIDUsage_AppleVendorDFRBrightness_DFRBurninCounterValue        = 0x0051,
+};
 #endif /* _APPLEHIDUSAGETABLES_H */

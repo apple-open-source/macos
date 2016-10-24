@@ -1549,6 +1549,7 @@ enum
     kHIDUsage_Snsr_Property_PowerState_D3_Sleep                 = 0x0854,
     kHIDUsage_Snsr_Property_PowerState_D4_PowerOff              = 0x0855,
     /* 0x0855 - 0x085F Reserved */
+    kHIDUsage_Snsr_Light_Illuminance                            = 0x04D1,
     
     /* Specific Sensor Type Data Fields */
     /*** TODO ***/

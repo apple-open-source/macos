@@ -137,5 +137,17 @@ Boolean IOAuthenticatedRestartSupported(void);
 IOReturn IOPlatformGetDeviceColor(  CFStringRef whichColor,
                                     uint8_t * red, uint8_t * green, uint8_t * blue );
 
+/*!
+ * @function    IOCopyModel
+ * @abstract    Copy the model name, major and minor revision numbers
+ * @discussion  This function returns the model name of the sysem.
+ * @param       char ** model - Allocates and returns the model name.
+ * @param       uint32_t *majorRev - Major revision number
+ * @param       uint32_t *minorRev - Minor revision number
+ * @result      kIOReturnSuccess on success. Caller is expected to release memory for *model.
+ */
+IOReturn  IOCopyModel(char** model, uint32_t *majorRev, uint32_t *minorRev);
+
+
 #endif
 #endif

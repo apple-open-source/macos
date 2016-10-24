@@ -44,6 +44,7 @@
 #endif
 #import "HeimCredCoder.h"
 #import "common.h"
+#import "roken.h"
 
 
 #if PLATFORM_SUPPORT_CLASS_F
@@ -239,7 +240,7 @@ ksDecryptData(NSData * blob)
 
     /* check that tag stored after the plaintext is correct */
     cursor += ctLen;
-    if (memcmp(tag, cursor, tagLen) != 0) {
+    if (ct_memcmp(tag, cursor, tagLen) != 0) {
 	syslog(LOG_ERR, "incorrect tag on credential data");
 	goto out;
     }

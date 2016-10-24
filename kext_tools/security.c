@@ -51,9 +51,9 @@ static void         copySigningInfo(CFURLRef kextURL,
 static CFArrayRef   copySubjectCNArray(CFURLRef kextURL);
 static CFStringRef  copyTeamID(SecCertificateRef certificate);
 static CFStringRef  createArchitectureList(OSKextRef aKext, CFBooleanRef *isFat);
-static void         getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer);
+static void         getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer, CFDictionaryRef codesignAttributes);
 static void         filterKextLoadForMT(OSKextRef aKext, CFMutableArrayRef *kextList);
-static Boolean      hashIsInExceptionList(CFURLRef theKextURL, CFDictionaryRef theDict);
+static Boolean      hashIsInExceptionList(CFURLRef theKextURL, CFDictionaryRef theDict, CFDictionaryRef codesignAttributes);
 static uint64_t     getKextDevModeFlags(void);
 
 /*******************************************************************************
@@ -201,8 +201,9 @@ finish:
  *  Syrah requires new adhoc signing rules (16411212)
  *******************************************************************************/
 
-static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer)
+static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer, CFDictionaryRef codesignAttributes)
 {
+    OSStatus status                     = errSecSuccess;
     CFMutableDictionaryRef signdict     = NULL;   // must release
     SecCodeSignerRef    signerRef       = NULL;   // must release
     SecStaticCodeRef    staticCodeRef   = NULL;   // must release
@@ -221,14 +222,23 @@ static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer)
     CFNumberRef         myHashNumValue  = NULL;   // must release
 
     /* Ad-hoc sign the code temporarily so we can get its hash */
-    if (SecStaticCodeCreateWithPath(kextURL,
-                                    kSecCSDefaultFlags,
-                                    &staticCodeRef) != 0 ||
-        (staticCodeRef == NULL)) {
+    if (codesignAttributes) {
+        status = SecStaticCodeCreateWithPathAndAttributes(kextURL,
+                                                          kSecCSDefaultFlags,
+                                                          codesignAttributes,
+                                                          &staticCodeRef);
+    }
+    else {
+        status = SecStaticCodeCreateWithPath(kextURL,
+                                             kSecCSDefaultFlags,
+                                             &staticCodeRef);
+    }
+
+    if (status != errSecSuccess || staticCodeRef == NULL) {
         OSKextLogMemError();
         goto finish;
     }
-    
+
     signature = CFDataCreateMutable(NULL, 0);
     if (signature == NULL) {
         OSKextLogMemError();
@@ -980,7 +990,7 @@ static void filterKextLoadForMT(OSKextRef aKext, CFMutableArrayRef *kextList)
          * A hash of the kext is generated for data collection. */
         kextSigningCategory = CFSTR(kUnsignedKext);
         
-        getAdhocSignatureHash(kextURL, &hashCString);
+        getAdhocSignatureHash(kextURL, &hashCString, NULL);
         if (hashCString) {
             hashString = CFStringCreateWithCString(kCFAllocatorDefault,
                                                    hashCString,
@@ -1479,7 +1489,7 @@ Boolean isInExceptionList(OSKextRef theKext,
             }
             theKextURL = kextURL;
         }
-        if (hashIsInExceptionList(theKextURL, sExceptionHashListDict)) {
+        if (hashIsInExceptionList(theKextURL, sExceptionHashListDict, NULL)) {
             result = true;
             goto finish;
         }
@@ -1507,7 +1517,41 @@ Boolean isInStrictExceptionList(OSKextRef theKext,
     CFStringRef         kextID                      = NULL; // must release
     OSKextRef           excludelistKext             = NULL; // must release
     CFDictionaryRef     tempDict                    = NULL; // do NOT release
+    CFMutableDictionaryRef attributes               = NULL; // must release
     static CFDictionaryRef sStrictExceptionHashListDict = NULL; // do NOT release
+    const NXArchInfo   *targetArch                  = NULL;  // do not free
+    CFStringRef         archName                    = NULL; // must release
+    
+    // For strict validation, the exception list has an entry for each kext and each architecture
+    // it is intended to cover so that we only have to check the cdhash of the currently
+    // running kernel architecture that will be loaded.
+    // <rdar://problem/27010141>
+    attributes = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                           1,
+                                           &kCFTypeDictionaryKeyCallBacks,
+                                           &kCFTypeDictionaryValueCallBacks);
+    if (!attributes) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    
+    targetArch = OSKextGetRunningKernelArchitecture();
+    if (!targetArch) {
+        OSKextLogCFString(theKext,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+            kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag,
+            CFSTR("Loading kext with identifier %@ failed retrieving running kernel architecture."),
+            OSKextGetIdentifier(theKext));
+        goto finish;
+    }
+    
+    archName = CFStringCreateWithCString(NULL, targetArch->name, kCFStringEncodingASCII);
+    if (!archName) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    
+    CFDictionaryAddValue(attributes, kSecCodeAttributeArchitecture, archName);
     
     /* invalidate the exception list "by hash" cache or create if not
      * present
@@ -1576,13 +1620,26 @@ Boolean isInStrictExceptionList(OSKextRef theKext,
             }
             theKextURL = kextURL;
         }
-        if (hashIsInExceptionList(theKextURL, sStrictExceptionHashListDict)) {
+        if (hashIsInExceptionList(theKextURL, sStrictExceptionHashListDict, attributes)) {
             result = true;
             goto finish;
+        } else {
+            char kextPath[PATH_MAX];
+            if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
+                                                  false, (UInt8 *)kextPath, sizeof(kextPath))) {
+                strlcpy(kextPath, "(unknown)", sizeof(kextPath));
+            }
+            OSKextLog(theKext,
+                      kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                      kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag,
+                      "%s does not appear in strict exception list for architecture: %s",
+                      kextPath, targetArch->name);
         }
     }
     
 finish:
+    SAFE_RELEASE(archName);
+    SAFE_RELEASE(attributes);
     SAFE_RELEASE(kextURL);
     SAFE_RELEASE(kextID);
     SAFE_RELEASE(excludelistKext);
@@ -1608,10 +1665,16 @@ finish:
  *          <string>3.3.0</string>
  *      </dict>
  * </dict>
+ *
+ *
+ * codesignAttributes is a dictionary of codesigning attributes to pass in to
+ * SecStaticCodeCreateWithPathAndAttributes that controls exactly how the
+ * hash is generated.
  *********************************************************************/
 
 static Boolean hashIsInExceptionList(CFURLRef           theKextURL,
-                                     CFDictionaryRef    theDict)
+                                     CFDictionaryRef    theDict,
+                                     CFDictionaryRef    codesignAttributes)
 {
     Boolean         result              = false;
     char *          hashCString         = NULL;     // must free
@@ -1622,9 +1685,8 @@ static Boolean hashIsInExceptionList(CFURLRef           theKextURL,
         goto finish;
     }
     
-    /* generate the hash for unsigned kext to look up in exception list
-     */
-    getAdhocSignatureHash(theKextURL, &hashCString);
+    /* generate the hash for the kext to look up in exception list */
+    getAdhocSignatureHash(theKextURL, &hashCString, codesignAttributes);
     if (hashCString == NULL) {
         goto finish;
     }

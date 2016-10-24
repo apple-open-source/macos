@@ -504,7 +504,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
             goto out;
         }
         cursor += ctLen;
-        if (memcmp(tag, cursor, tagLen)) {
+        if (timingsafe_bcmp(tag, cursor, tagLen)) {
             ok = SecError(errSecDecode, error, CFSTR("ks_decrypt_data: CCCryptorGCM computed tag not same as tag in blob"));
             goto out;
         }

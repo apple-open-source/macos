@@ -228,6 +228,10 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
             default:
                 return kIOReturnBadArgument;
         }
+
+        if (inSMBus->flags & kEXFlagUsePEC) {
+            newTransaction.options = kIOSMBusTransactionUsesPEC;
+        }
          
         // Input: copy data into transaction
         //  only need to copy data for write operations

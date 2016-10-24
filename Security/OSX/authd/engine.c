@@ -185,6 +185,7 @@ _set_process_immutable_hints(auth_items_t immutable_hints, process_t proc)
 {
     // process information - immutable
     auth_items_set_bool(immutable_hints, AGENT_HINT_PROCESS_SIGNED, process_apple_signed(proc));
+	auth_items_set_bool(immutable_hints, AGENT_HINT_PROCESS_FROM_APPLE, process_firstparty_signed(proc));
 }
 
 void

@@ -28,6 +28,7 @@
 
 #if PLATFORM(MAC)
 
+#import "HTMLMediaElement.h"
 #import "Logging.h"
 #import "MediaPlayer.h"
 #import "PlatformMediaSession.h"
@@ -52,6 +53,12 @@ PlatformMediaSessionManager* PlatformMediaSessionManager::sharedManagerIfExists(
     return platformMediaSessionManager;
 }
 
+void PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary()
+{
+    if (auto existingManager = (MediaSessionManagerMac *)PlatformMediaSessionManager::sharedManagerIfExists())
+        existingManager->scheduleUpdateNowPlayingInfo();
+}
+
 MediaSessionManagerMac::MediaSessionManagerMac()
     : PlatformMediaSessionManager()
 {
@@ -62,14 +69,25 @@ MediaSessionManagerMac::~MediaSessionManagerMac()
 {
 }
 
+void MediaSessionManagerMac::scheduleUpdateNowPlayingInfo()
+{
+    if (!m_nowPlayingUpdateTaskQueue.hasPendingTasks())
+        m_nowPlayingUpdateTaskQueue.enqueueTask(std::bind(&MediaSessionManagerMac::updateNowPlayingInfo, this));
+}
+
 bool MediaSessionManagerMac::sessionWillBeginPlayback(PlatformMediaSession& session)
 {
     if (!PlatformMediaSessionManager::sessionWillBeginPlayback(session))
         return false;
 
     LOG(Media, "MediaSessionManagerMac::sessionWillBeginPlayback");
-    updateNowPlayingInfo();
+    scheduleUpdateNowPlayingInfo();
     return true;
+}
+
+void MediaSessionManagerMac::sessionDidEndRemoteScrubbing(const PlatformMediaSession&)
+{
+    scheduleUpdateNowPlayingInfo();
 }
 
 void MediaSessionManagerMac::removeSession(PlatformMediaSession& session)
@@ -94,14 +112,8 @@ void MediaSessionManagerMac::clientCharacteristicsChanged(PlatformMediaSession&)
 
 PlatformMediaSession* MediaSessionManagerMac::nowPlayingEligibleSession()
 {
-    for (auto session : sessions()) {
-        PlatformMediaSession::MediaType type = session->mediaType();
-        if (type != PlatformMediaSession::Video && type != PlatformMediaSession::Audio)
-            continue;
-
-        if (session->characteristics() & PlatformMediaSession::HasAudio)
-            return session;
-    }
+    if (auto element = HTMLMediaElement::bestMediaElementForShowingPlaybackControlsManager(MediaElementSession::PlaybackControlsPurpose::NowPlaying))
+        return &element->mediaSession();
 
     return nullptr;
 }
@@ -112,17 +124,15 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
     if (!isMediaRemoteFrameworkAvailable())
         return;
 
-    if (!MRMediaRemoteSetCanBeNowPlayingApplication(true)) {
-        LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - MRMediaRemoteSetCanBeNowPlayingApplication(true) failed");
-        return;
-    }
-
     const PlatformMediaSession* currentSession = this->nowPlayingEligibleSession();
 
     LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - currentSession = %p", currentSession);
 
     if (!currentSession) {
         if (m_nowPlayingActive) {
+            if (canLoad_MediaRemote_MRMediaRemoteSetNowPlayingVisibility())
+                MRMediaRemoteSetNowPlayingVisibility(MRMediaRemoteGetLocalOrigin(), MRNowPlayingClientVisibilityNeverVisible);
+
             LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - clearing now playing info");
             MRMediaRemoteSetNowPlayingInfo(nullptr);
             m_nowPlayingActive = false;
@@ -138,18 +148,17 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
         return;
     }
 
+    static dispatch_once_t enableNowPlayingToken;
+    dispatch_once(&enableNowPlayingToken, ^() {
+        MRMediaRemoteSetCanBeNowPlayingApplication(true);
+    });
+
+    if (canLoad_MediaRemote_MRMediaRemoteSetNowPlayingVisibility())
+        MRMediaRemoteSetNowPlayingVisibility(MRMediaRemoteGetLocalOrigin(), MRNowPlayingClientVisibilityAlwaysVisible);
+
     String title = currentSession->title();
     double duration = currentSession->duration();
     double rate = currentSession->state() == PlatformMediaSession::Playing ? 1 : 0;
-    if (m_reportedTitle == title && m_reportedRate == rate && m_reportedDuration == duration) {
-        LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - nothing new to show");
-        return;
-    }
-
-    m_reportedRate = rate;
-    m_reportedDuration = duration;
-    m_reportedTitle = title;
-
     auto info = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 4, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
     if (!title.isEmpty())
@@ -171,6 +180,10 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
 
     LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - title = \"%s\", rate = %f, duration = %f, now = %f",
         title.utf8().data(), rate, duration, currentTime);
+
+    String parentApplication = currentSession->sourceApplicationIdentifier();
+    if (canLoad_MediaRemote_MRMediaRemoteSetParentApplication() && !parentApplication.isEmpty())
+        MRMediaRemoteSetParentApplication(MRMediaRemoteGetLocalOrigin(), parentApplication.createCFString().get());
 
     m_nowPlayingActive = true;
     MRPlaybackState playbackState = (currentSession->state() == PlatformMediaSession::Playing) ? kMRPlaybackStatePlaying : kMRPlaybackStatePaused;

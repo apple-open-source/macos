@@ -6742,6 +6742,7 @@ IFState_update_link_event_data(IFStateRef ifstate, link_event_data_t link_event)
     bzero(link_event, sizeof(*link_event));
     if (if_is_wireless(ifstate->if_p)) {
 	interface_t	*	if_p = ifstate->if_p;
+	link_status_t		link_status = if_get_link_status(if_p);
 	CFStringRef		ssid;
 	struct ether_addr	bssid;
 
@@ -6763,7 +6764,11 @@ IFState_update_link_event_data(IFStateRef ifstate, link_event_data_t link_event)
 		link_event->flags |= kLinkFlagsSSIDChanged;
 	    }
 	}
-	IFState_set_ssid_bssid(ifstate, ssid, &bssid);
+	if (ssid != NULL
+	    || (link_status.valid && !link_status.active)) {
+	    /* only set SSID to NULL if link status is inactive (27755476) */
+	    IFState_set_ssid_bssid(ifstate, ssid, &bssid);
+	}
 	my_CFRelease(&ssid);
     }
     return;

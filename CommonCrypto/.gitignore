@@ -1,0 +1,13 @@
+DerivedData/
+build/
+.DS_Store
+*~.nib
+*.swp
+*.mode1v3
+*.mode2v3
+*.pbxuser
+*.perspective
+*.perspectivev3
+xcuserdata
+shared_caches
+xcshareddata

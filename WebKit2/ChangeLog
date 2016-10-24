@@ -1,3 +1,458 @@
+2016-09-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206527. rdar://problem/28499358
+
+    2016-09-27  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Adopt MediaRemote SPI to achieve desired Now Playing behavior
+            https://bugs.webkit.org/show_bug.cgi?id=162658
+            <rdar://problem/28499358>
+
+            Reviewed by Jer Noble.
+
+            Plumbs Now Playing session information (for now, this is just a flag indicating whether or not there is an
+            active session) across from the web process to the UI process for testing in the form of asynchronous request/
+            handle-response messages on the WebPage and its proxy in the UI process.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _requestActiveNowPlayingSessionInfo]):
+            (-[WKWebView _handleActiveNowPlayingSessionInfoResponse:]):
+            * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+            * UIProcess/PageClient.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::requestActiveNowPlayingSessionInfo):
+            (WebKit::WebPageProxy::handleActiveNowPlayingSessionInfoResponse):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * UIProcess/mac/PageClientImpl.h:
+            * UIProcess/mac/PageClientImpl.mm:
+            (WebKit::PageClientImpl::handleActiveNowPlayingSessionInfoResponse):
+            * WebProcess/WebPage/WebPage.h:
+            * WebProcess/WebPage/WebPage.messages.in:
+            * WebProcess/WebPage/mac/WebPageMac.mm:
+            (WebKit::WebPage::requestActiveNowPlayingSessionInfo):
+
+2016-09-28  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206135. rdar://problem/28499358
+
+    2016-09-19  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Add a unit test covering <https://trac.webkit.org/changeset/205983>
+            https://bugs.webkit.org/show_bug.cgi?id=162112
+
+            Reviewed by Beth Dakin.
+
+            Adds some a test support method as SPI on WKWebView to determine whether to request candidates. See
+            Tools/ChangeLog for more details.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _shouldRequestCandidates]):
+            (-[WKWebView _forceRequestCandidates]): Deleted.
+            * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+
+2016-09-26  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206238. rdar://problem/28450514
+
+    2016-09-21  Anders Carlsson  <andersca@apple.com>
+
+            support openPaymentSetup API on ApplePaySession object
+            https://bugs.webkit.org/show_bug.cgi?id=162357
+            rdar://problem/26776939
+
+            Reviewed by Tim Horton.
+
+            * UIProcess/ApplePay/WebPaymentCoordinatorProxy.cpp:
+            (WebKit::WebPaymentCoordinatorProxy::openPaymentSetup):
+            Call through to platformOpenPaymentSetup, and in the completion handler, send back a OpenPaymentSetupReply message.
+
+            * UIProcess/ApplePay/WebPaymentCoordinatorProxy.h:
+            Add new members.
+
+            * UIProcess/ApplePay/WebPaymentCoordinatorProxy.messages.in:
+            Add OpenPaymentSetup message.
+
+            * UIProcess/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+            (WebKit::WebPaymentCoordinatorProxy::platformOpenPaymentSetup):
+            Allocate a PKPassLibrary and call openPaymentSetupForMerchantIdentifier:domain:completion: on it.
+
+            * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+            (WebKit::generateOpenPaymentSetupReplyID):
+            New helper function to generate a reply ID.
+
+            (WebKit::WebPaymentCoordinator::openPaymentSetup):
+            Add the completion handler to m_pendingOpenPaymentSetupCallbacks and send a OpenPaymentSetup message to the UI process.
+
+            (WebKit::WebPaymentCoordinator::openPaymentSetupReply):
+            Grab the callback given its ID and invoke it.
+
+            * WebProcess/ApplePay/WebPaymentCoordinator.h:
+            Add new members.
+
+            * WebProcess/ApplePay/WebPaymentCoordinator.messages.in:
+            Add OpenPaymentSetupReply message.
+
+2016-09-26  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206350. rdar://problem/28115680
+
+    2016-09-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Media controls playhead does not animate smoothly while playing
+            https://bugs.webkit.org/show_bug.cgi?id=162399
+            <rdar://problem/28115680>
+
+            Reviewed by Beth Dakin.
+
+            See WebCore ChangeLog for more details.
+
+            In the UI process, we update the WebPlaybackSessionManager's timing value when the rate or current time changes.
+            Each AVValueTiming is generated from the current time, system anchor time, and playback rate. The behavior of
+            the first two properties is unaffected. However, the rate used to update the timing value is the effective
+            playback rate, which is equal to the playback rate unless we are (1) not playing, (2) interacting with the media
+            controls in such a way that the media is essentially not playing, or (3) the current time precedes the playback
+            start time, accounting for playback direction. In these cases, our effective playback rate is 0, which means
+            that we do not animate the playhead.
+
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.h:
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.messages.in:
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.mm:
+            (WebKit::WebPlaybackSessionModelContext::beginScrubbing):
+            (WebKit::WebPlaybackSessionModelContext::endScrubbing):
+            (WebKit::WebPlaybackSessionModelContext::setPlaybackStartedTime):
+            (WebKit::WebPlaybackSessionModelContext::setCurrentTime):
+            (WebKit::WebPlaybackSessionManagerProxy::setPlaybackStartedTime):
+            * WebProcess/cocoa/WebPlaybackSessionManager.h:
+            * WebProcess/cocoa/WebPlaybackSessionManager.mm:
+            (WebKit::WebPlaybackSessionInterfaceContext::playbackStartedTimeChanged):
+            (WebKit::WebPlaybackSessionManager::playbackStartedTimeChanged):
+
+2016-09-22  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206033. rdar://problem/28086237
+
+    2016-09-16  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Inserting a space after inserting an accepted candidate scrolls the document and causes a flicker
+            https://bugs.webkit.org/show_bug.cgi?id=162009
+            <rdar://problem/28086237>
+
+            Reviewed by Tim Horton.
+
+            After inserting a text candidate, if the candidate ended with a soft space, the next space we insert should just
+            replace the soft space. This currently works because we leave the text insertion out of the list of
+            KeypressCommands sent to the web process and instead replace the soft space via WebPage::InsertTextAsync.
+            However, this means when the web process handles this keydown event, the current editor will not handle it,
+            since the list of key commands is empty despite the text and unmodified text being non-empty.
+
+            To fix this, when sending keydown or keyup events where we replace a soft space, we set the key event's text to
+            an empty string instead of a space. This allows us to return early in EventHandler::keyEvent and avoid the
+            codepath that tries to insert text into the current editor and (in the case of inserting a ' ') scrolls the
+            document if necessary. Since we've already handled text insertion via WebPage::InsertTextAsync, there is no need
+            to also dispatch the keypress to the editor.
+
+            Additionally, this patch addresses flickering in the candidates UI due to the fact that we're asynchronously
+            replacing the last soft space. During this operation, we select the range of the soft space and then insert the
+            new text. This causes a momentary range selection which the web process notifies the UI process about, prompting
+            us to hide the candidates list. To address this, we suppress the EditorStateChanged message fired from the web
+            process to the UI process while we're selecting the original range to replace.
+
+            This patch adds 3 new WebKit API tests.
+
+            * Shared/NativeWebKeyboardEvent.h:
+            * Shared/mac/NativeWebKeyboardEventMac.mm:
+            (WebKit::NativeWebKeyboardEvent::NativeWebKeyboardEvent):
+            * Shared/mac/WebEventFactory.h:
+            * Shared/mac/WebEventFactory.mm:
+            (WebKit::textFromEvent):
+            (WebKit::unmodifiedTextFromEvent):
+            (WebKit::WebEventFactory::createWebKeyboardEvent):
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _handleAcceptedCandidate:]):
+            (-[WKWebView _didHandleAcceptedCandidate]):
+            (-[WKWebView _didUpdateCandidateListVisibility:]):
+            (-[WKWebView _forceRequestCandidates]):
+            (-[WKWebView _handleControlledElementIDResponse:]): Deleted.
+            * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _didHandleAcceptedCandidate]):
+            (-[WKView _didUpdateCandidateListVisibility:]):
+            * UIProcess/Cocoa/WebViewImpl.h:
+            * UIProcess/Cocoa/WebViewImpl.mm:
+            (WebKit::WebViewImpl::forceRequestCandidatesForTesting):
+            (WebKit::WebViewImpl::becomeFirstResponder):
+            (WebKit::WebViewImpl::didHandleAcceptedCandidate):
+            (WebKit::WebViewImpl::insertText):
+            (WebKit::WebViewImpl::performKeyEquivalent):
+            (WebKit::WebViewImpl::keyUp):
+            (WebKit::WebViewImpl::keyDown):
+            (WebKit::WebViewImpl::flagsChanged):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::insertTextAsync):
+            * UIProcess/WebPageProxy.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::insertTextAsync):
+            (WebKit::WebPage::didChangeSelection):
+            * WebProcess/WebPage/WebPage.h:
+            * WebProcess/WebPage/WebPage.messages.in:
+
+2016-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206006. rdar://problem/27991573
+
+    2016-09-15  Brady Eidson  <beidson@apple.com>
+
+            WKWebView.hasOnlySecureContent always returns "YES" after going back to a CachedPage (even if it has http resources).
+            <rdar://problem/27681261> and https://bugs.webkit.org/show_bug.cgi?id=162043
+
+            Reviewed by Brent Fulgham.
+
+            * Scripts/webkit/messages.py:
+            (headers_for_type): Add a custom header, and alphabetize existing ones.
+
+            * Shared/WebCoreArgumentCoders.h: Add EnumTraits for HasInsecureContent.
+
+            * UIProcess/PageLoadState.h:
+            (WebKit::PageLoadState::committedHasInsecureContent):
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::hasInsecureContent):
+            (WebKit::WebPageProxy::didCommitLoadForFrame): If the WebProcess included an existing "HasInsecureContent" value, use it.
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::dispatchDidCommitLoad):
+            (WebKit::WebFrameLoaderClient::savePlatformDataToCachedFrame): Save the "HasInsecureContent" value to the CachedFrame in
+              case we restore it in the future.
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+
+2016-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206003. rdar://problem/27991573
+
+    2016-09-15  Anders Carlsson  <andersca@apple.com>
+
+            Actually assign the decoded enum value to the output value
+            https://bugs.webkit.org/show_bug.cgi?id=162042
+
+            Reviewed by Brady Eidson.
+
+            * Platform/IPC/Decoder.h:
+
+2016-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r206000. rdar://problem/27991573
+
+    2016-09-15  Anders Carlsson  <andersca@apple.com>
+
+            Add support for enum class parameters in the message generator
+            https://bugs.webkit.org/show_bug.cgi?id=162036
+
+            Reviewed by Brady Eidson.
+
+            Also, convert the WebPage::SetLayerHostingMode to take an actual enum class.
+
+            * Scripts/webkit/messages.py:
+            (function_parameter_type):
+            Change this to take the parameter kind as well, and use the raw type for enums.
+
+            (arguments_type):
+            (message_to_struct_declaration):
+            Pass the kind to function_parameter_type.
+
+            (forward_declaration):
+            (forward_declarations_for_namespace):
+            Forward declare enums with "enum class".
+
+            (headers_for_type):
+            Add WebKit::LayerHostingMode as a special case.
+
+            (generate_message_handler):
+            Pass the kind to function_parameter_type.
+
+            * Scripts/webkit/parser.py:
+            (parse_parameters_string):
+            Parse 'enum' as well.
+
+            * Shared/LayerTreeContext.h:
+            Add enum traits.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::viewDidEnterWindow):
+            (WebKit::WebPageProxy::layerHostingModeDidChange):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::reinitializeWebPage):
+            (WebKit::WebPage::setLayerHostingMode):
+            * WebProcess/WebPage/WebPage.h:
+            Change unsigned to LayerHostingMode.
+
+            * WebProcess/WebPage/WebPage.messages.in:
+            Change unsigned to LayerHostingMode.
+
+2016-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204916. rdar://problem/27991573
+
+    2016-08-23  Anders Carlsson  <andersca@apple.com>
+
+            Add enum traits and use them in the IPC::Decoder
+            https://bugs.webkit.org/show_bug.cgi?id=161103
+
+            Reviewed by Sam Weinig.
+
+            * Platform/IPC/Decoder.h:
+            * Platform/IPC/Encoder.h:
+            Add new encode/decode functions.
+
+            * Shared/mac/ArgumentCodersMac.mm:
+            Change NSType to be a strongly typed enum. Use encode/decode
+            instead of encodeEnum/decodeEnum since the latter don't have the
+            enum check.
+
+2016-09-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205983. rdar://problem/28312297
+
+    2016-09-14  Beth Dakin  <bdakin@apple.com>
+
+            dictionaryPopupInfoForRange() can change selection temporarily; updates should not
+            be sent to the UIProcess.
+            https://bugs.webkit.org/show_bug.cgi?id=162008
+            -and corresponding-
+            rdar://problem/28312297
+
+            Reviewed by Tim Horton.
+
+            This patch prevents the selection changes that occur while gathering
+            dictionaryPopupInfo from being propagated to the UIProcess.
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::didChangeSelection):
+            * WebProcess/WebPage/WebPage.h:
+            * WebProcess/WebPage/mac/WebPageMac.mm:
+            (WebKit::WebPage::dictionaryPopupInfoForRange):
+
+2016-09-14  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205938. rdar://problem/28227805
+
+    2016-09-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Media controls behave strangely when changing media sources
+            https://bugs.webkit.org/show_bug.cgi?id=161914
+            <rdar://problem/28227805>
+
+            Reviewed by Tim Horton.
+
+            Allows a web page to have an active video for a media control manager even if no audio or video is currently
+            being produced. This is because the media element may be in a state where it is changing its source and does not
+            currently have a video or audio track.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::hasActiveVideoForControlsManager):
+
+2016-09-14  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205878. rdar://problem/28229827
+
+    2016-09-13  Tim Horton  <timothy_horton@apple.com>
+
+            Provide a mechanism to specify the maximum size of WKThumbnailView snapshots
+            https://bugs.webkit.org/show_bug.cgi?id=161896
+            <rdar://problem/28229827>
+
+            Reviewed by Simon Fraser.
+
+            Some clients know that their thumbnail views will only be displayed up to
+            a specific size that is significantly smaller than the WKView size. Allow
+            them to avoid wasting lots of memory on unnecessarily large snapshots.
+
+            * UIProcess/API/Cocoa/_WKThumbnailView.h:
+            * UIProcess/API/Cocoa/_WKThumbnailView.mm:
+            (-[_WKThumbnailView requestSnapshot]):
+            (-[_WKThumbnailView _requestSnapshotIfNeeded]):
+            (-[_WKThumbnailView setMaximumSnapshotSize:]):
+            Add a maximumSnapshotSize property which can be changed dynamically.
+
+2016-09-14  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205935. rdar://problem/26013388
+
+    2016-09-14  Beth Dakin  <bdakin@apple.com>
+
+            Add needsPlainTextQuirk and send it to the UIProcess
+            https://bugs.webkit.org/show_bug.cgi?id=161996
+            -and corresponding-
+            rdar://problem/26013388
+
+            Rubber-stamped by Simon Fraser.
+
+            Quick clean-up.
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::needsPlainTextQuirk):
+
+2016-09-14  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205934. rdar://problem/26013388
+
+    2016-09-14  Beth Dakin  <bdakin@apple.com>
+
+            Add needsPlainTextQuirk and send it to the UIProcess
+            https://bugs.webkit.org/show_bug.cgi?id=161996
+            -and corresponding-
+            rdar://problem/26013388
+
+            Reviewed by Anders Carlsson.
+
+            WebPageProxy should keep track of m_needsPlainTextQuirk.
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::setNeedsPlainTextQuirk):
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::needsPlainTextQuirk):
+            (WebKit::WebPageProxy::needsHiddenContentEditableQuirk): Deleted.
+            * UIProcess/WebPageProxy.messages.in:
+
+            If m_needsPlainTextQuirk is true, set it back to false on page transition.
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::didStartPageTransition):
+
+            The sites that need this quirk.
+            (WebKit::needsPlainTextQuirk):
+            (WebKit::WebPage::didChangeSelection):
+            * WebProcess/WebPage/WebPage.h:
+
+2016-09-14  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205928. rdar://problem/26013388
+
+    2016-09-14  Beth Dakin  <bdakin@apple.com>
+
+            Add needsHiddenContentEditableQuirk and send it to the UIProcess
+            https://bugs.webkit.org/show_bug.cgi?id=161984
+            -and corresponding-
+            rdar://problem/26013388
+
+            Reviewed by Anders Carlsson.
+
+            Keep track of m_needsHiddenContentEditableQuirk in WebPageProxy.
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::setNeedsHiddenContentEditableQuirk):
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::needsHiddenContentEditableQuirk):
+            (WebKit::WebPageProxy::hasHadSelectionChangesFromUserInteraction): Deleted.
+            * UIProcess/WebPageProxy.messages.in:
+
+            If m_needsHiddenContentEditableQuirk is true, set it back to false on page
+            transition.
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::didStartPageTransition):
+
+            Google Docs and iCloud Pages are the sites that need this quirk.
+            (WebKit::needsHiddenContentEditableQuirk):
+            (WebKit::WebPage::didChangeSelection):
+            * WebProcess/WebPage/WebPage.h:
+
 2016-09-13  Babak Shafiei  <bshafiei@apple.com>
 
         Merge r205873. rdar://problem/28208208
@@ -14,13 +469,270 @@
             (main):
             Set AppleMagnifiedMode to true.
 
-2016-08-24  Babak Shafiei  <bshafiei@apple.com>
+2016-09-12  Babak Shafiei  <bshafiei@apple.com>
 
-        Rollout r204922. rdar://problem/27896368
+        Merge r205783. rdar://problem/28229756
 
-2016-08-24  Babak Shafiei  <bshafiei@apple.com>
+    2016-09-09  Tim Horton  <timothy_horton@apple.com>
 
-        Merge r204911. rdar://problem/27896368
+            WKThumbnailView should expose a mode where it can be reparented without resnapshotting
+            https://bugs.webkit.org/show_bug.cgi?id=161828
+            <rdar://problem/28229756>
+
+            Reviewed by Alex Christensen.
+
+            * UIProcess/API/Cocoa/_WKThumbnailView.h:
+            * UIProcess/API/Cocoa/_WKThumbnailView.mm:
+            (-[_WKThumbnailView initWithFrame:fromWKView:]):
+            (-[_WKThumbnailView _viewWasUnparented]):
+            Add such a mode. Bail from snapshot teardown when unparented if it is on.
+
+2016-09-12  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205765. rdar://problem/28033492
+
+    2016-09-09  Tim Horton  <timothy_horton@apple.com>
+
+            Text replacement candidates don't always overwrite the entire original string
+            https://bugs.webkit.org/show_bug.cgi?id=161779
+            <rdar://problem/28033492>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/mac/WebPageMac.mm:
+            (WebKit::WebPage::platformEditorState):
+            Make use of the shared implementation of contextRangeForCandidateRequest.
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204456. rdar://problem/27860536
+
+    2016-08-14  Daniel Bates  <dabates@apple.com>
+
+            Fix compiler errors when building iOS WebKit using the iOS 10 beta SDK
+            https://bugs.webkit.org/show_bug.cgi?id=160725
+
+            Reviewed by Sam Weinig.
+
+            * Platform/spi/ios/UIKitSPI.h: Add SPI for UITextInputSuggestionDelegate.
+            * UIProcess/ApplePay/ios/WebPaymentCoordinatorProxyIOS.mm: Remove unnecessary include of PKPaymentMerchantSession.h.
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203381. rdar://problem/27860536
+
+    2016-07-18  Anders Carlsson  <andersca@apple.com>
+
+            WebKit nightly fails to build on macOS Sierra
+            https://bugs.webkit.org/show_bug.cgi?id=159902
+            rdar://problem/27365672
+
+            Reviewed by Tim Horton.
+
+            * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+            * UIProcess/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.h:
+            * UIProcess/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+            * UIProcess/ApplePay/mac/WebPaymentCoordinatorProxyMac.mm:
+            Use new PassKitSPI header.
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205381. rdar://problem/27806012
+
+    2016-09-02  Beth Dakin  <bdakin@apple.com>
+
+            Need to updateEditorState if an element change edit-ability without changing
+            selection
+            https://bugs.webkit.org/show_bug.cgi?id=161546
+            -and corresponding-
+            rdar://problem/27806012
+
+            Reviewed by Ryosuke Niwa.
+
+            Every time WebPage::editorState() is called, we now save whether the last state
+            was contentEditable. That way in updateEditorStateAfterLayoutIfNeeded() we can
+            assess whether or not edit-ability has changed.
+
+            * WebProcess/WebCoreSupport/WebEditorClient.cpp:
+            (WebKit::WebEditorClient:: updateEditorStateAfterLayoutIfEditabilityChanged):
+            * WebProcess/WebCoreSupport/WebEditorClient.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::editorState):
+            (WebKit::WebPage:: updateEditorStateAfterLayoutIfEditabilityChanged):
+            (WebKit::WebPage::didStartPageTransition):
+            * WebProcess/WebPage/WebPage.h:
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205371. rdar://problem/28020157
+
+    2016-09-02  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build fix; partial roll out of r205365 to remove unintentional change in WKWebView.mm.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _initializeWithConfiguration:]):
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205365. rdar://problem/28020157
+
+    2016-07-08  Jer Noble  <jer.noble@apple.com>
+
+            Refactor WebPlaybackSessionModelMediaElement to be client based.
+            https://bugs.webkit.org/show_bug.cgi?id=159580
+
+            Reviewed by Eric Carlson.
+
+            Adopt the changes made in the WebPlaybackSessionModel,Interface and WebVideoFullscreenModel,Interface
+            in the WebPlaybackSessionManager,Proxy classes.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _initializeWithConfiguration:]): Deleted.
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.h:
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.mm:
+            (WebKit::WebPlaybackSessionModelContext::addClient):
+            (WebKit::WebPlaybackSessionModelContext::removeClient):
+            (WebKit::WebPlaybackSessionModelContext::setDuration):
+            (WebKit::WebPlaybackSessionModelContext::setCurrentTime):
+            (WebKit::WebPlaybackSessionModelContext::setBufferedTime):
+            (WebKit::WebPlaybackSessionModelContext::setRate):
+            (WebKit::WebPlaybackSessionModelContext::setSeekableRanges):
+            (WebKit::WebPlaybackSessionModelContext::setCanPlayFastReverse):
+            (WebKit::WebPlaybackSessionModelContext::setAudioMediaSelectionOptions):
+            (WebKit::WebPlaybackSessionModelContext::setLegibleMediaSelectionOptions):
+            (WebKit::WebPlaybackSessionModelContext::setExternalPlayback):
+            (WebKit::WebPlaybackSessionModelContext::setWirelessVideoPlaybackDisabled):
+            (WebKit::WebPlaybackSessionManagerProxy::createModelAndInterface):
+            (WebKit::WebPlaybackSessionManagerProxy::removeClientForContext):
+            (WebKit::WebPlaybackSessionManagerProxy::setCurrentTime):
+            (WebKit::WebPlaybackSessionManagerProxy::setBufferedTime):
+            (WebKit::WebPlaybackSessionManagerProxy::setSeekableRangesVector):
+            (WebKit::WebPlaybackSessionManagerProxy::setCanPlayFastReverse):
+            (WebKit::WebPlaybackSessionManagerProxy::setAudioMediaSelectionOptions):
+            (WebKit::WebPlaybackSessionManagerProxy::setLegibleMediaSelectionOptions):
+            (WebKit::WebPlaybackSessionManagerProxy::setExternalPlaybackProperties):
+            (WebKit::WebPlaybackSessionManagerProxy::setWirelessVideoPlaybackDisabled):
+            (WebKit::WebPlaybackSessionManagerProxy::setDuration):
+            (WebKit::WebPlaybackSessionManagerProxy::setRate):
+            * UIProcess/Cocoa/WebVideoFullscreenManagerProxy.h:
+            * UIProcess/Cocoa/WebVideoFullscreenManagerProxy.messages.in:
+            * UIProcess/Cocoa/WebVideoFullscreenManagerProxy.mm:
+            (WebKit::WebVideoFullscreenModelContext::addClient):
+            (WebKit::WebVideoFullscreenModelContext::removeClient):
+            (WebKit::WebVideoFullscreenManagerProxy::setHasVideo):
+            (WebKit::WebVideoFullscreenManagerProxy::setVideoDimensions):
+            * WebProcess/cocoa/WebPlaybackSessionManager.h:
+            * WebProcess/cocoa/WebPlaybackSessionManager.mm:
+            (WebKit::WebPlaybackSessionInterfaceContext::durationChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::currentTimeChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::bufferedTimeChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::rateChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::seekableRangesChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::canPlayFastReverseChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::audioMediaSelectionOptionsChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::legibleMediaSelectionOptionsChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::externalPlaybackChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::wirelessVideoPlaybackDisabledChanged):
+            (WebKit::WebPlaybackSessionManager::~WebPlaybackSessionManager):
+            (WebKit::WebPlaybackSessionManager::createModelAndInterface):
+            (WebKit::WebPlaybackSessionManager::removeContext):
+            (WebKit::WebPlaybackSessionManager::durationChanged):
+            (WebKit::WebPlaybackSessionManager::currentTimeChanged):
+            (WebKit::WebPlaybackSessionManager::bufferedTimeChanged):
+            (WebKit::WebPlaybackSessionManager::rateChanged):
+            (WebKit::WebPlaybackSessionManager::seekableRangesChanged):
+            (WebKit::WebPlaybackSessionManager::canPlayFastReverseChanged):
+            (WebKit::WebPlaybackSessionManager::audioMediaSelectionOptionsChanged):
+            (WebKit::WebPlaybackSessionManager::legibleMediaSelectionOptionsChanged):
+            (WebKit::WebPlaybackSessionManager::externalPlaybackChanged):
+            (WebKit::WebPlaybackSessionManager::wirelessVideoPlaybackDisabledChanged):
+            (WebKit::WebPlaybackSessionInterfaceContext::setDuration): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setCurrentTime): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setBufferedTime): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setRate): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setSeekableRanges): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setCanPlayFastReverse): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setAudioMediaSelectionOptions): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setLegibleMediaSelectionOptions): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setExternalPlayback): Deleted.
+            (WebKit::WebPlaybackSessionInterfaceContext::setWirelessVideoPlaybackDisabled): Deleted.
+            (WebKit::WebPlaybackSessionManager::setDuration): Deleted.
+            (WebKit::WebPlaybackSessionManager::setCurrentTime): Deleted.
+            (WebKit::WebPlaybackSessionManager::setBufferedTime): Deleted.
+            (WebKit::WebPlaybackSessionManager::setRate): Deleted.
+            (WebKit::WebPlaybackSessionManager::setSeekableRanges): Deleted.
+            (WebKit::WebPlaybackSessionManager::setCanPlayFastReverse): Deleted.
+            (WebKit::WebPlaybackSessionManager::setAudioMediaSelectionOptions): Deleted.
+            (WebKit::WebPlaybackSessionManager::setLegibleMediaSelectionOptions): Deleted.
+            (WebKit::WebPlaybackSessionManager::setExternalPlayback): Deleted.
+            (WebKit::WebPlaybackSessionManager::setWirelessVideoPlaybackDisabled): Deleted.
+            * WebProcess/cocoa/WebVideoFullscreenManager.h:
+            (WebKit::WebVideoFullscreenInterfaceContext::create):
+            * WebProcess/cocoa/WebVideoFullscreenManager.mm:
+            (WebKit::WebVideoFullscreenInterfaceContext::WebVideoFullscreenInterfaceContext):
+            (WebKit::WebVideoFullscreenInterfaceContext::hasVideoChanged):
+            (WebKit::WebVideoFullscreenInterfaceContext::videoDimensionsChanged):
+            (WebKit::WebVideoFullscreenManager::~WebVideoFullscreenManager):
+            (WebKit::WebVideoFullscreenManager::createModelAndInterface):
+            (WebKit::WebVideoFullscreenManager::removeContext):
+            (WebKit::WebVideoFullscreenManager::hasVideoChanged):
+            (WebKit::WebVideoFullscreenManager::videoDimensionsChanged):
+            (WebKit::WebVideoFullscreenInterfaceContext::resetMediaState): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setDuration): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setCurrentTime): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setBufferedTime): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setRate): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setVideoDimensions): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setSeekableRanges): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setCanPlayFastReverse): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setAudioMediaSelectionOptions): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setLegibleMediaSelectionOptions): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setExternalPlayback): Deleted.
+            (WebKit::WebVideoFullscreenInterfaceContext::setWirelessVideoPlaybackDisabled): Deleted.
+            (WebKit::WebVideoFullscreenManager::setVideoDimensions): Deleted.
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205412. rdar://problem/28014919
+
+    2016-09-03  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Refactor the heuristic for showing media controls to take all media sessions into account
+            https://bugs.webkit.org/show_bug.cgi?id=161503
+            <rdar://problem/28033783>
+
+            Reviewed by Darin Adler.
+
+            Adds an SPI testing hook for sending the element ID of the currently controlled video element from the web
+            process to the UI process. See VideoControlsManager.mm in Tools/TestWebKitAPI/ for usage.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _requestControlledElementID]):
+            (-[WKWebView _handleControlledElementIDResponse:]):
+            (-[WKWebView _hasActiveVideoForControlsManager]): Deleted.
+            * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.h:
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.messages.in:
+            * UIProcess/Cocoa/WebPlaybackSessionManagerProxy.mm:
+            (WebKit::WebPlaybackSessionManagerProxy::handleControlledElementIDResponse):
+            (WebKit::WebPlaybackSessionManagerProxy::requestControlledElementID):
+            * UIProcess/PageClient.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::requestControlledElementID):
+            (WebKit::WebPageProxy::handleControlledElementIDResponse):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/mac/PageClientImpl.h:
+            * UIProcess/mac/PageClientImpl.mm:
+            (WebKit::PageClientImpl::handleControlledElementIDResponse):
+            * WebProcess/cocoa/WebPlaybackSessionManager.h:
+            * WebProcess/cocoa/WebPlaybackSessionManager.messages.in:
+            * WebProcess/cocoa/WebPlaybackSessionManager.mm:
+            (WebKit::WebPlaybackSessionManager::handleControlledElementIDRequest):
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204911. rdar://problem/28175524
 
     2016-08-24  Anders Carlsson  <andersca@apple.com>
 
@@ -35,6 +747,30 @@
 
             * Platform/IPC/mac/ConnectionMac.mm:
             (IPC::Connection::platformInvalidate):
+
+2016-08-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204587. rdar://problem/27807479
+
+    2016-08-17  Anders Carlsson  <andersca@apple.com>
+
+            Add support for additional networks
+            https://bugs.webkit.org/show_bug.cgi?id=160951
+            rdar://problem/27807479
+
+            Reviewed by Sam Weinig.
+
+            * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+            (IPC::ArgumentCoder<PaymentRequest>::decode):
+            (IPC::ArgumentCoder<PaymentRequest::SupportedNetworks>::encode): Deleted.
+            (IPC::ArgumentCoder<PaymentRequest::SupportedNetworks>::decode): Deleted.
+            * Shared/WebCoreArgumentCoders.h:
+            * UIProcess/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+            (WebKit::toAdditionalSupportedNetwork):
+            (WebKit::toSupportedNetwork):
+            (WebKit::toSupportedNetworks):
+            * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+            (WebKit::WebPaymentCoordinator::supportsVersion):
 
 2016-08-12  Babak Shafiei  <bshafiei@apple.com>
 

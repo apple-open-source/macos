@@ -600,7 +600,7 @@ SecPathVerifyStatus SecCertificatePathVerify(
 	return kSecPathVerifySuccess;
 }
 
-static bool SecCertificatePathIsValid(SecCertificatePathRef certificatePath, CFAbsoluteTime verifyTime) {
+bool SecCertificatePathIsValid(SecCertificatePathRef certificatePath, CFAbsoluteTime verifyTime) {
     CFIndex ix;
     for (ix = 0; ix < certificatePath->count; ++ix) {
         if (!SecCertificateIsValid(certificatePath->certificates[ix],
@@ -619,13 +619,7 @@ bool SecCertificatePathHasWeakHash(SecCertificatePathRef certificatePath) {
         count--;
     }
     for (ix = 0; ix < count; ++ix) {
-        SecSignatureHashAlgorithm certAlg = 0;
-        certAlg = SecCertificateGetSignatureHashAlgorithm(certificatePath->certificates[ix]);
-        if (certAlg == kSecSignatureHashAlgorithmUnknown ||
-            certAlg == kSecSignatureHashAlgorithmMD2 ||
-            certAlg == kSecSignatureHashAlgorithmMD4 ||
-            certAlg == kSecSignatureHashAlgorithmMD5 ||
-            certAlg == kSecSignatureHashAlgorithmSHA1) {
+        if (SecCertificateIsWeakHash(certificatePath->certificates[ix])) {
             return true;
         }
     }

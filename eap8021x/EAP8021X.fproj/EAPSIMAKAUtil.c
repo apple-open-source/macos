@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #include "myCFUtil.h"
 #include <string.h>
 #include <CommonCrypto/CommonHMAC.h>
+#include <corecrypto/cc.h>
 
 /* 
  * Modification History
@@ -318,7 +319,7 @@ EAPSIMAKAKeyInfoVerifyMAC(EAPSIMAKAKeyInfoRef key_info,
     uint8_t		hash[CC_SHA1_DIGEST_LENGTH];
 
     EAPSIMAKAKeyInfoComputeMAC(key_info, pkt, mac_p, extra, extra_length, hash);
-    return (bcmp(hash, mac_p, MAC_SIZE) == 0);
+    return (cc_cmp_safe(MAC_SIZE, hash, mac_p) == 0);
 }
 
 PRIVATE_EXTERN void

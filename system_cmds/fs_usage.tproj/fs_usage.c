@@ -2123,11 +2123,11 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 				if (format == FMT_LSEEK) {
 					char *mode;
 
-					if (ti->arg4 == SEEK_SET)
+					if (ti->arg3 == SEEK_SET)
 						mode = "SEEK_SET";
-					else if (ti->arg4 == SEEK_CUR)
+					else if (ti->arg3 == SEEK_CUR)
 						mode = "SEEK_CUR";
-					else if (ti->arg4 == SEEK_END)
+					else if (ti->arg3 == SEEK_END)
 						mode = "SEEK_END";
 					else
 						mode = "UNKNOWN";

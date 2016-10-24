@@ -29,8 +29,10 @@
 #define kIOHIDDisplayWakeAbortThresholdMS           (50)
 
 struct LogEntry {
-    std::chrono::time_point<std::chrono::steady_clock>  displayTime;
-    IOHIDEventSenderID  serviceID;
+    std::chrono::time_point<std::chrono::steady_clock> time;
+    IOHIDEventSenderID      serviceID;
+    IOHIDEventPolicyValue   policy;
+    IOHIDEventType          eventType;
 };
 
 class IOHIDNXEventTranslatorSessionFilter
@@ -81,6 +83,7 @@ private:
     CFMutableSetRefWrap             _keyboards;
     CFMutableSetRefWrap             _reportModifiers;
     CFMutableSetRefWrap             _updateModifiers;
+    IOHIDServiceRef                 _dfr;
   
   
     //typedef  std::chrono::steady_clock clock_type_;
@@ -91,7 +94,6 @@ private:
     
     time_point _powerStateChangeTime;
     time_point _displayStateChangeTime;
-    time_point _displayTickleTime;
     uint64_t   _maxDisplayTickleDuration;
   
     std::queue<LogEntry> _displayLog;
@@ -118,7 +120,7 @@ private:
     void updateModifiers();
     void updateButtons();
     void updateActivity (bool active);
-    void updateDisplayLog(IOHIDEventSenderID serviceID);
+    void updateDisplayLog(IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType);
     
     IOHIDServiceRef getCompanionService(IOHIDServiceRef service);
     
@@ -131,9 +133,10 @@ private:
     static void displayNotificationCallback (void * refcon, io_service_t	service, uint32_t messageType, void * messageArgument);
     void displayNotificationCallback (io_service_t	service, uint32_t messageType, void * messageArgument);
     void displayTickle ();
-    IOHIDEventRef displayStateFilter (IOHIDEventRef  event);
+    IOHIDEventRef displayStateFilter (IOHIDServiceRef sender, IOHIDEventRef  event);
   
     boolean_t shouldCancelEvent (IOHIDEventRef  event);
+    boolean_t resetStickyKeys(IOHIDEventRef event);
  
     void serialize (CFMutableDictionaryRef dict) const;
     static std::string timePointToTimeString (time_point pt);

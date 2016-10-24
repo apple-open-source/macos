@@ -74,10 +74,6 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "ssl-42-ciphers"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "kc-05-find-existing-items-locked"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -95,6 +91,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "kc-30-xara"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "ssl-42-ciphers"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -283,6 +283,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_83_seccertificate_sighashalg"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_84_sectrust_allowlist"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

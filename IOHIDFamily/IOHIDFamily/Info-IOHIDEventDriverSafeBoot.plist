@@ -595,6 +595,26 @@
 			<key>IOProviderClass</key>
 			<string>IOHIDInterface</string>
 		</dict>
+		<key>HID VendorEvent Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>DeviceUsagePairs</key>
+			<array>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>35</integer>
+					<key>DeviceUsagePage</key>
+					<integer>65280</integer>
+				</dict>
+			</array>
+			<key>HIDDefaultBehavior</key>
+			<string></string>
+			<key>IOClass</key>
+			<string>IOHIDEventDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>

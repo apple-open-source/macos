@@ -59,13 +59,10 @@ typedef struct {
     uint32_t    defaultValueBattery;
     uint32_t    defaultValueUPS;
 } PMSettingDescriptorStruct;
-#ifndef kIOPMAutoPowerOffEnabledKey
-#define kIOPMAutoPowerOffEnabledKey "poweroffenabled"
-#define kIOPMAutoPowerOffDelayKey "poweroffdelay"
-#endif
+
 PMSettingDescriptorStruct defaultSettings[] =
 {   /* Setting Name                                 AC - Battery - UPS */
-    {kIOPMAutoPowerOffDelayKey,                         0,   0,  0},
+    {kIOPMAutoPowerOffDelayKey,                     28800,   0,  0},
     {kIOPMAutoPowerOffEnabledKey,                       0,   0,  0},
     {kIOPMDarkWakeBackgroundTaskKey,                    1,   0,  0},
     {kIOPMDeepSleepEnabledKey,                          0,   0,  0},
@@ -1436,7 +1433,8 @@ IOReturn IOPMSetSystemPowerSetting(CFStringRef key, CFTypeRef value)
         return kIOReturnNotPrivileged;
     }
     if (!CFEqual(key, CFSTR(kIOPMDestroyFVKeyOnStandbyKey)) &&
-            !CFEqual(key, kIOPMSleepDisabledKey)) {
+            !CFEqual(key, kIOPMSleepDisabledKey) &&
+            !CFEqual(key, CFSTR(kIOPMUpdateDarkWakeBGSettingKey))) {
         rc = kIOReturnBadArgument;
         goto exit;
     }

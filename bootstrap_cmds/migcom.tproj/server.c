@@ -1179,6 +1179,7 @@ WriteServerCallArg(FILE *file, register argument_t *arg)
 {
   ipc_type_t *it = arg->argType;
   boolean_t NeedClose = FALSE;
+  u_int elemsize = 0;
   string_t  at = (arg->argByReferenceServer ||
                   it->itNativePointer) ? "&" : "";
   string_t  star = (arg->argByReferenceServer) ? " *" : "";
@@ -1212,8 +1213,38 @@ WriteServerCallArg(FILE *file, register argument_t *arg)
       fprintf(file, "(%s ? ", InArgMsgField(arg, "__Present__"));
       fprintf(file, "%s%s.__Real__%s : %s)", at, InArgMsgField(arg, ""), arg->argMsgField, it->itBadValue);
     }
-    else
-      fprintf(file, "%s%s", at, InArgMsgField(arg, ""));
+    else {
+      if (akIdent(arg->argKind) == akeCount && arg->argParent) {
+          char *suffix = arg->argParent->argSuffix;
+          ipc_type_t *elemType = arg->argParent->argType->itElement;
+          /* temporarily squash any name suffix such as ".address" (we'll be adding our own) */
+          arg->argParent->argSuffix = NULL;
+          switch (arg->argParent->argKPD_Type) {
+          case MACH_MSG_OOL_PORTS_DESCRIPTOR:
+            /* count of the number of descriptors */
+            fprintf(file, "%s%s.count", at, InArgMsgField(arg->argParent, ""));
+            break;
+          case MACH_MSG_OOL_DESCRIPTOR:
+            /* descriptor buffer size / element size */
+            if (!(arg->argByReferenceServer || it->itNativePointer)) {
+              fprintf(file, "%s%s.size", at, InArgMsgField(arg->argParent, ""));
+              elemsize = ((elemType->itNumber * elemType->itSize) + 7) / 8;
+              if (elemsize > 1) {
+                fprintf(file, " / %d", elemsize);
+              }
+            } else {
+              fprintf(file, "%s%s", at, InArgMsgField(arg, ""));
+            }
+            break;
+          default:
+            fprintf(file, "%s%s", at, InArgMsgField(arg, ""));
+            break;
+          }
+          arg->argParent->argSuffix = suffix;
+      } else {
+        fprintf(file, "%s%s", at, InArgMsgField(arg, ""));
+      }
+    }
   }
   else if (akCheckAll(arg->argKind, akbReturnSnd|akbReturnKPD)) {
     if (!it->itInLine)
@@ -1301,9 +1332,30 @@ WriteDestroyArg(FILE *file, register argument_t *arg)
     }
     fprintf(file, "\tmig_deallocate((vm_offset_t) %s, ", InArgMsgField(arg, ""));
     if (it->itVarArray) {
-      if (multiplier > 1)
-        fprintf(file, "%d * ", multiplier);
-      fprintf(file, "%s);\n", InArgMsgField(count, ""));
+      char *suffix = arg->argSuffix;
+      /*
+       * temporarily squash any name suffix such as ".address"
+       * (we'll be adding our own)
+       */
+      arg->argSuffix = NULL;
+      switch (arg->argKPD_Type) {
+      case MACH_MSG_OOL_PORTS_DESCRIPTOR:
+        if (multiplier > 1) {
+          fprintf(file, "%d * ", multiplier);
+        }
+        fprintf(file, "%s.count);\n", InArgMsgField(arg, ""));
+        break;
+      case MACH_MSG_OOL_DESCRIPTOR:
+        fprintf(file, "%s.size);\n", InArgMsgField(arg, ""));
+        break;
+      default:
+        if (multiplier > 1) {
+          fprintf(file, "%d * ", multiplier);
+        }
+        fprintf(file, "%s);\n", InArgMsgField(count, ""));
+        break;
+      }
+      arg->argSuffix = suffix;
     }
     else
       fprintf(file, "%d);\n", (it->itNumber * it->itSize + 7) / 8);

@@ -38,17 +38,22 @@ extern "C" {
 #define CC_CMACAES_OUTPUT_LENGTH     16          /* CMAC length in bytes */
 
 /*!
-@function   CCAESCmac
-@abstract   Stateless, one-shot AES CMAC function
-     
-@param      key         Raw key bytes.
-@param      data        The data to process.
-@param      dataLength  The length of the data to process.
-@param      macOut      The MAC bytes (space provided by the caller).
-    
-Output is written to caller-supplied buffer.
+    @function   CCAESCmac
+    @abstract   Stateless, one-shot AES CMAC function
+
+    @param      key         Raw key bytes.
+    @param      data        The data to process.
+    @param      dataLength  The length of the data to process.
+    @param      macOut      The MAC bytes (space provided by the caller).
+                            Output is written to caller-supplied buffer.
+
+    @discussion The length of the MAC written to *macOut is 16
+                The MAC must be verified by comparing the computed and expected values
+                using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
+                must not be used as they may be vulnerable to practical timing attacks,
+                leading to MAC forgery.
 */
-    
+
 void
 CCAESCmac(const void *key, const uint8_t *data, size_t dataLength, void *macOut)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_6_0);
@@ -95,6 +100,10 @@ __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
     @param      macOut      Destination of MAC; allocated by caller. 
     
     @discussion The length of the MAC written to *macOut is 16
+         The MAC must be verified by comparing the computed and expected values
+         using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
+         must not be used as they may be vulnerable to practical timing attacks,
+         leading to MAC forgery.
 */
 
 void CCAESCmacFinal(CCCmacContextPtr ctx, void *macOut)

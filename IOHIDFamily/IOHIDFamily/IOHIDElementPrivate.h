@@ -260,6 +260,7 @@ public:
     virtual UInt32                          getValue();
     virtual UInt32                          getValue(IOOptionBits options);
     virtual OSData *                        getDataValue();
+    virtual OSData *                        getDataValue(IOOptionBits options);
     virtual void                            setValue(UInt32 value);
     virtual void                            setDataValue(OSData * value);
     virtual bool                            conformsTo(UInt32 usagePage, UInt32 usage=0);

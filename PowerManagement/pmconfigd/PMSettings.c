@@ -36,6 +36,9 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#if !TARGET_OS_EMBEDDED
+#include <IOKit/platform/IOPlatformSupportPrivate.h>
+#endif
 #include <IOKit/IOHibernatePrivate.h>
 #include <pthread.h>
 
@@ -99,6 +102,7 @@ static IOReturn activate_profiles(
 #if !TARGET_OS_EMBEDDED
 static CFMutableDictionaryRef  copyBootTimePrefs();
 static void mergeBootTimePrefs(void);
+static void updatePowerNapSetting(CFMutableDictionaryRef prefs);
 #endif
 
 
@@ -480,6 +484,7 @@ __private_extern__ void PMSettings_prime(void)
 
 #if !TARGET_OS_EMBEDDED
     bootTimePrefs = copyBootTimePrefs();
+    updatePowerNapSetting(bootTimePrefs);
 #endif
 
     // Open a connection to the Power Manager.
@@ -538,6 +543,81 @@ PMSettingsSupportedPrefsListHasChanged(void)
 }
 
 #if !TARGET_OS_EMBEDDED
+static void updatePowerNapSetting(CFMutableDictionaryRef prefs)
+{
+    char     *model = NULL;
+    uint32_t majorRev;
+    uint32_t minorRev;
+    IOReturn rc;
+
+    CFDictionaryRef systemSettings = NULL; 
+    CFMutableDictionaryRef prefsForSrc;
+
+    if (!prefs) {
+        INFO_LOG("No prefs to update\n");
+        return;
+    }
+    prefsForSrc = (CFMutableDictionaryRef)CFDictionaryGetValue(prefs, CFSTR(kIOPMACPowerKey));
+    if (!isA_CFDictionary(prefsForSrc)) {
+        INFO_LOG("Invalid prefs found\n");
+        goto exit;
+    }
+
+    rc = IOCopyModel(&model, &majorRev, &minorRev);
+    if (rc != kIOReturnSuccess) {
+        INFO_LOG("Failed to get the model name\n");
+        return;
+    }
+
+    systemSettings = IOPMCopySystemPowerSettings();
+    if (isA_CFDictionary(systemSettings) && CFDictionaryContainsKey(systemSettings, CFSTR(kIOPMUpdateDarkWakeBGSettingKey))) {
+        // key exists. That means, powernap setting is already updated once
+        INFO_LOG("UpdateDarkWakeBGSetting key already exists\n");
+        goto exit;
+    }
+
+    rc = IOPMSetSystemPowerSetting(CFSTR(kIOPMUpdateDarkWakeBGSettingKey), kCFBooleanTrue);
+    if (rc != kIOReturnSuccess) {
+        ERROR_LOG("Failed to set system setting 'UpdateDarkWakeBGSetting'. rc=0x%x\n", rc);
+        goto exit;
+    }
+
+    // Remove any autopower off delay settings
+    IOPMSetPMPreference(CFSTR(kIOPMAutoPowerOffDelayKey), NULL, NULL);
+    CFDictionaryRemoveValue(prefsForSrc, CFSTR(kIOPMAutoPowerOffDelayKey));
+    CFDictionarySetValue(prefs, CFSTR(kIOPMACPowerKey), prefsForSrc);
+
+
+    if ( (!strncmp(model, "iMac", sizeof("iMac")) && ((majorRev > 13) && (majorRev <= 17))) ||
+            (!strncmp(model, "Macmini", sizeof("Macmini")) && (majorRev == 7))) {
+
+        int one = 1;
+        CFNumberRef n1 = CFNumberCreate(0, kCFNumberIntType, &one);
+        if (n1) {
+            CFDictionarySetValue(prefsForSrc, CFSTR(kIOPMDarkWakeBackgroundTaskKey), n1);
+            CFRelease(n1);
+
+            CFDictionarySetValue(prefs, CFSTR(kIOPMACPowerKey), prefsForSrc);
+
+            INFO_LOG("Changed powernap setting\n");
+        }
+    }
+    else {
+        INFO_LOG("Powernap setting need not be changed\n");
+    }
+
+    INFO_LOG("Updated prefs: %@\n", prefs);
+
+exit:
+    if (systemSettings) {
+        CFRelease(systemSettings);
+    }
+    if (model != NULL) {
+        free(model);
+    }
+    return;
+}
+
 bool mergePrefsForSrc(CFMutableDictionaryRef current, CFMutableDictionaryRef cachedPrefs)
 {
     bool modified = false;
@@ -595,6 +675,7 @@ void mergeBootTimePrefs(void)
     }
 
     currentPrefs = IOPMCopyPMPreferences();
+    INFO_LOG("Saved prefs: %@\n", currentPrefs);
 
     if (!isA_CFDictionary(currentPrefs)) {
         return;
@@ -917,6 +998,8 @@ exit:
     return prefs;
 }
 
+
+
 /*
  * This function merges old SC based prefs on disk and new CF based prefs
  * on disk and returns on single dictionary
@@ -987,6 +1070,7 @@ CFMutableDictionaryRef  copyBootTimePrefs()
         }
     }
 
+    INFO_LOG("Merged prefs on start: %@\n", mergedPrefs);
 
 exit:
     if (oldPrefs)   CFRelease(oldPrefs);

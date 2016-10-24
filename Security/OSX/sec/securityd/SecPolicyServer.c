@@ -1186,21 +1186,24 @@ static void SecPolicyCheckIntermediateEKU(SecPVCRef pvc, CFStringRef key)
 	}
 }
 
-/* Returns true if path is on the allow list, false otherwise */
-static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
+/* Returns true if path is on the allow list for the authority key of the
+   certificate at certix, false otherwise.
+ */
+static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc, CFIndex certix)
 {
     bool result = false;
     CFIndex ix = 0, count = SecPVCGetCertificateCount(pvc);
     CFStringRef authKey = NULL;
+    CFArrayRef allowedCerts = NULL;
     SecOTAPKIRef otapkiRef = NULL;
-    CFDictionaryRef allowList = NULL;
 
-    //get authKeyID from the last chain in the cert
-    if (count < 1) {
+    if (certix < 0 || certix >= count) {
         return result;
     }
-    SecCertificateRef lastCert = SecPVCGetCertificateAtIndex(pvc, count - 1);
-    CFDataRef authKeyID = SecCertificateGetAuthorityKeyID(lastCert);
+
+    //get authKeyID from the specified cert in the chain
+    SecCertificateRef issuedCert = SecPVCGetCertificateAtIndex(pvc, certix);
+    CFDataRef authKeyID = SecCertificateGetAuthorityKeyID(issuedCert);
     if (NULL == authKeyID) {
         return result;
     }
@@ -1209,24 +1212,19 @@ static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
         goto errout;
     }
 
-    //if allowList && key is in allowList, this would have chained up to a now-removed anchor
     otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
     if (NULL == otapkiRef) {
         goto errout;
     }
-    allowList = SecOTAPKICopyAllowList(otapkiRef);
-    if (NULL == allowList) {
-        goto errout;
-    }
 
-    CFArrayRef allowedCerts = CFDictionaryGetValue(allowList, authKey);
-    if (!allowedCerts || !CFArrayGetCount(allowedCerts)) {
+    allowedCerts = SecOTAPKICopyAllowListForAuthKeyID(otapkiRef, authKey);
+    if (NULL == allowedCerts || !CFArrayGetCount(allowedCerts)) {
         goto errout;
     }
 
     //search sorted array for the SHA256 hash of a cert in the chain
     CFRange range = CFRangeMake(0, CFArrayGetCount(allowedCerts));
-    for (ix = 0; ix < count; ix++) {
+    for (ix = 0; ix <= certix; ix++) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
         if (!cert) {
             goto errout;
@@ -1253,7 +1251,7 @@ static bool SecPVCCheckCertificateAllowList(SecPVCRef pvc)
 errout:
     CFReleaseNull(authKey);
     CFReleaseNull(otapkiRef);
-    CFReleaseNull(allowList);
+    CFReleaseNull(allowedCerts);
     return result;
 }
 
@@ -1460,7 +1458,8 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         n--;
     } else {
         /* trust may be restored for a path with an untrusted root that matches the allow list */
-        if (!SecPVCCheckCertificateAllowList(pvc)) {
+        pvc->is_allowlisted = SecPVCCheckCertificateAllowList(pvc, n - 1);
+        if (!pvc->is_allowlisted) {
             /* Add a detail for the root not being trusted. */
             if (SecPVCSetResultForced(pvc, kSecPolicyCheckAnchorTrusted,
                                       n - 1, kCFBooleanFalse, true))
@@ -1516,7 +1515,7 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
                 goto errOut;
             }
         }
-        if (SecCertificateIsWeak(cert)) {
+        if (SecCertificateIsWeakKey(cert)) {
             CFStringRef fail_key = i == n ? kSecPolicyCheckWeakLeaf : kSecPolicyCheckWeakIntermediates;
             if (!SecPVCSetResult(pvc, fail_key, n - i, kCFBooleanFalse)) {
                 goto errOut;
@@ -2467,7 +2466,7 @@ static void SecPolicyCheckWeakIntermediates(SecPVCRef pvc,
     CFIndex ix, count = SecPVCGetCertificateCount(pvc);
     for (ix = 1; ix < count - 1; ++ix) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
-        if (cert && SecCertificateIsWeak(cert)) {
+        if (cert && SecCertificateIsWeakKey(cert)) {
             /* Intermediate certificate has a weak key. */
             if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
                 return;
@@ -2478,7 +2477,7 @@ static void SecPolicyCheckWeakIntermediates(SecPVCRef pvc,
 static void SecPolicyCheckWeakLeaf(SecPVCRef pvc,
     CFStringRef key) {
     SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
-    if (cert && SecCertificateIsWeak(cert)) {
+    if (cert && SecCertificateIsWeakKey(cert)) {
         /* Leaf certificate has a weak key. */
         if (!SecPVCSetResult(pvc, key, 0, kCFBooleanFalse))
             return;
@@ -2490,7 +2489,7 @@ static void SecPolicyCheckWeakRoot(SecPVCRef pvc,
     CFIndex ix, count = SecPVCGetCertificateCount(pvc);
     ix = count - 1;
     SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
-    if (cert && SecCertificateIsWeak(cert)) {
+    if (cert && SecCertificateIsWeakKey(cert)) {
         /* Root certificate has a weak key. */
         if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
             return;
@@ -3333,6 +3332,13 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
             SecORVCProcessStapledResponses(rvc->orvc);
         }
 
+#if TARGET_OS_BRIDGE
+        /* The bridge has no writeable storage and no network. Nothing else we can
+         * do here. */
+        rvc->done = true;
+        return completed;
+#endif
+
         /* Then check the caches for revocation results. */
         SecRVCCheckRevocationCaches(rvc);
 
@@ -3537,23 +3543,14 @@ void SecPVCInit(SecPVCRef pvc, SecPathBuilderRef builder, CFArrayRef policies,
     secdebug("alloc", "%p", pvc);
     // Weird logging policies crashes.
     //secdebug("policy", "%@", policies);
+
+    // Zero the pvc struct so only non-zero fields need to be explicitly set
+    memset(pvc, 0, sizeof(struct OpaqueSecPVC));
     pvc->builder = builder;
     pvc->policies = policies;
     if (policies)
         CFRetain(policies);
     pvc->verifyTime = verifyTime;
-    pvc->path = NULL;
-    pvc->details = NULL;
-    pvc->info = NULL;
-    pvc->valid_policy_tree = NULL;
-    pvc->callbacks = NULL;
-    pvc->policyIX = 0;
-    pvc->rvcs = NULL;
-    pvc->asyncJobCount = 0;
-    pvc->check_revocation = NULL;
-    pvc->response_required = false;
-    pvc->optionally_ev = false;
-    pvc->is_ev = false;
     pvc->result = true;
 }
 
@@ -3810,7 +3807,7 @@ bool SecPVCParentCertificateChecks(SecPVCRef pvc, CFIndex ix) {
             goto errOut;
 	}
 
-    if (SecCertificateIsWeak(cert)) {
+    if (SecCertificateIsWeakKey(cert)) {
         /* Certificate uses weak key. */
         if (!SecPVCSetResult(pvc, is_anchor ? kSecPolicyCheckWeakRoot
             : kSecPolicyCheckWeakIntermediates, ix, kCFBooleanFalse))
@@ -3860,22 +3857,33 @@ bool SecPVCBlackListedKeyChecks(SecPVCRef pvc, CFIndex ix) {
 		if (NULL != blackListedKeys)
 		{
 			SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
-		    bool is_anchor = (ix == SecPVCGetCertificateCount(pvc) - 1
-		                      && SecPVCIsAnchored(pvc));
-		    if (!is_anchor) {
-		        /* Check for blacklisted intermediates keys. */
-		        CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
-		        if (dgst) {
-		            /* Check dgst against blacklist. */
-		            if (CFSetContainsValue(blackListedKeys, dgst)) {
-		                SecPVCSetResultForced(pvc, kSecPolicyCheckBlackListedKey,
-		                                      ix, kCFBooleanFalse, true);
-		            }
-		            CFRelease(dgst);
-		        }
-		    }
+			CFIndex count = SecPVCGetCertificateCount(pvc);
+			bool is_last = (ix == count - 1);
+			bool is_anchor = (is_last && SecPVCIsAnchored(pvc));
+			if (!is_anchor) {
+				/* Check for blacklisted intermediate issuer keys. */
+				CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
+				if (dgst) {
+					/* Check dgst against blacklist. */
+					if (CFSetContainsValue(blackListedKeys, dgst)) {
+						/* Check allow list for this blacklisted issuer key,
+						   which is the authority key of the issued cert at ix-1.
+						   If ix is the last cert, the root is missing, so we
+						   also check our own authority key in that case.
+						*/
+						bool allowed = ((ix && SecPVCCheckCertificateAllowList(pvc, ix - 1)) ||
+						                (is_last && SecPVCCheckCertificateAllowList(pvc, ix)));
+						if (!allowed) {
+							SecPVCSetResultForced(pvc, kSecPolicyCheckBlackListedKey,
+							                      ix, kCFBooleanFalse, true);
+						}
+						pvc->is_allowlisted = allowed;
+					}
+					CFRelease(dgst);
+				}
+			}
 			CFRelease(blackListedKeys);
-		    return pvc->result;
+			return pvc->result;
 		}
 	}
 	// Assume OK
@@ -3884,7 +3892,7 @@ bool SecPVCBlackListedKeyChecks(SecPVCRef pvc, CFIndex ix) {
 
 bool SecPVCGrayListedKeyChecks(SecPVCRef pvc, CFIndex ix)
 {
-    /* Check stuff common to intermediate and anchors. */
+	/* Check stuff common to intermediate and anchors. */
 	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
 	if (NULL != otapkiRef)
 	{
@@ -3893,22 +3901,33 @@ bool SecPVCGrayListedKeyChecks(SecPVCRef pvc, CFIndex ix)
 		if (NULL != grayListKeys)
 		{
 			SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
-		    bool is_anchor = (ix == SecPVCGetCertificateCount(pvc) - 1
-		                      && SecPVCIsAnchored(pvc));
-		    if (!is_anchor) {
-		        /* Check for gray listed intermediates keys. */
-		        CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
-		        if (dgst) {
-		            /* Check dgst against gray list. */
-		            if (CFSetContainsValue(grayListKeys, dgst)) {
-		                SecPVCSetResultForced(pvc, kSecPolicyCheckGrayListedKey,
-		                                      ix, kCFBooleanFalse, true);
-		            }
-		            CFRelease(dgst);
-		        }
-		    }
+			CFIndex count = SecPVCGetCertificateCount(pvc);
+			bool is_last = (ix == count - 1);
+			bool is_anchor = (is_last && SecPVCIsAnchored(pvc));
+			if (!is_anchor) {
+				/* Check for gray listed intermediate issuer keys. */
+				CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
+				if (dgst) {
+					/* Check dgst against gray list. */
+					if (CFSetContainsValue(grayListKeys, dgst)) {
+						/* Check allow list for this graylisted issuer key,
+						   which is the authority key of the issued cert at ix-1.
+						   If ix is the last cert, the root is missing, so we
+						   also check our own authority key in that case.
+						*/
+						bool allowed = ((ix && SecPVCCheckCertificateAllowList(pvc, ix - 1)) ||
+						                (is_last && SecPVCCheckCertificateAllowList(pvc, ix)));
+						if (!allowed) {
+							SecPVCSetResultForced(pvc, kSecPolicyCheckGrayListedKey,
+							                      ix, kCFBooleanFalse, true);
+						}
+						pvc->is_allowlisted = allowed;
+					}
+					CFRelease(dgst);
+				}
+			}
 			CFRelease(grayListKeys);
-		    return pvc->result;
+			return pvc->result;
 		}
 	}
 	// Assume ok

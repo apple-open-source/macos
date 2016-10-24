@@ -177,6 +177,11 @@ bool IOHIDInterface::start( IOService * provider )
     if ( string ) setProperty(kIOHIDPhysicalDeviceUniqueIDKey, string);
     OSSafeReleaseNULL(object);
     
+    object = _owner->copyProperty(kIOHIDBuiltInKey);
+    OSBoolean *boolean = OSDynamicCast(OSBoolean, object);
+    if ( boolean ) setProperty(kIOHIDBuiltInKey, boolean);
+    OSSafeReleaseNULL(object);
+    
     registerService(kIOServiceAsynchronous);
     
     return true;

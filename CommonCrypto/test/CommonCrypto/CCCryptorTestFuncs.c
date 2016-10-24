@@ -7,12 +7,12 @@
 
 
 #include <stdio.h>
+#include <assert.h>
 #include "CCCryptorTestFuncs.h"
 #include "testbyteBuffer.h"
 #include "testmore.h"
 #include "capabilities.h"
 #include "ccMemory.h"
-
 
 CCCryptorStatus
 CCCryptWithMode(CCOperation op, CCMode mode, CCAlgorithm alg, CCPadding padding, const void *iv, 
@@ -501,7 +501,7 @@ CCCryptorGCMDiscreet(
 	const void 		*dataIn,
 	size_t 			dataInLength,
   	void 			*dataOut,
-	const void 		*tag,
+    void 		    *tagOut,
 	size_t 			*tagLength,
     bool callItAnyway)
 {
@@ -533,7 +533,7 @@ CCCryptorGCMDiscreet(
     }
 
 
-    retval = CCCryptorGCMFinal(cref, tag, tagLength);
+    retval = CCCryptorGCMFinal(cref, tagOut, tagLength);
     chk_result("Finalize and get tag");
 
     retval = CCCryptorGCMReset(cref);
@@ -553,6 +553,7 @@ CCCryptorGCMTestCase(char *keyStr, char *ivStr, char *aDataStr, char *tagStr, CC
     byteBuffer pt, ct;
     byteBuffer adata, tag;
     byteBuffer bb;
+    byteBuffer tg=NULL;
     int rc=1; //fail
     
 	CCCryptorStatus retval;
@@ -591,6 +592,7 @@ CCCryptorGCMTestCase(char *keyStr, char *ivStr, char *aDataStr, char *tagStr, CC
         }
     }
 
+    // Decrypt correctly
     tagDataOutlen = tag->len;
     CC_XZEROMEM(tagDataOut, 16);
     if((retval = CCCryptorGCM(kCCDecrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagDataOut, &tagDataOutlen)) != kCCSuccess) {
@@ -600,21 +602,46 @@ CCCryptorGCMTestCase(char *keyStr, char *ivStr, char *aDataStr, char *tagStr, CC
 
     free(bb);
     bb = bytesToBytes(plainDataOut, dataLen);
+    tg = bytesToBytes(tagDataOut, tagDataOutlen);
     
 	if (!bytesAreEqual(pt, bb)) {
         diag("FAIL Decrypt Output %s\nDecrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(pt));
         goto errOut;
     }
-    
-    bb = bytesToBytes(tagDataOut, tagDataOutlen);
-    if (!bytesAreEqual(tag, bb)) {
-        diag("FAIL Tag on ciphertext is wrong\n       got %s\n  expected %s\n", bytesToHexString(bb), bytesToHexString(tag));
+
+    if (timingsafe_bcmp(tagDataOut, tag->bytes, tag->len)) {
+        diag("FAIL Tag on ciphertext is wrong\n       got %s\n  expected %s\n", bytesToHexString(tg), bytesToHexString(tag));
         goto errOut;
     }
+
+    // Decrypt incorrectly (IV has been changed)
+    tagDataOutlen = tag->len;
+    CC_XZEROMEM(tagDataOut, 16);
+    assert(iv->len>0);
+    iv->bytes[0]^=1; // corrupt the IV
+    if((retval = CCCryptorGCM(kCCDecrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagDataOut, &tagDataOutlen)) != kCCSuccess) {
+        diag("Decrypt Failed\n");
+        goto errOut;
+    }
+
+    free(bb);
+    bb = bytesToBytes(plainDataOut, dataLen);
+
+    if (dataLen>0 && bytesAreEqual(pt, bb)) {
+        diag("FAIL Output is expected to be wrong because IV was changed\n");
+        goto errOut;
+    }
+
+    if (!timingsafe_bcmp(tagDataOut, tag->bytes, tag->len)) {
+        diag("FAIL Tag on ciphertext is expected to be wrong here because IV was changed\n");
+        goto errOut;
+    }
+
 
     rc = 0;
 
 errOut:
+    free(tg);
     free(bb);
     free(pt);
     free(ct);
@@ -631,7 +658,7 @@ GCMDiscreetTestCase(CCOperation op, char *keyStr, char *ivStr, char *aDataStr, c
     byteBuffer pt, ct;
     byteBuffer adata, tag;
     byteBuffer bb;
-
+    byteBuffer tg=NULL;
 
     CCCryptorStatus retval;
     char DataOut[4096];
@@ -665,6 +692,7 @@ GCMDiscreetTestCase(CCOperation op, char *keyStr, char *ivStr, char *aDataStr, c
     }
 
     bb = bytesToBytes(DataOut, dataInLength);
+    tg = bytesToBytes(tagDataOut, tagDataOutlen);
 
     // If ct isn't defined we're gathering data - print the ciphertext result
     if(ct->bytes==NULL || pt->bytes==NULL) {
@@ -677,14 +705,12 @@ GCMDiscreetTestCase(CCOperation op, char *keyStr, char *ivStr, char *aDataStr, c
     }
 
     if(op ==kCCDecrypt){
-        free(bb);
-        bb = bytesToBytes(tagDataOut, tagDataOutlen);
-        if (!bytesAreEqual(tag, bb)) {
-            diag("FAIL Tag on ciphertext is wrong\n       got %s\n  expected %s\n", bytesToHexString(bb), bytesToHexString(tag));
+        if (timingsafe_bcmp(tagDataOut, tag->bytes, tag->len)) {
+            diag("FAIL Tag on ciphertext is wrong\n       got %s\n  expected %s\n", bytesToHexString(tg), bytesToHexString(tag));
             return 1;
         }
     }
-
+    free(tg);
     free(bb);
     free(pt);
     free(ct);

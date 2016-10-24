@@ -855,12 +855,14 @@ rtCheckRoutineArg(routine_t *rt, argument_t *arg)
       break;
 
     case akeSendTime:
-      if (rt->rtWaitTime != argNULL)
-	      if (akIdent(rt->rtWaitTime->argKind) == akeWaitTime) {
-		      warn("SendTime type argument after a WaitTime in %s; SendTime %s won't be used", rt->rtName, arg->argName);
-		      break;
-	      } else 
-		      warn("multiple SendTime type args in %s; %s won't be used", rt->rtName, rt->rtWaitTime->argName);
+      if (rt->rtWaitTime != argNULL) {
+        if (akIdent(rt->rtWaitTime->argKind) == akeWaitTime) {
+          warn("SendTime type argument after a WaitTime in %s; SendTime %s won't be used", rt->rtName, arg->argName);
+          break;
+        } else  {
+          warn("multiple SendTime type args in %s; %s won't be used", rt->rtName, rt->rtWaitTime->argName);
+        }
+      }
       rt->rtWaitTime = arg;
       break;
 

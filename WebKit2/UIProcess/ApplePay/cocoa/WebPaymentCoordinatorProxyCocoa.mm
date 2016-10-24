@@ -29,8 +29,7 @@
 #if ENABLE(APPLE_PAY)
 
 #import "WebPaymentCoordinatorProxy.h"
-#import <PassKit/PKPaymentAuthorizationViewController_Private.h>
-#import <PassKitCore/PKPaymentMerchantSession.h>
+#import <WebCore/PassKitSPI.h>
 #import <WebCore/PaymentAuthorizationStatus.h>
 #import <WebCore/PaymentHeaders.h>
 #import <WebCore/SoftLinking.h>
@@ -43,13 +42,7 @@ SOFT_LINK_PRIVATE_FRAMEWORK(PassKit)
 SOFT_LINK_FRAMEWORK(PassKit)
 #endif
 
-#if PLATFORM(MAC)
-// FIXME: Once <rdar://problem/26074851> has been fixed we no longer
-// have to fall back to PKInAppPaymentService.
-#import <PassKitCore/PKInAppPaymentService.h>
-SOFT_LINK_CLASS(PassKit, PKInAppPaymentService)
-#endif
-
+SOFT_LINK_CLASS(PassKit, PKPassLibrary);
 SOFT_LINK_CLASS(PassKit, PKPaymentAuthorizationViewController);
 SOFT_LINK_CLASS(PassKit, PKPaymentMerchantSession);
 SOFT_LINK_CLASS(PassKit, PKPaymentRequest);
@@ -230,6 +223,23 @@ void WebPaymentCoordinatorProxy::platformCanMakePaymentsWithActiveCard(const Str
     });
 }
 
+void WebPaymentCoordinatorProxy::platformOpenPaymentSetup(const String& merchantIdentifier, const String& domainName, std::function<void (bool)> completionHandler)
+{
+    auto passLibrary = adoptNS([allocPKPassLibraryInstance() init]);
+    if (![passLibrary respondsToSelector:@selector(openPaymentSetupForMerchantIdentifier:domain:completion:)]) {
+        RunLoop::main().dispatch([completionHandler] {
+            completionHandler(false);
+        });
+        return;
+    }
+
+    [passLibrary openPaymentSetupForMerchantIdentifier:merchantIdentifier domain:domainName completion:[completionHandler](BOOL result) {
+        RunLoop::main().dispatch([completionHandler, result] {
+            completionHandler(result);
+        });
+    }];
+}
+
 static PKAddressField toPKAddressField(const WebCore::PaymentRequest::ContactFields& contactFields)
 {
     PKAddressField result = 0;
@@ -282,24 +292,43 @@ static PKMerchantCapability toPKMerchantCapabilities(const WebCore::PaymentReque
     return result;
 }
 
-static RetainPtr<NSArray> toSupportedNetworks(const WebCore::PaymentRequest::SupportedNetworks& supportedNetworks)
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebPaymentCoordinatorProxyCocoaAdditions.mm>)
+#import <WebKitAdditions/WebPaymentCoordinatorProxyCocoaAdditions.mm>
+#else
+static inline NSString *toAdditionalSupportedNetwork(const String&)
+{
+    return nullptr;
+}
+#endif
+
+static NSString *toSupportedNetwork(const String& supportedNetwork)
+{
+    if (supportedNetwork == "amex")
+        return getPKPaymentNetworkAmex();
+    if (supportedNetwork == "chinaUnionPay")
+        return getPKPaymentNetworkChinaUnionPay();
+    if (supportedNetwork == "discover")
+        return getPKPaymentNetworkDiscover();
+    if (supportedNetwork == "interac")
+        return getPKPaymentNetworkInterac();
+    if (supportedNetwork == "masterCard")
+        return getPKPaymentNetworkMasterCard();
+    if (supportedNetwork == "privateLabel")
+        return getPKPaymentNetworkPrivateLabel();
+    if (supportedNetwork == "visa")
+        return getPKPaymentNetworkVisa();
+
+    return toAdditionalSupportedNetwork(supportedNetwork);
+}
+
+static RetainPtr<NSArray> toSupportedNetworks(const Vector<String>& supportedNetworks)
 {
     auto result = adoptNS([[NSMutableArray alloc] init]);
 
-    if (supportedNetworks.amex)
-        [result addObject:getPKPaymentNetworkAmex()];
-    if (supportedNetworks.chinaUnionPay)
-        [result addObject:getPKPaymentNetworkChinaUnionPay()];
-    if (supportedNetworks.discover)
-        [result addObject:getPKPaymentNetworkDiscover()];
-    if (supportedNetworks.interac)
-        [result addObject:getPKPaymentNetworkInterac()];
-    if (supportedNetworks.masterCard)
-        [result addObject:getPKPaymentNetworkMasterCard()];
-    if (supportedNetworks.privateLabel)
-        [result addObject:getPKPaymentNetworkPrivateLabel()];
-    if (supportedNetworks.visa)
-        [result addObject:getPKPaymentNetworkVisa()];
+    for (auto& supportedNetwork : supportedNetworks) {
+        if (auto network = toSupportedNetwork(supportedNetwork))
+            [result addObject:network];
+    }
 
     return result;
 }

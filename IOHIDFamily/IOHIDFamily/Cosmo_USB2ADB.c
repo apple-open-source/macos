@@ -556,7 +556,7 @@ unsigned int hid_usb_apple_2_adb_keymap[] =
 	0	//Final one
 };
 
-unsigned int hid_adb_2_usb_keymap[] = 
+unsigned int hid_adb_2_usb_keymap[] =
 {
 	0x04,	// 0
 	0x16,	// 1
@@ -687,4 +687,6 @@ unsigned int hid_adb_2_usb_keymap[] =
 	0x52,	// 7e
 	0x66,	// 7f
 };
+
+unsigned int hid_adb_2_usb_keymap_length = sizeof(hid_adb_2_usb_keymap);
 

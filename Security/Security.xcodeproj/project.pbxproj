@@ -8791,7 +8791,6 @@
 					MobileKeyBag,
 					"-laks",
 					"-lACM",
-					"-lmis",
 					"-lImg4Decode",
 				);
 				PRODUCT_NAME = securityd;
@@ -8817,7 +8816,6 @@
 					MobileKeyBag,
 					"-laks",
 					"-lACM",
-					"-lmis",
 					"-lImg4Decode",
 				);
 				PRODUCT_NAME = securityd;

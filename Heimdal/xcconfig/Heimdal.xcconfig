@@ -45,7 +45,7 @@ HEIMDAL_STATISTICS_FRAMEWORK[sdk=watchos*] = -framework AggregateDictionary
 HEIMDAL_STATISTICS_FRAMEWORK[sdk=appletvos*] = -framework AggregateDictionary
 
 
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos  watchsimulator 
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
 
 // GCC_OPTIMIZATION_LEVEL = 0
 

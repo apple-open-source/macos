@@ -37,6 +37,7 @@
 
 #include <TargetConditionals.h>
 #include <fcntl.h>
+#include <net/if.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -46,16 +47,23 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include "plugin_shared.h"
 
+
+#include <CommonCrypto/CommonDigest.h>
 
 
 /* globals */
-static SCPreferencesRef		prefs		= NULL;
-static SCDynamicStoreRef	store		= NULL;
+static SCPreferencesRef		prefs			= NULL;
+static SCDynamicStoreRef	store			= NULL;
 
-/* preferences "initialization" globals */
-static CFStringRef		initKey		= NULL;
-static CFRunLoopSourceRef	initRls		= NULL;
+/* InterfaceNamer[.plugin] monitoring globals */
+Boolean				haveConfiguration	= FALSE;
+static CFStringRef		namerKey		= NULL;
+static CFArrayRef		preconfigured		= NULL;
+
+/* KernelEventMonitor[.plugin] monitoring globals */
+static CFStringRef		interfacesKey		= NULL;
 
 /* SCDynamicStore (Setup:) */
 static CFMutableDictionaryRef	currentPrefs;		/* current prefs */
@@ -63,11 +71,17 @@ static CFMutableDictionaryRef	newPrefs;		/* new prefs */
 static CFMutableArrayRef	unchangedPrefsKeys;	/* new prefs keys which match current */
 static CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
 
-static Boolean			rofs		= FALSE;
-static Boolean			restorePrefs	= FALSE;
+static Boolean			rofs			= FALSE;
+static Boolean			restorePrefs		= FALSE;
 
 #define MY_PLUGIN_NAME		"PreferencesMonitor"
 #define	MY_PLUGIN_ID		CFSTR("com.apple.SystemConfiguration." MY_PLUGIN_NAME)
+
+
+static void
+updateConfiguration(SCPreferencesRef		prefs,
+		    SCPreferencesNotification   notificationType,
+		    void			*info);
 
 
 static os_log_t
@@ -322,80 +336,50 @@ establishNewPreferences()
 }
 
 
-static Boolean
-quiet(Boolean *timeout)
-{
-	CFDictionaryRef	dict;
-	Boolean		_quiet		= FALSE;
-	Boolean		_timeout	= FALSE;
-
-	// keep the static analyzer happy
-	assert(initKey != NULL);
-
-	// check if quiet
-	dict = SCDynamicStoreCopyValue(store, initKey);
-	if (dict != NULL) {
-		if (isA_CFDictionary(dict)) {
-			if (CFDictionaryContainsKey(dict, CFSTR("*QUIET*"))) {
-				_quiet = TRUE;
-			}
-			if (CFDictionaryContainsKey(dict, CFSTR("*TIMEOUT*"))) {
-				_timeout = TRUE;
-			}
-		}
-		CFRelease(dict);
-	}
-
-	if (timeout != NULL) {
-		*timeout = _timeout;
-	}
-	return _quiet;
-}
-
-
 static void
-watchQuietDisable()
+watchSCDynamicStore()
 {
-	if ((initKey == NULL) || (initRls == NULL)) {
+	CFMutableArrayRef	keys;
+	Boolean			ok;
+	CFRunLoopSourceRef	rls;
+
+	/*
+	 * watch for KernelEventMonitor[.bundle] changes (the list of
+	 * active network interfaces)
+	 */
+	interfacesKey = SCDynamicStoreKeyCreateNetworkInterface(NULL,
+								kSCDynamicStoreDomainState);
+
+	/*
+	 * watch for InterfaceNamer[.bundle] changes (quiet, timeout,
+	 * and the list of pre-configured interfaces)
+	 */
+	namerKey = SCDynamicStoreKeyCreate(NULL,
+					   CFSTR("%@" "InterfaceNamer"),
+					   kSCDynamicStoreDomainPlugin);
+
+	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+	if (rls == NULL) {
+		SC_log(LOG_NOTICE, "SCDynamicStoreCreateRunLoopSource() failed: %s", SCErrorString(SCError()));
+		haveConfiguration = TRUE;
 		return;
 	}
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	CFRelease(rls);
 
-	(void) SCDynamicStoreSetNotificationKeys(store, NULL, NULL);
-
-	CFRunLoopSourceInvalidate(initRls);
-	CFRelease(initRls);
-	initRls = NULL;
-
-	CFRelease(initKey);
-	initKey = NULL;
-
-	return;
-}
-
-
-static void
-watchQuietEnable()
-{
-	CFArrayRef	keys;
-	Boolean		ok;
-
-	initKey = SCDynamicStoreKeyCreate(NULL,
-					  CFSTR("%@" "InterfaceNamer"),
-					  kSCDynamicStoreDomainPlugin);
-
-	initRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), initRls, kCFRunLoopDefaultMode);
-
-	keys = CFArrayCreate(NULL, (const void **)&initKey, 1, &kCFTypeArrayCallBacks);
+	keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(keys, interfacesKey);
+	CFArrayAppendValue(keys, namerKey);
 	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
 	CFRelease(keys);
 	if (!ok) {
 		SC_log(LOG_NOTICE, "SCDynamicStoreSetNotificationKeys() failed: %s", SCErrorString(SCError()));
-		watchQuietDisable();
+		haveConfiguration = TRUE;
 	}
 
 	return;
 }
+
 
 
 
@@ -419,23 +403,113 @@ done:
 	return (properties != NULL);
 }
 
-static void
-watchQuietCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
-{
-	Boolean	_quiet;
-	Boolean	_timeout	= FALSE;
 
-	_quiet = quiet(&_timeout);
-	if (_quiet
-#if	!TARGET_OS_IPHONE
-	    || _timeout
-#endif	/* !TARGET_OS_IPHONE */
-	   ) {
-		watchQuietDisable();
+static void
+storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
+{
+	CFDictionaryRef	dict;
+	CFArrayRef	interfaces	= NULL;
+	Boolean		quiet		= FALSE;
+	Boolean		timeout		= FALSE;
+	Boolean		updated		= FALSE;
+
+	/*
+	 * Capture/process KernelEventMonitor[.bundle] info
+	 * 1. get list of active network interfaces
+	 */
+	dict = SCDynamicStoreCopyValue(store, interfacesKey);
+	if (dict != NULL) {
+		if (isA_CFDictionary(dict)) {
+			interfaces = CFDictionaryGetValue(dict, kSCPropNetInterfaces);
+			interfaces = isA_CFArray(interfaces);
+			if (interfaces != NULL) {
+				CFRetain(interfaces);
+			}
+		}
+
+		CFRelease(dict);
 	}
 
-	if (_quiet || _timeout) {
+	/*
+	 * Capture/process InterfaceNamer[.bundle] info
+	 * 1. check if IORegistry "quiet", "timeout"
+	 * 2. get list of named pre-configured interfaces
+	 * 3. merge list of active interfaces (from KEV) with the
+	 *    list of preconfigured interfaces.
+	 */
+	dict = SCDynamicStoreCopyValue(store, namerKey);
+	if (dict != NULL) {
+		if (isA_CFDictionary(dict)) {
+			CFArrayRef		cur_preconfigured;
+			CFMutableArrayRef	new_preconfigured	= NULL;
+
+			if (CFDictionaryContainsKey(dict, kInterfaceNamerKey_Quiet)) {
+				quiet = TRUE;
+			}
+			if (CFDictionaryContainsKey(dict, kInterfaceNamerKey_Timeout)) {
+				timeout = TRUE;
+			}
+
+			cur_preconfigured = CFDictionaryGetValue(dict, kInterfaceNamerKey_PreConfiguredInterfaces);
+			cur_preconfigured = isA_CFArray(cur_preconfigured);
+			if ((cur_preconfigured != NULL) && (interfaces != NULL)) {
+				CFIndex		i;
+				CFIndex		n;
+				CFRange		r	= CFRangeMake(0, CFArrayGetCount(interfaces));
+
+				n = CFArrayGetCount(cur_preconfigured);
+				for (i = 0; i < n; i++) {
+					CFStringRef	bsdName;
+
+					bsdName = CFArrayGetValueAtIndex(cur_preconfigured, i);
+					if (!CFArrayContainsValue(interfaces, r, bsdName)) {
+						// if interface not currently active
+						continue;
+					}
+
+					if (new_preconfigured == NULL) {
+						new_preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+					}
+					CFArrayAppendValue(new_preconfigured, bsdName);
+				}
+			}
+
+			if (!_SC_CFEqual(preconfigured, new_preconfigured)) {
+				SC_log(LOG_INFO, "pre-configured interface list changed");
+
+				if (preconfigured != NULL) {
+					CFRelease(preconfigured);
+				}
+				if (new_preconfigured != NULL) {
+					CFRetain(new_preconfigured);
+				}
+				preconfigured = new_preconfigured;
+
+				updated = TRUE;
+			}
+
+			if (new_preconfigured != NULL) {
+				CFRelease(new_preconfigured);
+			}
+		}
+
+		CFRelease(dict);
+	}
+
+	if (interfaces != NULL) {
+		CFRelease(interfaces);
+	}
+
+	if (!haveConfiguration && (quiet || timeout)) {
 		static int	logged	= 0;
+
+		if (quiet
+#if	!TARGET_OS_IPHONE
+		    || timeout
+#endif	/* !TARGET_OS_IPHONE */
+		    ) {
+			haveConfiguration = TRUE;
+		}
 
 		(void) establishNewPreferences();
 
@@ -444,9 +518,14 @@ watchQuietCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 			restorePrefs = FALSE;
 		}
 
-		if (_timeout && (logged++ == 0)) {
+		if (timeout && (logged++ == 0)) {
 			SC_log(LOG_ERR, "Network configuration creation timed out waiting for IORegistry");
 		}
+	}
+
+	if (updated && (changedKeys != NULL)) {
+		// if pre-configured interface list changed
+		updateConfiguration(prefs, kSCPreferencesNotificationApply, (void *)store);
 	}
 
 	return;
@@ -572,6 +651,213 @@ flatten(SCPreferencesRef	prefs,
 
 	CFRelease(myDict);
 	CFRelease(myKey);
+
+	return;
+}
+
+
+static CF_RETURNS_RETAINED SCNetworkServiceRef
+copyInterfaceService(SCNetworkSetRef set, CFStringRef matchName)
+{
+	CFIndex			i;
+	CFIndex			n;
+	SCNetworkServiceRef	service	= NULL;
+	CFArrayRef		services;
+
+	services = SCNetworkSetCopyServices(set);
+	assert(services != NULL);
+
+	n = CFArrayGetCount(services);
+	for (i = 0; i < n; i++) {
+		SCNetworkInterfaceRef	interface;
+
+		service = CFArrayGetValueAtIndex(services, i);
+		interface = SCNetworkServiceGetInterface(service);
+		if (interface != NULL) {
+			CFStringRef		bsdName;
+
+			bsdName = SCNetworkInterfaceGetBSDName(interface);
+			if (_SC_CFEqual(bsdName, matchName)) {
+				// if match
+				CFRetain(service);
+				break;
+			}
+		}
+
+		service = NULL;
+	}
+
+	CFRelease(services);
+	return service;
+}
+
+
+static CF_RETURNS_RETAINED CFStringRef
+copyInterfaceUUID(CFStringRef bsdName)
+{
+	union {
+		unsigned char	sha1_bytes[CC_SHA1_DIGEST_LENGTH];
+		CFUUIDBytes	uuid_bytes;
+	} bytes;
+	CC_SHA1_CTX	ctx;
+	char		if_name[IF_NAMESIZE];
+	CFUUIDRef	uuid;
+	CFStringRef	uuid_str;
+
+	// start with interface name
+	bzero(&if_name, sizeof(if_name));
+	(void) _SC_cfstring_to_cstring(bsdName,
+				       if_name,
+				       sizeof(if_name),
+				       kCFStringEncodingASCII);
+
+	// create SHA1 hash
+	bzero(&bytes, sizeof(bytes));
+	CC_SHA1_Init(&ctx);
+	CC_SHA1_Update(&ctx,
+		       if_name,
+		       sizeof(if_name));
+	CC_SHA1_Final(bytes.sha1_bytes, &ctx);
+
+	// create UUID string
+	uuid = CFUUIDCreateFromUUIDBytes(NULL, bytes.uuid_bytes);
+	uuid_str = CFUUIDCreateString(NULL, uuid);
+	CFRelease(uuid);
+
+	return uuid_str;
+}
+
+
+static void
+updatePreConfiguredConfiguration(SCPreferencesRef prefs)
+{
+	Boolean		ok;
+	CFRange		range;
+	SCNetworkSetRef	set;
+	Boolean		updated	= FALSE;
+
+	range.length = (preconfigured != NULL) ? CFArrayGetCount(preconfigured) : 0;
+	if (range.length == 0) {
+		// if no [preconfigured] interfaces
+		return;
+	}
+	range.location = 0;
+
+	set = SCNetworkSetCopyCurrent(prefs);
+	if (set != NULL) {
+		CFArrayRef	services;
+
+		/*
+		 * Check for (and remove) and network services associated with
+		 * a pre-configured interface from the prefs.
+		 */
+		services = SCNetworkSetCopyServices(set);
+		if (services != NULL) {
+			CFIndex		n;
+
+			n = CFArrayGetCount(services);
+			for (CFIndex i = 0; i < n; i++) {
+				CFStringRef		bsdName;
+				SCNetworkInterfaceRef	interface;
+				SCNetworkServiceRef	service;
+
+				service = CFArrayGetValueAtIndex(services, i);
+
+				interface = SCNetworkServiceGetInterface(service);
+				if (interface == NULL) {
+					// if no interface
+					continue;
+				}
+
+				bsdName = SCNetworkInterfaceGetBSDName(interface);
+				if (bsdName == NULL) {
+					// if no interface name
+					continue;
+				}
+
+				if (!CFArrayContainsValue(preconfigured, range, bsdName)) {
+					// if not preconfigured
+					continue;
+				}
+
+				// remove [preconfigured] network service from the prefs
+				SC_log(LOG_NOTICE, "removing network service for %@", bsdName);
+				SCNetworkServiceRemove(service);
+				updated = TRUE;
+			}
+
+			CFRelease(services);
+		}
+
+		if (updated) {
+			// commit the updated prefs ... but don't apply
+			ok = SCPreferencesCommitChanges(prefs);
+			if (!ok) {
+				if (SCError() != EROFS) {
+					SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s",
+					       SCErrorString(SCError()));
+				}
+			}
+		}
+
+		/*
+		 * Now, add a new network service for each pre-configured interface
+		 */
+		for (CFIndex i = 0; i < range.length; i++) {
+			CFStringRef		bsdName;
+			SCNetworkInterfaceRef	interface;
+			SCNetworkServiceRef	service;
+
+			bsdName = CFArrayGetValueAtIndex(preconfigured, i);
+			interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
+			if (interface == NULL) {
+				SC_log(LOG_ERR, "could not create network interface for %@", bsdName);
+				continue;
+			}
+
+			if (_SCNetworkInterfaceGetIOPath(interface) == NULL) {
+				// if no [real] interface exists
+				CFRelease(interface);
+				continue;
+			}
+
+			ok = SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface);
+			CFRelease(interface);
+			if (!ok) {
+				SC_log(LOG_ERR, "could not create network service for %@", bsdName);
+				continue;
+			}
+
+			service = copyInterfaceService(set, bsdName);
+			if (service != NULL) {
+				CFStringRef	serviceID;
+
+				serviceID = copyInterfaceUUID(bsdName);
+				if (serviceID != NULL) {
+					ok = _SCNetworkServiceSetServiceID(service, serviceID);
+					CFRelease(serviceID);
+					if (!ok) {
+						SC_log(LOG_ERR, "_SCNetworkServiceSetServiceID() failed: %s",
+						       SCErrorString(SCError()));
+						// ... and keep whatever random UUID was created for the service
+					}
+				} else {
+					SC_log(LOG_ERR, "could not create serviceID for %@", bsdName);
+					// ... and we'll use whatever random UUID was created for the service
+				}
+
+				SC_log(LOG_INFO, "network service %@ added for %@",
+				       SCNetworkServiceGetServiceID(service),
+				       bsdName);
+
+				CFRelease(service);
+			} else {
+				SC_log(LOG_ERR, "could not find network service for %@", bsdName);
+			}
+		}
+
+		CFRelease(set);
+	}
 
 	return;
 }
@@ -783,7 +1069,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 		current = SCNetworkSetCopyCurrent(prefs);
 		if (current != NULL) {
 			/* network configuration available, disable template creation */
-			watchQuietDisable();
+			haveConfiguration = TRUE;
 			CFRelease(current);
 		}
 	}
@@ -794,6 +1080,9 @@ updateConfiguration(SCPreferencesRef		prefs,
 	}
 
 	SC_log(LOG_INFO, "updating configuration");
+
+	/* add any [Apple] pre-configured network services */
+	updatePreConfiguredConfiguration(prefs);
 
 	/* update SCDynamicStore (Setup:) */
 	updateSCDynamicStore(prefs);
@@ -828,15 +1117,13 @@ __private_extern__
 void
 load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 {
-	Boolean	initPrefs	= TRUE;
-
 	SC_log(LOG_DEBUG, "load() called");
 	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
 
 	/* open a SCDynamicStore session to allow cache updates */
 	store = SCDynamicStoreCreate(NULL,
 				     CFSTR("PreferencesMonitor.bundle"),
-				     watchQuietCallback,
+				     storeCallback,
 				     NULL);
 	if (store == NULL) {
 		SC_log(LOG_NOTICE, "SCDynamicStoreCreate() failed: %s", SCErrorString(SCError()));
@@ -873,7 +1160,7 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 			current = SCNetworkSetCopyCurrent(prefs);
 			if (current != NULL) {
 				/* network configuration available, disable template creation */
-				initPrefs = FALSE;
+				haveConfiguration = TRUE;
 				CFRelease(current);
 			}
 		}
@@ -896,21 +1183,21 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 
 	/*
-	 * if no preferences, initialize with a template (now or
-	 * when IOKit has quiesced).
+	 * watch InterfaceNamer and KernelEventMonitor changes to know when
+	 * the IORegistry has quiesced (to create the initial configuration
+	 * template), to track any pre-configured interfaces, and to ensure
+	 * that we create a network service for any active interfaces.
 	 */
-	if (initPrefs) {
-		watchQuietEnable();
-		watchQuietCallback(store, NULL, NULL);
-	}
+	watchSCDynamicStore();
+	storeCallback(store, NULL, NULL);
 
 	return;
 
     error :
 
-	watchQuietDisable();
 	if (store != NULL)	CFRelease(store);
 	if (prefs != NULL)	CFRelease(prefs);
+	haveConfiguration = TRUE;
 
 	return;
 }

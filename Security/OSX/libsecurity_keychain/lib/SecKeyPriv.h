@@ -129,6 +129,8 @@ typedef CFStringRef (*SecKeyDescribeMethod)(SecKeyRef key);
 typedef CFDataRef (*SecKeyCopyExternalRepresentationMethod)(SecKeyRef key, CFErrorRef *error);
 typedef SecKeyRef (*SecKeyCopyPublicKeyMethod)(SecKeyRef key);
 typedef Boolean (*SecKeyIsEqualMethod)(SecKeyRef key1, SecKeyRef key2);
+typedef SecKeyRef (*SecKeyCreateDuplicateMethod)(SecKeyRef key);
+
 /*!
  @abstract Performs cryptographic operation with the key.
  @param key Key to perform the operation on.
@@ -194,6 +196,7 @@ typedef struct __SecKeyDescriptor {
     SecKeyCopyPublicKeyMethod copyPublicKey;
     SecKeyCopyOperationResultMethod copyOperationResult;
     SecKeyIsEqualMethod isEqual;
+    SecKeyCreateDuplicateMethod createDuplicate;
 #endif
 } SecKeyDescriptor;
 
@@ -529,6 +532,19 @@ __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AV
  a contract between SecKey user (application) and backend and are not interpreted by SecKey layer in any way.
  */
 Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error)
+__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+/*!
+ @function SecKeyCreateDuplicate
+ @abstract Creates duplicate fo the key.
+
+ @param key Source key to be duplicated
+
+ @discussion Only memory representation of the key is duplicated, so if the key is backed by keychain, only one instance
+ stays in the keychain.  Duplicating key is useful for setting 'temporary' key parameters using SecKeySetParameter.
+ If the key is immutable (i.e. does not support SecKeySetParameter), calling this method is identical to calling CFRetain().
+ */
+SecKeyRef SecKeyCreateDuplicate(SecKeyRef key)
 __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!

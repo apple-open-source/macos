@@ -210,7 +210,6 @@
 		18F2353615C9FDD200060520 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CF42BB515A3947F00ACACE1 /* Security.framework */; };
 		18F2353715C9FDE400060520 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 182BB5B9146FF0BE000BF1F3 /* libbsm.dylib */; };
 		18F2353815C9FDEF00060520 /* libsqlite3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 182BB5AD146FEF43000BF1F3 /* libsqlite3.dylib */; };
-		18F2360115CAF41200060520 /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F2360015CAF41100060520 /* libsecurity_codesigning.a */; };
 		18FE68021471A42900A2CBE3 /* SecDigestTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 182BB3A3146F1BEC000BF1F3 /* SecDigestTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		18FE68031471A42900A2CBE3 /* SecReadTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 182BB3A4146F1BEC000BF1F3 /* SecReadTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		18FE68041471A42900A2CBE3 /* SecTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 182BB3A5146F1BEC000BF1F3 /* SecTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -448,6 +447,7 @@
 		52F8DE4C1AF2EB6600A2C271 /* SOSTypes.h in Copy SecureObjectSync Headers */ = {isa = PBXBuildFile; fileRef = 52F8DE4B1AF2EB6600A2C271 /* SOSTypes.h */; };
 		532847791785076B009118DC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5328475117850741009118DC /* Localizable.strings */; };
 		5E605AFC1AB859B70049FA14 /* libcoreauthd_test_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E605AFB1AB859B70049FA14 /* libcoreauthd_test_client.a */; };
+		5E6344221D4B834600A23FB4 /* authorization.dfr.prompts-BBBAA77A32-C4EBFEA440.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5E6343FC1D4B6FF800A23FB4 /* authorization.dfr.prompts-BBBAA77A32-C4EBFEA440.strings */; };
 		5E7AF4731ACD64AC00005140 /* libACM.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E7AF4721ACD64AC00005140 /* libACM.a */; };
 		5E7AF49B1ACD64E600005140 /* libACM.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E7AF4721ACD64AC00005140 /* libACM.a */; };
 		5EC01FEE1B0CA7E0009FBB75 /* sec_acl_stress.c in Sources */ = {isa = PBXBuildFile; fileRef = 5EC01FED1B0CA7E0009FBB75 /* sec_acl_stress.c */; };
@@ -479,7 +479,6 @@
 		BE48AE0A1ADF1DF4000836C1 /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F235F715CA0D9D00060520 /* libsecurity_utilities.a */; };
 		BE48AE0B1ADF1DF4000836C1 /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C12894015FFECF3008CE3E3 /* libutilities.a */; };
 		BE48AE0C1ADF1DF4000836C1 /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 44D78B8F1A0A611C00B63C6C /* libaks_acl.a */; };
-		BE48AE0D1ADF1DF4000836C1 /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F2360015CAF41100060520 /* libsecurity_codesigning.a */; };
 		BE48AE0E1ADF1DF4000836C1 /* libASN1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1831329914EB2C6D00F0BCAC /* libASN1.a */; };
 		BE48AE0F1ADF1DF4000836C1 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1831329A14EB2C6D00F0BCAC /* libDER.a */; };
 		BE48AE101ADF1DF4000836C1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18270EFD14CF429600B05E7F /* IOKit.framework */; };
@@ -591,6 +590,8 @@
 		DC311CC81CCEC82E00E14E8D /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C12894015FFECF3008CE3E3 /* libutilities.a */; };
 		DC7EFBAB1CBC46A7005F9624 /* SecurityFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC7EFBAA1CBC46A7005F9624 /* SecurityFoundation.framework */; };
 		DC7EFC0E1CBC7567005F9624 /* SecurityFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC7EFBAA1CBC46A7005F9624 /* SecurityFoundation.framework */; };
+		DCA28DF71D629C6D00201446 /* libsqlite3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DCA28DF61D629C6D00201446 /* libsqlite3.dylib */; };
+		DCA28E1C1D629C7C00201446 /* AppleSystemInfo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C5DD46B17A5F67300696A79 /* AppleSystemInfo.framework */; };
 		E74583F51BF66506001B54A4 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18270EFD14CF429600B05E7F /* IOKit.framework */; };
 		E76079D61951FDAF00F69731 /* liblogging.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E76079D51951FDA800F69731 /* liblogging.a */; };
 		E778BFBC17176DDE00302C14 /* security.exp-in in Sources */ = {isa = PBXBuildFile; fileRef = 182BB562146F4C73000BF1F3 /* security.exp-in */; };
@@ -2629,6 +2630,7 @@
 		5328475217850741009118DC /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		5E27BBFA18F4103100B6C79A /* libcoreauthd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcoreauthd_client.a; path = usr/local/lib/libcoreauthd_client.a; sourceTree = SDKROOT; };
 		5E605AFB1AB859B70049FA14 /* libcoreauthd_test_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcoreauthd_test_client.a; path = usr/local/lib/libcoreauthd_test_client.a; sourceTree = SDKROOT; };
+		5E6343FD1D4B6FF800A23FB4 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = "en.lproj/authorization.dfr.prompts-BBBAA77A32-C4EBFEA440.strings"; sourceTree = "<group>"; };
 		5E7AF4721ACD64AC00005140 /* libACM.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libACM.a; path = usr/local/lib/libACM.a; sourceTree = SDKROOT; };
 		5EC01FED1B0CA7E0009FBB75 /* sec_acl_stress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sec_acl_stress.c; path = ../../secacltests/sec_acl_stress.c; sourceTree = "<group>"; };
 		5EC01FF01B0CAE62009FBB75 /* LocalAuthentication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LocalAuthentication.framework; path = System/Library/Frameworks/LocalAuthentication.framework; sourceTree = SDKROOT; };
@@ -2706,6 +2708,7 @@
 		D4DDD9661CA2F2A700AA03AE /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = usr/lib/libbsm.dylib; sourceTree = SDKROOT; };
 		D4EC94D51CEA48000083E753 /* si-20-sectrust-policies-data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "si-20-sectrust-policies-data"; path = "../shared_regressions/si-20-sectrust-policies-data"; sourceTree = "<group>"; };
 		DC7EFBAA1CBC46A7005F9624 /* SecurityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityFoundation.framework; path = System/Library/Frameworks/SecurityFoundation.framework; sourceTree = SDKROOT; };
+		DCA28DF61D629C6D00201446 /* libsqlite3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsqlite3.dylib; path = usr/lib/libsqlite3.dylib; sourceTree = SDKROOT; };
 		EB22F3F518A26BA50016A8EC /* bc-10-knife-on-bread.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "bc-10-knife-on-bread.m"; path = "Breadcrumb/bc-10-knife-on-bread.m"; sourceTree = "<group>"; };
 		EB22F3F618A26BA50016A8EC /* breadcrumb_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = breadcrumb_regressions.h; path = Breadcrumb/breadcrumb_regressions.h; sourceTree = "<group>"; };
 		EB22F3F718A26BA50016A8EC /* SecBreadcrumb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = SecBreadcrumb.c; path = Breadcrumb/SecBreadcrumb.c; sourceTree = "<group>"; };
@@ -2851,7 +2854,6 @@
 				44A655CF1AA4B4F50059D185 /* libctkclient.a in Frameworks */,
 				8E64DB4A1C17C26F0076C9DF /* libDER.a in Frameworks */,
 				AAF3DCCB1666D03300376593 /* libsecurity_utilities.a in Frameworks */,
-				18F2360115CAF41200060520 /* libsecurity_codesigning.a in Frameworks */,
 				18270EFA14CF426200B05E7F /* libsqlite3.dylib in Frameworks */,
 				4C8D8651177A752D0019A804 /* libsecipc_client.a in Frameworks */,
 				4C01DF14164C3E7C006798CD /* libSecureObjectSync.a in Frameworks */,
@@ -2964,6 +2966,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DCA28E1C1D629C7C00201446 /* AppleSystemInfo.framework in Frameworks */,
+				DCA28DF71D629C6D00201446 /* libsqlite3.dylib in Frameworks */,
 				EBB6970B1BE2091300715F16 /* Foundation.framework in Frameworks */,
 				5EF7C2521B00EB0A00E5E99C /* libaks.a in Frameworks */,
 				5EF7C2511B00EAF100E5E99C /* libcoreauthd_client.a in Frameworks */,
@@ -2997,7 +3001,6 @@
 				BE48AE0A1ADF1DF4000836C1 /* libsecurity_utilities.a in Frameworks */,
 				BE48AE0B1ADF1DF4000836C1 /* libutilities.a in Frameworks */,
 				BE48AE0C1ADF1DF4000836C1 /* libaks_acl.a in Frameworks */,
-				BE48AE0D1ADF1DF4000836C1 /* libsecurity_codesigning.a in Frameworks */,
 				BE48AE0E1ADF1DF4000836C1 /* libASN1.a in Frameworks */,
 				BE48AE0F1ADF1DF4000836C1 /* libDER.a in Frameworks */,
 				BE48AE101ADF1DF4000836C1 /* IOKit.framework in Frameworks */,
@@ -3143,6 +3146,7 @@
 		1807384D146D0D4E00F05C24 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DCA28DF61D629C6D00201446 /* libsqlite3.dylib */,
 				6C721DB01D3D18D700888AE1 /* login.framework */,
 				D447C0C11D2C9BAB0082FC1D /* libDiagnosticMessagesClient.dylib */,
 				DC7EFBAA1CBC46A7005F9624 /* SecurityFoundation.framework */,
@@ -3315,6 +3319,7 @@
 			children = (
 				187D6B8F15D4359F00E27494 /* authorization.buttons.strings */,
 				187D6B9115D4359F00E27494 /* authorization.prompts.strings */,
+				5E6343FC1D4B6FF800A23FB4 /* authorization.dfr.prompts-BBBAA77A32-C4EBFEA440.strings */,
 				43A598591B0CF2AB00D14A7B /* CloudKeychain.strings */,
 				188AD8D81471FE3D0081C619 /* FDELocalizable.strings */,
 				182BB55C146F4544000BF1F3 /* FDEPrefs.plist */,
@@ -5621,6 +5626,7 @@
 				188AD8DC1471FE3E0081C619 /* FDELocalizable.strings in Resources */,
 				188AD8DD1471FE3E0081C619 /* InfoPlist.strings in Resources */,
 				52B006C015238F76005D4556 /* TimeStampingPrefs.plist in Resources */,
+				5E6344221D4B834600A23FB4 /* authorization.dfr.prompts-BBBAA77A32-C4EBFEA440.strings in Resources */,
 				187D6B9315D435BD00E27494 /* authorization.buttons.strings in Resources */,
 				187D6B9415D435C700E27494 /* authorization.prompts.strings in Resources */,
 			);
@@ -6590,6 +6596,14 @@
 			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
+		5E6343FC1D4B6FF800A23FB4 /* authorization.dfr.prompts-BBBAA77A32-C4EBFEA440.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				5E6343FD1D4B6FF800A23FB4 /* en */,
+			);
+			name = "authorization.dfr.prompts-BBBAA77A32-C4EBFEA440.strings";
+			sourceTree = "<group>";
+		};
 		CD276BE21A83F204003226BC /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -6792,6 +6806,7 @@
 					"-F$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"-framework",
 					AppleSystemInfo,
+					"-lc++",
 				);
 				USE_HEADERMAP = NO;
 			};
@@ -7461,6 +7476,10 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = "../secacltests/secacltests-entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
@@ -7492,6 +7511,10 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = "../secacltests/secacltests-entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -7546,6 +7569,7 @@
 					"-F$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"-framework",
 					AppleSystemInfo,
+					"-lc++",
 				);
 				PRODUCT_NAME = trustd;
 				USE_HEADERMAP = NO;
@@ -7587,6 +7611,7 @@
 					"-F$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"-framework",
 					AppleSystemInfo,
+					"-lc++",
 				);
 				PRODUCT_NAME = trustd;
 				USE_HEADERMAP = NO;

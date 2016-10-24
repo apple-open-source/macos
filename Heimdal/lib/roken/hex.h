@@ -47,10 +47,13 @@
 #endif
 
 #define hex_encode rk_hex_encode
+#define hex_encode_lower rk_hex_encode_lower
 #define hex_decode rk_hex_decode
 
 ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
 	hex_encode(const void *, size_t, char **);
+ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
+	hex_encode_lower(const void *data, size_t size, char **str);
 ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
 	hex_decode(const char *, void *, size_t);
 

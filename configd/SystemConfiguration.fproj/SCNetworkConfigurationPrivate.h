@@ -392,6 +392,15 @@ uint64_t
 _SCNetworkInterfaceGetIORegistryEntryID			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_0);
 
 /*!
+	@function _SCNetworkInterfaceIsApplePreconfigured
+	@discussion Identifies if a network interface is internal/pre-configured.
+	@param interface The network interface.
+	@result TRUE if the interface is an internal/pre-configured.
+ */
+Boolean
+_SCNetworkInterfaceIsApplePreconfigured			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0);
+
+/*!
 	@function _SCNetworkInterfaceIsBluetoothPAN
 	@discussion Identifies if a network interface is a Bluetooth PAN (GN) device.
 	@param interface The network interface.

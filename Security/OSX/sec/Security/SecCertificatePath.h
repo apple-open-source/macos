@@ -123,6 +123,8 @@ enum {
 SecPathVerifyStatus SecCertificatePathVerify(
 	SecCertificatePathRef certificatePath);
 
+bool SecCertificatePathIsValid(SecCertificatePathRef certificatePath, CFAbsoluteTime verifyTime);
+
 bool SecCertificatePathHasWeakHash(SecCertificatePathRef certificatePath);
 
 CFIndex SecCertificatePathScore(SecCertificatePathRef certificatePath,

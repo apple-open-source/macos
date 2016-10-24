@@ -592,7 +592,7 @@ static bool SecPolicyCheckCertCertificatePolicyOid(SecCertificateRef cert, CFTyp
 }
 
 static bool SecPolicyCheckCertWeak(SecCertificateRef cert, CFTypeRef __unused pvcValue) {
-    if (cert && SecCertificateIsWeak(cert)) {
+    if (cert && SecCertificateIsWeakKey(cert)) {
         /* Leaf certificate has a weak key. */
         return false;
     }

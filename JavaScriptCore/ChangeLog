@@ -1,6 +1,401 @@
-2016-08-18  Babak Shafiei  <bshafiei@apple.com>
+2016-09-14  Babak Shafiei  <bshafiei@apple.com>
 
-        Merge r204572.
+        Merge r205882. rdar://problem/28233331
+
+    2016-09-13  Mark Lam  <mark.lam@apple.com>
+
+            DFG NewArrayBuffer node should watch for "have a bad time" state change.
+            https://bugs.webkit.org/show_bug.cgi?id=161927
+            <rdar://problem/27995222>
+
+            Reviewed by Geoffrey Garen.
+
+            * dfg/DFGFixupPhase.cpp:
+            (JSC::DFG::FixupPhase::fixupNode):
+
+2016-09-13  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205895. rdar://problem/28287070
+
+    2016-09-13  Michael Saboff  <msaboff@apple.com>
+
+            Promises aren't resolved properly when making a ObjC API callback
+            https://bugs.webkit.org/show_bug.cgi?id=161929
+
+            Reviewed by Geoffrey Garen.
+
+            When we go to call out to an Objective C function registered via the API,
+            we first drop all JSC locks to make the call.  As part of dropping the locks,
+            we drain the microtask queue that is used among other things for handling deferred
+            promise resolution.  The DropAllLocks scope class that drops the locks while in
+            scope, resets the current thread's AtomicStringTable to the default table.  This
+            is wrong for two reasons, first it happens before we drain the microtask queue and
+            second it isn't needed as JSLock::willReleaseLock() restores the current thread's
+            AtomicStringTable to the table before the lock was acquired.
+
+            In fact, the manipulation of the current thread's AtomicStringTable is already
+            properly handled as a stack in JSLock::didAcquireLock() and willReleaseLock().
+            Therefore the manipulation of the AtomicStringTable in DropAllLocks constructor
+            and destructor should be removed.
+
+            * API/tests/testapi.mm:
+            (testObjectiveCAPIMain): Added a new test.
+            * runtime/JSLock.cpp:
+            (JSC::JSLock::DropAllLocks::DropAllLocks):
+            (JSC::JSLock::DropAllLocks::~DropAllLocks):
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204403. rdar://problem/27991568
+
+    2016-08-11  Mark Lam  <mark.lam@apple.com>
+
+            OverridesHasInstance should not branch across register allocations.
+            https://bugs.webkit.org/show_bug.cgi?id=160792
+            <rdar://problem/27361778>
+
+            Reviewed by Benjamin Poulain.
+
+            The OverrideHasInstance node has a branch test that is emitted conditionally.
+            It also has a bug where it allocated a register after this branch, which is not
+            allowed and would fail an assertion introduced in https://trac.webkit.org/r145931.
+            From the ChangeLog for r145931:
+
+            "This [assertion that register allocations are not branched around] protects
+            against the case where an allocation could have spilled register contents to free
+            up a register and that spill only occurs on one path of many through the code.
+            A subsequent fill of the spilled register may load garbage."
+
+            Because the branch isn't always emitted, this bug has gone unnoticed until now.
+            This patch fixes this issue by pre-allocating the registers before emitting the
+            branch in OverrideHasInstance.
+
+            Note: this issue is only present in DFGSpeculativeJIT64.cpp.  The 32-bit version
+            is doing it right.
+
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204485. rdar://problem/27991572
+
+    2016-08-15  Mark Lam  <mark.lam@apple.com>
+
+            Make JSValue::strictEqual() handle failures to resolve JSRopeStrings.
+            https://bugs.webkit.org/show_bug.cgi?id=160832
+            <rdar://problem/27577556>
+
+            Reviewed by Geoffrey Garen.
+
+            Currently, JSValue::strictEqualSlowCaseInline() (and peers) will blindly try to
+            access the StringImpl of a JSRopeString that fails to resolve its rope.  As a
+            result, we'll crash with null pointer dereferences.
+
+            We can fix this by introducing a JSString::equal() method that will do the
+            equality comparison, but is aware of the potential failures to resolve ropes.
+            JSValue::strictEqualSlowCaseInline() (and peers) will now call JSString::equal()
+            instead of accessing the underlying StringImpl directly.
+
+            Also added some exception checks.
+
+            * JavaScriptCore.xcodeproj/project.pbxproj:
+            * jit/JITOperations.cpp:
+            * runtime/ArrayPrototype.cpp:
+            (JSC::arrayProtoFuncIndexOf):
+            (JSC::arrayProtoFuncLastIndexOf):
+            * runtime/JSCJSValueInlines.h:
+            (JSC::JSValue::equalSlowCaseInline):
+            (JSC::JSValue::strictEqualSlowCaseInline):
+            * runtime/JSString.cpp:
+            (JSC::JSString::equalSlowCase):
+            * runtime/JSString.h:
+            * runtime/JSStringInlines.h: Added.
+            (JSC::JSString::equal):
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203381. rdar://problem/27860536
+
+    2016-07-18  Anders Carlsson  <andersca@apple.com>
+
+            WebKit nightly fails to build on macOS Sierra
+            https://bugs.webkit.org/show_bug.cgi?id=159902
+            rdar://problem/27365672
+
+            Reviewed by Tim Horton.
+
+            * icu/unicode/ucurr.h: Added.
+            Add ucurr.h from ICU.
+
+2016-09-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r205192. rdar://problem/28097740
+
+    2016-08-30  Alex Christensen  <achristensen@webkit.org>
+
+            Fix WebInspectorUI in internal Windows build
+            https://bugs.webkit.org/show_bug.cgi?id=161221
+            rdar://problem/28019023
+
+            Reviewed by Brent Fulgham and Joseph Pecoraro.
+
+            * JavaScriptCore.vcxproj/JavaScriptCore.proj:
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204570. rdar://problem/27991567
+
+    2016-08-17  Mark Lam  <mark.lam@apple.com>
+
+            Remove an invalid assertion in the DFG backend's GetById emitter.
+            https://bugs.webkit.org/show_bug.cgi?id=160925
+            <rdar://problem/27248961>
+
+            Reviewed by Filip Pizlo.
+
+            The DFG backend's GetById assertion that the node's prediction not be SpecNone
+            is just plain wrong.  It assumes that we can never have a GetById node without a
+            type prediction, but this is not true.  The following test case proves otherwise:
+
+                function foo() {
+                    "use strict";
+                    return --arguments["callee"];
+                }
+
+            Will remove the assertion.  Nothing else needs to change as the DFG is working
+            correctly without the assertion.
+
+            * dfg/DFGSpeculativeJIT32_64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::compile):
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204388. rdar://problem/27991576
+
+    2016-08-11  Mark Lam  <mark.lam@apple.com>
+
+            The jsc shell's Element host constructor should throw if it fails to construct an object.
+            https://bugs.webkit.org/show_bug.cgi?id=160773
+            <rdar://problem/27328608>
+
+            Reviewed by Saam Barati.
+
+            The Element object is a test object provided in the jsc shell for testing use only.
+            JavaScriptCore expects host constructors to either throw an error or return a
+            constructed object.  Element has a host constructor that did not obey this contract.
+            As a result, the following statement will fail a RELEASE_ASSERT:
+
+                new (Element.bind())
+
+            This is now fixed.
+
+            * jsc.cpp:
+            (functionCreateElement):
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204362. rdar://problem/27991421
+
+    2016-08-10  Michael Saboff  <msaboff@apple.com>
+
+            Baseline GetByVal and PutByVal for cache ID stubs need to handle exceptions
+            https://bugs.webkit.org/show_bug.cgi?id=160749
+
+            Reviewed by Filip Pizlo.
+
+            We were emitting "callOperation()" calls in emitGetByValWithCachedId() and
+            emitPutByValWithCachedId() without linking the exception checks created by the
+            code emitted.  This manifested itself in various ways depending on the processor.
+            This is due to what the destination is for an unlinked branch.  On X86, an unlinked
+            branch goes tot he next instructions.  On ARM64, we end up with an infinite loop
+            as we branch to the same instruction.  On ARM we branch to 0 as the branch is to
+            an absolute address of 0.
+
+            Now we save the exception handler address for the original generated function and
+            link the exception cases for these by-val stubs to this handler.
+
+            * bytecode/ByValInfo.h:
+            (JSC::ByValInfo::ByValInfo): Added the address of the exception handler we should
+            link to.
+
+            * jit/JIT.cpp:
+            (JSC::JIT::link): Compute the linked exception handler address and pass it to
+            the ByValInfo constructor.
+            (JSC::JIT::privateCompileExceptionHandlers): Make sure that we generate the
+            exception handler if we have any by-val handlers.
+
+            * jit/JIT.h:
+            Added a label for the exception handler.  We'll link this later for the
+            by value handlers.
+
+            * jit/JITPropertyAccess.cpp:
+            (JSC::JIT::privateCompileGetByValWithCachedId):
+            (JSC::JIT::privateCompilePutByValWithCachedId):
+            Link exception branches to the exception handler for the main function.
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204360. rdar://problem/27991577
+
+    2016-08-10  Mark Lam  <mark.lam@apple.com>
+
+            DFG's flushForTerminal() needs to add PhantomLocals for bytecode live locals.
+            https://bugs.webkit.org/show_bug.cgi?id=160755
+            <rdar://problem/27488507>
+
+            Reviewed by Filip Pizlo.
+
+            If the DFG sees that an inlined function will result in an OSR exit every time,
+            it will treat all downstream blocks as dead.  However, it still needs to keep
+            locals that are alive in the bytecode alive for the compiled function so that
+            those locals are properly written to the stack by the OSR exit ramp.
+
+            The existing code neglected to do this.  This patch remedies this issue.
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::flushDirect):
+            (JSC::DFG::ByteCodeParser::addFlushOrPhantomLocal):
+            (JSC::DFG::ByteCodeParser::phantomLocalDirect):
+            (JSC::DFG::ByteCodeParser::flushForTerminal):
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203952. rdar://problem/27991571
+
+    2016-07-30  Mark Lam  <mark.lam@apple.com>
+
+            Assertion failure while setting the length of an ArrayClass array.
+            https://bugs.webkit.org/show_bug.cgi?id=160381
+            <rdar://problem/27328703>
+
+            Reviewed by Filip Pizlo.
+
+            When setting large length values, we're currently treating ArrayClass as a
+            ContiguousIndexingType array.  This results in an assertion failure.  This is
+            now fixed.
+
+            There are currently only 2 places where we create arrays with indexing type
+            ArrayClass: ArrayPrototype and RuntimeArray.  The fix in JSArray:;setLength()
+            takes care of ArrayPrototype.
+
+            RuntimeArray already checks for the setting of its length property, and will
+            throw a RangeError.  Hence, there's no change is needed for the RuntimeArray.
+            Instead, I added some test cases ensure that the check and throw behavior does
+            not change without notice.
+
+            * runtime/JSArray.cpp:
+            (JSC::JSArray::setLength):
+            * tests/stress/array-setLength-on-ArrayClass-with-large-length.js: Added.
+            (toString):
+            (assertEqual):
+            * tests/stress/array-setLength-on-ArrayClass-with-small-length.js: Added.
+            (toString):
+            (assertEqual):
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203853. rdar://problem/27991580
+
+    2016-07-28  Mark Lam  <mark.lam@apple.com>
+
+            ASSERTION FAILED in errorProtoFuncToString() when Error name is a single char string.
+            https://bugs.webkit.org/show_bug.cgi?id=160324
+            <rdar://problem/27389572>
+
+            Reviewed by Keith Miller.
+
+            The issue is that errorProtoFuncToString() was using jsNontrivialString() to
+            generate the error string even when the name string can be a single character
+            string.  This is incorrect.  We should be using jsString() instead.
+
+            * runtime/ErrorPrototype.cpp:
+            (JSC::errorProtoFuncToString):
+            * tests/stress/errors-with-simple-names-or-messages-should-not-crash-toString.js: Added.
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203834. rdar://problem/27991582
+
+    2016-07-28  Mark Lam  <mark.lam@apple.com>
+
+            StringView should have an explicit m_is8Bit field.
+            https://bugs.webkit.org/show_bug.cgi?id=160282
+            <rdar://problem/27327943>
+
+            Reviewed by Benjamin Poulain.
+
+            * tests/stress/string-joining-long-strings-should-not-crash.js: Added.
+            (catch):
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203802. rdar://problem/27991569
+
+    2016-07-27  Benjamin Poulain  <bpoulain@apple.com>
+
+            [JSC] Fix a bunch of use-after-free of DFG::Node
+            https://bugs.webkit.org/show_bug.cgi?id=160228
+
+            Reviewed by Mark Lam.
+
+            FTL had a few places where we use a node after it has been
+            deleted. The dangling pointers come from the SSA liveness information
+            kept on the basic blocks.
+
+            This patch fixes the issues I could find and adds liveness invalidation
+            to help finding dependencies like these.
+
+            * dfg/DFGBasicBlock.h:
+            (JSC::DFG::BasicBlock::SSAData::invalidate):
+
+            * dfg/DFGConstantFoldingPhase.cpp:
+            (JSC::DFG::ConstantFoldingPhase::run):
+            Constant folding phase was deleting nodes in the loop over basic blocks.
+            The problem is the deleted nodes can be referenced by other blocks.
+            When the abstract interpreter was manipulating the abstract values of those
+            it was doing so on the dead nodes.
+
+            * dfg/DFGConstantHoistingPhase.cpp:
+            Just invalidation. Nothing wrong here since the useless nodes were
+            kept live while iterating the blocks.
+
+            * dfg/DFGGraph.cpp:
+            (JSC::DFG::Graph::killBlockAndItsContents):
+            (JSC::DFG::Graph::killUnreachableBlocks):
+            (JSC::DFG::Graph::invalidateNodeLiveness):
+
+            * dfg/DFGGraph.h:
+            * dfg/DFGPlan.cpp:
+            (JSC::DFG::Plan::compileInThreadImpl):
+            We had a lot of use-after-free in LCIM because we were using the stale
+            live nodes deleted by previous phases.
+
+2016-08-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r203798. rdar://problem/27991578
+
+    2016-07-27  Keith Miller  <keith_miller@apple.com>
+
+            concatAppendOne should allocate using the indexing type of the array if it cannot merge
+            https://bugs.webkit.org/show_bug.cgi?id=160261
+            <rdar://problem/27530122>
+
+            Reviewed by Mark Lam.
+
+            Before, if we could not merge the indexing types for copying, we would allocate the
+            the array as ArrayWithUndecided. Instead, we should allocate an array with the original
+            array's indexing type.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::concatAppendOne):
+            * tests/stress/concat-append-one-with-sparse-array.js: Added.
+
+2016-08-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r204572. rdar://problem/27889416
 
     2016-08-17  Geoffrey Garen  <ggaren@apple.com>
 
@@ -30,7 +425,7 @@
             clearer to test the buffers directly instead of inferring what they
             might be based on capacity.
 
-2016-08-15  Keith Miller  <keith_miller@apple.com>
+2016-08-11  Keith Miller  <keith_miller@apple.com>
 
         Merge r203972.
 
@@ -49,7 +444,7 @@
 
             * tests/: Deleted.
 
-2016-08-01  Babak Shafiei  <bshafiei@apple.com>
+2016-07-31  Yusuke Suzuki  <utatane.tea@gmail.com>
 
         Merge r204010. rdar://problem/27534844
 

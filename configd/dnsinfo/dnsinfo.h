@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009, 2011-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2011-2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -35,7 +35,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define	DNSINFO_VERSION		20140114
+#define	DNSINFO_VERSION		20160901
 
 #define DEFAULT_SEARCH_ORDER    200000   /* search order for the "default" resolver domain name */
 
@@ -80,13 +80,16 @@ typedef struct {
 #pragma pack()
 
 
-#define DNS_RESOLVER_FLAGS_SCOPED		1		/* configuration is for scoped questions */
-#define DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS	2		/* always requesting for A dns records in queries */
-#define DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS	4		/* always requesting for AAAA dns records in queries */
-#define DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC	8		/* configuration is service-specific */
+#define DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS	0x0002		/* always requesting for A dns records in queries */
+#define DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS	0x0004		/* always requesting for AAAA dns records in queries */
 
 #define	DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS	\
 	(DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS | DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS)
+
+#define DNS_RESOLVER_FLAGS_SCOPED		0x1000		/* configuration is for scoped questions */
+#define DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC	0x2000		/* configuration is service-specific */
+#define DNS_RESOLVER_FLAGS_SUPPLEMENTAL		0x4000		/* supplemental match configuration */
+
 
 #pragma pack(4)
 typedef struct {

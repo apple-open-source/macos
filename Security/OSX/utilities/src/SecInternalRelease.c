@@ -31,7 +31,7 @@
 #if TARGET_OS_EMBEDDED
 #include <MobileGestalt.h>
 #else
-#include <sys/utsname.h>
+#include <System/sys/csr.h>
 #endif
 
 

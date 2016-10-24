@@ -80,6 +80,7 @@
 #include <SystemConfiguration/SCDPlugin.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include "plugin_shared.h"
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitLibPrivate.h>
@@ -595,9 +596,6 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 
 #if	!TARGET_OS_EMBEDDED
 
-#define	BT_PAN_NAME	"Bluetooth PAN"
-#define	BT_PAN_MAC	BT_PAN_NAME " (MAC)"
-
 static void
 updateBTPANInformation(const void *value, void *context)
 {
@@ -625,11 +623,11 @@ updateBTPANInformation(const void *value, void *context)
 	return;
     }
 
-    CFDictionaryAddValue(S_state, CFSTR("_" BT_PAN_NAME "_"), if_name);
+    CFDictionaryAddValue(S_state, kInterfaceNamerKey_BT_PAN_Name, if_name);
 
     addr = CFDictionaryGetValue(dict, CFSTR(kIOMACAddress));
     if (isA_CFData(addr)) {
-	CFDictionaryAddValue(S_state, CFSTR("_" BT_PAN_MAC "_"), addr);
+	CFDictionaryAddValue(S_state, kInterfaceNamerKey_BT_PAN_Mac, addr);
     }
 
     return;
@@ -1708,6 +1706,27 @@ nameInterfaces(CFMutableArrayRef if_list)
 }
 
 #if	!TARGET_OS_IPHONE
+static Boolean
+isRecoveryOS()
+{
+    static Boolean	    isRecovery	= FALSE;
+    static dispatch_once_t  once;
+
+    /*
+     * We check to see if the UserEventAgent daemon is present.  If not, then
+     * we are most likely booted into the Recovery OS with no "SCMonitor"
+     * [UserEventAgent] plugin.
+     */
+    dispatch_once(&once, ^{
+	if ((access("/usr/libexec/UserEventAgent", X_OK) == -1) && (errno == ENOENT)) {
+	    isRecovery = TRUE;
+	}
+
+    });
+
+    return isRecovery;
+}
+
 static void
 updateNetworkConfiguration(CFArrayRef if_list)
 {
@@ -1770,6 +1789,58 @@ updateNetworkConfiguration(CFArrayRef if_list)
 #endif	// !TARGET_OS_IPHONE
 
 static void
+updatePreConfigured(CFArrayRef interfaces)
+{
+    CFIndex		i;
+    CFIndex		n;
+    CFMutableArrayRef	new_list    = NULL;
+    Boolean		updated	    = FALSE;
+
+    n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
+    for (i = 0; i < n; i++) {
+	SCNetworkInterfaceRef	interface;
+
+	interface = CFArrayGetValueAtIndex(interfaces, i);
+	if (_SCNetworkInterfaceIsApplePreconfigured(interface)) {
+	    CFStringRef	bsdName;
+
+	    bsdName = SCNetworkInterfaceGetBSDName(interface);
+	    if (bsdName == NULL) {
+		continue;
+	    }
+
+	    // add pre-configured interface
+	    if (new_list == NULL) {
+		CFArrayRef	cur_list;
+
+		cur_list = CFDictionaryGetValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces);
+		if (cur_list != NULL) {
+		    new_list = CFArrayCreateMutableCopy(NULL, 0, cur_list);
+		} else {
+		    new_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		}
+	    }
+
+	    if (!CFArrayContainsValue(new_list, CFRangeMake(0, CFArrayGetCount(new_list)), bsdName)) {
+		CFArrayAppendValue(new_list, bsdName);
+		updated = TRUE;
+	    }
+	}
+    }
+
+    if (new_list != NULL) {
+	if (updated) {
+	    CFDictionarySetValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces, new_list);
+	    updateStore();
+	}
+
+	CFRelease(new_list);
+    }
+
+    return;
+}
+
+static void
 updateInterfaces()
 {
     if (S_connect == MACH_PORT_NULL) {
@@ -1787,6 +1858,11 @@ updateInterfaces()
 	nameInterfaces(S_iflist);
     }
 
+    /*
+     * Update the list of [Apple] pre-configured interfaces
+     */
+    updatePreConfigured(S_iflist);
+
     if (isQuiet()) {
 	/*
 	 * The registry [matching] has quiesced so let's
@@ -1800,8 +1876,7 @@ updateInterfaces()
 	updateVirtualNetworkInterfaceConfiguration(NULL, kSCPreferencesNotificationApply, NULL);
 
 #if	!TARGET_OS_IPHONE
-	if (access("/usr/libexec/UserEventAgent",  X_OK) == -1
-	    && errno == ENOENT) {
+	if (isRecoveryOS()) {
 	    /*
 	     * We are most likely booted into the Recovery OS with no "SCMonitor"
 	     * UserEventAgent plugin running so let's make sure we update the
@@ -1977,7 +2052,7 @@ quietCallback(void		*refcon,
     os_activity_scope(activity);
 
     if (messageType == kIOMessageServiceBusyStateChange) {
-	addTimestamp(S_state, CFSTR("*QUIET*"));
+	addTimestamp(S_state, kInterfaceNamerKey_Quiet);
 	SC_log(LOG_INFO, "IOKit quiet");
     }
 
@@ -2148,7 +2223,7 @@ timerCallback(CFRunLoopTimerRef	timer, void *info)
 
     // We've been waiting for IOKit to quiesce and it just
     // hasn't happenned.  Time to just move on!
-    addTimestamp(S_state, CFSTR("*TIMEOUT*"));
+    addTimestamp(S_state, kInterfaceNamerKey_Timeout);
 
     // log busy nodes
     SC_log(LOG_ERR, "timed out waiting for IOKit to quiesce");

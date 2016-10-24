@@ -51,7 +51,8 @@ enum {
 };    
 
 enum {
-    kEXFlagRetry = 1
+    kEXFlagRetry  = 1,
+    kEXFlagUsePEC = 2
 };
 
 #define MAX_SMBUS_DATA_SIZE     32

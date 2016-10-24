@@ -710,6 +710,8 @@
 		EB0F9F47111F247000744852 /* der.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56930F2181960009D37C /* der.h */; };
 		EB0F9F48111F247300744852 /* der-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56910F2181960009D37C /* der-protos.h */; };
 		EB0F9F49111F247300744852 /* der.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB56930F2181960009D37C /* der.h */; };
+		EB11A83D1D62458000E03538 /* roken-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB576C0F21822D0009D37C /* roken-common.h */; };
+		EB11A83E1D62458000E03538 /* roken.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB6B2980F22B6CD006BD106 /* roken.h */; };
 		EB13167C181F20BE0060DB0B /* heim_err.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB49AB870F2589FC0076E27F /* heim_err.h */; };
 		EB13167D181F20BE0060DB0B /* k524_err.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB49AB880F2589FC0076E27F /* k524_err.h */; };
 		EB13167E181F20BE0060DB0B /* krb_err.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = EB49AB890F2589FC0076E27F /* krb_err.h */; };
@@ -3093,6 +3095,8 @@
 		EBB7422F0FFD5FC10047AC11 /* heim-ipc.h in Headers */ = {isa = PBXBuildFile; fileRef = EB9535370FFB34DA0013822C /* heim-ipc.h */; };
 		EBB742320FFD5FD10047AC11 /* asn1-common.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB567E0F2181960009D37C /* asn1-common.h */; };
 		EBB742370FFD60230047AC11 /* libipc-client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBC6C6690FFAB41D0065A377 /* libipc-client.a */; };
+		EBB92EF51D627E41002DDC48 /* libroken-application.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBABC9310F2C292500166EA0 /* libroken-application.a */; };
+		EBB92EF61D627E9F002DDC48 /* ct.c in Sources */ = {isa = PBXBuildFile; fileRef = EB00F0E1103CC6CA00399574 /* ct.c */; };
 		EBB9309A101246CB00414C88 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB04E8570F3476B2009A5B13 /* Security.framework */; };
 		EBB97B3615DD9D300033FBC1 /* libasn1-defs.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB57281715DD966200BFC9E9 /* libasn1-defs.a */; };
 		EBB97B3815DD9D3D0033FBC1 /* libasn1-defs.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB57281715DD966200BFC9E9 /* libasn1-defs.a */; };
@@ -9994,6 +9998,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBB92EF51D627E41002DDC48 /* libroken-application.a in Frameworks */,
 				EB670F831C5ED421003D49CA /* IOKit.framework in Frameworks */,
 				EB670F811C5ED342003D49CA /* Security.framework in Frameworks */,
 				EB670F7A1C5ED239003D49CA /* Foundation.framework in Frameworks */,
@@ -14364,6 +14369,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB11A83D1D62458000E03538 /* roken-common.h in Headers */,
+				EB11A83E1D62458000E03538 /* roken.h in Headers */,
 				EB670F7E1C5ED29E003D49CA /* common.h in Headers */,
 				EB670F7D1C5ED297003D49CA /* heimcred-const.h in Headers */,
 				EB670F7C1C5ED292003D49CA /* heimcred.h in Headers */,
@@ -19606,6 +19613,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBB92EF61D627E9F002DDC48 /* ct.c in Sources */,
 				EBABC9370F2C295000166EA0 /* getarg.c in Sources */,
 				EBABC93A0F2C299800166EA0 /* simple_exec.c in Sources */,
 				EBABC93B0F2C29AA00166EA0 /* mini_inetd.c in Sources */,

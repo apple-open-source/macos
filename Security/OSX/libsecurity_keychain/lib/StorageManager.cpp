@@ -1430,8 +1430,8 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         try
         {
             Keychain loginRenamed1KC(keychain(loginRenamed1DLDbIdentifier));
-            secnotice("KCLogin", "Attempting to unlock %s with %d-character password",
-                (loginRenamed1KC) ? loginRenamed1KC->name() : "<NULL>", (unsigned int)passwordLength);
+            secnotice("KCLogin", "Attempting to unlock renamed KC \"%s\"",
+                      (loginRenamed1KC) ? loginRenamed1KC->name() : "<NULL>");
             loginRenamed1KC->unlock(CssmData(const_cast<void *>(password), passwordLength));
             // if we get here, we unlocked it
             if (loginKeychainExists) {
@@ -1661,7 +1661,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         try
         {
             Keychain shortnameDotKC(keychain(shortnameDotDLDbIdentifier));
-            secnotice("KCLogin", "Attempting to unlock %s",
+            secnotice("KCLogin", "Attempting to unlock short name keychain \"%s\"",
                 (shortnameDotKC) ? shortnameDotKC->name() : "<NULL>");
             shortnameDotKC->unlock(CssmData(const_cast<void *>(password), passwordLength));
         }

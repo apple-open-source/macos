@@ -1,0 +1,6 @@
+*.o
+clxutils/certChain/certChain
+clxutils/dotMacArchive/dotMacArchive
+clxutils/findCert/findCert
+cspxutils/hashTimeSA/hashTimeSA
+cspxutils/sha2Vectors/sha2Vectors

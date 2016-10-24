@@ -207,6 +207,8 @@ private:
     void didFailLoadForMainFrame() override;
     void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override;
     void removeNavigationGestureSnapshot() override;
+    void handleControlledElementIDResponse(const String&) override;
+    void handleActiveNowPlayingSessionInfoResponse(bool hasActiveSession) override;
 
     void didPerformImmediateActionHitTest(const WebHitTestResultData&, bool contentPreventsDefault, API::Object*) override;
     void* immediateActionAnimationControllerForHitTestResult(RefPtr<API::HitTestResult>, uint64_t, RefPtr<API::Object>) override;
