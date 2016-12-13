@@ -260,7 +260,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDManagerRegisterDeviceMatchingCallback(
                                 IOHIDManagerRef                 manager,
-                                IOHIDDeviceCallback             callback,
+                                IOHIDDeviceCallback _Nullable   callback,
                                 void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
@@ -276,7 +276,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDManagerRegisterDeviceRemovalCallback(
                                 IOHIDManagerRef                 manager,
-                                IOHIDDeviceCallback             callback,
+                                IOHIDDeviceCallback _Nullable   callback,
                                 void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
@@ -290,9 +290,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 */
 CF_EXPORT
 void IOHIDManagerRegisterInputReportCallback( 
-                                    IOHIDManagerRef             manager,
-                                    IOHIDReportCallback         callback,
-                                    void * _Nullable            context)
+                                IOHIDManagerRef                 manager,
+                                IOHIDReportCallback _Nullable   callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                                                     
 /*! @function   IOHIDManagerRegisterInputValueCallback
@@ -308,7 +308,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDManagerRegisterInputValueCallback( 
                                 IOHIDManagerRef                 manager,
-                                IOHIDValueCallback              callback,
+                                IOHIDValueCallback _Nullable    callback,
                                 void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 

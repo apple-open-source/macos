@@ -137,13 +137,9 @@ struct SecDbItem {
     const SecDbClass *class;
     keyclass_t keyclass;
     keybag_handle_t keybag;
-    //sqlite3_int64 _rowid;
-    //CFDataRef _primaryKey;
-    //CFDataRef _sha1;
-    //CFDataRef _edata;
     enum SecDbItemState _edataState;
     CFMutableDictionaryRef attributes;
-    CFTypeRef credHandle;
+    CFDataRef credHandle;
     CFTypeRef cryptoOp;
     CFArrayRef callerAccessGroups;
 };

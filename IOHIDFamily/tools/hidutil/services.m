@@ -6,8 +6,9 @@
 //
 //
 
-#import <Foundation/Foundation.h>
+#import  <Foundation/Foundation.h>
 #include <IOKit/hid/IOHIDEventSystemKeys.h>
+#include "hdutil.h"
 #include "AssertMacros.h"
 #include <getopt.h>
 #include "utility.h"
@@ -19,7 +20,7 @@ int propertyGetEventSystemProperty (IOHIDEventSystemClientRef client, NSString* 
 int propertyGetServicesProperty (IOHIDEventSystemClientRef client, NSString* key);
 void propertyPrint (NSString *str);
 
-#define PROPERTY_USAGE_LIST \ 
+#define PROPERTY_USAGE_LIST \
 "                                  ProductID        - numeric value (decimal or hex)\n" \
 "                                  VendorID         - numeric value (decimal or hex)\n" \
 "                                  LocationID       - numeric value (decimal or hex)\n" \
@@ -65,7 +66,7 @@ static const struct option propertyOptionLong[] =
 };
 
 const char propertyUsage[] =
-"\Read/Write HID Event System property\n"
+"\nRead/Write HID Event System property\n"
 "\nUsage:\n\n"
 "  hidutil property [--filter <value> ] <--get <key> |--write <dictionary>>\n"
 "\nExamples:\n\n"
@@ -148,7 +149,11 @@ exit:
 
 
 void propertyPrint (NSString *str) {
-     [str writeToFile: @"/dev/stdout" atomically: NO];
+//    [str writeToFile: @"/dev/stdout" atomically: NO];
+    const char * c_str = [str UTF8String];
+    if (c_str) {
+        printf ("%s" , [str UTF8String]);
+    }
 }
 
 int propertySetOnEventSystem (IOHIDEventSystemClientRef client, NSDictionary * propertiesDicitonary) {
@@ -166,8 +171,9 @@ int propertySetOnServices (IOHIDEventSystemClientRef client, NSDictionary * prop
     if (services) {
         printf ("%-8s  %-20s  %s\n", "RegistryID", "Key", "Value");
         for (id service in services) {
+            NSDictionary *serviceInfo = createServiceInfoDictionary((__bridge IOHIDServiceClientRef)service);
             [propertiesDicitonary enumerateKeysAndObjectsUsingBlock:^(id key, id value, BOOL* stop __unused) {
-                propertyPrint ([NSString stringWithFormat:@"%@:%@\n", key, value]);
+                propertyPrint ([NSString stringWithFormat:@"%-8lx   %-20@   %@\n", ((NSNumber *)serviceInfo[@"RegistryID"]).unsignedLongValue, key, value]);
                 IOHIDServiceClientSetProperty ((__bridge IOHIDServiceClientRef)service,  (__bridge CFStringRef) key, (__bridge CFStringRef) value);
             }];
         }

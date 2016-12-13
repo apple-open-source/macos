@@ -78,5 +78,5 @@ _ondemand:*:249:
 _findmydevice:*:254:
 _datadetectors:*:257:
 _captiveagent:*:258:
-systemusers:*:299:mobile,_ifccd,_networkd,_wireless
+systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd
 mobile:*:501:mobile

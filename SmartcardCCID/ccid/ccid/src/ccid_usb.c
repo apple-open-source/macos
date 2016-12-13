@@ -476,7 +476,16 @@ again_libusb:
 							|| ((GEMCORESIMPRO == readerID)
 							&& (usbDevice[reader_index].ccid.IFD_bcdDevice < 0x0200)))
 						{
-							usbDevice[reader_index].ccid.arrayOfSupportedDataRates = SerialCustomDataRates;
+							/* Allocate a memory buffer that will be
+							 * released in CloseUSB() */
+							void *ptr = malloc(sizeof SerialCustomDataRates);
+							if (ptr)
+							{
+								memcpy(ptr, SerialCustomDataRates,
+									sizeof SerialCustomDataRates);
+							}
+
+							usbDevice[reader_index].ccid.arrayOfSupportedDataRates = ptr;
 							usbDevice[reader_index].ccid.dwMaxDataRate = 125000;
 						}
 
@@ -622,12 +631,17 @@ again:
 				}
 
 #ifdef USE_COMPOSITE_AS_MULTISLOT
-				/* use the next interface for the next "slot" */
-				static_interface++;
+				if ((GEMALTOPROXDU == readerID)
+					|| (GEMALTOPROXSU == readerID)
+					|| (FEITIANR502DUAL == readerID))
+				{
+					/* use the next interface for the next "slot" */
+					static_interface++;
 
-				/* reset for a next reader */
-				if (static_interface > 2)
-					static_interface = (FEITIANR502DUAL == readerID) ? 0: 1;
+					/* reset for a next reader */
+					if (static_interface > 2)
+						static_interface = (FEITIANR502DUAL == readerID) ? 0: 1;
+				}
 #endif
 
 				/* Get Endpoints values*/

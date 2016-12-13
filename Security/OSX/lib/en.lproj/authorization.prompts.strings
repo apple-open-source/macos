@@ -155,3 +155,6 @@
 "system.preferences.continuity" = "__APPNAME__ is trying to unlock the Touch ID preferences.";
 
 "com.apple.ctkbind.admin" = "__APPNAME__ is trying to pair the current user with the SmartCard identity.";
+
+"com.apple.builtin.sc-kc-new-passphrase" = "The system will now create a keychain to store your secrets. Your smart card will automatically unlock it. Please choose a password that can unlock it separately. You may use your account password or pick another one. For security reasons, do not use your smart card PIN or similar text.";
+

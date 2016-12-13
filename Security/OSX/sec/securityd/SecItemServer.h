@@ -67,10 +67,10 @@ bool _SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataR
 bool _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error);
 bool _SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, SecurityClient *client, CFErrorRef *error);
 bool _SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *error);
-#endif
 
 bool _SecAddSharedWebCredential(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
 bool _SecCopySharedWebCredential(CFDictionaryRef query, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
+#endif /* TARGET_OS_IOS */
 
 // Hack to log objects from inside SOS code
 void SecItemServerAppendItemDescription(CFMutableStringRef desc, CFDictionaryRef object);

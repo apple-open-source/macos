@@ -1136,6 +1136,7 @@ exit:
 
 /*
  * cat_create - create a node in the catalog
+ * using MacRoman encoding
  *
  * NOTE: both the catalog file and attribute file locks must
  *       be held before calling this function.
@@ -1400,14 +1401,23 @@ cat_rename (
 	}
 
 	/*
-	 * Update the text encoding (on disk and in descriptor).
+	 * Update the text encoding (on disk and in descriptor),
+	 * using hfs_pickencoding to get the new encoding when available.
 	 *
 	 * Note that hardlink inodes don't require a text encoding hint.
 	 */
 	if (!std_hfs &&
 	    todir_cdp->cd_parentcnid != hfsmp->hfs_private_desc[FILE_HARDLINKS].cd_cnid &&
 	    todir_cdp->cd_parentcnid != hfsmp->hfs_private_desc[DIR_HARDLINKS].cd_cnid) {
-		recp->hfsPlusFile.textEncoding = kTextEncodingMacUnicode;
+#if !TARGET_OS_EMBEDDED
+		encoding = hfs_pickencoding(to_key->nodeName.unicode, to_key->nodeName.length);
+#else
+		encoding = kTextEncodingMacRoman;
+#endif
+		hfs_setencodingbits(hfsmp, encoding);
+		recp->hfsPlusFile.textEncoding = encoding;
+		if (out_cdp)
+			out_cdp->cd_encoding = encoding;
 	}
 
 #if CONFIG_HFS_STD
@@ -3220,8 +3230,8 @@ getdirentries_callback(const CatalogKey *ckp, const CatalogRecord *crp,
 
 		namelen = cnp->ustr.length;
 		/*
-		 * For MacRoman encoded names, assume that its ascii and
-		 * convert it directly in an attempt to avoid the more
+		 * For MacRoman encoded names (textEncoding == 0), assume that it's ascii
+		 * and convert it directly in an attempt to avoid the more
 		 * expensive utf8_encodestr conversion.
 		 */
 		if ((namelen < maxnamelen) && (crp->hfsPlusFile.textEncoding == 0)) {

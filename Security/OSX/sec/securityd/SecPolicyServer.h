@@ -135,6 +135,8 @@ SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificat
 
 bool SecPVCCheckUsageConstraints(SecPVCRef pvc);
 
+bool SecPVCCheckIssuerDateConstraints(SecPVCRef pvc);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECPOLICYSERVER_H_ */

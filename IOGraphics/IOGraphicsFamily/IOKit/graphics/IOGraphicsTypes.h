@@ -282,7 +282,8 @@ enum {
     kIOWSAA_Transactional       = 0x10,  // If this bit is present, transition is to/from transactional operation model.
     // These attributes are internal
     kIOWSAA_DeferStart          = 0x100,
-    kIOWSAA_DeferEnd            = 0x200
+    kIOWSAA_DeferEnd            = 0x200,
+    kIOWSAA_Reserved            = 0xF0000000
 };
 
 // values for kIOMirrorAttribute
@@ -1327,6 +1328,8 @@ enum {
 #define kIODisplayMinValueKey           "min"
 #define kIODisplayMaxValueKey           "max"
 
+#define kIODisplayBrightnessProbeKey        "brightness-probe"
+#define kIODisplayLinearBrightnessProbeKey  "linear-brightness-probe"
 #define kIODisplayBrightnessKey             "brightness"
 #define kIODisplayLinearBrightnessKey       "linear-brightness"
 #define kIODisplayUsableLinearBrightnessKey "usable-linear-brightness"

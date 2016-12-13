@@ -5,7 +5,7 @@
 //  Created by YG on 4/14/16.
 //
 //
-
+#include "hdutil.h"
 #import <Foundation/Foundation.h>
 #include <stdio.h>
 #include <strings.h>
@@ -14,7 +14,6 @@
 #include <IOKit/hid/IOHIDEventSystemClient.h>
 #include <IOKit/hid/IOHIDEventSystemKeys.h>
 #include "AssertMacros.h"
-#include "hdutil.h"
 #include "utility.h"
 
 
@@ -79,7 +78,7 @@ NSString * createFilterString (const char * str) {
             start = result.range.location + valueString.length;
         }
     } while (result);
-    [filterString writeToFile: @"/dev/stdout" atomically: NO];
+    //[filterString writeToFile: @"/dev/stdout" atomically: NO];
     return filterString;
 }
 

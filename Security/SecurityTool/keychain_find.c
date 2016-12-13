@@ -1628,6 +1628,11 @@ int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFM
         goto cleanup;
     }
 
+    if(!partitionidsinput) {
+        result = 2;
+        goto cleanup;
+    }
+
     if(!password) {
         char* cpassword = prompt_password(keychainName);
         if (!cpassword) {
@@ -1636,11 +1641,6 @@ int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFM
         }
         password = CFStringCreateWithCString(NULL, cpassword, kCFStringEncodingUTF8);
         free(cpassword);
-    }
-
-    if(!partitionidsinput || !password) {
-        result = 2;
-        goto cleanup;
     }
 
     result = keychain_set_partition_list(kc, query, password, partitionidsinput);

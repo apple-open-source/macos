@@ -5483,6 +5483,9 @@ method_info_from_dict(CFDictionaryRef dict,
 	    }
 	}
     }
+    else if (info->method == ipconfig_method_linklocal_e) {
+	    method_data->linklocal.allocate = LINKLOCAL_ALLOCATE;
+    }
     status = ipconfig_status_success_e;
 
  done:

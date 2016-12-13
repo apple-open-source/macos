@@ -124,28 +124,33 @@ bool SOSTransportMessageSendMessageIfNeeded(SOSTransportMessageRef transport, CF
     __block bool ok = true;
     SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
 
-    ok &= SOSEngineForPeerID(engine, peer_id, error, ^(SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder) {
-        // Now under engine lock do stuff
-        CFDataRef message_to_send = NULL;
-        SOSEnginePeerMessageSentBlock sent = NULL;
-        ok = SOSPeerCoderSendMessageIfNeeded(engine, txn, peer, coder, &message_to_send, circle_id, peer_id, &sent, error);
-        if (message_to_send) {
-            CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                                                                     peer_id, message_to_send,
-                                                                     NULL);
-            CFDictionaryRef circle_peers = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                                                                        circle_id, peer_dict,
-                                                                        NULL);
-            ok = ok && SOSTransportMessageSendMessages(transport, circle_peers, error);
+    ok &= SOSEngineWithPeerID(engine, peer_id, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
+            // Now under engine lock do stuff
+            CFDataRef message_to_send = NULL;
+            SOSEnginePeerMessageSentBlock sent = NULL;
+            ok = SOSPeerCoderSendMessageIfNeeded(engine, txn, peer, coder, &message_to_send, circle_id, peer_id, &sent, error);
+            if (message_to_send) {
+                CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                                         peer_id, message_to_send,
+                                                                         NULL);
+                CFDictionaryRef circle_peers = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                                            circle_id, peer_dict,
+                                                                            NULL);
+                ok = ok && SOSTransportMessageSendMessages(transport, circle_peers, error);
 
-            SOSPeerCoderConsume(&sent, ok);
+                SOSPeerCoderConsume(&sent, ok);
 
-            CFReleaseSafe(peer_dict);
-            CFReleaseSafe(circle_peers);
-        }
+                CFReleaseSafe(peer_dict);
+                CFReleaseSafe(circle_peers);
+            }else{
+                secnotice("transport", "no message to send to peer: %@", peer_id);
+            }
+        
+            Block_release(sent);
+            CFReleaseSafe(message_to_send);
 
-        Block_release(sent);
-        CFReleaseSafe(message_to_send);
+        *forceSaveState = ok;
     });
+
     return ok;
 }

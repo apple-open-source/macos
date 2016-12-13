@@ -61,6 +61,20 @@ static void add_key(const void *key, const void *value, void *context) {
     CFArrayAppendValue(context, key);
 }
 
+static bool isPrintableString(CFStringRef theString){
+    bool result = false;
+    CFCharacterSetRef controlSet = CFCharacterSetGetPredefined(kCFCharacterSetControl);
+    CFCharacterSetRef newlineSet = CFCharacterSetGetPredefined(kCFCharacterSetNewline);
+    CFCharacterSetRef illegalSet = CFCharacterSetGetPredefined(kCFCharacterSetIllegal);
+
+    CFMutableCharacterSetRef unacceptable = CFCharacterSetCreateMutableCopy(kCFAllocatorDefault, controlSet);
+    CFCharacterSetUnion(unacceptable, newlineSet);
+    CFCharacterSetUnion(unacceptable, illegalSet);
+    result = CFStringFindCharacterFromSet(theString, unacceptable, CFRangeMake(0, CFStringGetLength(theString)), 0, NULL);
+    CFReleaseNull(unacceptable);
+    return result;
+}
+
 static void display_item(const void *v_item, void *context) {
     CFDictionaryRef item = (CFDictionaryRef)v_item;
     CFIndex dict_count, key_ix, key_count;
@@ -99,12 +113,18 @@ static void display_item(const void *v_item, void *context) {
             CFDataRef v_d = (CFDataRef)value;
             CFStringRef v_s = CFStringCreateFromExternalRepresentation(
                 kCFAllocatorDefault, v_d, kCFStringEncodingUTF8);
+
             if (v_s) {
-                CFStringAppend(line, CFSTR("/"));
-                CFStringAppend(line, v_s);
-                CFStringAppend(line, CFSTR("/ "));
-                CFRelease(v_s);
+                if(!isPrintableString(v_s))
+                    CFStringAppend(line, CFSTR("not printable "));
+                else{
+                    CFStringAppend(line, CFSTR("/"));
+                    CFStringAppend(line, v_s);
+                    CFStringAppend(line, CFSTR("/ "));
+                }
             }
+            CFReleaseNull(v_s);
+
             const uint8_t *bytes = CFDataGetBytePtr(v_d);
             CFIndex len = CFDataGetLength(v_d);
             for (jx = 0; jx < len; ++jx) {

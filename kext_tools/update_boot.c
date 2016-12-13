@@ -2526,8 +2526,10 @@ ucopyRPS(struct updatingVol *up)
             if (bsderr) {
                 rval = bsderr == -1 ? errno : bsderr;
                 // erpropcache, efiloccache are optional
-                if ((curItem == up->caches->erpropcache && rval != ENOENT) &&
-                    (curItem == up->caches->efiloccache && rval != ENOENT)) {
+                if (((curItem == up->caches->erpropcache) || (curItem == up->caches->efiloccache)) && (rval == ENOENT)) {
+                    OSKextLog(0,up->errLogSpec,"Should we continue here? %d copying %s to %s: %s",
+                              rval, srcpath, dstpath, strerror(rval));
+                } else {
                     OSKextLog(0,up->errLogSpec,"Error %d copying %s to %s: %s",
                               rval, srcpath, dstpath, strerror(rval));
                     goto finish;

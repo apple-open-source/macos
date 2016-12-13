@@ -29,7 +29,6 @@
 #if TARGET_OS_IPHONE
 /* <rdar://problem/13875458> */
 
-#if defined(__OPEN_SOURCE__) || !__LP64__
 #include <wordexp.h>
 int wordexp(const char *restrict words __unused, wordexp_t *restrict pwordexp __unused, int flags __unused) {
     return WRDE_NOSPACE;
@@ -37,9 +36,6 @@ int wordexp(const char *restrict words __unused, wordexp_t *restrict pwordexp __
 
 void wordfree(wordexp_t *pwordexp __unused) {
 }
-#else
-struct __not_an_empty_c_file;
-#endif
 
 #else
 

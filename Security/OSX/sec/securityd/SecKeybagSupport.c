@@ -86,11 +86,14 @@ static bool hwaes_key_available(void)
 {
     keybag_handle_t handle = bad_keybag_handle;
     keybag_handle_t special_handle = bad_keybag_handle;
-#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     special_handle = session_keybag_handle;
 #elif TARGET_OS_EMBEDDED
     special_handle = device_keybag_handle;
+#else
+#error "supported keybag target"
 #endif
+
     kern_return_t kr = aks_get_system(special_handle, &handle);
     if (kr != kIOReturnSuccess) {
 #if TARGET_OS_EMBEDDED

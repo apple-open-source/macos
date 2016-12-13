@@ -26,11 +26,10 @@ public:
     boolean_t open(IOHIDSessionRef session, IOOptionBits options);
     void close(IOHIDSessionRef session, IOOptionBits options);
     void registerService(IOHIDServiceRef service);
+    void unregisterService(IOHIDServiceRef service);
     void handlePendingStats();
     void scheduleWithDispatchQueue(dispatch_queue_t queue);
     void unscheduleFromDispatchQueue(dispatch_queue_t queue);
-    
-    bool collectMotionStats(IOHIDServiceRef sender, IOHIDEventRef event);
 
 private:
     IOHIDSessionFilterPlugInInterface *_sessionInterface;
@@ -54,6 +53,7 @@ private:
         uint32_t                    power_filtered;
         uint32_t                    volume_increment_filtered;
         uint32_t                    volume_decrement_filtered;
+        uint32_t                    high_latency;
     } Buttons;
 
     typedef struct {
@@ -63,10 +63,22 @@ private:
         uint32_t					pressure_count;
         uint32_t					devmotion_count;
     } MotionStats;
+    
+    typedef struct {
+        uint32_t                    character_count;
+        uint32_t                    symbol_count;
+        uint32_t                    spacebar_count;
+        uint32_t                    arrow_count;
+        uint32_t                    cursor_count;
+        uint32_t                    modifier_count;
+    } KeyStats;
 
     Buttons _pending_buttons;
     MotionStats _pending_motionstats;
     uint64_t _last_motionstat_ts;
+    KeyStats _pending_keystats;
+    
+    CFMutableSetRef             _keyServices;
     
     CFMutableArrayRef           _logStrings;
     aslclient                   _asl;
@@ -84,10 +96,21 @@ private:
     static boolean_t open(void * self, IOHIDSessionRef inSession, IOOptionBits options);
     static void close(void * self, IOHIDSessionRef inSession, IOOptionBits options);
     static void registerService(void * self, IOHIDServiceRef service);
+    static void unregisterService(void * self, IOHIDServiceRef service);
     
     static void scheduleWithDispatchQueue(void * self, dispatch_queue_t queue);
     static void unscheduleFromDispatchQueue(void * self, dispatch_queue_t queue);
     static void handlePendingStats(void * self);
+    
+    bool collectMotionStats(IOHIDServiceRef sender, IOHIDEventRef event);
+    bool collectKeyStats(IOHIDServiceRef sender, IOHIDEventRef event);
+    
+    static bool isCharacterKey(uint16_t usagePage, uint16_t usage);
+    static bool isSymbolKey(uint16_t usagePage, uint16_t usage);
+    static bool isSpacebarKey(uint16_t usagePage, uint16_t usage);
+    static bool isArrowKey(uint16_t usagePage, uint16_t usage);
+    static bool isCursorKey(uint16_t usagePage, uint16_t usage);
+    static bool isModifierKey(uint16_t usagePage, uint16_t usage);
     
 private:
     IOHIDEventSystemStatistics();

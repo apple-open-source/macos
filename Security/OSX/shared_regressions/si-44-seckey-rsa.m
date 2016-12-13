@@ -141,12 +141,52 @@ static const int TestCountEncryption =
 TestCountEncryptKeypairRun + (TestCountEncryptRun * 6) + (1 * 1) +
 TestCountEncryptKeypairRun + (TestCountEncryptRun * 7) + (1 * 0);
 
-static const int TestCount = TestCountEncryption;
+static void test_bad_input(NSInteger keySizeInBits, NSInteger inputSize, SecKeyAlgorithm algorithm) {
+    NSError *error;
+    NSDictionary *params = @{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @(keySizeInBits)};
+
+    error = nil;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privateKey != nil, "generate private key (error %@)", error);
+    id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+
+    NSData *input, *output;
+
+    error = nil;
+    input = [NSMutableData dataWithLength:inputSize];
+    output = CFBridgingRelease(SecKeyCreateEncryptedData((SecKeyRef)publicKey, algorithm, (CFDataRef)input, (void *)&error));
+    ok(output, "encryption succeeds at the border size %d (key=%dbytes, %@)", (int)input.length, (int)keySizeInBits / 8, algorithm);
+    is((NSInteger)output.length, keySizeInBits / 8, "Unexpected output block size");
+
+    input = [NSMutableData dataWithLength:inputSize + 1];
+    output = CFBridgingRelease(SecKeyCreateEncryptedData((SecKeyRef)publicKey, algorithm, (CFDataRef)input, (void *)&error));
+    ok(output == nil, "encryption did not fail for border size %d (key=%dbytes, output=%dbytes, %@)", (int)input.length, (int)keySizeInBits / 8, (int)output.length, algorithm);
+    is_status((OSStatus)error.code, errSecParam, "Fails with errSecParam for too long input (%@)", algorithm);
+}
+static const int TestCountBadInputSizeStep = 5;
+
+static void test_bad_input_size() {
+    test_bad_input(1024, 128, kSecKeyAlgorithmRSAEncryptionRaw);
+    test_bad_input(2048, 256, kSecKeyAlgorithmRSAEncryptionRaw);
+    test_bad_input(1024, 128 - 11, kSecKeyAlgorithmRSAEncryptionPKCS1);
+    test_bad_input(2048, 256 - 11, kSecKeyAlgorithmRSAEncryptionPKCS1);
+    test_bad_input(1024, 128 - 42, kSecKeyAlgorithmRSAEncryptionOAEPSHA1);
+    test_bad_input(2048, 256 - 42, kSecKeyAlgorithmRSAEncryptionOAEPSHA1);
+    test_bad_input(1024, 128 - 66, kSecKeyAlgorithmRSAEncryptionOAEPSHA256);
+    test_bad_input(2048, 256 - 66, kSecKeyAlgorithmRSAEncryptionOAEPSHA256);
+}
+static const int TestCountBadInputSize = TestCountBadInputSizeStep * 8;
+
+static const int TestCount =
+TestCountEncryption +
+TestCountBadInputSize;
+
 int si_44_seckey_rsa(int argc, char *const *argv) {
     plan_tests(TestCount);
 
     @autoreleasepool {
         test_encryption();
+        test_bad_input_size();
     }
     
     return 0;

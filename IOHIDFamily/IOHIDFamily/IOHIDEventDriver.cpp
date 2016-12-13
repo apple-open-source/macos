@@ -35,6 +35,7 @@
 #include "IOHIDFamilyTrace.h"
 #include "IOHIDEventTypes.h"
 #include "IOHIDDebug.h"
+#include "IOHIDEvent.h"
 
 enum {
     kMouseButtons   = 0x1,

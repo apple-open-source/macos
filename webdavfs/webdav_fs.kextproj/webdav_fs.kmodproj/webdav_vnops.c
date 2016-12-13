@@ -60,6 +60,8 @@
 extern lck_grp_t *webdav_rwlock_group;
 extern lck_mtx_t *webdav_node_hash_mutex;
 
+uint64_t MAX_READ = 16 * 1024 * 1204;
+
 /*****************************************************************************/
 
 #if 0
@@ -1914,16 +1916,16 @@ static int webdav_vnop_mnomap(struct vnop_mnomap_args *ap)
  */
 static int webdav_read_bytes(vnode_t vp, uio_t a_uio, vfs_context_t context)
 {
-	int error;
+	int error = 0;
 	int server_error;
 	struct webdavnode *pt;
 	void *buffer;
 	struct webdavmount *fmp;
 	struct webdav_request_read request_read;
-
 	pt = VTOWEBDAV(vp);
 	error = server_error = 0;
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
+	int more_data = 0;
 
 	/* don't bother if the range starts at offset 0 */
 	if ( (uio_offset(a_uio) == 0) )
@@ -1936,9 +1938,7 @@ static int webdav_read_bytes(vnode_t vp, uio_t a_uio, vfs_context_t context)
 	/* Now allocate the buffer that we are going to use to hold the data that
 	 * comes back
 	 */
-	request_read.count = uio_resid(a_uio); /* this won't overflow because we've already checked uio_resid's size */
-
-	MALLOC(buffer, void *, (uint32_t) request_read.count, M_TEMP, M_WAITOK);
+	MALLOC(buffer, void *, (uint32_t) MAX_READ, M_TEMP, M_WAITOK);
 	if (buffer == NULL)
 	{
 #if DEBUG
@@ -1947,38 +1947,56 @@ static int webdav_read_bytes(vnode_t vp, uio_t a_uio, vfs_context_t context)
 		error = ENOMEM;
 		goto done;
 	}
-	
+
 	webdav_copy_creds(context, &request_read.pcr);
 	request_read.obj_id = pt->pt_obj_id;
-	request_read.offset = uio_offset(a_uio);
 
-	error = webdav_sendmsg(WEBDAV_READ, fmp,
-		&request_read, sizeof(struct webdav_request_read), 
-		NULL, 0, 
-		&server_error, buffer, (size_t)request_read.count);
-	if ( (error == 0) && (server_error != 0) )
+	do
 	{
-		if ( server_error == ESTALE )
-		{
-			/*
-			 * The object id(s) passed to userland are invalid.
-			 * Purge the vnode(s) and restart the request.
-			 */
-			webdav_purge_stale_vnode(vp);
-			error = ERESTART;
+		request_read.count = uio_resid(a_uio); /* this won't overflow because we've already checked uio_resid's size */
+		if (request_read.count >  MAX_READ) {
+#if DEBUG
+			printf("MAX_READ request_read.count (%lld)", request_read.count);
+#endif
+			request_read.count = MAX_READ;
+			more_data = 1;
+		} else {
+			more_data = 0;
 		}
-		else
-		{
-			error = server_error;
-		}
-	}
-	if (error)
-	{
-		/* return an error so the caller will wait */
-		goto dealloc_done;
-	}
 
-	error = uiomove((caddr_t)buffer, (int)request_read.count, a_uio);
+		request_read.offset = uio_offset(a_uio);
+
+		error = webdav_sendmsg(WEBDAV_READ, fmp,
+			&request_read, sizeof(struct webdav_request_read),
+			NULL, 0,
+			&server_error, buffer, (size_t)request_read.count);
+		if ( (error == 0) && (server_error != 0) )
+		{
+			if ( server_error == ESTALE )
+			{
+				/*
+				 * The object id(s) passed to userland are invalid.
+				 * Purge the vnode(s) and restart the request.
+				 */
+				webdav_purge_stale_vnode(vp);
+				error = ERESTART;
+			}
+			else
+			{
+				error = server_error;
+			}
+		}
+		if (error)
+		{
+			/* return an error so the caller will wait */
+			goto dealloc_done;
+		}
+
+		error = uiomove((caddr_t)buffer, (int)request_read.count, a_uio);
+#if DEBUG
+		printf("[webdav_read_bytes] [%d]uiomove request_read.count (%lld)", error, request_read.count);
+#endif
+	} while (more_data && error == 0);
 
 dealloc_done:
 
@@ -2291,6 +2309,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 					error = uiomove((void *)addr + ptoa_64(firstPageOfRange) + pageOffset,
 						(int)requestSize,
 						in_uio);
+
 					if ( error )
 					{
 						goto unmap_unlock_exit;

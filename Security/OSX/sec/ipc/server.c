@@ -612,9 +612,13 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
         pthread_setspecific(taskThreadKey, client.task);
 #endif
         client.accessGroups = SecTaskCopyAccessGroups(client.task);
+
+#if TARGET_OS_IOS
         if (operation == sec_add_shared_web_credential_id || operation == sec_copy_shared_web_credential_id) {
             domains = SecTaskCopySharedWebCredentialDomains(client.task);
         }
+#endif
+
 #if TARGET_OS_IPHONE
         client.allowSystemKeychain = SecTaskGetBooleanValueForEntitlement(client.task, kSecEntitlementPrivateSystemKeychain);
         client.isNetworkExtension = SecTaskGetBooleanValueForEntitlement(client.task, kSecEntitlementPrivateNetworkExtension);
@@ -1072,9 +1076,11 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
             }
             case sec_add_shared_web_credential_id:
             {
+#if TARGET_OS_IOS
                 CFDictionaryRef query = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
                 if (query) {
                     CFTypeRef result = NULL;
+
                     CFStringRef appID = (client.task) ? SecTaskCopyApplicationIdentifier(client.task) : NULL;
                     if (_SecAddSharedWebCredential(query, &client, &auditToken, appID, domains, &result, &error) && result) {
                         SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
@@ -1083,10 +1089,14 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFReleaseSafe(appID);
                     CFReleaseNull(query);
                 }
+#else
+                SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, kCFBooleanFalse, &error);
+#endif
                 break;
             }
             case sec_copy_shared_web_credential_id:
             {
+#if TARGET_OS_IOS
                 CFDictionaryRef query = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
                 if (query) {
                     CFTypeRef result = NULL;
@@ -1098,6 +1108,9 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFReleaseSafe(appID);
                     CFReleaseNull(query);
                 }
+#else
+                SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, kCFBooleanFalse, &error);
+#endif
                 break;
             }
             case sec_get_log_settings_id:

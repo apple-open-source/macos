@@ -4,6 +4,9 @@
 /* Location of default ca bundle */
 /* #undef CURL_CA_BUNDLE */
 
+/* define "1" to use built in CA store of SSL library */
+/* #undef CURL_CA_FALLBACK */
+
 /* Location of default ca path */
 /* #undef CURL_CA_PATH */
 
@@ -136,20 +139,20 @@
 /* Define to 1 if you have the connect function. */
 #define HAVE_CONNECT 1
 
-/* Define to 1 if you have the `CRYPTO_cleanup_all_ex_data' function. */
-/* #undef HAVE_CRYPTO_CLEANUP_ALL_EX_DATA */
-
 /* Define to 1 if you have the <crypto.h> header file. */
 /* #undef HAVE_CRYPTO_H */
+
+/* Define to 1 if you have the `CyaSSL_CTX_UseSupportedCurve' function. */
+/* #undef HAVE_CYASSL_CTX_USESUPPORTEDCURVE */
 
 /* Define to 1 if you have the <cyassl/error-ssl.h> header file. */
 /* #undef HAVE_CYASSL_ERROR_SSL_H */
 
+/* Define to 1 if you have the `CyaSSL_get_peer_certificate' function. */
+/* #undef HAVE_CYASSL_GET_PEER_CERTIFICATE */
+
 /* Define to 1 if you have the <cyassl/options.h> header file. */
 /* #undef HAVE_CYASSL_OPTIONS_H */
-
-/* Define to 1 if you have the `DES_set_odd_parity' function. */
-/* #undef HAVE_DES_SET_ODD_PARITY */
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -280,6 +283,10 @@
 /* Define to 1 if you have a working gmtime_r function. */
 #define HAVE_GMTIME_R 1
 
+/* Define to 1 if you have the `gnutls_certificate_set_x509_key_file2'
+   function. */
+/* #undef HAVE_GNUTLS_CERTIFICATE_SET_X509_KEY_FILE2 */
+
 /* if you have the function gnutls_srp_verifier */
 /* #undef HAVE_GNUTLS_SRP */
 
@@ -304,14 +311,8 @@
 /* if you have MIT Kerberos */
 #define HAVE_GSSMIT 1
 
-/* Define to 1 if you have the `idna_strerror' function. */
-/* #undef HAVE_IDNA_STRERROR */
-
-/* Define to 1 if you have the `idn_free' function. */
-/* #undef HAVE_IDN_FREE */
-
-/* Define to 1 if you have the <idn-free.h> header file. */
-/* #undef HAVE_IDN_FREE_H */
+/* Define to 1 if you have the <idn2.h> header file. */
+/* #undef HAVE_IDN2_H */
 
 /* Define to 1 if you have the <ifaddrs.h> header file. */
 #define HAVE_IFADDRS_H 1
@@ -389,11 +390,8 @@
 /* Define to 1 if you have the <libgen.h> header file. */
 #define HAVE_LIBGEN_H 1
 
-/* Define to 1 if you have the `idn' library (-lidn). */
-/* #undef HAVE_LIBIDN */
-
-/* Define to 1 if you have the `resolve' library (-lresolve). */
-/* #undef HAVE_LIBRESOLVE */
+/* Define to 1 if you have the `idn2' library (-lidn2). */
+/* #undef HAVE_LIBIDN2 */
 
 /* Define to 1 if using libressl. */
 /* #undef HAVE_LIBRESSL */
@@ -499,10 +497,10 @@
 #define HAVE_PIPE 1
 
 /* Define to 1 if you have a working poll function. */
-#define HAVE_POLL 1
+/* #undef HAVE_POLL */
 
 /* If you have a fine poll */
-#define HAVE_POLL_FINE 1
+/* #undef HAVE_POLL_FINE */
 
 /* Define to 1 if you have the <poll.h> header file. */
 #define HAVE_POLL_H 1
@@ -717,12 +715,6 @@
 /* Define to 1 if you have the <time.h> header file. */
 #define HAVE_TIME_H 1
 
-/* Define to 1 if you have the <tld.h> header file. */
-/* #undef HAVE_TLD_H */
-
-/* Define to 1 if you have the `tld_strerror' function. */
-/* #undef HAVE_TLD_STRERROR */
-
 /* Define to 1 if you have the `uname' function. */
 #define HAVE_UNAME 1
 
@@ -756,6 +748,18 @@
 /* Define to 1 if you have the winsock.h header file. */
 /* #undef HAVE_WINSOCK_H */
 
+/* Define to 1 if you have the `wolfSSLv3_client_method' function. */
+/* #undef HAVE_WOLFSSLV3_CLIENT_METHOD */
+
+/* Define to 1 if you have the `wolfSSL_CTX_UseSupportedCurve' function. */
+/* #undef HAVE_WOLFSSL_CTX_USESUPPORTEDCURVE */
+
+/* Define to 1 if you have the `wolfSSL_get_peer_certificate' function. */
+/* #undef HAVE_WOLFSSL_GET_PEER_CERTIFICATE */
+
+/* Define to 1 if you have the `wolfSSL_UseALPN' function. */
+/* #undef HAVE_WOLFSSL_USEALPN */
+
 /* Define this symbol if your OS supports changing the contents of argv */
 #define HAVE_WRITABLE_ARGV 1
 
@@ -771,8 +775,7 @@
 /* if you have the zlib.h header file */
 #define HAVE_ZLIB_H 1
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #define LT_OBJDIR ".libs/"
 
 /* Define to 1 if you need the lber.h header file even with ldap.h */
@@ -803,7 +806,7 @@
 #define PACKAGE "curl"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "a suitable curl mailing list: http://curl.haxx.se/mail/"
+#define PACKAGE_BUGREPORT "a suitable curl mailing list: https://curl.haxx.se/mail/"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "curl"
@@ -929,10 +932,10 @@
 /* if axTLS is enabled */
 /* #undef USE_AXTLS */
 
-/* if CyaSSL is enabled */
+/* if CyaSSL/WolfSSL is enabled */
 /* #undef USE_CYASSL */
 
-/* to enable iOS/Mac OS X native SSL/TLS support */
+/* to enable Apple OS native SSL/TLS support */
 #define USE_DARWINSSL 1
 
 /* if GnuTLS is enabled */
@@ -940,6 +943,9 @@
 
 /* if GnuTLS uses nettle as crypto backend */
 /* #undef USE_GNUTLS_NETTLE */
+
+/* PSL support enabled */
+/* #undef USE_LIBPSL */
 
 /* if librtmp is in use */
 /* #undef USE_LIBRTMP */
@@ -949,6 +955,9 @@
 
 /* If you want to build curl with the built-in manual */
 #define USE_MANUAL 1
+
+/* if mbedTLS is enabled */
+/* #undef USE_MBEDTLS */
 
 /* Define to enable metalink support */
 /* #undef USE_METALINK */

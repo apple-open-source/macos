@@ -38,7 +38,6 @@
 #import <utilities/SecFileLocations.h>
 #import <utilities/fileIo.h>
 
-#import <securityd/SOSCloudCircleServer.h>
 #import <securityd/SecItemServer.h>
 
 #import <Security/SecBasePriv.h>

@@ -32,7 +32,7 @@
 #include <Security/SecureObjectSync/SOSCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSEngine.h>
+#include <Security/SecureObjectSync/SOSEnginePriv.h>
 #include <Security/SecureObjectSync/SOSPeer.h>
 #include <Security/SecureObjectSync/SOSPeerInfoInternal.h>
 #include <Security/SecureObjectSync/SOSGenCount.h>

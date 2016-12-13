@@ -131,7 +131,7 @@ const UInt8* CFGregorianDateCreateWithBytes(CFAllocatorRef alloc, const UInt8* b
 	
 	UInt8 buffer[256];					/* Any dates longer than this are not understood. */
 	
-	length = (length == 256) ? 255 : length;
+	length = (length >= 256) ? 255 : length;
 	memmove(buffer, bytes, length);
 	buffer[length] = '\0';				/* Guarantees every compare will fail if trying to index off the end. */
 	

@@ -44,8 +44,6 @@ typedef struct {
 
 __private_extern__ void PMConnection_prime(void);
 
-__private_extern__ bool PMConnectionHandleDeadName(mach_port_t deadPort);
-
 // PMAssertions.c calls into this when a PreventSystemSleep assertion is taken
 __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits);
 

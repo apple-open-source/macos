@@ -5149,7 +5149,7 @@ out:
 		pp = _dm_state_get_override(new_state);
 		_dispatch_mach_send_barrier_drain_push(dm, pp);
 	} else {
-		if (needs_mgr) {
+		if (needs_mgr || dr->dm_needs_mgr) {
 			pp = _dm_state_get_override(new_state);
 		} else {
 			pp = 0;

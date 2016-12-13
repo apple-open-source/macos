@@ -331,6 +331,7 @@ static io_connect_t connect_to_keystore(void)
     }
 	return keystore;
 }
+#define DATA_ARG(x) (x) ? CFDataGetBytePtr((x)) : NULL, (x) ? (int)CFDataGetLength((x)) : 0
 
 static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
 {
@@ -349,7 +350,7 @@ static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
 
     kernResult = IOConnectCallMethod(keystore,
                                      kAppleKeyStoreKeyBagCreate,
-                                     inputs, num_inputs, NULL, 0,
+                                     inputs, num_inputs, DATA_ARG(password),
                                      outputs, &num_outputs, NULL, 0);
 
     if (kernResult) {

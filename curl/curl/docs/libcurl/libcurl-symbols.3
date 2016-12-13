@@ -19,7 +19,7 @@
 .\" * KIND, either express or implied.
 .\" *
 .\" **************************************************************************
-.TH libcurl-symbols 3 "maj 30, 2016" "libcurl 7.41.0" "libcurl symbols"
+.TH libcurl-symbols 3 "nov  2, 2016" "libcurl 7.41.0" "libcurl symbols"
 .SH NAME
 libcurl-symbols \- libcurl symbol version information
 .SH "libcurl symbols"
@@ -315,6 +315,8 @@ Introduced in 7.1
 Deprecated since 7.17.0
 .IP CURLE_USE_SSL_FAILED
 Introduced in 7.17.0
+.IP CURLE_WEIRD_SERVER_REPLY
+Introduced in 7.51.0
 .IP CURLE_WRITE_ERROR
 Introduced in 7.1
 .IP CURLFILETYPE_DEVICE_BLOCK
@@ -490,6 +492,8 @@ Introduced in 7.4.1
 Deprecated since 7.10.8
 .IP CURLINFO_HTTP_CONNECTCODE
 Introduced in 7.10.7
+.IP CURLINFO_HTTP_VERSION
+Introduced in 7.50.0
 .IP CURLINFO_LASTONE
 Introduced in 7.4.1
 .IP CURLINFO_LASTSOCKET
@@ -874,6 +878,8 @@ Introduced in 7.10.8
 Introduced in 7.19.0
 .IP CURLOPT_KEYPASSWD
 Introduced in 7.17.0
+.IP CURLOPT_KEEP_SENDING_ON_ERROR
+Introduced in 7.51.0
 .IP CURLOPT_KRB4LEVEL
 Introduced in 7.3
 Deprecated since 7.17.0
@@ -1596,6 +1602,8 @@ Introduced in 7.21.5
 Introduced in 7.21.5
 .IP CURL_SOCKOPT_OK
 Introduced in 7.21.5
+.IP CURL_STRICTER
+Introduced in 7.50.2
 .IP CURL_SSLVERSION_DEFAULT
 Introduced in 7.9.2
 .IP CURL_SSLVERSION_SSL

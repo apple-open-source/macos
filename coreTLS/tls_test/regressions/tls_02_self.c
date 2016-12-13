@@ -719,7 +719,7 @@ const uint16_t anon_ciphersuites[] = {
     TLS_DH_anon_WITH_AES_128_CBC_SHA,
 };
 
-const uint16_t default_ciphersuites[] = {
+const uint16_t legacy_ciphersuites[] = {
     TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
     TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
@@ -785,6 +785,27 @@ const uint16_t DHE_ciphersuites[] = {
 
 
 const uint16_t standard_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+};
+
+const uint16_t default_ciphersuites[] = {
     TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
     TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
@@ -870,9 +891,7 @@ static bool test_ciphersuites(tls_test_case *test, bool server, const uint16_t *
                 expected_n = sizeof(ATSv1_noPFS_ciphersuites)/sizeof(uint16_t);
                 expected_ciphersuites = ATSv1_noPFS_ciphersuites;
                 break;
-            case tls_handshake_config_default:
             case tls_handshake_config_standard:
-            case tls_handshake_config_TLSv1_fallback:
                 expected_n = sizeof(standard_ciphersuites)/sizeof(uint16_t);
                 expected_ciphersuites = standard_ciphersuites;
                 break;
@@ -883,6 +902,13 @@ static bool test_ciphersuites(tls_test_case *test, bool server, const uint16_t *
             case tls_handshake_config_RC4_fallback:
             case tls_handshake_config_TLSv1_RC4_fallback:
             case tls_handshake_config_legacy:
+                expected_n = sizeof(legacy_ciphersuites)/sizeof(uint16_t);
+                expected_ciphersuites = legacy_ciphersuites;
+                break;
+            case tls_handshake_config_3DES_fallback:
+            case tls_handshake_config_TLSv1_3DES_fallback:
+            case tls_handshake_config_TLSv1_fallback:
+            case tls_handshake_config_default:
                 expected_n = sizeof(default_ciphersuites)/sizeof(uint16_t);
                 expected_ciphersuites = default_ciphersuites;
                 break;
@@ -2797,7 +2823,7 @@ static void config_tests(void)
     int err;
     int i;
 
-    for(i=0; i<=tls_handshake_config_anonymous; i++)
+    for(i=0; i<=tls_handshake_config_TLSv1_3DES_fallback; i++)
     {
         test.client_config = i;
         test.server_config = i;
@@ -3207,7 +3233,7 @@ int tls_02_self(int argc, char * const argv[])
                + 1 // forget_pubkey_test
                + 4 // resumption_mismatch_test
                + 20 // dhe size tests
-               + 10 // config tests
+               + 12 // config tests
                + 3 // ec curves test
                + 1 // ciphersuite_key_mismatch_test
                + n_sigAlgs // sigalgs test

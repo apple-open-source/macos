@@ -2026,6 +2026,31 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        case DKIOCGETERRORDESCRIPTION:                     // (dk_error_description_t *)
+        {
+            //
+            // This ioctl returns a string describing errors
+            //
+#define kNVMeFatalErrorCodeKey                "Fatal Error Code"
+#define kIOSATAQueueManagerTerminateReasonKey  "Terminate Reason"
+
+            size_t l = ((dk_error_description_t *)data)->description_size;
+            char * p = ((dk_error_description_t *)data)->description;
+            OSObject  * obj;
+            OSString  * str;
+
+            obj = minor->media->copyProperty(kNVMeFatalErrorCodeKey, gIOServicePlane);
+            if (!obj)
+                obj = minor->media->copyProperty(kIOSATAQueueManagerTerminateReasonKey, gIOServicePlane);
+            if ((str = OSDynamicCast(OSString, obj)))
+                strlcpy(p, str->getCStringNoCopy(), l);
+            else
+                error = EINVAL;
+
+            OSSafeReleaseNULL(obj);
+
+        } break;
+
         case DKIOCISSOLIDSTATE:                                  // (uint32_t *)
         {
             //

@@ -74,8 +74,12 @@ IOReturn IOI2CInterface::newUserClient( task_t          owningTask,
             newConnect->detach( this );
             newConnect->release();
             newConnect = 0;
+
+            err = kIOReturnNotAttached;
         }
     }
+    else
+        err = kIOReturnNoResources;
 
     *handler = newConnect;
 

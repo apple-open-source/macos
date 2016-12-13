@@ -83,10 +83,14 @@ __system(command)
 #endif /* __DARWIN_UNIX03 */
 
 	if (!command) {		/* just checking... */
+#if TARGET_OS_IPHONE
+		return(0);
+#else
 		if (access(_PATH_BSHELL, F_OK) == -1)	/* if no sh or no access */
 			return(0);
 		else
 			return(1);
+#endif
 	}
 
 	if ((err = posix_spawnattr_init(&attr)) != 0) {

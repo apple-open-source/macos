@@ -991,8 +991,24 @@ public:
      */
     static DateFormatSymbols * U_EXPORT2 createForLocale(
             const Locale &locale, UErrorCode &status);
+
+    /**
+     * Apple addition
+     * Get whether to capitalize based on usage.
+     * @param usage the usage.
+     * @param context 0 for menu, 1 for standalone
+     * @return TRUE to capitalize, FALSE otherwise
+     * @internal For ICU use only.
+     */
+    UBool capitalizeForUsage(ECapitalizationContextUsageType usage, int32_t context) const;
 #endif  /* U_HIDE_INTERNAL_API */
 };
+
+inline UBool
+DateFormatSymbols::capitalizeForUsage(DateFormatSymbols::ECapitalizationContextUsageType usage, int32_t context) const
+{
+    return fCapitalization[usage][context];
+}
 
 U_NAMESPACE_END
 

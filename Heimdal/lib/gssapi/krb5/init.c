@@ -47,6 +47,7 @@ heim_string_t _gsskrb5_kGSSICAppleSourceAppSigningIdentity;
 heim_string_t _gsskrb5_kGSSICVerifyCredential;
 heim_string_t _gsskrb5_kGSSICVerifyCredentialAcceptorName;
 heim_string_t _gsskrb5_kGSSICCreateNewCredential;
+heim_string_t _gsskrb5_kGSSICAuthenticationContext;
 
 static HEIMDAL_thread_key context_key;
 
@@ -79,6 +80,7 @@ once_func(void *ctx)
     _gsskrb5_kGSSICVerifyCredential = heim_string_create("kGSSICVerifyCredential");
     _gsskrb5_kGSSICVerifyCredentialAcceptorName = heim_string_create("kGSSICVerifyCredentialAcceptorName");
     _gsskrb5_kGSSICCreateNewCredential = heim_string_create("kGSSICCreateNewCredential");
+    _gsskrb5_kGSSICAuthenticationContext = heim_string_create("kGSSICAuthenticationContext");
     
     HEIMDAL_key_create(&context_key, destroy_context, ret);
 }

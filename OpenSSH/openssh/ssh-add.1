@@ -43,7 +43,7 @@
 .Nd adds private key identities to the authentication agent
 .Sh SYNOPSIS
 .Nm ssh-add
-.Op Fl cDdkLlXxKA
+.Op Fl cDdkLlXx
 .Op Fl E Ar fingerprint_hash
 .Op Fl t Ar life
 .Op Ar
@@ -139,12 +139,15 @@ specified in
 Unlock the agent.
 .It Fl x
 Lock the agent with a password.
+.\" #ifdef __APPLE_KEYCHAIN__
 .It Fl K
-When adding identities, each passphrase will also be stored in your
-keychain.  When removing identities with -d, each passphrase will be
-removed from your keychain.
+When adding identities, each passphrase will also be stored in the user's keychain.  When removing identities
+with
+.Fl d ,
+each passphrase will be removed from it.
 .It Fl A
-Add identities to the agent using any passphrases stored in your keychain.
+Add identities to the agent using any passphrase stored in the user's keychain.
+.\" #endif
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

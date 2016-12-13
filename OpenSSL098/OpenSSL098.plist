@@ -29,6 +29,8 @@
 		<string>Fix CVE-2015-3195, 0.9.8zh patch</string>
 		<string>Disable RC5</string>
 		<string>Fix CVE-2016-2108, CVE-2016-2107, CVE-2016-2105, CVE-2016-2106, CVE-2016-2109, CVE-2016-2176</string>
+		<string>Fix CVE-2016-6304</string>
+        <string>Fix CVE-2016-6303</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>OpenSSL</string>

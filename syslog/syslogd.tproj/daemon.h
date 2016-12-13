@@ -199,6 +199,7 @@ void asl_out_message(asl_msg_t *msg, int64_t msize);
 void bsd_out_message(asl_msg_t *msg, int64_t msize);
 int control_set_param(const char *s, bool eval);
 int asl_action_control_set_param(const char *s);
+void asl_action_out_module_query(asl_msg_t *q, asl_msg_t *m, bool all);
 
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);

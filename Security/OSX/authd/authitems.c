@@ -6,6 +6,7 @@
 
 #include "authutilities.h"
 #include <Security/AuthorizationTags.h>
+#include <dispatch/private.h>
 
 typedef struct _auth_item_s * auth_item_t;
 
@@ -59,7 +60,22 @@ auth_item_copy_auth_item_xpc(auth_item_t item)
     xpc_object_t xpc_data = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(xpc_data, AUTH_XPC_ITEM_NAME, item->data.name);
     if (item->data.value) {
-        xpc_dictionary_set_data(xpc_data, AUTH_XPC_ITEM_VALUE, item->data.value, item->data.valueLength);
+        // <rdar://problem/13033889> authd is holding on to multiple copies of my password in the clear
+        bool sensitive = strcmp(item->data.name, "password") == 0;
+        if (sensitive) {
+            vm_address_t vmBytes = 0;
+            size_t xpcOutOfBandBlockSize = (item->data.valueLength > 32768 ? item->data.valueLength : 32768); // min 16K on 64-bit systems and 12K on 32-bit systems
+            vm_allocate(mach_task_self(), &vmBytes, xpcOutOfBandBlockSize, VM_FLAGS_ANYWHERE);
+            memcpy((void *)vmBytes, item->data.value, item->data.valueLength);
+            dispatch_data_t dispData = dispatch_data_create((void *)vmBytes, xpcOutOfBandBlockSize, DISPATCH_TARGET_QUEUE_DEFAULT, DISPATCH_DATA_DESTRUCTOR_VM_DEALLOCATE); // out-of-band mapping
+            xpc_object_t xpcData = xpc_data_create_with_dispatch_data(dispData);
+            dispatch_release(dispData);
+            xpc_dictionary_set_value(xpc_data, AUTH_XPC_ITEM_VALUE, xpcData);
+            xpc_release(xpcData);
+            xpc_dictionary_set_uint64(xpc_data, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH, item->data.valueLength);
+        } else {
+            xpc_dictionary_set_data(xpc_data, AUTH_XPC_ITEM_VALUE, item->data.value, item->data.valueLength);
+        }
     }
     xpc_dictionary_set_uint64(xpc_data, AUTH_XPC_ITEM_FLAGS, item->data.flags);
     xpc_dictionary_set_uint64(xpc_data, AUTH_XPC_ITEM_TYPE, item->type);
@@ -240,14 +256,25 @@ auth_item_create_with_xpc(xpc_object_t data)
     item->data.name = _copy_string(xpc_dictionary_get_string(data, AUTH_XPC_ITEM_NAME));
     item->data.flags = (uint32_t)xpc_dictionary_get_uint64(data, AUTH_XPC_ITEM_FLAGS);
     item->type = (uint32_t)xpc_dictionary_get_uint64(data, AUTH_XPC_ITEM_TYPE);
-    
+
     size_t len;
     const void * value = xpc_dictionary_get_data(data, AUTH_XPC_ITEM_VALUE, &len);
     if (value) {
-        item->bufLen = len;
-        item->data.valueLength = len;
-        item->data.value = calloc(1u, len);
-        memcpy(item->data.value, value, len);
+        // <rdar://problem/13033889> authd is holding on to multiple copies of my password in the clear
+        bool sensitive = xpc_dictionary_get_value(data, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+        if (sensitive) {
+            size_t sensitiveLength = (size_t)xpc_dictionary_get_uint64(data, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+            item->bufLen = sensitiveLength;
+            item->data.valueLength = sensitiveLength;
+            item->data.value = calloc(1u, sensitiveLength);
+            memcpy(item->data.value, value, sensitiveLength);
+            memset_s((void *)value, len, 0, sensitiveLength); // clear the sensitive data, memset_s is never optimized away
+        } else {
+            item->bufLen = len;
+            item->data.valueLength = len;
+            item->data.value = calloc(1u, len);
+            memcpy(item->data.value, value, len);
+        }
     }
     
 done:

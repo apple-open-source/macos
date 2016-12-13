@@ -946,7 +946,10 @@ static inline void
 _dispatch_queue_try_wakeup(dispatch_queue_t dq, uint64_t dq_state,
 		dispatch_wakeup_flags_t flags)
 {
-	if (_dq_state_should_wakeup(dq_state)) {
+	if (_dq_state_is_runnable(dq_state) &&
+			!_dq_state_drain_locked(dq_state) &&
+			(!_dq_state_is_enqueued(dq_state) ||
+			(flags & DISPATCH_WAKEUP_WAITER_HANDOFF))) {
 		if (slowpath(_dq_state_is_dirty(dq_state))) {
 			// <rdar://problem/14637483>
 			// seq_cst wrt state changes that were flushed and not acted upon

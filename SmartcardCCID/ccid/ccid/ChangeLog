@@ -1,4 +1,477 @@
-commit a1197c49cee479f4187dfd05c900224b99127e17 (HEAD -> master, tag: ccid-1.4.24, origin/master, origin/HEAD)
+commit 3da71e26b368b39814618a83c2fc64e492941dc4 (HEAD -> master, tag: ccid-1.4.25, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 30 10:36:54 2016 +0200
+
+    Release 1.4.25
+
+ README       | 21 +++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+commit 4fc7bcf1f3e70ee436d1a8cdde3e0474284d9fb3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 29 22:08:54 2016 +0200
+
+    Add/disable Precise Biometrics Precise 200 MC Upgrade
+    
+    The reader is added in the "Disabled CCID readers" list
+
+ readers/Precise_200_MC_Upgrade.txt | 52 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  5 +++-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit f0a26a9b17b9c94d7b87124a6d0a0c824ae9d561
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 23 14:45:01 2016 +0200
+
+    Remove extra spaces
+    
+    A space character before a tabulation characteri is not needed.
+
+ src/towitoko/atr.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 3675760e70d28648972e96060213150e63fd9101
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 3 16:45:17 2016 +0200
+
+    Add Gemalto K50
+    
+    This device has the same idProduct 0x3437 as the Gemalto IDBridge CT30
+    and Gemalto PC Twin Reader.
+    This device should then be usable since CCID 0.1.0 (August 2003)
+
+ readers/Gemalto_K50.txt       | 103 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   1 +
+ 2 files changed, 104 insertions(+)
+
+commit ec413e5b6b93ee066280ceeaea095ee80ffd261f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 3 16:31:31 2016 +0200
+
+    Add Broadcom Corp 5880 (idProduct: 0x5834)
+
+ readers/Broadcom_5880_0x5834.txt | 106 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |   1 +
+ 2 files changed, 107 insertions(+)
+
+commit 297ab15f4e9ecb6130f826de3bed1b5536d895ed
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 3 16:29:38 2016 +0200
+
+    Add Broadcom Corp 5880 (idProduct: 0x5833)
+
+ readers/Broadcom_5880_0x5833.txt | 54 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 55 insertions(+)
+
+commit 7211ce71b1bb0866efc2dad6eba7058743f7eed7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 3 16:24:37 2016 +0200
+
+    Add Broadcom Corp 5880 (idProduct: 0x5832)
+
+ readers/Broadcom_5880_0x5832.txt | 106 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |   3 +-
+ 2 files changed, 108 insertions(+), 1 deletion(-)
+
+commit d144044621ded81d21bb59f7452676d969fb27e6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 15:49:37 2016 +0200
+
+    supported_readers.txt: remove extra duplicates
+    
+    generate_supported_readers.py no more generate useless duplicates for
+    composite devices.
+
+ readers/supported_readers.txt | 56 -------------------------------------------
+ 1 file changed, 56 deletions(-)
+
+commit 6bb10bb145878989db5c0318421ecdf2405b5f83
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 15:47:10 2016 +0200
+
+    Add Feitian VR504 VHBR Contactless & Contact Card Reader
+
+ readers/Feitian_vR504.txt     | 120 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   4 ++
+ 2 files changed, 124 insertions(+)
+
+commit 2c72558784abb88c7dc00369e8032b5b9377d7a7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 15:18:19 2016 +0200
+
+    Add Feitian bR500
+
+ readers/Feitian_bR500.txt     | 76 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 77 insertions(+)
+
+commit 4f3e5748ec467ef9e5a2f567f492a1d6754f59a1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 14:08:04 2016 +0200
+
+    New firmware for Feitian_R502-CL.txt
+
+ readers/Feitian_R502-CL.txt | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+commit e56e6c38e717bac8bdc32a585717a6d86b7909a4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 14:05:02 2016 +0200
+
+    New firmware for Feitian_R502.txt
+
+ readers/Feitian_R502.txt      | 92 +++++++++++++++++++++++++++++++++++--------
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 77 insertions(+), 16 deletions(-)
+
+commit b7e8564a58386456b0aa4320f8de6563ab57d880
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 14:02:15 2016 +0200
+
+    Firmware update for Feitian_SCR301.txt
+
+ readers/Feitian_SCR301.txt | 56 +++++++++++++++++++++++++---------------------
+ 1 file changed, 31 insertions(+), 25 deletions(-)
+
+commit 706ad62ef036a3d5a5a0eff9709db8a767e975ce
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 13:59:44 2016 +0200
+
+    New firmware version for Feitian_bR301_BLE.txt
+
+ readers/Feitian_bR301_BLE.txt | 16 +++++++++-------
+ readers/supported_readers.txt |  2 +-
+ 2 files changed, 10 insertions(+), 8 deletions(-)
+
+commit 65553b4facf097fbfa674daf7ee5f886d72885f0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 31 13:40:45 2016 +0200
+
+    Add Aladdin R.D. JaCarta (idProduct: 0x0402)
+
+ readers/Aladdin_R.D._JaCarta2.txt | 47 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  3 ++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+commit 7916c4b3ca3be3037c2d74f6d42db59af7058843
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Tue Jul 5 16:17:52 2016 +0800
+
+    create_Info_plist.pl: fix typos in comment
+    
+    Infor.plist -> Info.plist
+    suported -> supported
+
+ src/create_Info_plist.pl | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit e6a7548623f35d428f9f410f4b885fd04e34070a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 3 18:40:52 2016 +0200
+
+    Move Broadcom Corp 5880 0x5800 in unsupported
+    
+    Frames bigger than 64 bytes (wMaxPacketSize) fails on the contact reader
+    with:
+    00000002 commands.c:1740:CmdXfrBlockTPDU_T0() T=0: 5 bytes
+    00000003 -> 000000 6F 05 00 00 00 00 17 00 00 00 00 C0 00 00 BA
+    00014454 <- 000000 80 BC 00 00 00 00 17 00 00 00 A0 00 00 00 79 03 02 40
+    70 50 72 47 67 00 ED CB C7 00 ED CB C7 21 21 A0 00 00 00 79 01 02 00 01
+    00 00 00 00 00 00 00 A0 00 00 00 79 01 02 01 01 00 00 00 00 00 00
+    00000013 commands.c:1551:CCID_Receive() Can't read all data (54 out of
+    188 expected)
+    
+    See https://bugs.launchpad.net/ubuntu/+source/pcsc-lite/+bug/1596662
+    
+    The problem is similar to Broadcom_5880_0x5805.txt that also moved in
+    the unsupported list.
+
+ readers/supported_readers.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 2f68054ce81aa10ec60adf9a92c66dca64bdd415
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 3 15:34:29 2016 +0200
+
+    Move Broadcom Corp 5880 0x5805 in unsupported
+    
+    The Broadcom Corp 5880 with productID 0x5805 has some serious issues.
+    
+    The contact interface of the reader is bogus.
+    Frames bigger than 64 bytes (wMaxPacketSize) fails on the contact reader
+    with:
+    00000006 commands.c:1740:CmdXfrBlockTPDU_T0() T=0: 5 bytes
+    00000011 -> 000000 6F 05 00 00 00 00 5A 00 00 00 80 34 01 00 00
+    00345316 <- 000000 80 02 01 00 00 00 5A 00 00 00 00 01 02 03 04 05 06
+    07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E
+    1F 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F 30 31 32 33 34 35
+    00000095 commands.c:1551:CCID_Receive() Can't read all data (54 out of
+    258 expected)
+    
+    The reader _MAY_ work with a T=1 card since it is in TPDU.
+    
+    This reader is present in Dell Latitude serie 5000 laptops.
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 105a9672ed0a2cee88e977ec8a63e1f55af1d625
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 1 17:42:18 2016 +0200
+
+    Move KEBTechnology KONA USB SmartCard in unsupported
+    
+    Move from "should work" to "unsupported" list.
+    
+    The tokend fails to send the first APDU. Maybe the support of Character
+    level is bogus in the CCID driver.
+    
+    Trace example at
+    https://anonscm.debian.org/cgit/pcsclite/CCID.git/commit/?id=05e86c6d5ac7db2cc5a184a52d33b403575c848e
+
+ readers/supported_readers.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 6fe851996a1ebd4691fa7bb427c42b456b6c2623
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 1 11:01:06 2016 +0200
+
+    scardcontrol: initialize the bRecvBuffer buffer
+    
+    Fill the bRecvBuffer receiving buffer with the "magic" value 0xAA to
+    detect what part of the buffer is filled by the reader.
+
+ examples/scardcontrol.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit 38d8ff72eb2f92bcf5ba2daa9074b24fb887973e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 1 10:58:35 2016 +0200
+
+    scardcontrol: improve outout for change Pin
+    
+    For the change PIN sequence we print a new line for non-keyboard pinpad
+    so that the output is nicer.
+
+ examples/scardcontrol.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+commit d346df1f4e5262f766b320450fa899126934ed77
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jun 28 18:31:43 2016 +0200
+
+    Rename "ESMART Token GOST"
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 05e86c6d5ac7db2cc5a184a52d33b403575c848e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jun 28 15:28:37 2016 +0200
+
+    CmdXfrBlockCHAR_T0: returns an error when needed
+    
+    If an "Unrecognized Procedure byte" is found then the driver returns
+    with the error IFD_COMMUNICATION_ERROR instead of no error.
+    
+    Example of problematic trace with a "KEBTechnology KONA USB SmartCard":
+    
+    00000018 winscard.c:1618:SCardTransmit() Send Protocol: T=0
+    00000016 APDU: 00 00 00 00
+    00000015 ifdhandler.c:1295:IFDHTransmitToICC() usb:04cc/5072:libudev:0:/dev/bus/usb/003/073 (lun: 0)
+    00000024 commands.c:1997:CmdXfrBlockCHAR_T0() T=0: 4 bytes
+    00000015 commands.c:1324:CCID_Transmit() chain parameter: 1
+    00000014 ccid_usb.c:1191:ControlUSB() request: 0x65
+    00000014 send: 00 00 00 00 00
+    00000926 ccid_usb.c:1191:ControlUSB() request: 0x6F
+    00000724 receive: 00 00
+    00000036 commands.c:2192:CmdXfrBlockCHAR_T0() Unrecognized Procedure byte (0x24) found!
+    00000016 SW:
+    00000013 winscard.c:1663:SCardTransmit() UnrefReader() count was: 2
+
+ src/commands.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 3816150f3e2bf4e9ce3afca2478653dfcdad0ce4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 27 10:47:33 2016 +0200
+
+    Fix crash with GemCore Pos Pro and GemCore Sim Pro
+    
+    The buffer .ccid.arrayOfSupportedDataRates is freed by free() in
+    CloseUSB().
+    So it must be allocated by malloc() and not just reference a static
+    memory buffer.
+    
+    The crash occured when CloseUSB() called free() on reader disconnection:
+    [Thread 0x7fffe7fff700 (LWP 4050) exited]
+    *** Error in `.../PCSC/src/pcscd': free(): invalid pointer: 0x00007ffff61f54c0 ***
+    
+    Program received signal SIGABRT, Aborted.
+    [Switching to Thread 0x7ffff69f7700 (LWP 4021)]
+    0x00007ffff722e067 in __GI_raise (sig=sig@entry=6)
+        at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
+    56      ../nptl/sysdeps/unix/sysv/linux/raise.c: Aucun fichier ou dossier de ce type.
+    (gdb) bt
+        at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
+        fmt=fmt@entry=0x7ffff7361530 "*** Error in `%s': %s: 0x%s ***\n")
+        at ../sysdeps/posix/libc_fatal.c:175
+        str=0x7ffff735d646 "free(): invalid pointer", ptr=<optimized out>)
+        at malloc.c:4996
+        have_lock=0) at malloc.c:3840
+        at ccid_usb.c:913
+        at ifdwrapper.c:190
+        rContext=rContext@entry=0x61e2d0) at readerfactory.c:1134
+        at readerfactory.c:632
+        at readerfactory.c:119
+        readerName=0x7ffff00024b0 "Gemalto GemCore SIM Pro Smart Card Reader",
+        port=2097152) at readerfactory.c:608
+        at hotplug_libudev.c:362
+        at pthread_create.c:309
+        at ../sysdeps/unix/sysv/linux/x86_64/clone.S:111
+
+ src/ccid_serial.c | 13 ++++++++++++-
+ src/ccid_usb.c    | 11 ++++++++++-
+ 2 files changed, 22 insertions(+), 2 deletions(-)
+
+commit ab374afe54dd5c0d97dad93df6cca27b8c527ccf
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Mon Jun 27 11:34:44 2016 +0800
+
+    Add missing openct/README in distribution
+    
+    The file openct/README was not included in the generated .tar.bz2
+    archive.
+    This file is only used for information and documentation.
+    
+    Thanks to Godfrey Chung for the bug report
+    https://github.com/LudovicRousseau/CCID/pull/20
+
+ src/Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 5edb61353e4a99313f670743e351abc26d561c14
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jun 26 11:05:11 2016 +0200
+
+    Add ESMART Token GOST X2 ET1020-A
+
+ readers/ISBC_ESMART_reader.txt | 62 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  5 +++-
+ 2 files changed, 66 insertions(+), 1 deletion(-)
+
+commit 8ea1815745692c38e1c07fc8d460aae85efe123a (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 24 10:02:24 2016 +0200
+
+    Fix spelling error in a log message
+    
+    The Correct spelling is: successful
+    
+    Thanks to lintian(1) for the bug report
+    I: libacsccid1: spelling-error-in-binary usr/lib/pcsc/drivers/ifd-acsccid.bundle/Contents/Linux/libacsccid.so successfull successful
+
+ src/ccid.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6123a4cc07a2c5b980021c70b89f02da96ee855a
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Wed Jun 22 10:46:37 2016 +0800
+
+    Fix fake composite device code to use a fixed order
+    
+    The value static_interface shall be incremented only for composite devices.
+    Otherwise any other reader would increase the value and the next
+    composite reader connected will have its interfaces enumerated in a
+    different order.
+    
+    The problem occurs only on Mac OS X (pcscd) that still does not support
+    composite CCID devices. The CCID driver has to be configured with
+    --enable-composite-as-multislot and composite CCID devices are
+    "emulated" as a multi-slot device.
+    
+    Thanks to Godfrey Chung for the patch
+    https://github.com/LudovicRousseau/CCID/pull/19
+
+ src/ccid_usb.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+commit 32c8a429a2654e16a195ba42f5a9bbf18f34d87b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 17 22:09:01 2016 +0200
+
+    log_msg(): log up to 3 lines of 80 characters
+    
+    The log of the CCID driver license was truncated. It is now possible to
+    log up to 3 * 80 = 240 characters instead of 2 * 80 = 160.
+    
+    The problem is only present on Mac OS X and other systems (Android)
+    where the log is not done by pcscd.
+    pcscd has a limit of 2048 bytes and does not have this problem.
+    
+    Thanks to Maksim Ivanov for the bug report.
+    "[Pcsclite-muscle] Small fix suggestion for CCID (logging issue)"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160613/000634.html
+
+ src/debug.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit bfb75dd02f8a1ca9f8ebbd86658819d2721416cb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 9 21:10:59 2016 +0200
+
+    Add appidkey GmbH ID50 -USB
+
+ readers/appidkey_ID50-USB.txt | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit ec94d1fa6beebfdb39a2f81c20a54bded01e28db
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 9 21:07:10 2016 +0200
+
+    Add appidkey GmbH ID100-USB  SC Reader
+
+ readers/appidkey_ID100-USB_SC_Reader.txt | 51 ++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt            |  5 +++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 6ed3a9f1ccf024d9101c87219d7b1850992ff9bb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 6 18:59:18 2016 +0200
+
+    Resync PCSC and contrib_libPCSCv2part10 modules
+    
+    Benefit from the configfile.l: Fix issue on SunOS
+
+ PCSC                    | 2 +-
+ contrib_libPCSCv2part10 | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+commit 24f8659452bfb5d2a357bfca3e99c3fceef16bd3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 28 20:38:31 2016 +0200
+
+    Add Broadcom Corp 5880 with ProductID 0x5805
+
+ readers/Broadcom_5880_0x5805.txt | 106 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |   6 ++-
+ 2 files changed, 111 insertions(+), 1 deletion(-)
+
+commit 1808d28d196a1c45b9d846aa7aab5123fe062706
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 22 18:08:19 2016 +0200
+
+    README: add G&D StarSign CUT S in release 1.4.24
+    
+    I forgot to add this reader in the changes.
+
+ README | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit a1197c49cee479f4187dfd05c900224b99127e17 (tag: ccid-1.4.24)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 22 17:07:03 2016 +0200
 
@@ -303,7 +776,7 @@ Date:   Fri Apr 1 15:56:24 2016 +0200
  src/ccid.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
-commit dd479b7c62f9a290a5d0994f0cbadd9b3af8d0d5 (github/master)
+commit dd479b7c62f9a290a5d0994f0cbadd9b3af8d0d5
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Mar 15 09:10:38 2016 +0100
 
@@ -599,10 +1072,9 @@ Date:   Sat Dec 5 19:02:19 2015 +0100
     "Nitrokey Nitrokey Storage" is the new name for "German Privacy
     Foundation Crypto Stick v2.0"
 
- ...German_Privacy_Foundation_Crypto_Stick_v2.0.txt | 51 ----------------------
- readers/Nitrokey_Storage.txt                       | 51 ++++++++++++++++++++++
- readers/supported_readers.txt                      |  4 +-
- 3 files changed, 53 insertions(+), 53 deletions(-)
+ ...rivacy_Foundation_Crypto_Stick_v2.0.txt => Nitrokey_Storage.txt} | 6 +++---
+ readers/supported_readers.txt                                       | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
 commit d1fbc9bf2817832f4e8be6282fd09d5e206e4ce9
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -661,7 +1133,7 @@ Date:   Fri Nov 13 11:20:04 2015 +0100
     Program received signal SIGSEGV, Segmentation fault.
     [Switching to Thread 0x7ffff6fe2700 (LWP 6120)]
     0x00007ffff5dca8f2 in CmdPowerOff (reader_index=0) at commands.c:1076
-    1076		cmd[6] = (*ccid_descriptor->pbSeq)++;
+    1076            cmd[6] = (*ccid_descriptor->pbSeq)++;
     (gdb) print ccid_descriptor
     $1 = (_ccid_descriptor *) 0x7ffff5fe0468 <usbDevice+40>
     (gdb) print ccid_descriptor->pbSeq
@@ -5938,9 +6410,8 @@ Date:   Tue Mar 12 20:22:48 2013 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@6567 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/Yubico_Yubikey_neo.txt     | 56 --------------------------------------
- readers/Yubico_Yubikey_neo_otp.txt | 56 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 56 insertions(+), 56 deletions(-)
+ readers/{Yubico_Yubikey_neo.txt => Yubico_Yubikey_neo_otp.txt} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 06fa9e0efb9085921487a23e5bac6e7303301b1b
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -6283,9 +6754,8 @@ Date:   Thu Oct 4 16:06:42 2012 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@6469 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- configure.ac | 312 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- configure.in | 312 -----------------------------------------------------------
- 2 files changed, 312 insertions(+), 312 deletions(-)
+ configure.in => configure.ac | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 30fce9389e261a178b7f7a7fe559654546106255
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -8060,9 +8530,9 @@ Date:   Sun Oct 2 12:17:55 2011 +0000
     FEATURE_CCID_ESC_COMMAND is available only if ifdDriverOptions (from
     Info.plist config file) has bit 1 set:
     
-    	1: DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED
-    		the CCID Exchange command is allowed. You can use it through
-    		SCardControl(hCard, IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE, ...)
+            1: DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED
+                    the CCID Exchange command is allowed. You can use it through
+                    SCardControl(hCard, IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE, ...)
     
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@5991 0ce88b0d-b2fd-0310-8134-9614164e65ea
@@ -9389,13 +9859,11 @@ Date:   Wed Feb 16 14:49:05 2011 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@5614 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/GemProxDU.txt             | 143 ++++++++++++++++++++++++++++++++++++++
- readers/GemProxDU_contact.txt     |  91 ------------------------
- readers/GemProxDU_contactless.txt |  52 --------------
- readers/GemProxSU.txt             | 143 ++++++++++++++++++++++++++++++++++++++
- readers/GemProxSU_contact.txt     |  91 ------------------------
- readers/GemProxSU_contactless.txt |  52 --------------
- 6 files changed, 286 insertions(+), 286 deletions(-)
+ readers/{GemProxDU_contact.txt => GemProxDU.txt} | 52 ++++++++++++++++++++++++
+ readers/GemProxDU_contactless.txt                | 52 ------------------------
+ readers/{GemProxSU_contact.txt => GemProxSU.txt} | 52 ++++++++++++++++++++++++
+ readers/GemProxSU_contactless.txt                | 52 ------------------------
+ 4 files changed, 104 insertions(+), 104 deletions(-)
 
 commit f00581f48644d9ba83996d9bb8efdae277a1b1ad
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -9973,10 +10441,9 @@ Date:   Wed Dec 15 13:27:23 2010 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@5450 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/Eutron_SIM_Pocket_Combo_(Card_Reader).txt |  50 +++++++++++
- readers/Eutron_SIM_Pocket_Combo_(SIM_Reader).txt  |  50 +++++++++++
- readers/SIM_Pocket_Combo.txt                      | 100 ----------------------
- 3 files changed, 100 insertions(+), 100 deletions(-)
+ ...t => Eutron_SIM_Pocket_Combo_(Card_Reader).txt} | 50 ----------------------
+ readers/Eutron_SIM_Pocket_Combo_(SIM_Reader).txt   | 50 ++++++++++++++++++++++
+ 2 files changed, 50 insertions(+), 50 deletions(-)
 
 commit 51dadf1033aa70b9e2b35d7b5420b389f04890c7
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -10385,9 +10852,8 @@ Date:   Mon Sep 20 08:13:24 2010 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@5263 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- src/92_pcscd_ccid.rules | 43 +++++++++++++++++++++++++++++++++++++++++++
- src/pcscd_ccid.rules    | 43 -------------------------------------------
- 2 files changed, 43 insertions(+), 43 deletions(-)
+ src/{pcscd_ccid.rules => 92_pcscd_ccid.rules} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 083c18252c344997d39edb64edea3c6dc514026e
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -12202,9 +12668,8 @@ Date:   Fri Feb 5 13:33:49 2010 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@4712 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/CL1356T.txt     | 50 -------------------------------------------------
- readers/id3_CL1356T.txt | 50 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 50 insertions(+), 50 deletions(-)
+ readers/{CL1356T.txt => id3_CL1356T.txt} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit a29d6e5cd917ecd739928ae0663fed43ece98394
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -13714,9 +14179,8 @@ Date:   Wed May 13 12:08:43 2009 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@4204 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/Softforum_XecureHSM.txt  | 49 ++++++++++++++++++++++++++++++++++++++++
- readers/Softforum__XecureHSM.txt | 49 ----------------------------------------
- 2 files changed, 49 insertions(+), 49 deletions(-)
+ readers/{Softforum__XecureHSM.txt => Softforum_XecureHSM.txt} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 7c2486cbb3fdb5d3c5461ea9f3c5bd4d5dd7ffcb
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -13727,10 +14191,9 @@ Date:   Wed May 13 12:07:03 2009 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@4203 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/Samsung_XecureHSM.txt    | 49 ----------------------------------------
- readers/Softforum__XecureHSM.txt | 49 ++++++++++++++++++++++++++++++++++++++++
- readers/supported_readers.txt    |  4 ++--
- 3 files changed, 51 insertions(+), 51 deletions(-)
+ readers/{Samsung_XecureHSM.txt => Softforum__XecureHSM.txt} | 0
+ readers/supported_readers.txt                               | 4 ++--
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 commit c699aa8d789bb4c04969d025d8b1a9df83a645cb
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -14452,12 +14915,11 @@ Date:   Sat Feb 14 08:56:26 2009 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@3316 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- README                        |  2 +-
- readers/Makefile.am           |  2 +-
- readers/Philips_SmartMX.txt   | 49 +++++++++++++++++++++++++++++++++++++++++++
- readers/SafeNet_IKey4000.txt  | 49 -------------------------------------------
- readers/supported_readers.txt |  4 ++--
- 5 files changed, 53 insertions(+), 53 deletions(-)
+ README                                                | 2 +-
+ readers/Makefile.am                                   | 2 +-
+ readers/{SafeNet_IKey4000.txt => Philips_SmartMX.txt} | 0
+ readers/supported_readers.txt                         | 4 ++--
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
 commit f1c26ef4b4e8e5a66e891cd2ff31123531a63c74
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -15236,9 +15698,8 @@ Date:   Thu Oct 16 14:57:18 2008 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@3172 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- build/ylwrap | 223 -----------------------------------------------------------
- ylwrap       | 223 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 223 insertions(+), 223 deletions(-)
+ build/ylwrap => ylwrap | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit e7606326935595db07f8ca9239a97e4d3ccfeea6
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -16039,14 +16500,12 @@ Date:   Mon Jun 9 08:17:23 2008 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@2987 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- Makefile.am            | 2 +-
- aclocal/Makefile.am    | 3 ---
- aclocal/acx_pthread.m4 | 1 -
- configure.in           | 2 +-
- m4/Makefile.am         | 3 +++
- m4/acx_pthread.m4      | 1 +
- reconf                 | 4 ++--
- 7 files changed, 8 insertions(+), 8 deletions(-)
+ Makefile.am                    | 2 +-
+ configure.in                   | 2 +-
+ {aclocal => m4}/Makefile.am    | 0
+ {aclocal => m4}/acx_pthread.m4 | 0
+ reconf                         | 4 ++--
+ 5 files changed, 4 insertions(+), 4 deletions(-)
 
 commit c824a3209b85ba89e17ea6e6ce9f809fbe581c26 (tag: ccid-1.3.7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -18651,9 +19110,8 @@ Date:   Sat May 19 12:14:37 2007 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@2532 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- src/Info.plist     | 116 -----------------------------------------------------
- src/Info.plist.src | 116 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 116 insertions(+), 116 deletions(-)
+ src/{Info.plist => Info.plist.src} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit b3995c5e4f0dc5149350d74d563c68a2afb5abcb
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -19239,9 +19697,8 @@ Date:   Sun Feb 25 11:27:47 2007 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@2434 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- contrib/Kobil_mIDentity_switch/README.txt          | 250 ---------------------
- .../README_Kobil_mIDentity_switch.txt              | 250 +++++++++++++++++++++
- 2 files changed, 250 insertions(+), 250 deletions(-)
+ .../{README.txt => README_Kobil_mIDentity_switch.txt}                     | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit fd36054f7a0945ad80a81dae8d290628f73db3f3
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -19252,10 +19709,9 @@ Date:   Sun Feb 25 10:51:52 2007 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@2433 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- .../Kobil_mIDentity_switch.c                       | 199 +++++++++++++++++++++
- contrib/Kobil_mIDentity_switch/Makefile.am         |   6 +-
- contrib/Kobil_mIDentity_switch/midswitch.c         | 199 ---------------------
- 3 files changed, 202 insertions(+), 202 deletions(-)
+ .../{midswitch.c => Kobil_mIDentity_switch.c}                       | 0
+ contrib/Kobil_mIDentity_switch/Makefile.am                          | 6 +++---
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
 commit 0a009b6362cd099b906f56f79e5487310f8074ab
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -19266,15 +19722,12 @@ Date:   Sun Feb 25 10:47:39 2007 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@2432 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- configure.in                               |   2 +-
- contrib/Kobil_mIDentity_switch/Makefile.am |   3 +
- contrib/Kobil_mIDentity_switch/README.txt  | 250 +++++++++++++++++++++++++++++
- contrib/Kobil_mIDentity_switch/midswitch.c | 199 +++++++++++++++++++++++
- contrib/Makefile.am                        |   2 +-
- contrib/midswitch/Makefile.am              |   3 -
- contrib/midswitch/README.txt               | 250 -----------------------------
- contrib/midswitch/midswitch.c              | 199 -----------------------
- 8 files changed, 454 insertions(+), 454 deletions(-)
+ configure.in                                              | 2 +-
+ contrib/{midswitch => Kobil_mIDentity_switch}/Makefile.am | 0
+ contrib/{midswitch => Kobil_mIDentity_switch}/README.txt  | 0
+ contrib/{midswitch => Kobil_mIDentity_switch}/midswitch.c | 0
+ contrib/Makefile.am                                       | 2 +-
+ 5 files changed, 2 insertions(+), 2 deletions(-)
 
 commit cb92532bdafcb90a5277c54d0236d0423b9027d7
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -20739,10 +21192,9 @@ Date:   Thu Sep 14 19:55:24 2006 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@2161 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/CardMan5121.txt       | 165 ++++++++++++++++++++++++++++++++++++++++++
- readers/CardMan5125.txt       | 165 ------------------------------------------
- readers/supported_readers.txt |   2 +-
- 3 files changed, 166 insertions(+), 166 deletions(-)
+ readers/{CardMan5125.txt => CardMan5121.txt} | 0
+ readers/supported_readers.txt                | 2 +-
+ 2 files changed, 1 insertion(+), 1 deletion(-)
 
 commit 41e0bf12741f48c0a3d81a1b096b2b6a7ff06867
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -21781,9 +22233,8 @@ Date:   Fri Apr 14 18:45:18 2006 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@2003 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- readers/SDI010.txt | 54 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- readers/SSI010.txt | 54 ------------------------------------------------------
- 2 files changed, 54 insertions(+), 54 deletions(-)
+ readers/{SSI010.txt => SDI010.txt} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 42acdbd615349761908e2d0e866573edcbcbebe5
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -23045,11 +23496,10 @@ Date:   Wed Dec 7 20:27:24 2005 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/Drivers/ccid@1778 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- README                        |  4 ++--
- readers/ACR38.txt             | 47 -------------------------------------------
- readers/ACR38U-CCID.txt       | 47 +++++++++++++++++++++++++++++++++++++++++++
- readers/supported_readers.txt |  2 +-
- 4 files changed, 50 insertions(+), 50 deletions(-)
+ README                                 | 4 ++--
+ readers/{ACR38.txt => ACR38U-CCID.txt} | 0
+ readers/supported_readers.txt          | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
 commit 815cfdc6162e7308b8f7db289a25cdc70d7655d5
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>

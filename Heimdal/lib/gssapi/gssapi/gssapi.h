@@ -413,6 +413,8 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 #define kGSSICAppleSourceAppPID		CFSTR("kGSSICAppleSourceAppPID")
 #define kGSSICAppleSourceAppSigningIdentity CFSTR("kGSSICAppleSourceAppSigningIdentity")
 
+#define kGSSICAuthenticationContext	CFSTR("kGSSICAuthenticationContext")
+
 #include <gssapi_apple.h>
 
 

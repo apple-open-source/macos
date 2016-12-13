@@ -46,8 +46,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		7259A9731D519322008F83F6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7259A9721D519322008F83F6 /* IOKit.framework */; };
-		7259A9751D51932B008F83F6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7259A9741D51932B008F83F6 /* CoreFoundation.framework */; };
 		BA79F9CB13BB7207006A292D /* ExtentManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BA79F9A313BB70FF006A292D /* ExtentManager.cpp */; };
 		BA79F9CC13BB7207006A292D /* getmntopts.c in Sources */ = {isa = PBXBuildFile; fileRef = BA79F9A613BB70FF006A292D /* getmntopts.c */; };
 		BA79F9CD13BB7207006A292D /* humanize_number.c in Sources */ = {isa = PBXBuildFile; fileRef = BA79F9A813BB70FF006A292D /* humanize_number.c */; };
@@ -175,8 +173,6 @@
 
 /* Begin PBXFileReference section */
 		3F09C378186D1F73007AF93C /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcconfigs/base.xcconfig; sourceTree = "<group>"; };
-		7259A9721D519322008F83F6 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
-		7259A9741D51932B008F83F6 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		BA79F9A313BB70FF006A292D /* ExtentManager.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ExtentManager.cpp; sourceTree = "<group>"; };
 		BA79F9A413BB70FF006A292D /* ExtentManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExtentManager.h; sourceTree = "<group>"; };
 		BA79F9A513BB70FF006A292D /* getmntopts.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = getmntopts.3; sourceTree = "<group>"; };
@@ -219,8 +215,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7259A9751D51932B008F83F6 /* CoreFoundation.framework in Frameworks */,
-				7259A9731D519322008F83F6 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,8 +239,6 @@
 		7259A9711D519321008F83F6 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				7259A9741D51932B008F83F6 /* CoreFoundation.framework */,
-				7259A9721D519322008F83F6 /* IOKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

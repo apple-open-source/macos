@@ -171,7 +171,10 @@ change_secret_on_keybag(KeychainDatabase & db, const void * secret, int secret_l
     // if for some reason we are locked lets unlock so later we don't try and throw up SecurityAgent dialog
     bool locked = false;
     if ((service_client_kb_is_locked(&context, &locked, NULL) == KB_Success) && locked) {
-        service_client_kb_unlock(&context, new_secret, new_secret_len);
+        rc = service_client_kb_unlock(&context, new_secret, new_secret_len);
+        if (rc != KB_Success) {
+            syslog(LOG_ERR, "Failed to unlock iCloud keychain for uid %d (%d)", context.s_uid, (int)rc);
+        }
     }
 }
 
@@ -295,14 +298,13 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob,
     DbIdentifier ident(id, blob->randomSignature);
 	Session &session = process().session();
 	RefPointer<KeychainDbCommon> com;
-    secnotice("kccommon", "looking for a common at %s", ident.dbName());
+    secinfo("kccommon", "looking for a common at %s", ident.dbName());
 	if (KeychainDbCommon::find(ident, session, com)) {
-        secnotice("kccommon", "found %p", com.get());
 		parent(*com);
         secinfo("KCdb", "joining keychain %p %s with common %p", this, (char*)this->dbName(), &common());
 	} else {
 		// DbCommon not present; make a new one
-        secnotice("kccommon", "no common found");
+        secinfo("kccommon", "no common found");
 		parent(*com);
 		common().mParams = blob->params;
         secinfo("KCdb", "making keychain %p %s with common %p", this, (char*)this->dbName(), &common());
@@ -333,7 +335,7 @@ bool KeychainDbCommon::find(const DbIdentifier &ident, Session &session, RefPoin
         for (CommonSet::const_iterator it = mCommonSet.begin(); it != mCommonSet.end(); ++it) {
             if (&session == &(*it)->session() && ident == (*it)->identifier()) {
                 common = *it;
-                secnotice("kccommon", "found a common for %s at %p", ident.dbName(), common.get());
+                secinfo("kccommon", "found a common for %s at %p", ident.dbName(), common.get());
                 return true;
             }
         }
@@ -346,7 +348,7 @@ bool KeychainDbCommon::find(const DbIdentifier &ident, Session &session, RefPoin
         for (CommonSet::const_iterator it = mCommonSet.begin(); it != mCommonSet.end(); ++it) {
             if (&session == &(*it)->session() && ident == (*it)->identifier()) {
                 common = *it;
-                secnotice("kccommon", "found a common for %s at %p", ident.dbName(), common.get());
+                secinfo("kccommon", "found a common for %s at %p", ident.dbName(), common.get());
                 return true;
             }
         }
@@ -360,7 +362,7 @@ bool KeychainDbCommon::find(const DbIdentifier &ident, Session &session, RefPoin
             common = new KeychainDbCommon(session, ident);
         }
 
-        secnotice("kccommon", "made a new common for %s at %p", ident.dbName(), common.get());
+        secinfo("kccommon", "made a new common for %s at %p", ident.dbName(), common.get());
 
         // Can't call insert() here, because it grabs the write lock (which we have).
         common->insertHoldingLock();
@@ -446,7 +448,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier& id, KeychainDatabase &s
     RefPointer<KeychainDbCommon> newCommon;
     if(KeychainDbCommon::find(ident, process().session(), newCommon, CommonBlob::version_none, &src.common())) {
         // A common already existed. Write over it, but note that everything may go horribly from here on out.
-        secnotice("kccommon", "Found common where we didn't expect. Possible strange behavior ahead.");
+        secinfo("kccommon", "Found common where we didn't expect. Possible strange behavior ahead.");
         newCommon->cloneFrom(src.common());
     }
 
@@ -497,7 +499,7 @@ KeychainDatabase::KeychainDatabase(uint32 requestedVersion, KeychainDatabase &sr
     RefPointer<KeychainDbCommon> newCommon;
     if(KeychainDbCommon::find(ident, process().session(), newCommon, requestedVersion)) {
         // A common already existed here. Write over it, but note that everything may go horribly from here on out.
-        secnotice("kccommon", "Found common where we didn't expect. Possible strange behavior ahead.");
+        secinfo("kccommon", "Found common where we didn't expect. Possible strange behavior ahead.");
         newCommon->cloneFrom(src.common(), requestedVersion);
     }
     newCommon->initializeKeybag();
@@ -787,7 +789,7 @@ void KeychainDatabase::makeUnlocked(bool unlockKeybag)
 void KeychainDatabase::makeUnlocked(const AccessCredentials *cred, bool unlockKeybag)
 {
     if (isLocked()) {
-		secinfo("KCdb", "%p(%p) unlocking for makeUnlocked()", this, &common());
+		secnotice("KCdb", "%p(%p) unlocking for makeUnlocked()", this, &common());
         assert(mBlob || (mValidData && common().hasMaster()));
 		establishOldSecrets(cred);
 		common().setUnlocked(); // mark unlocked
@@ -810,7 +812,7 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred, bool unlockKe
         }
     }
 	if (!mValidData) {	// need to decode to get our ACLs, master secret available
-		secinfo("KCdb", "%p(%p) is unlocked; decoding for makeUnlocked()", this, &common());
+		secnotice("KCdb", "%p(%p) is unlocked; decoding for makeUnlocked()", this, &common());
 		if (!decode())
 			CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 	}

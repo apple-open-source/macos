@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@php.net>                            |
+   | Authors: Stig SÃ¦ther Bakken <ssb@php.net>                            |
    |          Thies C. Arntzen <thies@thieso.net>                         |
    |          Sterling Hughes <sterling@php.net>                          |
    +----------------------------------------------------------------------+
@@ -65,6 +65,10 @@ ZEND_DECLARE_MODULE_GLOBALS(xml)
 ZEND_GET_MODULE(xml)
 #endif /* COMPILE_DL_XML */
 /* }}} */
+
+
+#define SKIP_TAGSTART(str) ((str) + (parser->toffset > strlen(str) ? strlen(str) : parser->toffset))
+
 
 /* {{{ function prototypes */
 PHP_MINIT_FUNCTION(xml);
@@ -535,7 +539,8 @@ static zval *xml_call_handler(xml_parser *parser, zval *handler, zend_function *
 
 			if (Z_TYPE_P(handler) == IS_STRING) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call handler %s()", Z_STRVAL_P(handler));
-			} else if (zend_hash_index_find(Z_ARRVAL_P(handler), 0, (void **) &obj) == SUCCESS &&
+			} else if (Z_TYPE_P(handler) == IS_ARRAY &&
+					   zend_hash_index_find(Z_ARRVAL_P(handler), 0, (void **) &obj) == SUCCESS &&
 					   zend_hash_index_find(Z_ARRVAL_P(handler), 1, (void **) &method) == SUCCESS &&
 					   Z_TYPE_PP(obj) == IS_OBJECT &&
 					   Z_TYPE_PP(method) == IS_STRING) {
@@ -633,7 +638,7 @@ PHPAPI char *xml_utf8_encode(const char *s, int len, int *newlen, const XML_Char
 	}
 	/* This is the theoretical max (will never get beyond len * 2 as long
 	 * as we are converting from single-byte characters, though) */
-	newbuf = safe_emalloc(len, 4, 1);
+	newbuf = safe_emalloc_string(len, 4, 1);
 	while (pos > 0) {
 		c = encoder ? encoder((unsigned char)(*s)) : (unsigned short)(*s);
 		if (c < 0x80) {
@@ -784,7 +789,7 @@ void _xml_startElementHandler(void *userData, const XML_Char *name, const XML_Ch
 
 		if (parser->startElementHandler) {
 			args[0] = _xml_resource_zval(parser->index);
-			args[1] = _xml_string_zval(((char *) tag_name) + parser->toffset);
+			args[1] = _xml_string_zval(SKIP_TAGSTART((char *) tag_name));
 			MAKE_STD_ZVAL(args[2]);
 			array_init(args[2]);
 
@@ -815,9 +820,9 @@ void _xml_startElementHandler(void *userData, const XML_Char *name, const XML_Ch
 				array_init(tag);
 				array_init(atr);
 
-				_xml_add_to_info(parser,((char *) tag_name) + parser->toffset);
+				_xml_add_to_info(parser,SKIP_TAGSTART((char *) tag_name));
 
-				add_assoc_string(tag,"tag",((char *) tag_name) + parser->toffset,1); /* cast to avoid gcc-warning */
+				add_assoc_string(tag,"tag",SKIP_TAGSTART((char *) tag_name),1);
 				add_assoc_string(tag,"type","open",1);
 				add_assoc_long(tag,"level",parser->level);
 
@@ -869,7 +874,7 @@ void _xml_endElementHandler(void *userData, const XML_Char *name)
 
 		if (parser->endElementHandler) {
 			args[0] = _xml_resource_zval(parser->index);
-			args[1] = _xml_string_zval(((char *) tag_name) + parser->toffset);
+			args[1] = _xml_string_zval(SKIP_TAGSTART((char *) tag_name));
 
 			if ((retval = xml_call_handler(parser, parser->endElementHandler, parser->endElementPtr, 2, args))) {
 				zval_ptr_dtor(&retval);
@@ -886,9 +891,9 @@ void _xml_endElementHandler(void *userData, const XML_Char *name)
 
 				array_init(tag);
 
-				_xml_add_to_info(parser,((char *) tag_name) + parser->toffset);
+				_xml_add_to_info(parser,SKIP_TAGSTART((char *) tag_name));
 
-				add_assoc_string(tag,"tag",((char *) tag_name) + parser->toffset,1); /* cast to avoid gcc-warning */
+				add_assoc_string(tag,"tag",SKIP_TAGSTART((char *) tag_name),1);
 				add_assoc_string(tag,"type","close",1);
 				add_assoc_long(tag,"level",parser->level);
 
@@ -989,9 +994,9 @@ void _xml_characterDataHandler(void *userData, const XML_Char *s, int len)
 
 						array_init(tag);
 
-						_xml_add_to_info(parser,parser->ltags[parser->level-1] + parser->toffset);
+						_xml_add_to_info(parser,SKIP_TAGSTART(parser->ltags[parser->level-1]));
 
-						add_assoc_string(tag,"tag",parser->ltags[parser->level-1] + parser->toffset,1);
+						add_assoc_string(tag,"tag",SKIP_TAGSTART(parser->ltags[parser->level-1]),1);
 						add_assoc_string(tag,"value",decoded_value,0);
 						add_assoc_string(tag,"type","cdata",1);
 						add_assoc_long(tag,"level",parser->level);
@@ -1632,6 +1637,10 @@ PHP_FUNCTION(xml_parser_set_option)
 		case PHP_XML_OPTION_SKIP_TAGSTART:
 			convert_to_long_ex(val);
 			parser->toffset = Z_LVAL_PP(val);
+			if (parser->toffset < 0) {
+				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "tagstart ignored, because it is out of range");
+				parser->toffset = 0;
+			}
 			break;
 		case PHP_XML_OPTION_SKIP_WHITE:
 			convert_to_long_ex(val);

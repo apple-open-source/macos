@@ -943,7 +943,7 @@ IOHIDEventRef IOHIDKeyboardFilter::filter(IOHIDEventRef event)
         }
 #endif
         // Process key repeats if both key delays are set.
-        if (_keyRepeatInitialDelayMS && _keyRepeatDelayMS) {
+        if (_keyRepeatInitialDelayMS) {
             if (_slowKeysDelayMS) {
                 event = processKeyRepeats(event, kSlowRepeatDelayMS, kSlowRepeatDelayMS);
             } else {

@@ -335,8 +335,11 @@ struct s3dl_query_ctx {
  optional data, class and persistent ref results.  This is so we can use
  the CFDictionaryCreate() api here rather than appending to a
  mutable dictionary. */
-static CF_RETURNS_RETAINED CFTypeRef handle_result(Query *q, CFMutableDictionaryRef item,
-                               sqlite_int64 rowid) {
+static CF_RETURNS_RETAINED CFTypeRef
+handle_result(Query *q,
+              CFMutableDictionaryRef item,
+              sqlite_int64 rowid)
+{
     CFTypeRef a_result;
     CFDataRef data;
     data = CFDictionaryGetValue(item, kSecValueData);
@@ -390,7 +393,7 @@ static void s3dl_query_row(sqlite3_stmt *stmt, void *context) {
     Query *q = c->q;
 
     sqlite_int64 rowid = sqlite3_column_int64(stmt, 0);
-    CFMutableDictionaryRef item;
+    CFMutableDictionaryRef item = NULL;
     bool ok = s3dl_item_from_col(stmt, q, 1, c->accessGroups, &item, NULL, &q->q_error);
     if (!ok) {
         OSStatus status = SecErrorGetOSStatus(q->q_error);
@@ -584,7 +587,10 @@ static CFStringRef s3dl_select_sql(Query *q, CFArrayRef accessGroups) {
 		CFStringAppend(sql, q->q_class->name);
         SecDbAppendWhereClause(sql, q, accessGroups);
     }
-    SecDbAppendLimit(sql, q->q_limit);
+    //do not append limit for all queries which needs filtering
+    if (q->q_match_issuer == NULL && q->q_match_policy == NULL && q->q_match_valid_on_date == NULL && q->q_match_trusted_only == NULL) {
+        SecDbAppendLimit(sql, q->q_limit);
+    }
 
     return sql;
 }
@@ -741,7 +747,7 @@ s3dl_query(s3dl_handle_row handle_row,
         if (sql_ok)
             sql_ok = sqlBindWhereClause(stmt, q, accessGroups, &param, error);
         if (sql_ok) {
-            SecDbForEach(stmt, error, ^bool (int row_index) {
+            SecDbForEach(dbt, stmt, error, ^bool (int row_index) {
                 handle_row(stmt, context);
 
                 bool needs_auth = q->q_error && CFErrorGetCode(q->q_error) == errSecAuthNeeded;

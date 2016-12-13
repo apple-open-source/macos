@@ -129,21 +129,22 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
     LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - currentSession = %p", currentSession);
 
     if (!currentSession) {
-        if (m_nowPlayingActive) {
-            if (canLoad_MediaRemote_MRMediaRemoteSetNowPlayingVisibility())
-                MRMediaRemoteSetNowPlayingVisibility(MRMediaRemoteGetLocalOrigin(), MRNowPlayingClientVisibilityNeverVisible);
+        if (canLoad_MediaRemote_MRMediaRemoteSetNowPlayingVisibility())
+            MRMediaRemoteSetNowPlayingVisibility(MRMediaRemoteGetLocalOrigin(), MRNowPlayingClientVisibilityNeverVisible);
 
-            LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - clearing now playing info");
-            MRMediaRemoteSetNowPlayingInfo(nullptr);
-            m_nowPlayingActive = false;
-            MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(MRMediaRemoteGetLocalOrigin(), kMRPlaybackStateStopped, dispatch_get_main_queue(), ^(MRMediaRemoteError error) {
+        LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - clearing now playing info");
+        MRMediaRemoteSetNowPlayingInfo(nullptr);
+        m_nowPlayingActive = false;
+        m_lastUpdatedNowPlayingTitle = emptyString();
+        m_lastUpdatedNowPlayingDuration = NAN;
+        m_lastUpdatedNowPlayingElapsedTime = NAN;
+        MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(MRMediaRemoteGetLocalOrigin(), kMRPlaybackStateStopped, dispatch_get_main_queue(), ^(MRMediaRemoteError error) {
 #if LOG_DISABLED
-                UNUSED_PARAM(error);
+            UNUSED_PARAM(error);
 #else
-                LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(stopped) failed with error %ud", error);
+            LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(stopped) failed with error %ud", error);
 #endif
-            });
-        }
+        });
 
         return;
     }
@@ -153,20 +154,20 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
         MRMediaRemoteSetCanBeNowPlayingApplication(true);
     });
 
-    if (canLoad_MediaRemote_MRMediaRemoteSetNowPlayingVisibility())
-        MRMediaRemoteSetNowPlayingVisibility(MRMediaRemoteGetLocalOrigin(), MRNowPlayingClientVisibilityAlwaysVisible);
-
     String title = currentSession->title();
     double duration = currentSession->duration();
     double rate = currentSession->state() == PlatformMediaSession::Playing ? 1 : 0;
     auto info = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 4, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
-    if (!title.isEmpty())
+    if (!title.isEmpty()) {
         CFDictionarySetValue(info.get(), kMRMediaRemoteNowPlayingInfoTitle, title.createCFString().get());
+        m_lastUpdatedNowPlayingTitle = title;
+    }
 
     if (std::isfinite(duration) && duration != MediaPlayer::invalidTime()) {
         auto cfDuration = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &duration));
         CFDictionarySetValue(info.get(), kMRMediaRemoteNowPlayingInfoDuration, cfDuration.get());
+        m_lastUpdatedNowPlayingDuration = duration;
     }
 
     auto cfRate = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &rate);
@@ -176,6 +177,7 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
     if (std::isfinite(currentTime) && currentTime != MediaPlayer::invalidTime()) {
         auto cfCurrentTime = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &currentTime));
         CFDictionarySetValue(info.get(), kMRMediaRemoteNowPlayingInfoElapsedTime, cfCurrentTime.get());
+        m_lastUpdatedNowPlayingElapsedTime = currentTime;
     }
 
     LOG(Media, "MediaSessionManagerMac::updateNowPlayingInfo - title = \"%s\", rate = %f, duration = %f, now = %f",
@@ -185,7 +187,7 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
     if (canLoad_MediaRemote_MRMediaRemoteSetParentApplication() && !parentApplication.isEmpty())
         MRMediaRemoteSetParentApplication(MRMediaRemoteGetLocalOrigin(), parentApplication.createCFString().get());
 
-    m_nowPlayingActive = true;
+    m_nowPlayingActive = currentSession->allowsNowPlayingControlsVisibility();
     MRPlaybackState playbackState = (currentSession->state() == PlatformMediaSession::Playing) ? kMRPlaybackStatePlaying : kMRPlaybackStatePaused;
     MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(MRMediaRemoteGetLocalOrigin(), playbackState, dispatch_get_main_queue(), ^(MRMediaRemoteError error) {
 #if LOG_DISABLED
@@ -195,6 +197,11 @@ void MediaSessionManagerMac::updateNowPlayingInfo()
 #endif
     });
     MRMediaRemoteSetNowPlayingInfo(info.get());
+
+    if (canLoad_MediaRemote_MRMediaRemoteSetNowPlayingVisibility()) {
+        MRNowPlayingClientVisibility visibility = currentSession->allowsNowPlayingControlsVisibility() ? MRNowPlayingClientVisibilityAlwaysVisible : MRNowPlayingClientVisibilityNeverVisible;
+        MRMediaRemoteSetNowPlayingVisibility(MRMediaRemoteGetLocalOrigin(), visibility);
+    }
 #endif
 }
 

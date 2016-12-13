@@ -139,7 +139,7 @@ typedef enum {
     tls_handshake_config_default = 0,
     /* TLS v1.2 to SSLv3, with default + RC4 ciphersuites ciphersuites */
     tls_handshake_config_legacy = 1,
-    /* TLS v1.2 to TLS v1.0, with default ciphersuites (no RC4) */
+    /* TLS v1.2 to TLS v1.0, with default ciphersuites (no 3DES) */
     tls_handshake_config_standard = 2,
     /* TLS v1.2 to TLS v1.0, with defaults ciphersuites + RC4 */
     tls_handshake_config_RC4_fallback = 3,
@@ -155,7 +155,10 @@ typedef enum {
     tls_handshake_config_legacy_DHE = 8,
     /* TLS v1.2 only, anonymous ciphersuites only, no RC4 or 3DES */
     tls_handshake_config_anonymous = 9,
-
+    /* TLS v1.2 to TLS v1.0, with defaults ciphersuites + 3DES */
+    tls_handshake_config_3DES_fallback = 10,
+    /* TLS v1.0, with defaults ciphersuites + 3DES */
+    tls_handshake_config_TLSv1_3DES_fallback = 11,
 } tls_handshake_config_t;
 
 

@@ -127,6 +127,8 @@ bool SecCertificatePathIsValid(SecCertificatePathRef certificatePath, CFAbsolute
 
 bool SecCertificatePathHasWeakHash(SecCertificatePathRef certificatePath);
 
+bool SecCertificatePathHasWeakKeySize(SecCertificatePathRef certificatePath);
+
 CFIndex SecCertificatePathScore(SecCertificatePathRef certificatePath,
 	CFAbsoluteTime verifyTime);
 

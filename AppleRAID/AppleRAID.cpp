@@ -154,18 +154,18 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 
     while (1) {
 
-	if (member == 0) break;
+	if (member == 0) goto exit;
 	
 	// Look up the members's uuid
 	const OSString * memberUUID = member->getUUID();
-        if (memberUUID == 0) break;
+        if (memberUUID == 0) goto exit;
 
 	// check if member already exists?
 	if (findMember(memberUUID)) {
 	    IOLog("AppleRAID::newMember detected duplicate member %s in set \"%s\" (%s).\n",
 		  member->getUUIDString(), member->getSetNameString(), member->getSetUUIDString());
 	    // XXX should break the set, this is bad
-	    break;
+	    goto exit;
 	}
 
 	addMember(member);
@@ -175,7 +175,7 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
         if (setUUID == 0) {
 	    IOLog("AppleRAID::newMember member %s in set \"%s\" has a corrupted header (no set UUID).\n",
 		  member->getUUIDString(), member->getSetNameString());
-	    break;
+	    goto exit_removeMember;
 	}
 
 	AppleRAIDSet * set = findSet(setUUID);
@@ -189,7 +189,7 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 	    if (!raidLevel) {
 		IOLog("AppleRAID::newMember member %s in set \"%s\" (%s) has a corrupted header (no RAID level).\n",
 		  member->getUUIDString(), member->getSetNameString(), member->getSetUUIDString());
-		break;
+		goto exit_removeMember;
 	    }
 
 	    IOLog1("AppleRAID::newMember(%p) new raid set, level = %s.\n", child, raidLevel->getCStringNoCopy());
@@ -221,7 +221,7 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 	}
 
 	// only punt on headerless raid partitions
-	if (!set) break;
+	if (!set) goto exit_removeMember;
 
 	// is this a live add of a new member?
 	// concat only, mirrors come in as spares
@@ -232,7 +232,7 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 		gAppleRAIDGlobals.unlock();
 		return kIOReturnSuccess;
 	    }
-	    break;
+	    goto exit_removeMember;
 	}
 
 	// add member to raid set...
@@ -240,7 +240,7 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 	    if (!set->addSpare(member)) {
 		IOLog("AppleRAID::newMember was unable to add member %s to set \"%s\" (%s).\n",
 		      member->getUUIDString(), set->getSetNameString(), set->getUUIDString());
-		break;
+		goto exit_removeMember;
 	    }
 	}
 	
@@ -257,7 +257,11 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 
     IOLog1("AppleRAID::newMember(%p) failed.\n", child);
 
+exit_removeMember:
+
     if (member) removeMember(member);
+
+exit:
     
     gAppleRAIDGlobals.unlock();
     return kIOReturnUnformattedMedia;

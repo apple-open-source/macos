@@ -232,6 +232,7 @@ extern heim_string_t _gsskrb5_kGSSICAppleSourceAppSigningIdentity;
 extern heim_string_t _gsskrb5_kGSSICVerifyCredential;
 extern heim_string_t _gsskrb5_kGSSICVerifyCredentialAcceptorName;
 extern heim_string_t _gsskrb5_kGSSICCreateNewCredential;
+extern heim_string_t _gsskrb5_kGSSICAuthenticationContext;
 
 
 #endif

@@ -31,7 +31,7 @@
 
 #ifdef USE_MBEDTLS
 
-#include <mbedtls/net.h>
+#include <mbedtls/net_sockets.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/certs.h>
 #include <mbedtls/x509.h>
@@ -50,7 +50,6 @@
 #include "parsedate.h"
 #include "connect.h" /* for the connect timeout */
 #include "select.h"
-#include "rawstr.h"
 #include "polarssl_threadlock.h"
 
 /* The last 3 #include files should be in this order */
@@ -103,12 +102,12 @@ static int entropy_func_mutex(void *data, unsigned char *output, size_t len)
 static void mbed_debug(void *context, int level, const char *f_name,
                        int line_nb, const char *line)
 {
-  struct SessionHandle *data = NULL;
+  struct Curl_easy *data = NULL;
 
   if(!context)
     return;
 
-  data = (struct SessionHandle *)context;
+  data = (struct Curl_easy *)context;
 
   infof(data, "%s", line);
   (void) level;
@@ -158,17 +157,10 @@ static CURLcode
 mbed_connect_step1(struct connectdata *conn,
                    int sockindex)
 {
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct ssl_connect_data* connssl = &conn->ssl[sockindex];
 
-  bool sni = TRUE; /* default is SNI enabled */
   int ret = -1;
-#ifdef ENABLE_IPV6
-  struct in6_addr addr;
-#else
-  struct in_addr addr;
-#endif
-  void *old_session = NULL;
   char errorbuf[128];
   errorbuf[0]=0;
 
@@ -177,8 +169,6 @@ mbed_connect_step1(struct connectdata *conn,
     failf(data, "mbedTLS does not support SSLv2");
     return CURLE_SSL_CONNECT_ERROR;
   }
-  else if(data->set.ssl.version == CURL_SSLVERSION_SSLv3)
-    sni = FALSE; /* SSLv3 has no SNI */
 
 #ifdef THREADING_SUPPORT
   entropy_init_mutex(&entropy);
@@ -373,13 +363,22 @@ mbed_connect_step1(struct connectdata *conn,
 
   mbedtls_ssl_conf_ciphersuites(&connssl->config,
                                 mbedtls_ssl_list_ciphersuites());
-  if(!Curl_ssl_getsessionid(conn, &old_session, NULL)) {
-    ret = mbedtls_ssl_set_session(&connssl->ssl, old_session);
-    if(ret) {
-      failf(data, "mbedtls_ssl_set_session returned -0x%x", -ret);
-      return CURLE_SSL_CONNECT_ERROR;
+
+  /* Check if there's a cached ID we can/should use here! */
+  if(conn->ssl_config.sessionid) {
+    void *old_session = NULL;
+
+    Curl_ssl_sessionid_lock(conn);
+    if(!Curl_ssl_getsessionid(conn, &old_session, NULL)) {
+      ret = mbedtls_ssl_set_session(&connssl->ssl, old_session);
+      if(ret) {
+        Curl_ssl_sessionid_unlock(conn);
+        failf(data, "mbedtls_ssl_set_session returned -0x%x", -ret);
+        return CURLE_SSL_CONNECT_ERROR;
+      }
+      infof(data, "mbedTLS re-using session\n");
     }
-    infof(data, "mbedTLS re-using session\n");
+    Curl_ssl_sessionid_unlock(conn);
   }
 
   mbedtls_ssl_conf_ca_chain(&connssl->config,
@@ -420,7 +419,15 @@ mbed_connect_step1(struct connectdata *conn,
 #endif
 
 #ifdef MBEDTLS_DEBUG
-  mbedtls_ssl_conf_dbg(&connssl->config, mbedtls_debug, data);
+  /* In order to make that work in mbedtls MBEDTLS_DEBUG_C must be defined. */
+  mbedtls_ssl_conf_dbg(&connssl->config, mbed_debug, data);
+  /* - 0 No debug
+   * - 1 Error
+   * - 2 State change
+   * - 3 Informational
+   * - 4 Verbose
+   */
+  mbedtls_debug_set_threshold(4);
 #endif
 
   connssl->connecting_state = ssl_connect_2;
@@ -433,7 +440,7 @@ mbed_connect_step2(struct connectdata *conn,
                    int sockindex)
 {
   int ret;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct ssl_connect_data* connssl = &conn->ssl[sockindex];
   const mbedtls_x509_crt *peercert;
 
@@ -595,34 +602,39 @@ mbed_connect_step3(struct connectdata *conn,
 {
   CURLcode retcode = CURLE_OK;
   struct ssl_connect_data *connssl = &conn->ssl[sockindex];
-  struct SessionHandle *data = conn->data;
-  void *old_ssl_sessionid = NULL;
-  mbedtls_ssl_session *our_ssl_sessionid;
-  int ret;
+  struct Curl_easy *data = conn->data;
 
   DEBUGASSERT(ssl_connect_3 == connssl->connecting_state);
 
-  our_ssl_sessionid = malloc(sizeof(mbedtls_ssl_session));
-  if(!our_ssl_sessionid)
-    return CURLE_OUT_OF_MEMORY;
+  if(conn->ssl_config.sessionid) {
+    int ret;
+    mbedtls_ssl_session *our_ssl_sessionid;
+    void *old_ssl_sessionid = NULL;
 
-  mbedtls_ssl_session_init(our_ssl_sessionid);
+    our_ssl_sessionid = malloc(sizeof(mbedtls_ssl_session));
+    if(!our_ssl_sessionid)
+      return CURLE_OUT_OF_MEMORY;
 
-  ret = mbedtls_ssl_get_session(&connssl->ssl, our_ssl_sessionid);
-  if(ret) {
-    failf(data, "mbedtls_ssl_get_session returned -0x%x", -ret);
-    return CURLE_SSL_CONNECT_ERROR;
-  }
+    mbedtls_ssl_session_init(our_ssl_sessionid);
 
-  /* If there's already a matching session in the cache, delete it */
-  if(!Curl_ssl_getsessionid(conn, &old_ssl_sessionid, NULL))
-    Curl_ssl_delsessionid(conn, old_ssl_sessionid);
+    ret = mbedtls_ssl_get_session(&connssl->ssl, our_ssl_sessionid);
+    if(ret) {
+      failf(data, "mbedtls_ssl_get_session returned -0x%x", -ret);
+      return CURLE_SSL_CONNECT_ERROR;
+    }
 
-  retcode = Curl_ssl_addsessionid(conn, our_ssl_sessionid, 0);
-  if(retcode) {
-    free(our_ssl_sessionid);
-    failf(data, "failed to store ssl session");
-    return retcode;
+    /* If there's already a matching session in the cache, delete it */
+    Curl_ssl_sessionid_lock(conn);
+    if(!Curl_ssl_getsessionid(conn, &old_ssl_sessionid, NULL))
+      Curl_ssl_delsessionid(conn, old_ssl_sessionid);
+
+    retcode = Curl_ssl_addsessionid(conn, our_ssl_sessionid, 0);
+    Curl_ssl_sessionid_unlock(conn);
+    if(retcode) {
+      free(our_ssl_sessionid);
+      failf(data, "failed to store ssl session");
+      return retcode;
+    }
   }
 
   connssl->connecting_state = ssl_connect_done;
@@ -648,7 +660,7 @@ static ssize_t mbed_send(struct connectdata *conn, int sockindex,
   return ret;
 }
 
-void Curl_mbedtls_close_all(struct SessionHandle *data)
+void Curl_mbedtls_close_all(struct Curl_easy *data)
 {
   (void)data;
 }
@@ -712,7 +724,7 @@ mbed_connect_common(struct connectdata *conn,
                     bool *done)
 {
   CURLcode retcode;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct ssl_connect_data *connssl = &conn->ssl[sockindex];
   curl_socket_t sockfd = conn->sock[sockindex];
   long timeout_ms;
@@ -760,7 +772,8 @@ mbed_connect_common(struct connectdata *conn,
       curl_socket_t readfd = ssl_connect_2_reading==
         connssl->connecting_state?sockfd:CURL_SOCKET_BAD;
 
-      what = Curl_socket_ready(readfd, writefd, nonblocking ? 0 : timeout_ms);
+      what = Curl_socket_check(readfd, CURL_SOCKET_BAD, writefd,
+                               nonblocking ? 0 : timeout_ms);
       if(what < 0) {
         /* fatal error */
         failf(data, "select/poll on SSL socket, errno: %d", SOCKERRNO);

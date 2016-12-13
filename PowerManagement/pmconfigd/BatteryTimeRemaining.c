@@ -475,7 +475,7 @@ __private_extern__ void BatterySetNoPoll(bool noPoll)
             kernelPowerSourcesDidChange(kInternalBattery);
         }
     
-        asl_log(0, 0, ASL_LEVEL_ERR, "Battery polling is now %s\n", noPoll ? "disabled." : "enabled. Initiating a battery poll.");
+        ERROR_LOG("Battery polling is now %s\n", noPoll ? "disabled." : "enabled. Initiating a battery poll.");
     }
 }
 
@@ -1719,6 +1719,7 @@ kern_return_t _io_ps_new_pspowersource(
             notify_post(kIOPSNotifyTimeRemaining);
             notify_post(kIOPSNotifyAttach);
         }
+        INFO_LOG("Posted notifications for loss of power source id %ld\n", ps->psid);
         if (ps->procdeathsrc) {
             dispatch_release(ps->procdeathsrc);
         }
@@ -1781,6 +1782,7 @@ kern_return_t _io_ps_update_pspowersource(
     } else {
         PSStruct *next = iopsFromPSID(callerPID, psid);
         if (!next) {
+            ERROR_LOG("Failed to find the power source for psid 0x%x from pid %d\n", psid, callerPID);
             *return_code = kIOReturnNotFound;
         } else {
             psIDKey = CFDictionaryGetValue(details, CFSTR(kIOPSPowerSourceIDKey));
@@ -1810,6 +1812,7 @@ kern_return_t _io_ps_update_pspowersource(
                 }
             }
 
+            INFO_LOG("Received power source(psid:%d) update from pid %d: %@\n", psid, callerPID, details);
             if ((next->psType == kPSTypeIntBattery) || (next->psType == kPSTypeUPS)) {
                 if (next->description) {
                     CFRelease(next->description);
@@ -1817,6 +1820,7 @@ kern_return_t _io_ps_update_pspowersource(
                 else {
                     // This is the first update for this source
                     notify_post(kIOPSNotifyAttach);
+                    INFO_LOG("Posted \"%s\" for new power source id %d\n", kIOPSNotifyAttach, psid);
                 }
                 next->description = details;
                 updateLogBuffer(next, false);
@@ -1847,7 +1851,7 @@ kern_return_t _io_ps_release_pspowersource(
     audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL,
                         &callerPID, NULL, NULL);
 
-    asl_log(0,0, ASL_LEVEL_ERR, "releasing power source id = %d\n", psid);
+    INFO_LOG("Releasing power source id = %d\n", psid);
 
     PSStruct *toRelease = iopsFromPSID(callerPID, psid);
     if (toRelease) {
@@ -1935,6 +1939,11 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
     CFNumberRef     n = NULL;
     int  old_cap = 0, new_cap = 0;
     CFStringRef old_src = NULL, new_src = NULL;
+#if TARGET_OS_IPHONE
+    CFStringRef old_name, new_name;
+    CFStringRef old_pname, new_pname;
+    bool  old_exists, new_exists;
+#endif
 
     /* update dictionary is validated by the caller */
 
@@ -1945,7 +1954,7 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
     }
     
     if (!new_src || !n) {
-        asl_log(0,0, ASL_LEVEL_ERR, "PS update is missing SourceState or Capacity\n");
+        ERROR_LOG("PS update is missing SourceState or Capacity\n");
         return kIOReturnBadArgument;
     }
 
@@ -1953,6 +1962,7 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
         old_src = CFDictionaryGetValue(ps->description, CFSTR(kIOPSPowerSourceStateKey));
         if (old_src && CFStringCompare(new_src, old_src, 0) != kCFCompareEqualTo) {
             notify_post(kIOPSAccNotifyPowerSource);
+            INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
         }
 
         n = CFDictionaryGetValue(ps->description, CFSTR(kIOPSCurrentCapacityKey));
@@ -1961,7 +1971,33 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
         }
         if (new_cap != old_cap) {
             notify_post(kIOPSAccNotifyTimeRemaining);
+            INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyTimeRemaining, ps->psid);
         }
+
+#if TARGET_OS_IPHONE
+        old_name = new_name = NULL;
+        old_exists = CFDictionaryGetValueIfPresent(ps->description, CFSTR(kIOPSNameKey), (const void **)&old_name);
+        new_exists = CFDictionaryGetValueIfPresent(update, CFSTR(kIOPSNameKey), (const void **)&new_name);
+        if ((old_exists != new_exists) ||
+            (isA_CFString(old_name) && isA_CFString(new_name) &&
+            !CFEqual(old_name, new_name))) {
+
+            notify_post(kIOPSAccNotifyPowerSource); // Not the right notification
+            INFO_LOG("Posted \"%s\" for name change of power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+        }
+
+        old_pname = new_pname = NULL;
+        old_exists = CFDictionaryGetValueIfPresent(ps->description, CFSTR(kIOPSPartNameKey), (const void **)&old_pname);
+        new_exists = CFDictionaryGetValueIfPresent(update, CFSTR(kIOPSPartNameKey), (const void **)&new_pname);
+        if ((old_exists != new_exists) ||
+            (isA_CFString(old_pname) && isA_CFString(new_pname) &&
+            !CFEqual(old_pname, new_pname))) {
+
+            notify_post(kIOPSAccNotifyPowerSource); // Not the right notification
+            INFO_LOG("Posted \"%s\" for partname change of power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
+        }
+#endif
+
 
         CFRelease(ps->description);
     }
@@ -1969,6 +2005,7 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
         /* This is a new accessory with power source */
         notify_post(kIOPSAccNotifyTimeRemaining);
         notify_post(kIOPSAccNotifyAttach);
+        INFO_LOG("Posted notifications for new power source id %ld\n", ps->psid);
     }
 
     ps->description = update;

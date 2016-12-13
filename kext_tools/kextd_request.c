@@ -572,6 +572,11 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     }
 #endif // HAVE_DANGERZONE
 
+    /*
+     * The extension is definitely being loaded, so log it then perform the load.
+     */
+    recordKextLoadForMT(osKext);
+
     osLoadResult = OSKextLoadWithOptions(osKext,
         /* startExclusion */ kOSKextExcludeNone,
         /* addPersonalitiesExclusion */ kOSKextExcludeAll,
@@ -1332,6 +1337,11 @@ kextdProcessUserLoadRequest(
         goto finish;
     }
 #endif // HAVE_DANGERZONE
+
+    /*
+     * The extension is definitely being loaded, so log it then perform the load.
+     */
+    recordKextLoadForMT(theKext);
 
     /* The codepath from this function will do any error logging
      * and cleanup needed.

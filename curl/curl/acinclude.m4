@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -32,8 +32,8 @@ dnl actually be a single double-quoted string concatenating all them.
 AC_DEFUN([CURL_CHECK_DEF], [
   AC_REQUIRE([CURL_CPP_P])dnl
   OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
   AS_VAR_PUSHDEF([ac_HaveDef], [curl_cv_have_def_$1])dnl
   AS_VAR_PUSHDEF([ac_Def], [curl_cv_def_$1])dnl
   if test -z "$SED"; then
@@ -1856,7 +1856,7 @@ AC_DEFUN([CURL_CHECK_FUNC_CLOCK_GETTIME_MONOTONIC], [
   AC_CHECK_HEADERS(sys/types.h sys/time.h time.h)
   AC_MSG_CHECKING([for monotonic clock_gettime])
   #
-  if test "x$dontwant_rt" == "xno" ; then
+  if test "x$dontwant_rt" = "xno" ; then
     AC_COMPILE_IFELSE([
       AC_LANG_PROGRAM([[
 #ifdef HAVE_SYS_TYPES_H
@@ -2565,8 +2565,8 @@ dnl regarding the paths this will scan:
 dnl /etc/ssl/certs/ca-certificates.crt Debian systems
 dnl /etc/pki/tls/certs/ca-bundle.crt Redhat and Mandriva
 dnl /usr/share/ssl/certs/ca-bundle.crt old(er) Redhat
-dnl /usr/local/share/certs/ca-root.crt FreeBSD
-dnl /etc/ssl/cert.pem OpenBSD
+dnl /usr/local/share/certs/ca-root-nss.crt FreeBSD
+dnl /etc/ssl/cert.pem OpenBSD, FreeBSD (symlink)
 dnl /etc/ssl/certs/ (ca path) SUSE
 
 AC_DEFUN([CURL_CHECK_CA_BUNDLE], [
@@ -2640,7 +2640,7 @@ AC_HELP_STRING([--without-ca-path], [Don't use a default CA path]),
         for a in /etc/ssl/certs/ca-certificates.crt \
                  /etc/pki/tls/certs/ca-bundle.crt \
                  /usr/share/ssl/certs/ca-bundle.crt \
-                 /usr/local/share/certs/ca-root.crt \
+                 /usr/local/share/certs/ca-root-nss.crt \
                  /etc/ssl/cert.pem \
                  "$cac"; do
           if test -f "$a"; then
@@ -3187,12 +3187,52 @@ TEST EINVAL TEST
     if test "x$cpp_p" = "xno"; then
       AC_MSG_WARN([failed to figure out cpp -P alternative])
       # without -P
-      CPPPFLAGS=$OLDCPPFLAGS
+      CPPPFLAG=""
     else
       # with -P
-      CPPPFLAGS=$CPPFLAGS
+      CPPPFLAG="-P"
     fi
     dnl restore CPPFLAGS
     CPPFLAGS=$OLDCPPFLAGS
+  else
+    # without -P
+    CPPPFLAG=""
   fi
+])
+
+
+dnl CURL_MAC_CFLAGS
+dnl
+dnl Check if -mmacosx-version-min, -miphoneos-version-min or any
+dnl similar are set manually, otherwise do. And set
+dnl -Werror=partial-availability.
+dnl
+
+AC_DEFUN([CURL_MAC_CFLAGS], [
+
+  tst_cflags="no"
+  case $host_os in
+    darwin*)
+      tst_cflags="yes"
+      ;;
+  esac
+
+  AC_MSG_CHECKING([for good-to-use Mac CFLAGS])
+  AC_MSG_RESULT([$tst_cflags]);
+
+  if test "$tst_cflags" = "yes"; then
+    AC_MSG_CHECKING([for *version-min in CFLAGS])
+    min=""
+    if test -z "$(echo $CFLAGS | grep m.*os.*-version-min)"; then
+      min="-mmacosx-version-min=10.8"
+      CFLAGS="$CFLAGS $min"
+    fi
+    if test -z "$min"; then
+      AC_MSG_RESULT([set by user])
+    else
+      AC_MSG_RESULT([$min set])
+    fi
+    CFLAGS="$CFLAGS -Werror=partial-availability"
+  fi
+
 ])

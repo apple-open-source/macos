@@ -11,4 +11,4 @@ GENRB_SOURCE_LOCAL = ars.txt ckb.txt ckb_IQ.txt ckb_IR.txt\
 	en_HR.txt en_HU.txt en_IS.txt en_IT.txt en_JP.txt\
 	en_KR.txt en_LT.txt en_LU.txt en_LV.txt en_ME.txt\
 	en_MV.txt en_NO.txt en_PL.txt en_PT.txt en_RO.txt\
-	en_RU.txt en_SK.txt en_TR.txt en_TW.txt
+	en_RU.txt en_SK.txt en_TR.txt en_TW.txt es_BZ.txt

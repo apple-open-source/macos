@@ -222,18 +222,18 @@ bool CompareProductID( IOService * owner, OSDictionary * matching, SInt32 * scor
 
 bool CompareNumberPropertyMask( IOService *owner, OSDictionary *matching, const char *key, const char *maskKey, SInt32 *score, SInt32 increment)
 {
-    OSNumber *    registryProperty;
+    OSNumber *    registryProperty = (OSNumber *)owner->copyProperty(key);
     OSNumber *    dictionaryProperty;
     OSNumber *    valueMask;
+    CONVERT_TO_STACK_RETAIN(registryProperty);
     
-    registryProperty = OSDynamicCast(OSNumber,  owner->getProperty(key));
     dictionaryProperty = OSDynamicCast(OSNumber, matching->getObject(key));
     valueMask = OSDynamicCast(OSNumber, matching->getObject(maskKey));
     
     // If the dicitonary or value mask doesn't exist then return true
     if ( dictionaryProperty && valueMask )
     {
-        if ( registryProperty )
+        if ( OSDynamicCast(OSNumber, registryProperty) )
         {
             // If all our values are OSNumbers, then get their actual value and do the masking
             // to see if they are equal

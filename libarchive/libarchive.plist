@@ -25,7 +25,9 @@
 		<string>libarchive/archive_read_support_format_tar.c: upstream fixes for 23383941</string>
 		<string>libarchive/archive_read_support_format_zip.c: 23383941</string>
 		<string>libarchive/archive_read_support_compression_uu.c: 24686424</string>
+		<string>libarchive/archive_read_support_format_tar.c: 26496124 (8b102e8ddf35e0c066af8d26eb9845024b6a5048)</string>
 		<string>libarchive/archive_write_disk.c: 28101193 (6a7b8adb9c70593159831161659de2d2898045f0)</string>
+		<string>libarchive/archive_write_disk.c: 28270358 (dc1882e, 1fa9c7b)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

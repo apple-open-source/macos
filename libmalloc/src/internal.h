@@ -116,4 +116,8 @@ MALLOC_NOEXPORT MALLOC_NOINLINE MALLOC_USED
 int
 malloc_gdb_po_unsafe(void);
 
+MALLOC_NOEXPORT
+extern uint64_t max_lite_mallocs;
+
+
 #endif // __INTERNAL_H

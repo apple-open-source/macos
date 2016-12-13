@@ -113,6 +113,9 @@
 		48516CCC1D637F9B001A629B /* IOHIDDFREventFilter.mm in Sources */ = {isa = PBXBuildFile; fileRef = 48516CBD1D637D9E001A629B /* IOHIDDFREventFilter.mm */; };
 		48516CCD1D637FAE001A629B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D868E2D71BD5DAA800CC07F9 /* CoreFoundation.framework */; };
 		48516CCE1D637FB5001A629B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D868E2D91BD5DAAF00CC07F9 /* IOKit.framework */; };
+		48A17B761DB93F5A00C1C8EA /* IOHIDUtility.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 48A17B751DB93C9600C1C8EA /* IOHIDUtility.cpp */; };
+		48A17B771DB93F6400C1C8EA /* IOHIDUtility.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 48A17B751DB93C9600C1C8EA /* IOHIDUtility.cpp */; };
+		48A17B781DB940C500C1C8EA /* IOHIDUtility.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 48A17B751DB93C9600C1C8EA /* IOHIDUtility.cpp */; };
 		48D3C2C71CE3ED770067F138 /* IOHIDProperties.h in Copy Kernel HID */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
 		48D3C2C91CE3EDB20067F138 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
 		48D3C2CA1CE3EE160067F138 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48F2822A1CE2986300AA8798 /* IOHIDProperties.h */; };
@@ -1407,6 +1410,7 @@
 		48516CBE1D637D9E001A629B /* IOHIDDFREventFilter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = IOHIDDFREventFilter.hpp; sourceTree = "<group>"; };
 		48516CC31D637E2D001A629B /* IOHIDDFREventFilter.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDDFREventFilter.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		48516CCB1D637E92001A629B /* IOHIDDFREventFilter-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "IOHIDDFREventFilter-Info.plist"; sourceTree = "<group>"; };
+		48A17B751DB93C9600C1C8EA /* IOHIDUtility.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDUtility.cpp; sourceTree = "<group>"; };
 		48F2822A1CE2986300AA8798 /* IOHIDProperties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDProperties.h; sourceTree = "<group>"; };
 		583C4C91030989AE04CA2A11 /* IOHIDKeyboard.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDKeyboard.h; sourceTree = "<group>"; };
 		583C4C92030989AE04CA2A11 /* IOHIDKeyboard.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDKeyboard.cpp; sourceTree = "<group>"; };
@@ -2318,6 +2322,7 @@
 				843C24420C07AE970009057F /* IOHIDEventTypes.h */,
 				843C24430C07AE970009057F /* IOHIDEventData.h */,
 				D83914BB1CB3898800116F88 /* IOHIDUtility.h */,
+				48A17B751DB93C9600C1C8EA /* IOHIDUtility.cpp */,
 			);
 			name = Common;
 			sourceTree = "<group>";
@@ -4027,6 +4032,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48A17B761DB93F5A00C1C8EA /* IOHIDUtility.cpp in Sources */,
 				48516CCC1D637F9B001A629B /* IOHIDDFREventFilter.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4283,6 +4289,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48A17B781DB940C500C1C8EA /* IOHIDUtility.cpp in Sources */,
 				98B9F0611AB00E6C003B3C24 /* IOHIDKeyboardFilter.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4379,6 +4386,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48A17B771DB93F6400C1C8EA /* IOHIDUtility.cpp in Sources */,
 				F5CD19BE1BEACE4C00D0888A /* IOHIDKeyboardFilter.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

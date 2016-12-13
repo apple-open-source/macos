@@ -7566,9 +7566,9 @@ FFFE..FFFF    >FFFD                     # 1.1  <noncharacter-FFFE>..<noncharacte
 # 1F54B..1F54Fvalid                     # 8.0  KAABA..BOWL OF HYGIEIA
 # 1F550..1F567valid                     # 6.0  CLOCK FACE ONE OCLOCK..CLOCK FACE TWELVE-THIRTY
 # 1F568..1F579valid                     # 7.0  RIGHT SPEAKER..JOYSTICK
-1F57A         >FFFD                     # NA   <reserved-1F57A>
+# 1F57A       valid                     # 9.0  MAN DANCING
 # 1F57B..1F5A3valid                     # 7.0  LEFT HAND TELEPHONE RECEIVER..BLACK DOWN POINTING BACKHAND INDEX
-1F5A4         >FFFD                     # NA   <reserved-1F5A4>
+# 1F5A4       valid                     # 9.0  BLACK HEART
 # 1F5A5..1F5FAvalid                     # 7.0  DESKTOP COMPUTER..WORLD MAP
 # 1F5FB..1F5FFvalid                     # 6.0  MOUNT FUJI..MOYAI
 # 1F600       valid                     # 6.1  GRINNING FACE
@@ -7600,11 +7600,13 @@ FFFE..FFFF    >FFFD                     # 1.1  <noncharacter-FFFE>..<noncharacte
 # 1F680..1F6C5valid                     # 6.0  ROCKET..LEFT LUGGAGE
 # 1F6C6..1F6CFvalid                     # 7.0  TRIANGLE WITH ROUNDED CORNERS..BED
 # 1F6D0       valid                     # 8.0  PLACE OF WORSHIP
-1F6D1..1F6DF  >FFFD                     # NA   <reserved-1F6D1>..<reserved-1F6DF>
+# 1F6D1..1F6D2valid                     # 9.0  OCTAGONAL SIGN..SHOPPING TROLLEY
+1F6D3..1F6DF  >FFFD                     # NA   <reserved-1F6D3>..<reserved-1F6DF>
 # 1F6E0..1F6ECvalid                     # 7.0  HAMMER AND WRENCH..AIRPLANE ARRIVING
 1F6ED..1F6EF  >FFFD                     # NA   <reserved-1F6ED>..<reserved-1F6EF>
 # 1F6F0..1F6F3valid                     # 7.0  SATELLITE..PASSENGER SHIP
-1F6F4..1F6FF  >FFFD                     # NA   <reserved-1F6F4>..<reserved-1F6FF>
+# 1F6F4..1F6F6valid                     # 9.0  SCOOTER..CANOE
+1F6F7..1F6FF  >FFFD                     # NA   <reserved-1F6F7>..<reserved-1F6FF>
 # 1F700..1F773valid                     # 6.0  ALCHEMICAL SYMBOL FOR QUINTESSENCE..ALCHEMICAL SYMBOL FOR HALF OUNCE
 1F774..1F77F  >FFFD                     # NA   <reserved-1F774>..<reserved-1F77F>
 # 1F780..1F7D4valid                     # 7.0  BLACK LEFT-POINTING ISOSCELES RIGHT TRIANGLE..HEAVY TWELVE POINTED PINWHEEL STAR
@@ -7620,9 +7622,21 @@ FFFE..FFFF    >FFFD                     # 1.1  <noncharacter-FFFE>..<noncharacte
 # 1F890..1F8ADvalid                     # 7.0  LEFTWARDS TRIANGLE ARROWHEAD..WHITE ARROW SHAFT WIDTH TWO THIRDS
 1F8AE..1F90F  >FFFD                     # NA   <reserved-1F8AE>..<reserved-1F90F>
 # 1F910..1F918valid                     # 8.0  ZIPPER-MOUTH FACE..SIGN OF THE HORNS
-1F919..1F97F  >FFFD                     # NA   <reserved-1F919>..<reserved-1F97F>
+# 1F919..1F91Evalid                     # 9.0  CALL ME HAND..HAND WITH INDEX AND MIDDLE FINGERS CROSSED
+1F91F         >FFFD                     # NA   <reserved-1F91F>
+# 1F920..1F927valid                     # 9.0  FACE WITH COWBOY HAT..SNEEZING FACE
+1F928..1F92F  >FFFD                     # NA   <reserved-1F928>..<reserved-1F92F>
+# 1F930       valid                     # 9.0  PREGNANT WOMAN
+1F931..1F932  >FFFD                     # NA   <reserved-1F931>..<reserved-1F932>
+# 1F933..1F93Evalid                     # 9.0  SELFIE..HANDBALL
+1F93F         >FFFD                     # NA   <reserved-1F93F>
+# 1F940..1F94Bvalid                     # 9.0  WILTED FLOWER..MARTIAL ARTS UNIFORM
+1F94C..1F94F  >FFFD                     # NA   <reserved-1F94C>..<reserved-1F94F>
+# 1F950..1F95Evalid                     # 9.0  CROISSANT..PANCAKES
+1F95F..1F97F  >FFFD                     # NA   <reserved-1F95F>..<reserved-1F97F>
 # 1F980..1F984valid                     # 8.0  CRAB..UNICORN FACE
-1F985..1F9BF  >FFFD                     # NA   <reserved-1F985>..<reserved-1F9BF>
+# 1F985..1F991valid                     # 9.0  EAGLE..SQUID
+1F992..1F9BF  >FFFD                     # NA   <reserved-1F992>..<reserved-1F9BF>
 # 1F9C0       valid                     # 8.0  CHEESE WEDGE
 1F9C1..1FFFD  >FFFD                     # NA   <reserved-1F9C1>..<reserved-1FFFD>
 1FFFE..1FFFF  >FFFD                     # 2.0  <noncharacter-1FFFE>..<noncharacter-1FFFF>

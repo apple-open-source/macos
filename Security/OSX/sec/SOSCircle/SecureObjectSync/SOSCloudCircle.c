@@ -1382,33 +1382,33 @@ static bool sosIsViewSetSyncing(size_t n, CFStringRef *views) {
 }
 
 bool SOSCCIsIcloudKeychainSyncing(void) {
-    CFStringRef views[] = { kSOSViewAutofillPasswords, kSOSViewSafariCreditCards };
-    return sosIsViewSetSyncing(1, views);
+    CFStringRef views[] = { kSOSViewWiFi, kSOSViewAutofillPasswords, kSOSViewSafariCreditCards, kSOSViewOtherSyncable };
+    return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsSafariSyncing(void) {
     CFStringRef views[] = { kSOSViewAutofillPasswords, kSOSViewSafariCreditCards };
-    return sosIsViewSetSyncing(2, views);
+    return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsAppleTVSyncing(void) {
     CFStringRef views[] = { kSOSViewAppleTV };
-    return sosIsViewSetSyncing(1, views);
+    return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsHomeKitSyncing(void) {
     CFStringRef views[] = { kSOSViewHomeKit };
-    return sosIsViewSetSyncing(1, views);
+    return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsWiFiSyncing(void) {
     CFStringRef views[] = { kSOSViewWiFi };
-    return sosIsViewSetSyncing(1, views);
+    return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsContinuityUnlockSyncing(void) {
     CFStringRef views[] = { kSOSViewContinuityUnlock };
-    return sosIsViewSetSyncing(1, views);
+    return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 

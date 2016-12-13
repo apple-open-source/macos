@@ -1577,7 +1577,8 @@ static int32_t xar_unserialize(xar_t x) {
 						return -1;
 					}
 				} else {
-					xar_subdoc_t s;
+					xar_subdoc_t s = NULL;
+					xar_attr_t a = NULL;
 					int i;
 
 					prefix = xmlTextReaderPrefix(reader);
@@ -1586,24 +1587,26 @@ static int32_t xar_unserialize(xar_t x) {
 					i = xmlTextReaderAttributeCount(reader);
 					if( i > 0 ) {
 						for(i = xmlTextReaderMoveToFirstAttribute(reader); i == 1; i = xmlTextReaderMoveToNextAttribute(reader)) {
-							xar_attr_t a;
 							const char *aname = (const char *)xmlTextReaderConstLocalName(reader);
 							const char *avalue = (const char *)xmlTextReaderConstValue(reader);
 							
 							if( aname && (strcmp("subdoc_name", aname) == 0) ) {
 								name = (const unsigned char *)avalue;
 							} else {
+								xar_attr_t next = a;
 								a = xar_attr_new();
 								XAR_ATTR(a)->key = strdup(aname);
 								XAR_ATTR(a)->value = strdup(avalue);
-								XAR_ATTR(a)->next = XAR_SUBDOC(s)->attrs;
-								XAR_SUBDOC(s)->attrs = XAR_ATTR(a);
+								XAR_ATTR(a)->next = next;
 							}
 						}
 					}
 
 					s = xar_subdoc_new(x, (const char *)name);
                     if(s){
+                        if(a){
+                            XAR_SUBDOC(s)->attrs = XAR_ATTR(a);
+                        }
                         xar_subdoc_unserialize(s, reader);
                     }else{
                         xmlFreeTextReader(reader);

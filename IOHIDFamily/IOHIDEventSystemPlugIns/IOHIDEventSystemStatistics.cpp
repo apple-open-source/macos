@@ -28,6 +28,7 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include "IOHIDEventSystemStatistics.h"
+#include "IOHIDDebug.h"
 
 
 #define kAggregateDictionaryKeyboardEnumerationCountKey         "com.apple.iokit.hid.keyboard.enumerationCount"
@@ -42,6 +43,9 @@
 #define kAggregateDictionaryVolumeDecrementButtonPressedCountKey    "com.apple.iokit.hid.volumeDecrementButton.pressed"
 #define kAggregateDictionaryVolumeDecrementButtonFilteredCountKey   "com.apple.iokit.hid.volumeDecrementButton.filtered"
 
+#define kAggregateDictionaryButtonsHighLatencyCountKey          "com.apple.iokit.hid.buttons.highLatencyCount"
+#define kAggregateDictionaryButtonsHighLatencyMinMS             10000
+
 #define kAggregateDictionaryMotionAccelSampleCount              "com.apple.CoreMotion.Accel.SampleCount"
 #define kAggregateDictionaryMotionGyroSampleCount               "com.apple.CoreMotion.Gyro.SampleCount"
 #define kAggregateDictionaryMotionMagSampleCount                "com.apple.CoreMotion.Mag.SampleCount"
@@ -49,6 +53,15 @@
 #define kAggregateDictionaryMotionDeviceMotionSampleCount       "com.apple.CoreMotion.DeviceMotion.SampleCount"
 
 #define kAggregateDictionaryMotionFlushInterval 60.0
+
+#define kAggregateDictionaryAppleKeyboardCharacterCountKey      "com.apple.iokit.hid.keyboard.characterKey.count"
+#define kAggregateDictionaryAppleKeyboardSymbolCountKey         "com.apple.iokit.hid.keyboard.symbolKey.count"
+#define kAggregateDictionaryAppleKeyboardSpacebarCountKey       "com.apple.iokit.hid.keyboard.spacebarKey.count"
+#define kAggregateDictionaryAppleKeyboardArrowCountKey          "com.apple.iokit.hid.keyboard.arrowKey.count"
+#define kAggregateDictionaryAppleKeyboardCursorCountKey         "com.apple.iokit.hid.keyboard.cursorKey.count"
+#define kAggregateDictionaryAppleKeyboardModifierCountKey       "com.apple.iokit.hid.keyboard.modifierKey.count"
+
+#define kAppleVendorID 1452
 
 // 072BC077-E984-4C2A-BB72-D4769CE44FAF
 #define kIOHIDEventSystemStatisticsFactory CFUUIDGetConstantUUIDWithBytes(kCFAllocatorSystemDefault, 0x07, 0x2B, 0xC0, 0x77, 0xE9, 0x84, 0x4C, 0x2A, 0xBB, 0x72, 0xD4, 0x76, 0x9C, 0xE4, 0x4F, 0xAF)
@@ -98,7 +111,7 @@ IOHIDSessionFilterPlugInInterface IOHIDEventSystemStatistics::sIOHIDEventSystemS
     NULL,
     NULL,
     IOHIDEventSystemStatistics::registerService,
-    NULL,
+    IOHIDEventSystemStatistics::unregisterService,
     IOHIDEventSystemStatistics::scheduleWithDispatchQueue,
     IOHIDEventSystemStatistics::unscheduleFromDispatchQueue,
     NULL,
@@ -118,6 +131,7 @@ _displayToken(0),
 _pending_source(0),
 _dispatch_queue(0),
 _last_motionstat_ts(0),
+_keyServices(NULL),
 _logButtonFiltering(false),
 _logStrings(NULL),
 _logfd(-1),
@@ -125,6 +139,7 @@ _asl(NULL)
 {
     bzero(&_pending_buttons, sizeof(_pending_buttons));
     bzero(&_pending_motionstats, sizeof(_pending_motionstats));
+    bzero(&_pending_keystats, sizeof(_pending_keystats));
     CFPlugInAddInstanceForFactory( factoryID );
 }
 //------------------------------------------------------------------------------
@@ -237,6 +252,8 @@ boolean_t IOHIDEventSystemStatistics::open(IOHIDSessionRef session, IOOptionBits
         if ((_logfd != -1) && (_asl != NULL))
             asl_add_log_file(_asl, _logfd);
     }
+    
+    _keyServices = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
 
     return true;
 }
@@ -263,6 +280,11 @@ void IOHIDEventSystemStatistics::close(IOHIDSessionRef session, IOOptionBits opt
         asl_close(_asl);
         if (_logfd != -1) ::close(_logfd);
     }
+    
+    if (_keyServices) {
+        CFRelease(_keyServices);
+        _keyServices = NULL;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -276,7 +298,39 @@ void IOHIDEventSystemStatistics::registerService(IOHIDServiceRef service)
 {
     if ( IOHIDServiceConformsTo(service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard) )
     {
+        CFTypeRef   obj;
+        uint32_t    vendorID = 0;
+        
         ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryKeyboardEnumerationCountKey), 1);
+        
+        obj = IOHIDServiceGetProperty(service, CFSTR(kIOHIDVendorIDKey));
+        if (obj && CFGetTypeID(obj) == CFNumberGetTypeID())
+            CFNumberGetValue((CFNumberRef)obj, kCFNumberIntType, &vendorID);
+        
+        // Check for Apple vendorID.
+        if (vendorID != kAppleVendorID)
+            return;
+        
+        if (_keyServices)
+            CFSetAddValue(_keyServices, service);
+        
+        HIDLogDebug("Apple Keyboard registered");
+    }
+}
+
+//------------------------------------------------------------------------------
+// IOHIDEventSystemStatistics::unregisterService
+//------------------------------------------------------------------------------
+void IOHIDEventSystemStatistics::unregisterService(void * self, IOHIDServiceRef service)
+{
+    static_cast<IOHIDEventSystemStatistics *>(self)->unregisterService(service);
+}
+void IOHIDEventSystemStatistics::unregisterService(IOHIDServiceRef service)
+{
+    if (_keyServices && CFSetGetValue(_keyServices, service)) {
+        CFSetRemoveValue(_keyServices, service);
+        
+        HIDLogDebug("Apple Keyboard unregistered");
     }
 }
 
@@ -335,12 +389,16 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     __block Buttons     buttons     = {};
     __block CFArrayRef  logStrings  = NULL;
     __block MotionStats motionStats = {};
+    __block KeyStats    keyStats    = {};
     dispatch_sync(_dispatch_queue, ^{
         bcopy(&_pending_buttons, &buttons, sizeof(Buttons));
         bzero(&_pending_buttons, sizeof(Buttons));
 
         bcopy(&_pending_motionstats, &motionStats, sizeof(MotionStats));
         bzero(&_pending_motionstats, sizeof(MotionStats));
+        
+        bcopy(&_pending_keystats, &keyStats, sizeof(KeyStats));
+        bzero(&_pending_keystats, sizeof(KeyStats));
 
         if (_logStrings) {
             logStrings = CFArrayCreateCopy(kCFAllocatorDefault, _logStrings);
@@ -360,12 +418,25 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryVolumeDecrementButtonPressedCountKey), buttons.volume_decrement);
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryVolumeDecrementButtonFilteredCountKey), buttons.volume_decrement_filtered);
+    
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryButtonsHighLatencyCountKey), buttons.high_latency);
 
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionAccelSampleCount), motionStats.accel_count);
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionGyroSampleCount), motionStats.gyro_count);
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionMagSampleCount), motionStats.mag_count);
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionPressureSampleCount), motionStats.pressure_count);
     ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryMotionDeviceMotionSampleCount), motionStats.devmotion_count);
+    
+    HIDLogDebug("Apple Keyboard char: %d symbol: %d spacebar: %d arrow: %d cursor: %d modifier: %d ",
+                keyStats.character_count, keyStats.symbol_count, keyStats.spacebar_count,
+                keyStats.arrow_count, keyStats.cursor_count, keyStats.modifier_count);
+    
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryAppleKeyboardCharacterCountKey), keyStats.character_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryAppleKeyboardSymbolCountKey), keyStats.symbol_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryAppleKeyboardSpacebarCountKey), keyStats.spacebar_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryAppleKeyboardArrowCountKey), keyStats.arrow_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryAppleKeyboardCursorCountKey), keyStats.cursor_count);
+    ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryAppleKeyboardModifierCountKey), keyStats.modifier_count);
 
     if (logStrings) {
         for (int i = 0; i < CFArrayGetCount(logStrings); i++) {
@@ -383,6 +454,59 @@ void IOHIDEventSystemStatistics::handlePendingStats()
     
         CFRelease(logStrings);
     }
+}
+
+//------------------------------------------------------------------------------
+// IOHIDEventSystemStatistics::collectKeyStats
+//------------------------------------------------------------------------------
+bool IOHIDEventSystemStatistics::collectKeyStats(IOHIDServiceRef sender, IOHIDEventRef event)
+{
+    bool        serviceMatch = false;
+    uint16_t    usagePage;
+    uint16_t    usage;
+    
+    if (sender == NULL || _keyServices == NULL)
+        return false;
+    
+    // Check if the event is from a registered Apple Keyboard service.
+    if (!CFSetGetValue(_keyServices, sender))
+        return false;
+    
+    // Collect stats only for keyboard event key-downs.
+    if (IOHIDEventGetType(event) != kIOHIDEventTypeKeyboard ||
+        !IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown))
+        return false;
+        
+    usagePage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsagePage);
+    usage     = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage);
+    
+    if (isCharacterKey(usagePage, usage)) {
+        HIDLogDebug("Apple Keyboard character key");
+        _pending_keystats.character_count++;
+    }
+    else if (isSymbolKey(usagePage, usage)) {
+        HIDLogDebug("Apple Keyboard symbol key");
+        _pending_keystats.symbol_count++;
+    }
+    else if (isSpacebarKey(usagePage, usage)) {
+        HIDLogDebug("Apple Keyboard spacebar key");
+        _pending_keystats.spacebar_count++;
+    }
+    else if (isArrowKey(usagePage, usage)) {
+        HIDLogDebug("Apple Keyboard arrow key");
+        _pending_keystats.arrow_count++;
+    }
+    else if (isCursorKey(usagePage, usage)) {
+        HIDLogDebug("Apple Keyboard cursor key");
+        _pending_keystats.cursor_count++;
+    }
+    else if (isModifierKey(usagePage, usage)) {
+        HIDLogDebug("Apple Keyboard modifier key");
+        _pending_keystats.modifier_count++;
+    }
+    
+    // Return true to signal AggD update.
+    return true;
 }
 
 //------------------------------------------------------------------------------
@@ -429,6 +553,7 @@ bool IOHIDEventSystemStatistics::collectMotionStats(IOHIDServiceRef sender, IOHI
         return false;
     }
 }
+
 //------------------------------------------------------------------------------
 // IOHIDEventSystemStatistics::filter
 //------------------------------------------------------------------------------
@@ -448,37 +573,59 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
         if ( event ) {
             bool signal = false;
             
-            if ((IOHIDEventGetType(event) == kIOHIDEventTypeKeyboard)
-                && IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown)
-                && (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsagePage) == kHIDPage_Consumer)) {
+            if (collectKeyStats(sender, event)) {
                 
                 signal = true;
+            }
+            else if ((IOHIDEventGetType(event) == kIOHIDEventTypeKeyboard)
+                && (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsagePage) == kHIDPage_Consumer)) {
                 
-                switch (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage) ) {
-                    case kHIDUsage_Csmr_Menu:
-                        button = kButtonMenu;
-                        if ( !_displayState )
-                            _pending_buttons.home_wake++;
-                        break;
-                    case kHIDUsage_Csmr_Power:
-                        _pending_buttons.power++;
-                        button = kButtonPower;
-                        if ( !_displayState )
-                            _pending_buttons.power_wake++;
-                        else
-                            _pending_buttons.power_sleep++;
-                        break;
-                    case kHIDUsage_Csmr_VolumeDecrement:
-                        _pending_buttons.volume_decrement++;
-                        button = kButtonVolumeDecrement;
-                        break;
-                    case kHIDUsage_Csmr_VolumeIncrement:
-                        _pending_buttons.volume_increment++;
-                        button = kButtonVolumeIncrement;
-                        break;
-                    default:
-                        signal = false;
-                        break;
+                if (IOHIDEventGetLatency(event, kMillisecondScale) > kAggregateDictionaryButtonsHighLatencyMinMS) {
+                
+                    switch (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage) ) {
+                        case kHIDUsage_Csmr_Menu:
+                        case kHIDUsage_Csmr_Power:
+                        case kHIDUsage_Csmr_VolumeDecrement:
+                        case kHIDUsage_Csmr_VolumeIncrement:
+                            HIDLogDebug("Recording high latency button event");
+                            _pending_buttons.high_latency++;
+                            signal = true;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                
+                if (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown)) {
+                    
+                    signal = true;
+                    
+                    switch (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage) ) {
+                        case kHIDUsage_Csmr_Menu:
+                            button = kButtonMenu;
+                            if ( !_displayState )
+                                _pending_buttons.home_wake++;
+                            break;
+                        case kHIDUsage_Csmr_Power:
+                            _pending_buttons.power++;
+                            button = kButtonPower;
+                            if ( !_displayState )
+                                _pending_buttons.power_wake++;
+                            else
+                                _pending_buttons.power_sleep++;
+                            break;
+                        case kHIDUsage_Csmr_VolumeDecrement:
+                            _pending_buttons.volume_decrement++;
+                            button = kButtonVolumeDecrement;
+                            break;
+                        case kHIDUsage_Csmr_VolumeIncrement:
+                            _pending_buttons.volume_increment++;
+                            button = kButtonVolumeIncrement;
+                            break;
+                        default:
+                            signal = false;
+                            break;
+                    }
                 }
                 
                 if (signal && _logButtonFiltering) {
@@ -566,4 +713,122 @@ IOHIDEventRef IOHIDEventSystemStatistics::filter(IOHIDServiceRef sender, IOHIDEv
     }
     
     return event;
+}
+
+bool IOHIDEventSystemStatistics::isCharacterKey(uint16_t usagePage, uint16_t usage)
+{
+    if (usagePage == kHIDPage_KeyboardOrKeypad) {
+        
+        if (usage >= kHIDUsage_KeyboardA && usage <= kHIDUsage_KeyboardZ) {
+            
+            return true;
+        }
+    }
+    return false;
+}
+
+bool IOHIDEventSystemStatistics::isSymbolKey(uint16_t usagePage, uint16_t usage)
+{
+    if (usagePage == kHIDPage_KeyboardOrKeypad) {
+        
+        // Check numeric keys
+        if (usage >= kHIDUsage_Keyboard1 && usage <= kHIDUsage_Keyboard0) {
+            
+            return true;
+        }
+        
+        // Non-numeric symbol keys
+        switch (usage) {
+                
+            case kHIDUsage_KeyboardHyphen:
+            case kHIDUsage_KeyboardEqualSign:
+            case kHIDUsage_KeyboardOpenBracket:
+            case kHIDUsage_KeyboardCloseBracket:
+            case kHIDUsage_KeyboardBackslash:
+            case kHIDUsage_KeyboardSemicolon:
+            case kHIDUsage_KeyboardQuote:
+            case kHIDUsage_KeyboardGraveAccentAndTilde:
+            case kHIDUsage_KeyboardComma:
+            case kHIDUsage_KeyboardPeriod:
+            case kHIDUsage_KeyboardSlash:
+                return true;
+                
+            default:
+                break;
+        }
+    }
+    return false;
+}
+
+bool IOHIDEventSystemStatistics::isSpacebarKey(uint16_t usagePage, uint16_t usage)
+{
+    if (usagePage == kHIDPage_KeyboardOrKeypad && usage == kHIDUsage_KeyboardSpacebar) {
+        
+        return true;
+    }
+    return false;
+}
+
+bool IOHIDEventSystemStatistics::isArrowKey(uint16_t usagePage, uint16_t usage)
+{
+    if (usagePage == kHIDPage_KeyboardOrKeypad) {
+
+        switch (usage) {
+                
+            case kHIDUsage_KeyboardRightArrow:
+            case kHIDUsage_KeyboardLeftArrow:
+            case kHIDUsage_KeyboardDownArrow:
+            case kHIDUsage_KeyboardUpArrow:
+                return true;
+                
+            default:
+                break;
+        }
+    }
+    return false;
+}
+
+bool IOHIDEventSystemStatistics::isCursorKey(uint16_t usagePage, uint16_t usage)
+{
+    if (usagePage == kHIDPage_KeyboardOrKeypad) {
+        
+        switch (usage) {
+                
+            case kHIDUsage_KeyboardReturnOrEnter:
+            case kHIDUsage_KeyboardDeleteOrBackspace:
+            case kHIDUsage_KeyboardTab:
+            case kHIDUsage_KeyboardCapsLock:
+                return true;
+                
+            default:
+                break;
+        }
+    }
+    return false;
+}
+
+bool IOHIDEventSystemStatistics::isModifierKey(uint16_t usagePage, uint16_t usage)
+{
+    if (usagePage == kHIDPage_Consumer && usage == kHIDUsage_Csmr_ACKeyboardLayoutSelect) {
+        
+        return true;
+    }
+    else if (usagePage == kHIDPage_KeyboardOrKeypad) {
+        
+        switch (usage) {
+                
+            case kHIDUsage_KeyboardLeftControl:
+            case kHIDUsage_KeyboardLeftShift:
+            case kHIDUsage_KeyboardLeftAlt:
+            case kHIDUsage_KeyboardLeftGUI:
+            case kHIDUsage_KeyboardRightShift:
+            case kHIDUsage_KeyboardRightAlt:
+            case kHIDUsage_KeyboardRightGUI:
+                return true;
+                
+            default:
+                break;
+        }
+    }
+    return false;
 }

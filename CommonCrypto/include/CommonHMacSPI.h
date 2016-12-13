@@ -73,7 +73,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
  * leading to tag forgery.
  */
 void CCHmacOneShot(
-            CCDigestAlg alg,  /* kCCHmacSHA1, kCCHmacMD5 */
+            CCDigestAlg alg,  /* kCCHmacAlgSHA1, kCCHmacAlgMD5 */
             const void *key,
             size_t keyLength,           /* length of key in bytes */
             const void *data,

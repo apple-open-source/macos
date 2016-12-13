@@ -88,9 +88,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <unistd.h>
-#ifndef SECITEM_SHIM_OSX
 #include <libDER/asn1Types.h>
-#endif // *** END SECITEM_SHIM_OSX ***
 
 #include <utilities/SecDb.h>
 #include <IOKit/IOReturn.h>
@@ -1108,7 +1106,6 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(attrs), kSecMatchPolicy, objectReadyForXPC);
         CFRelease(objectReadyForXPC);
     }
-#ifndef SECITEM_SHIM_OSX
     value = CFDictionaryGetValue(attrs->dictionary, kSecAttrIssuer);
     if (value) {
         /* convert DN to canonical issuer, if value is DN (top level sequence) */
@@ -1124,7 +1121,6 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
             }
         }
     }
-#endif
 
     ok = true;
 
@@ -1162,6 +1158,25 @@ bool SecItemAuthDo(SecCFDictionaryCOW *auth_params, CFErrorRef *error, SecItemAu
     bool ok = false;
     CFArrayRef ac_pairs = NULL;
     SecCFDictionaryCOW auth_options = { NULL };
+    //We need to create shared LAContext for Mail to reduce popups with Auth UI.
+    //This app-hack will be removed by:<rdar://problem/28305552>
+    static CFTypeRef sharedLAContext = NULL;
+    static CFDataRef sharedACMContext = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CFBundleRef bundle = CFBundleGetMainBundle();
+        CFStringRef bundleName = (bundle != NULL)?CFBundleGetIdentifier(bundle):NULL;
+        if (bundleName && CFEqual(bundleName, CFSTR("com.apple.mail"))) {
+            sharedLAContext = LACreateNewContextWithACMContext(NULL, error);
+            sharedACMContext = (sharedLAContext != NULL)?LACopyACMContext(sharedLAContext, error):NULL;
+        }
+    });
+    if (sharedLAContext && sharedACMContext &&
+        (auth_params->dictionary == NULL || (CFDictionaryGetValue(auth_params->dictionary, kSecUseAuthenticationContext) == NULL &&
+                                             CFDictionaryGetValue(auth_params->dictionary, kSecUseCredentialReference) == NULL))) {
+        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(auth_params), kSecUseAuthenticationContext, sharedLAContext);
+        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(auth_params), kSecUseCredentialReference, sharedACMContext);
+    }
 
     for (uint32_t i = 0;; ++i) {
         // If the operation succeeded or failed with other than auth-needed error, just leave.

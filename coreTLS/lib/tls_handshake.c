@@ -446,6 +446,8 @@ tls_protocol_version tls_handshake_min_allowed_version(tls_handshake_t filter, t
         case tls_handshake_config_legacy:
         case tls_handshake_config_legacy_DHE:
         case tls_handshake_config_none:
+        case tls_handshake_config_3DES_fallback:
+        case tls_handshake_config_TLSv1_3DES_fallback:
             return tls_protocol_version_TLS_1_0;
     }
 
@@ -463,6 +465,7 @@ tls_protocol_version tls_handshake_max_allowed_version(tls_handshake_t filter, t
     switch(config) {
         case tls_handshake_config_TLSv1_fallback:
         case tls_handshake_config_TLSv1_RC4_fallback:
+        case tls_handshake_config_TLSv1_3DES_fallback:
             return tls_protocol_version_TLS_1_0;
         case tls_handshake_config_none:
         case tls_handshake_config_default:
@@ -473,6 +476,7 @@ tls_protocol_version tls_handshake_max_allowed_version(tls_handshake_t filter, t
         case tls_handshake_config_legacy:
         case tls_handshake_config_legacy_DHE:
         case tls_handshake_config_anonymous:
+        case tls_handshake_config_3DES_fallback:
             return tls_protocol_version_TLS_1_2;
     }
 
@@ -930,7 +934,8 @@ tls_handshake_set_config(tls_handshake_t filter, tls_handshake_config_t config)
 
     /* Is this a version fallback ? */
     if(!filter->isServer &&
-       ((config == tls_handshake_config_TLSv1_fallback) || (config == tls_handshake_config_TLSv1_RC4_fallback))
+       ((config == tls_handshake_config_TLSv1_fallback) || (config == tls_handshake_config_TLSv1_RC4_fallback)
+        || (config == tls_handshake_config_TLSv1_3DES_fallback))
        ) {
         filter->fallback = true;
     } else {

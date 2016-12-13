@@ -470,8 +470,6 @@ void ItemImpl::computeDigestFromDictionary(CssmOwnedData &sha2, DbAttributes* db
 }
 
 void ItemImpl::addIntegrity(Access &access, bool force) {
-    secnotice("integrity", "called");
-
     if(!force && (!mKeychain || !mKeychain->hasIntegrityProtection())) {
         secnotice("integrity", "skipping integrity add due to keychain version\n");
         return;
@@ -880,8 +878,6 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
     // hhs replaced with the new aclFactory class
     AclFactory aclFactory;
     const AccessCredentials *nullCred = aclFactory.nullCred();
-
-    secnotice("integrity", "called");
 
     bool haveOldUniqueId = !!mUniqueId.get();
     SSDbUniqueRecord ssUniqueId(NULL);
@@ -1318,6 +1314,8 @@ void
 ItemImpl::modifyContent(const SecKeychainAttributeList *attrList, UInt32 dataLength, const void *inData)
 {
 	StLock<Mutex>_(mMutex);
+    unique_ptr<StReadWriteLock> __(mKeychain == NULL ? NULL : new StReadWriteLock(*(mKeychain->getKeychainReadWriteLock()), StReadWriteLock::Write));
+
 	if (!mDbAttributes.get())
 	{
 		mDbAttributes.reset(new DbAttributes());

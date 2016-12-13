@@ -418,6 +418,51 @@ test_pressure_relief(malloc_zone_t *default_zone)
 }
 
 static void
+test_realloc_non_lite_ptr(char *ptr)
+{
+	// the ptr was malloc'd before lite mode was turned on, therefore not in the lite zone.
+	// make sure realloc succeeds, and that the new ptr has a valid stack associated with it
+
+	char *new_ptr = realloc(ptr, 200);
+	
+	mach_vm_address_t frames[MAX_FRAMES];
+	uint32_t frames_count;
+	
+	kern_return_t ret =  __mach_stack_logging_frames_for_uniqued_stack(mach_task_self(), get_stack_id_from_ptr(new_ptr), frames, MAX_FRAMES, &frames_count);
+		
+	EXPECT_TRUE(ret == KERN_SUCCESS, "return from __mach_stack_logging_get_frames = %d\n", (int) ret);
+	EXPECT_TRUE(frames_count > 0, "number of frames returned from __mach_stack_logging_get_frames = %u\n", frames_count);
+	
+	// test that we can realloc the ptr now that it's in the lite zone
+	new_ptr =  realloc(new_ptr, 100);
+	
+	ret =  __mach_stack_logging_frames_for_uniqued_stack(mach_task_self(), get_stack_id_from_ptr(new_ptr), frames, MAX_FRAMES, &frames_count);
+	
+	EXPECT_TRUE(ret == KERN_SUCCESS, "return from __mach_stack_logging_get_frames = %d\n", (int) ret);
+	EXPECT_TRUE(frames_count > 0, "number of frames returned from __mach_stack_logging_get_frames = %u\n", frames_count);
+
+	free(new_ptr);
+}
+
+static void
+test_realloc_after_lite_mode_turned_off(char *lite_ptr, char *non_lite_ptr)
+{
+	// make sure realloc works for both ptrs - do twice to test after ptr gets out of the lite zone
+	char *new_lite_ptr = realloc(lite_ptr, 100);
+	EXPECT_TRUE(new_lite_ptr != NULL, "realloc of new_lite_ptr");
+	new_lite_ptr = realloc(new_lite_ptr, 200);
+	EXPECT_TRUE(new_lite_ptr != NULL, "realloc of new_lite_ptr");
+	
+	char *new_non_lite_ptr = realloc(non_lite_ptr, 100);
+	EXPECT_TRUE(new_non_lite_ptr != NULL, "realloc of new_non_lite_ptr");
+	new_non_lite_ptr = realloc(new_non_lite_ptr, 100);
+	EXPECT_TRUE(new_non_lite_ptr != NULL, "realloc of new_non_lite_ptr");
+	
+	free(new_lite_ptr);
+	free(new_non_lite_ptr);
+}
+
+static void
 do_test(stack_logging_mode_type mode, boolean_t validate_stacks, boolean_t nano_allocator_enabled, boolean_t lite_mode_enabled)
 {
 	printf("do_test. stack_logging_mode_type=%d validate_stacks=%d nano_allocator_enabled=%d\n", (int) mode, (int) validate_stacks, (int) nano_allocator_enabled);
@@ -426,6 +471,7 @@ do_test(stack_logging_mode_type mode, boolean_t validate_stacks, boolean_t nano_
 	malloc_zone_t *default_purgeable_zone = malloc_default_purgeable_zone();
 	
 	char *ptr = malloc(10);
+	char *non_lite_ptr = malloc(10);	// used in the realloc test later for lite mode
 	
 	malloc_zone_t *zone_from_ptr = malloc_zone_from_ptr(ptr);
 	EXPECT_EQ(zone_from_ptr, default_zone, "malloc_zone_from_ptr:%p default_zone:%p\n", zone_from_ptr, default_zone);
@@ -454,13 +500,19 @@ do_test(stack_logging_mode_type mode, boolean_t validate_stacks, boolean_t nano_
 	size_t ptr_size = default_zone->size(default_zone, ptr);
 	EXPECT_TRUE(ptr_size > 0, "ptr_size=%d\n", (int) ptr_size);
 	
-	free(ptr);
-	
 	boolean_t lite_mode = lite_mode_enabled;
 	
 	if (validate_stacks) {
 		kern_return_t ret = __mach_stack_logging_start_reading(mach_task_self(), __mach_stack_logging_shared_memory_address, &lite_mode);
 		EXPECT_TRUE(ret == KERN_SUCCESS, "return from __mach_stack_logging_start_reading = %d", ret);
+	}
+	
+	// lite mode test: check realloc on a ptr that was created pre-enabling lite mode
+	if (mode == stack_logging_mode_lite) {
+		// this will free the ptr
+		test_realloc_non_lite_ptr(ptr);
+	} else {
+		free(ptr);
 	}
 	
 	// test regular versions
@@ -506,18 +558,24 @@ do_test(stack_logging_mode_type mode, boolean_t validate_stacks, boolean_t nano_
 	
 	test_malloc_zone_functions(default_zone);
 	
-	ptr = malloc(10);
-	zone_from_ptr = malloc_zone_from_ptr(ptr);
+	char *lite_ptr = malloc(10);
+	zone_from_ptr = malloc_zone_from_ptr(lite_ptr);
 	EXPECT_EQ(zone_from_ptr, default_zone, "malloc_zone_from_ptr:%p default_zone:%p\n", zone_from_ptr, default_zone);
 
 	if (mode != stack_logging_mode_none) {
 		turn_off_stack_logging();
 	}
 	
-	zone_from_ptr = malloc_zone_from_ptr(ptr);
+	zone_from_ptr = malloc_zone_from_ptr(lite_ptr);
 	EXPECT_EQ(zone_from_ptr, default_zone, "malloc_zone_from_ptr:%p default_zone:%p\n", zone_from_ptr, default_zone);
 	
-	free(ptr);
+	if (mode == stack_logging_mode_lite) {
+		// this will free the ptrs
+		test_realloc_after_lite_mode_turned_off(lite_ptr, non_lite_ptr);
+	} else {
+		free(lite_ptr);
+		free(non_lite_ptr);
+	}
 	
 	test_pressure_relief(default_zone);
 	

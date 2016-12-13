@@ -1002,7 +1002,7 @@ public:
 
     bool shouldRecordNavigationSnapshots() const { return m_shouldRecordNavigationSnapshots; }
     void setShouldRecordNavigationSnapshots(bool shouldRecordSnapshots) { m_shouldRecordNavigationSnapshots = shouldRecordSnapshots; }
-    void recordNavigationSnapshot();
+    void recordAutomaticNavigationSnapshot();
     void recordNavigationSnapshot(WebBackForwardListItem&);
 
 #if PLATFORM(COCOA)
@@ -1035,7 +1035,7 @@ public:
     void requestControlledElementID() const;
     void handleControlledElementIDResponse(const String&) const;
     void requestActiveNowPlayingSessionInfo();
-    void handleActiveNowPlayingSessionInfoResponse(bool hasActiveSession) const;
+    void handleActiveNowPlayingSessionInfoResponse(bool hasActiveSession, const String& title, double duration, double elapsedTime) const;
     bool isPlayingVideoInEnhancedFullscreen() const;
 #endif
 
@@ -1105,7 +1105,7 @@ public:
     void clearWheelEventTestTrigger();
     void callAfterNextPresentationUpdate(std::function<void (CallbackBase::Error)>);
 
-    void didLayout(uint32_t layoutMilestones);
+    void didReachLayoutMilestone(uint32_t layoutMilestones);
 
     void didRestoreScrollPosition();
 
@@ -1663,6 +1663,8 @@ private:
     bool m_useFixedLayout;
     WebCore::IntSize m_fixedLayoutSize;
 
+    WebCore::LayoutMilestones m_observedLayoutMilestones { 0 };
+
     bool m_suppressScrollbarAnimations;
 
     WebCore::Pagination::Mode m_paginationMode;
@@ -1814,7 +1816,6 @@ private:
 
     uint64_t m_renderTreeSize;
     uint64_t m_sessionRestorationRenderTreeSize;
-    bool m_wantsSessionRestorationRenderTreeSizeThresholdEvent;
     bool m_hitRenderTreeSizeThreshold;
 
     bool m_suppressVisibilityUpdates;
@@ -1828,7 +1829,7 @@ private:
     bool m_waitingForDidUpdateViewState;
 
     bool m_shouldScaleViewToFitDocument { false };
-    bool m_suppressNavigationSnapshotting { false };
+    bool m_suppressAutomaticNavigationSnapshotting { false };
 
 #if PLATFORM(COCOA)
     HashMap<String, String> m_temporaryPDFFiles;

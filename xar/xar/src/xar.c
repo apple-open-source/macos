@@ -395,6 +395,14 @@ static int extract(const char *filename, int arglen, char *args[]) {
 		struct lnode *i;
 
 		char *path = xar_get_path(f);
+		
+		// This includes a null check
+		if (!xar_path_issane(path)) {
+			if (Verbose)
+				printf("Warning, not extracting file \"%s\" because it's path is invalid.\n", path);
+			free(path);
+			continue;
+		}
 
 		if( args[0] ) {
 			for(i = extract_files; i != NULL; i = i->next) {
@@ -418,13 +426,6 @@ static int extract(const char *filename, int arglen, char *args[]) {
 		if( !exclude_match ) {
 			if( Verbose )
 				printf("Excluding %s\n", path);
-			free(path);
-			continue;
-		}
-		
-		if (!xar_path_issane(path)) {
-			if (Verbose)
-				printf("Warning, not extracting file \"%s\" because it's path is invalid.\n", path);
 			free(path);
 			continue;
 		}

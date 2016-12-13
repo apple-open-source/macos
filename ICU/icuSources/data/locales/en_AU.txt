@@ -69,34 +69,25 @@ en_AU{
             }
             dayNames{
                 format{
-                    abbreviated{
-                        "Sun.",
-                        "Mon.",
-                        "Tue.",
-                        "Wed.",
-                        "Thu.",
-                        "Fri.",
-                        "Sat.",
-                    }
                     short{
-                        "Su.",
-                        "Mon.",
-                        "Tu.",
-                        "Wed.",
-                        "Th.",
-                        "Fri.",
-                        "Sat.",
+                        "Su",
+                        "Mon",
+                        "Tu",
+                        "Wed",
+                        "Th",
+                        "Fri",
+                        "Sat",
                     }
                 }
                 stand-alone{
                     narrow{
-                        "Su.",
-                        "M.",
-                        "Tu.",
-                        "W.",
-                        "Th.",
-                        "F.",
-                        "Sa.",
+                        "Su",
+                        "M",
+                        "Tu",
+                        "W",
+                        "Th",
+                        "F",
+                        "Sa",
                     }
                 }
             }
@@ -142,40 +133,6 @@ en_AU{
                         am{"am"}
                         noon{"midday"}
                         pm{"pm"}
-                    }
-                }
-            }
-            monthNames{
-                format{
-                    abbreviated{
-                        "Jan.",
-                        "Feb.",
-                        "Mar.",
-                        "Apr.",
-                        "May",
-                        "Jun.",
-                        "Jul.",
-                        "Aug.",
-                        "Sep.",
-                        "Oct.",
-                        "Nov.",
-                        "Dec.",
-                    }
-                }
-                stand-alone{
-                    narrow{
-                        "Jan.",
-                        "Feb.",
-                        "Mar.",
-                        "Apr.",
-                        "May",
-                        "Jun.",
-                        "Jul.",
-                        "Aug.",
-                        "Sep.",
-                        "Oct.",
-                        "Nov.",
-                        "Dec.",
                     }
                 }
             }

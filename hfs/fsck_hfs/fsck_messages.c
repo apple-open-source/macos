@@ -29,6 +29,7 @@
 #include <string.h>
 #include <assert.h>
 #include <Block.h>
+#include <sys/param.h>
 
 #include "fsck_messages.h"
 #include "fsck_keys.h"
@@ -776,6 +777,107 @@ fsckPrintString(struct context *ctx, fsck_message_t *m, va_list ap)
 	return 0;
 }
 
+static char* escapeCharactersXML(char *input_string)
+{
+    if (input_string == NULL) {
+        return NULL;
+    }
+
+    char *output_string = NULL;
+
+    // In the worst case, each character of the input_string could be a special character,
+    // Each special character can add at most 5 extra characters to the string.
+    char temp[MAXPATHLEN*6 + 1];
+    memset(temp, 0, MAXPATHLEN*6 + 1);
+
+    char *input_ptr = input_string;
+    char *temp_ptr = &temp[0];
+
+    while(*input_ptr != '\0') {
+        char c = *input_ptr;
+
+        switch (c) {
+            case '&': {
+                *temp_ptr = '&';
+                ++temp_ptr;
+                *temp_ptr = 'a';
+                ++temp_ptr;
+                *temp_ptr = 'm';
+                ++temp_ptr;
+                *temp_ptr = 'p';
+                ++temp_ptr;
+                *temp_ptr = ';';
+                ++temp_ptr;
+                break;
+            }
+
+            case '<': {
+                *temp_ptr = '&';
+                ++temp_ptr;
+                *temp_ptr = 'l';
+                ++temp_ptr;
+                *temp_ptr = 't';
+                ++temp_ptr;
+                *temp_ptr = ';';
+                ++temp_ptr;
+                break;
+            }
+
+            case '>': {
+                *temp_ptr = '&';
+                ++temp_ptr;
+                *temp_ptr = 'g';
+                ++temp_ptr;
+                *temp_ptr = 't';
+                ++temp_ptr;
+                *temp_ptr = ';';
+                ++temp_ptr;
+                break;
+            }
+
+            case '"': {
+                *temp_ptr = '&';
+                ++temp_ptr;
+                *temp_ptr = 'q';
+                ++temp_ptr;
+                *temp_ptr = 'u';
+                ++temp_ptr;
+                *temp_ptr = 'o';
+                ++temp_ptr;
+                *temp_ptr = 't';
+                ++temp_ptr;
+                *temp_ptr = ';';
+                ++temp_ptr;
+                break;
+            }
+
+            case '\'': {
+                *temp_ptr = '&';
+                ++temp_ptr;
+                *temp_ptr = 'a';
+                ++temp_ptr;
+                *temp_ptr = 'p';
+                ++temp_ptr;
+                *temp_ptr = 'o';
+                ++temp_ptr;
+                *temp_ptr = 's';
+                ++temp_ptr;
+                *temp_ptr = ';';
+                ++temp_ptr;
+                break;
+            }
+            default: {
+                *temp_ptr = c;
+                ++temp_ptr;
+            }
+        }
+        ++input_ptr;
+    }
+
+    output_string = strdup((const char *)(&temp));
+    return output_string;
+}
+
 /*
  * fsckPrintXML(context, message, va_list)
  * Print out a message in XML (well, plist) format.
@@ -785,7 +887,7 @@ fsckPrintString(struct context *ctx, fsck_message_t *m, va_list ap)
 static int
 fsckPrintXML(struct context *ctx, fsck_message_t *m, va_list ap) 
 {
-	char *newmsg = convertfmt(m->msg);
+    char *newmsg = convertfmt(m->msg);
 	/* See convertfmt() for details */
 	if (newmsg == NULL) {
 		return -1;
@@ -828,22 +930,34 @@ fsckPrintXML(struct context *ctx, fsck_message_t *m, va_list ap)
 				printargs(ctx, "\t\t\t<integer>%llu</integer>\n", x);
 			} else if (m->argtype[i] == fsckTypeString) {
 				char *p = va_arg(ap, char*);
-				printargs(ctx, "\t\t\t<string>%s</string>\n", p);
+                char *escapedP = escapeCharactersXML(p);
+				printargs(ctx, "\t\t\t<string>%s</string>\n", escapedP);
+                free(escapedP);
 			} else if (m->argtype[i] == fsckTypePath) {
-				char *p = va_arg(ap, char*);
-				printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamPathKey, p);
+                char *p = va_arg(ap, char*);
+                char *escapedP = escapeCharactersXML(p);
+                printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamPathKey, escapedP);
+                free(escapedP);
 			} else if (m->argtype[i] == fsckTypeFile) {
-				char *p = va_arg(ap, char*);
-				printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamFileKey, p);
+                char *p = va_arg(ap, char*);
+                char *escapedP = escapeCharactersXML(p);
+                printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamFileKey, escapedP);
+                free(escapedP);
 			} else if (m->argtype[i] == fsckTypeDirectory) {
-				char *p = va_arg(ap, char*);
-				printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamDirectoryKey, p);
+                char *p = va_arg(ap, char*);
+                char *escapedP = escapeCharactersXML(p);
+                printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamDirectoryKey, escapedP);
+                free(escapedP);
 			} else if (m->argtype[i] == fsckTypeVolume) {
-				char *p = va_arg(ap, char*);
-				printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamVolumeKey, p);
+                char *p = va_arg(ap, char*);
+                char *escapedP = escapeCharactersXML(p);
+                printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamVolumeKey, escapedP);
+                free(escapedP);
 			} else if (m->argtype[i] == fsckTypeFSType) {
-				char *p = va_arg(ap, char*);
-				printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamFSTypeKey, p);
+                char *p = va_arg(ap, char*);
+                char *escapedP = escapeCharactersXML(p);
+                printargs(ctx, "\t\t\t<dict><key>%s</key> <string>%s</string></dict>\n", kfsckParamFSTypeKey, escapedP);
+                free(escapedP);
 			} else if (m->argtype[i] == fsckTypeProgress) {
 				int x = va_arg(ap, int);
 				printargs(ctx, "\t\t\t<integer>%d</integer>\n", x); 

@@ -81,7 +81,7 @@ CCCryptorGCMAddIV(CCCryptorRef cryptorRef,
     //infact this needs to be done even with NULL values, otherwise ccgcm_ is going to return call sequence error.
     //currently corecrypto accepts NULL
     //rdar://problem/23523093
-    int rc = ccgcm_set_iv(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, ivLen, iv);
+    int rc = ccgcm_set_iv_legacy(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, ivLen, iv);
     return translate_err_code(rc);
 
 }

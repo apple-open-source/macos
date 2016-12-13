@@ -1520,6 +1520,7 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 	IOReturn            ret;
     IOPCIConfigShadow * shadow;
     IOPCIConfigShadow * next;
+    bool                skip, disable;
 
     DLOG("restoreMachineState(%d)\n", options);
 
@@ -1528,8 +1529,9 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 	next = (IOPCIConfigShadow *) queue_first(&gIOAllPCIDeviceRestoreQ);
 	while (!queue_end(&gIOAllPCIDeviceRestoreQ, (queue_entry_t) next))
 	{
-		shadow = next;
-		next   = (IOPCIConfigShadow *) queue_next(&shadow->link);
+		shadow  = next;
+		next    = (IOPCIConfigShadow *) queue_next(&shadow->link);
+		disable = skip = false;
 
         if (kMachineRestoreDehibernate & options) shadow->device->reserved->pmHibernated = true;
 
@@ -1543,36 +1545,44 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 			{
 				if (!(kIOPCIConfigShadowBridge & shadow->flags))
 				{
-                    if ((kMachineRestoreDehibernate & options) && !shadow->device->space.s.busNum)
-                    {
-                        DLOG("disable %s\n", shadow->device->getName());
-                        shadow->device->configWrite16(kIOPCIConfigCommand,
-                            shadow->configSave.savedConfig[kIOPCIConfigCommand >> 2]
-                            & ~(kIOPCICommandIOSpace|kIOPCICommandMemorySpace|kIOPCICommandBusMaster));
-                    }
-                    continue;
+					skip = true;
+					disable = (0 != (kMachineRestoreDehibernate & options));
                 }
 			}
-
-			if (!(kIOPCIConfigShadowVolatile & shadow->flags))      continue;
+			if (!skip && !(kIOPCIConfigShadowVolatile & shadow->flags)) skip = disable = true;
 #if ACPI_SUPPORT
-			if (!(kMachineRestoreDehibernate & options)
+			if (!skip
+				&& !(kMachineRestoreDehibernate & options)
 				// skip any slow PS methods
 				&& (shadow->device->reserved->psMethods[0] >= 0)
 				// except for nvidia bus zero devices
 				&& (shadow->device->space.s.busNum 
 					|| (0x10de != (shadow->configSave.savedConfig[kIOPCIConfigVendorID >> 2] & 0xffff))))
             {
-                if (!shadow->device->space.s.busNum)
+				disable = skip = true;
+			}
+#endif
+			if (skip)
+			{
+                if (disable && !shadow->device->space.s.busNum)
                 {
                     DLOG("disable %s\n", shadow->device->getName());
                     shadow->device->configWrite16(kIOPCIConfigCommand,
                         shadow->configSave.savedConfig[kIOPCIConfigCommand >> 2]
                         & ~(kIOPCICommandIOSpace|kIOPCICommandMemorySpace|kIOPCICommandBusMaster));
+                    if (shadow->bridge
+					 && (!(kIOPCIConfigShadowBridgeDriver & shadow->flags))
+					 && (0xFF != shadow->device->configRead8(kPCI2PCISecondaryBus)))
+                    {
+						DLOG("%s::restore bus(0x%x->0x%x)\n", shadow->device->getName(),
+							shadow->device->configRead32(kPCI2PCIPrimaryBus),
+							shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
+						shadow->device->configWrite32(kPCI2PCIPrimaryBus, shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
+                    }
                 }
                 continue;
-            }
-#endif
+			}
+
 			if (kMachineRestoreEarlyDevices & options)
 			{
 				if (shadow->device->space.s.busNum)                 continue;
@@ -4042,9 +4052,12 @@ IOPCIBridge::newUserClient(task_t owningTask, void * securityID,
                            UInt32 type,  OSDictionary * properties,
                            IOUserClient ** handler)
 {
+#if !DEVELOPMENT && !defined(__x86_64__)
+    return (super::newUserClient(owningTask, securityID, type, properties, handler));
+#else /* !DEVELOPMENT && !defined(__x86_64__) */
+
     IOPCIDiagnosticsClient * uc;
     bool                     ok;
-    uint32_t                 bootArg;
 
     if (type != kIOPCIDiagnosticsClientType)
         return (super::newUserClient(owningTask, securityID, type, properties, handler));
@@ -4053,10 +4066,6 @@ IOPCIBridge::newUserClient(task_t owningTask, void * securityID,
 	uc = NULL;
     do
     {
-		if (kIOReturnSuccess != IOUserClient::clientHasPrivilege(
-			securityID, kIOClientPrivilegeAdministrator)) 						 break;
-		if (!PE_i_can_has_debugger(&bootArg) || !bootArg) break;
-
 		uc = OSTypeAlloc(IOPCIDiagnosticsClient);
         if (!uc) break;
         ok = uc->initWithTask(owningTask, securityID, type, properties);
@@ -4081,9 +4090,13 @@ IOPCIBridge::newUserClient(task_t owningTask, void * securityID,
         *handler = NULL;
         return (kIOReturnUnsupported);
     }
+#endif /* !DEVELOPMENT && !defined(__x86_64__) */
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#if !DEVELOPMENT && !defined(__x86_64__)
+#else
 
 #undef super
 #define super IOUserClient
@@ -4091,6 +4104,20 @@ IOPCIBridge::newUserClient(task_t owningTask, void * securityID,
 OSDefineMetaClassAndStructors(IOPCIDiagnosticsClient, IOUserClient)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+bool IOPCIDiagnosticsClient::initWithTask(task_t owningTask,
+										  void * securityID,
+										  UInt32 type,
+										  OSDictionary * properties)
+{
+    uint32_t bootArg;
+
+	if (kIOReturnSuccess != clientHasPrivilege(
+		securityID, kIOClientPrivilegeAdministrator))                      return (false);
+	if (!PE_i_can_has_debugger(&bootArg) || !bootArg)                      return (false);
+
+    return (super::initWithTask(owningTask, securityID, type, properties));
+}
 
 IOReturn IOPCIDiagnosticsClient::clientClose(void)
 {
@@ -4272,6 +4299,8 @@ IOReturn IOPCIDiagnosticsClient::externalMethod(uint32_t selector, IOExternalMet
 
     return (ret);
 }
+
+#endif /* !DEVELOPMENT && !defined(__x86_64__) */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

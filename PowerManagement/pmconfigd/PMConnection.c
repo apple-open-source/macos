@@ -177,10 +177,11 @@ typedef struct {
     PMResponseWrangler      *responseHandler;
     CFStringRef             callerName;
     uint32_t                uniqueID;
-    int                     callerPID;
+    pid_t                   callerPID;
     IOPMCapabilityBits      interestsBits;
     bool                    notifyEnable;
     int                     timeoutCnt;
+    dispatch_source_t       procExit;
 } PMConnection;
 
 
@@ -282,6 +283,7 @@ void setAutoPowerOffTimer(bool initialCall, CFAbsoluteTime postpone);
 static void sendNoRespNotification( int interestBitsNotify );
 void cancelAutoPowerOffTimer();
 static void setInitialSleepPreventersCount(int type);
+static bool PMConnectionHandleDeadName(uint32_t connection_id);
 
 /************************************************************************************/
 /************************************************************************************/
@@ -438,18 +440,16 @@ error:
  *   - get an invalidation notification on the remote callback
  *
  */
-kern_return_t _io_pm_connection_create
-(
-    mach_port_t server,
-    mach_port_t task_in,
-    string_t name,
-    int interests,
-    uint32_t *connection_id,
-    int *return_code
+kern_return_t _io_pm_connection_create (
+    mach_port_t     server __unused,
+    audit_token_t   token,
+    string_t        name,
+    int             interests,
+    uint32_t        *connection_id,
+    int             *return_code
 )
 {
     PMConnection         *newConnection = NULL;
-    int                 task_pid;
 
     // Allocate: create a new PMConnection type
     createConnectionWithID(&newConnection);
@@ -458,9 +458,7 @@ kern_return_t _io_pm_connection_create
         goto exit;
     }
     
-    if (KERN_SUCCESS == pid_for_task(task_in, &task_pid)) {
-        newConnection->callerPID = task_pid;
-    }
+    audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL, &newConnection->callerPID, NULL, NULL);
 
     // Save caller name for logging
     if (name && strlen(name)) {
@@ -473,14 +471,6 @@ kern_return_t _io_pm_connection_create
 
 exit:
 
-    if (MACH_PORT_NULL != task_in)
-    {
-        // Release the send right on task_in that we received as an argument
-        // to this method.
-        __MACH_PORT_DEBUG(true, "_io_pm_connection_create dropping send right", task_in);
-        mach_port_deallocate(mach_task_self(), task_in);
-    }
-
     return KERN_SUCCESS;
 }
 
@@ -489,14 +479,16 @@ exit:
 /*****************************************************************************/
 
  kern_return_t _io_pm_connection_schedule_notification(
-     mach_port_t     server,
+    mach_port_t     server __unused,
+    audit_token_t   token,
     uint32_t        connection_id,
     mach_port_t     notify_port_in,
     int             disable,
     int             *return_code)
 {
-    PMConnection         *connection = NULL;
-    mach_port_t                 oldNotify;
+    PMConnection        *connection = NULL;
+    mach_port_t         oldNotify;
+    pid_t               callerPID = -1;
 
     if (MACH_PORT_NULL == notify_port_in || NULL == return_code) {
         if (return_code) *return_code = kIOReturnBadArgument;
@@ -507,8 +499,16 @@ exit:
     
     *return_code = kIOReturnError;
     
+    audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL, &callerPID, NULL, NULL);
     connection = connectionForID(connection_id);
     if (!connection) {
+        ERROR_LOG("Failed to find the connection for ID %d from pid %d\n", connection_id, callerPID);
+        return kIOReturnNotFound;
+    }
+    if (connection->callerPID != callerPID) {
+        ERROR_LOG("Notification schedule request from unexepcted pid %d for connection %d. Expected pid:%d\n",
+                callerPID, connection_id, connection->callerPID);
+
         return kIOReturnNotFound;
     }
 
@@ -517,16 +517,20 @@ exit:
     if (!disable && (MACH_PORT_NULL == connection->notifyPort)) {
         connection->notifyPort = notify_port_in;
 
-        mach_port_request_notification(
-                    mach_task_self(),           // task
-                    notify_port_in,                 // port that will die
-                    MACH_NOTIFY_DEAD_NAME,      // msgid
-                    1,                          // make-send count
-                    CFMachPortGetPort(pmServerMachPort),        // notify port
-                    MACH_MSG_TYPE_MAKE_SEND_ONCE,               // notifyPoly
-                    &oldNotify);                                // previous
+        connection->procExit = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, callerPID,
+                                            DISPATCH_PROC_EXIT, dispatch_get_main_queue());
+        if (connection->procExit != NULL) {
+            dispatch_source_set_event_handler(connection->procExit, ^{
+                    PMConnectionHandleDeadName(connection_id);
+                    });
+            dispatch_source_set_cancel_handler(connection->procExit, ^{dispatch_release(connection->procExit); });
+            dispatch_resume(connection->procExit);
+        }
+        else {
+            ERROR_LOG("Failed to create dispatch src to cleanup connection %d from pid %d\n", connection_id, callerPID);
+        }
     
-        __MACH_PORT_DEBUG(true, "Registered dead name notification on notifyPort", notify_port_in);
+
     } else {
         mach_port_deallocate(mach_task_self(), notify_port_in);
     }
@@ -1005,6 +1009,9 @@ static void cleanupConnection(PMConnection *reap)
         reap->notifyPort = MACH_PORT_NULL;
     }
 
+    if (reap->procExit) {
+        dispatch_source_cancel(reap->procExit);
+    }
     if (reap->callerName) {
         CFRelease(reap->callerName);
         reap->callerName = NULL;
@@ -1129,29 +1136,12 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap)
 /*****************************************************************************/
 /*****************************************************************************/
 
-__private_extern__ bool PMConnectionHandleDeadName(mach_port_t deadPort)
+bool PMConnectionHandleDeadName(uint32_t connection_id)
 {
-    PMConnection    *one_connection = NULL;;
     PMConnection    *the_connection = NULL;
-    CFIndex         i, connectionsCount = 0;
     
-    if (!gConnections)
-        return false;
+    the_connection = connectionForID(connection_id);
     
-    connectionsCount = CFArrayGetCount(gConnections);
-    
-    // Find the PMConnection that owns this mach port
-    for (i=0; i<connectionsCount; i++) 
-    {
-        one_connection = (PMConnection *)CFArrayGetValueAtIndex(gConnections, i);
-    
-        if (one_connection && (deadPort == one_connection->notifyPort))
-        {
-            the_connection = one_connection;
-            break;
-        }
-    }
-
     if (the_connection) {
         cleanupConnection(the_connection);
         return true;
@@ -2290,18 +2280,6 @@ static void PMConnectionPowerCallBack(
                _unclamp_silent_running(false);
             }
 
-            if ((kACPowered == _getPowerSource()) && (kPMDarkWakeLingerDuration != 0)) {
-                CFMutableDictionaryRef assertionDescription = NULL;
-                assertionDescription = _IOPMAssertionDescriptionCreate(
-                                kIOPMAssertInternalPreventSleep,
-                                CFSTR("com.apple.powermanagement.acwakelinger"),
-                                NULL, CFSTR("Proxy assertion to linger on darkwake with ac"),
-                                NULL, kPMACWakeLingerDuration,
-                                kIOPMAssertionTimeoutActionRelease);
-
-                InternalCreateAssertion(assertionDescription, NULL);
-                CFRelease(assertionDescription);
-            }
 #endif
             if (gApoDispatch && ts_apo && (cur_time > ts_apo - kAutoPowerOffSleepAhead) ) {
                 /* Check for auto-power off if required */
@@ -2318,6 +2296,24 @@ static void PMConnectionPowerCallBack(
             mt2RecordWakeEvent(kWakeStateDark);
             recordFDREvent(kFDRDarkWakeEvent, true, NULL);
         }
+
+#if !TARGET_OS_EMBEDDED
+        if ((kACPowered == _getPowerSource()) && (kPMDarkWakeLingerDuration != 0)
+            && (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityCPU))) {
+            CFMutableDictionaryRef assertionDescription = NULL;
+            assertionDescription = _IOPMAssertionDescriptionCreate(
+                            kIOPMAssertInternalPreventSleep,
+                            CFSTR("com.apple.powermanagement.acwakelinger"),
+                            NULL, CFSTR("Proxy assertion to linger on darkwake with ac"),
+                            NULL, kPMACWakeLingerDuration,
+                            kIOPMAssertionTimeoutActionRelease);
+
+            InternalCreateAssertion(assertionDescription, NULL);
+            CFRelease(assertionDescription);
+        }
+
+
+#endif
 
         // Send an async notify out - clients include SCNetworkReachability API's; no ack expected
         setSystemSleepStateTracking(deliverCapabilityBits);

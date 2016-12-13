@@ -106,6 +106,7 @@ public:
                         void *iter, const char *localeID, uint32_t options);
     void TestCasing();
     void TestFullCaseFoldingIterator();
+    void TestLongUpper();
 };
 
 #endif

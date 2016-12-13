@@ -10952,11 +10952,9 @@ FFFC..FFFD    ; Grapheme_Base
 1F250..1F251  ; Grapheme_Base
 1F300..1F3FA  ; Grapheme_Base
 1F3FB..1F3FF  ; Grapheme_Base
-1F400..1F579  ; Grapheme_Base
-1F57B..1F5A3  ; Grapheme_Base
-1F5A5..1F6D0  ; Grapheme_Base
+1F400..1F6D2  ; Grapheme_Base
 1F6E0..1F6EC  ; Grapheme_Base
-1F6F0..1F6F3  ; Grapheme_Base
+1F6F0..1F6F6  ; Grapheme_Base
 1F700..1F773  ; Grapheme_Base
 1F780..1F7D4  ; Grapheme_Base
 1F800..1F80B  ; Grapheme_Base
@@ -10964,8 +10962,13 @@ FFFC..FFFD    ; Grapheme_Base
 1F850..1F859  ; Grapheme_Base
 1F860..1F887  ; Grapheme_Base
 1F890..1F8AD  ; Grapheme_Base
-1F910..1F918  ; Grapheme_Base
-1F980..1F984  ; Grapheme_Base
+1F910..1F91E  ; Grapheme_Base
+1F920..1F927  ; Grapheme_Base
+1F930         ; Grapheme_Base
+1F933..1F93E  ; Grapheme_Base
+1F940..1F94B  ; Grapheme_Base
+1F950..1F95E  ; Grapheme_Base
+1F980..1F991  ; Grapheme_Base
 1F9C0         ; Grapheme_Base
 20000..2A6D6  ; Grapheme_Base
 2A700..2B734  ; Grapheme_Base
@@ -10973,7 +10976,7 @@ FFFC..FFFD    ; Grapheme_Base
 2B820..2CEA1  ; Grapheme_Base
 2F800..2FA1D  ; Grapheme_Base
 
-# Total code points: 118912
+# Total code points: 118912+74 additions
 
 # ================================================
 

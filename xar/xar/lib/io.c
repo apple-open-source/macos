@@ -184,6 +184,9 @@ off_t xar_io_get_file_offset(xar_t x, xar_file_t f, xar_prop_t p) {
 	tmpp = xar_prop_pget(p, "offset");
 	if( tmpp ) {
 		opt = xar_prop_getvalue(tmpp);
+		if (opt == NULL){
+		    return -1;
+		}
 		return strtoll(opt, NULL, 0);
 	} else {
 		return -1;

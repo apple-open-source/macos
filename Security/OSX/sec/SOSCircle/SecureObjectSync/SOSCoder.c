@@ -69,8 +69,7 @@ CFGiblisWithCompareFor(SOSCoder)
 static CFStringRef SOSCoderCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SOSCoderRef coder = (SOSCoderRef)cf;
     if(coder){
-        CFStringRef desc = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Coder %@ %@ %@ %s%s>"),
-                                                    coder->peer_id,
+        CFStringRef desc = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Coder %@ %@ %s%s>"),
                                                     coder->sessRef,
                                                     coder->hashOfLastReceived,
                                                     coder->waitingForDataPacket ? "W" : "w",
@@ -99,10 +98,6 @@ static const char *SOSCoderString(SOSCoderStatus coderStatus) {
         case kSOSCoderTooNew: return "TooNew";
         default: return "StatusUnknown";
     }
-}
-
-CFStringRef SOSCoderGetID(SOSCoderRef coder) {
-    return coder->peer_id;
 }
 
 /*
@@ -424,7 +419,6 @@ static void SOSCoderDestroy(CFTypeRef cf)
     if (coder) {
         CFReleaseNull(coder->sessRef);
         CFReleaseNull(coder->pendingResponse);
-        CFReleaseNull(coder->peer_id);
         CFReleaseNull(coder->hashOfLastReceived);
     }
 }

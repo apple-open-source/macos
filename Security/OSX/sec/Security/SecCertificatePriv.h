@@ -150,6 +150,14 @@ CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate, CFErrorR
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate);
 #endif
 
+/* Return the content of a DER encoded X.501 name (without the tag and length
+ fields) for the receiving certificates issuer. */
+CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRef certificate);
+
+/* Return the content of a DER encoded X.501 name (without the tag and length
+ fields) for the receiving certificates subject. */
+CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRef certificate);
+
 /* Return an array of CFStringRefs representing the ip addresses in the
    certificate if any. */
 CFArrayRef SecCertificateCopyIPAddresses(SecCertificateRef certificate);

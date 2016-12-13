@@ -21,7 +21,6 @@
 
 #import <QuartzCore/QuartzCore.h>
 #include <Regressions/SOSTestDataSource.h>
-#include <securityd/SOSCloudCircleServer.h>
 #include <CKBridge/SOSCloudKeychainConstants.h>
 //#import "PeerListCell.h"
 

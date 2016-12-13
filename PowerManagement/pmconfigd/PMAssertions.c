@@ -145,7 +145,7 @@ static ProcessInfo*                 processInfoRetain(pid_t p);
 static void                         processInfoRelease(pid_t p);
 static ProcessInfo*                 processInfoGet(pid_t p);
 static void                         sendActivityTickle ();
-static void                         setClamshellSleepState(int clamshellSleepState);
+static void                         setClamshellSleepState();
 static int                          getAssertionTypeIndex(CFStringRef type);
 
 static void                         handleAssertionTimeout(assertionType_t *assertType);
@@ -893,42 +893,62 @@ exit:
 }
 
 // Changes clamshell sleep state
-// 1 - disabled, 0 - enabled
-static void setClamshellSleepState(int clamshellSleepState)
+static void setClamshellSleepState( )
 {
+#if !TARGET_OS_EMBEDDED
     io_connect_t        connect = IO_OBJECT_NULL;
     uint64_t            in;
-    static uint32_t     enableCount = 0;
-    uint32_t            prevCount;
+    static int          prevState = -1;
+    int                 newState = 0;
+    __block int         lidSleepCount = 0;
 
-    // This enable/disable requests comes from multiple assertion types
-    // without any knowledge of requests from other assertion types.
-    // Maintaining a enable/disable count in this function.
-    prevCount = enableCount;
-    if (clamshellSleepState) {
-        enableCount++;
+    // Check lid sleep preventers on kDeclareUserActivityType and kTicklessDisplayWakeType
+    applyToAllAssertionsSync(&gAssertionTypes[kDeclareUserActivityType], false,
+                             ^(assertion_t *assertion) {
+                              if (assertion->state & kAssertionLidStateModifier) {
+                                lidSleepCount++;
+                              }
+                             });
+    applyToAllAssertionsSync(&gAssertionTypes[kTicklessDisplayWakeType], false,
+                             ^(assertion_t *assertion) {
+                              if (assertion->state & kAssertionLidStateModifier) {
+                                lidSleepCount++;
+                              }
+                             });
+
+
+
+    if (lidSleepCount || prevState) {
+        INFO_LOG("lidClose sleep preventers: %d prevState: %d\n", lidSleepCount, prevState);
+    }
+    if (lidSleepCount && (prevState < 1)) {
+        newState = 1;
+    }
+    else if (lidSleepCount == 0) {
+        if (prevState == 0) {
+            return;
+        }
+        newState = 0;
     }
     else {
-        if (enableCount) {
-            enableCount--;
-        }
-    }
-
-    if ((prevCount && enableCount) || (!prevCount && !enableCount)) {
         return;
     }
 
-    if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL)
+    if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL) {
+        ERROR_LOG("Failed to open connection to RootDomain\n");
         return;
+    }
 
-    in = enableCount ? 1 : 0;
-    os_log_debug(OS_LOG_DEFAULT, "Setting ClamshellSleepState to %lld\n", in);
+    in = newState ? 1 : 0;
+    INFO_LOG("Setting ClamshellSleepState to %lld\n", in);
 
     IOConnectCallMethod(connect, kPMSetClamshellSleepState, 
                         &in, 1, 
                         NULL, 0, NULL, 
                         NULL, NULL, NULL);
+    prevState = newState;
     return;
+#endif
 }
 
 
@@ -3430,9 +3450,6 @@ void insertActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
          (assertion->state & kAssertionStateValidOnBatt) )
         assertType->validOnBattCount++;
 
-    if (assertion->state & kAssertionLidStateModifier)
-        assertType->lidSleepCount++;
-
     updateAppStats(assertion, kAssertionOpRaise);
     schedDisableAppSleep(assertion);
 
@@ -3447,9 +3464,6 @@ void removeActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
 
     if ( (assertion->state & kAssertionStateValidOnBatt) && assertType->validOnBattCount)
         assertType->validOnBattCount--;
-
-    if ( (assertion->state & kAssertionLidStateModifier) && assertType->lidSleepCount)
-        assertType->lidSleepCount--;
 
     updateAppStats(assertion, kAssertionOpRelease);
     schedEnableAppSleep(assertion);
@@ -3545,9 +3559,6 @@ void handleAssertionTimeout(assertionType_t *assertType)
         if ( (assertion->state & kAssertionStateValidOnBatt) && assertType->validOnBattCount)
             assertType->validOnBattCount--;
 
-        if ( (assertion->state & kAssertionLidStateModifier) && assertType->lidSleepCount)
-            assertType->lidSleepCount--;
-
         updateAppStats(assertion, kAssertionOpRelease);
         schedEnableAppSleep( assertion );
         stopProcTimer(assertion);
@@ -3618,9 +3629,6 @@ void removeTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
 
     if ( (assertion->state & kAssertionStateValidOnBatt) && assertType->validOnBattCount)
         assertType->validOnBattCount--;
-
-    if ( (assertion->state & kAssertionLidStateModifier) && assertType->lidSleepCount)
-        assertType->lidSleepCount--;
 
     updateAppStats(assertion, kAssertionOpRelease);
     schedEnableAppSleep(assertion);
@@ -3725,9 +3733,6 @@ void insertTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
     if ( (assertType->flags & kAssertionTypeNotValidOnBatt) &&
          (assertion->state & kAssertionStateValidOnBatt) )
         assertType->validOnBattCount++;
-
-    if (assertion->state & kAssertionLidStateModifier)
-        assertType->lidSleepCount++;
 
     updateAppStats(assertion, kAssertionOpRaise);
     schedDisableAppSleep( assertion );
@@ -3988,12 +3993,10 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
     else if (CFEqual(key, kIOPMAssertionAppliesOnLidClose)) {
         if (!isA_CFBoolean(value)) return;
         if ((value == kCFBooleanTrue) && !(assertion->state & kAssertionLidStateModifier)) {
-            assertType->lidSleepCount++;
             assertion->state |= kAssertionLidStateModifier;
             assertion->mods |= kAssertionModLidState;
         }
         else if((value == kCFBooleanFalse) && (assertion->state & kAssertionLidStateModifier)) {
-            if (assertType->lidSleepCount) assertType->lidSleepCount--;
             assertion->state &= ~kAssertionLidStateModifier;
             assertion->mods |= kAssertionModLidState;
         }
@@ -4104,8 +4107,14 @@ static IOReturn doSetProperties(pid_t pid,
             insertActiveAssertion(assertion, assertType);
         }
 
-        if (assertion->kassert == kDeclareUserActivityType)
+        if (assertion->kassert == kDeclareUserActivityType) {
+            bool userActive = userActiveRootDomain();
             (*assertType->handler)(assertType, kAssertionOpRaise);
+            if (!userActive) {
+                // Log the assertion changing the user activity state
+                logAssertionEvent(kATurnOnLog, assertion);
+            }
+        }
 
         if (assertType->handler) 
             (*assertType->handler)(assertType, kAssertionOpEval);
@@ -4510,7 +4519,7 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
     if (op == kAssertionOpRaise)  {
 
         if ((assertType->kassert == kDeclareUserActivityType) && activesForTheType) {
-            if (assertType->lidSleepCount) setClamshellSleepState(1);
+            setClamshellSleepState();
             sendActivityTickle();
             _unclamp_silent_running(true);
         }
@@ -4533,8 +4542,9 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
 
     }
     else if (op == kAssertionOpRelease)  {
-        if ((assertType->kassert == kDeclareUserActivityType) && (assertType->lidSleepCount == 0)) 
-            setClamshellSleepState(0);
+        if (assertType->kassert == kDeclareUserActivityType) {
+            setClamshellSleepState();
+        }
 
         /*
          * If this assertionType is not raised with kernel
@@ -4636,12 +4646,12 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
     activeExists = checkForActives(assertType, &activesForTheType);
 
     if (op == kAssertionOpRaise) {
-        if (assertType->lidSleepCount) setClamshellSleepState(1);
+        setClamshellSleepState();
         if ( !activeExists ) return;
         level = 1;
     }
     else if (op == kAssertionOpRelease) {
-        if (assertType->lidSleepCount == 0) setClamshellSleepState(0);
+        setClamshellSleepState();
         if ( activeExists ) return;
         level = 0;
     }
@@ -5893,7 +5903,7 @@ __private_extern__ void PMAssertions_prime(void)
 
     // Reset kernel assertions to clear out old values from prior to powerd's crash
     sendUserAssertionsToKernel(0);
-    setClamshellSleepState(0);
+    setClamshellSleepState();
 #if TARGET_OS_EMBEDDED
     /* 
      * Disable Idle Sleep until some one comes and enables the idle sleep

@@ -44,6 +44,7 @@
 #import <os/activity.h>
 
 #include <utilities/SecAKSWrappers.h>
+#include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFRelease.h>
 #include <AssertMacros.h>
 
@@ -317,7 +318,6 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
             bool handledSettingID = false;
             handledSettingID = SOSCCSetDeviceID((__bridge CFStringRef) deviceID, &localError);
             if(!handledSettingID && localError != NULL){
-
                 if(CFErrorGetCode(localError) == SECD_RUN_AS_ROOT_ERROR){
                     secerror("SETTING RUN AS ROOT ERROR: %@", localError);
                     _isSecDRunningAsRoot = true;
@@ -331,9 +331,12 @@ CFIndex SECD_RUN_AS_ROOT_ERROR = 1041;
                     _doesSecDHavePeer = false;
                 }
             }
+            else
+                _setIDSDeviceID = NO;
+            
             CFReleaseNull(localError);
             dispatch_async(queue, ^{
-                done(nil, NO, handledSettingID);
+                done(nil, NO, YES);
             });
         }];
     }
@@ -377,9 +380,6 @@ fail:
             _setIDSDeviceID = ((myDoSetDeviceID && !handledSetDeviceID));
             
             _shadowDoSetIDSDeviceID = NO;
-            
-            if(_setIDSDeviceID && !_isLocked && _isSecDRunningAsRoot == false && _doesSecDHavePeer)
-                [self doSetIDSDeviceID];
             
             xpc_transaction_end();
         });

@@ -58,14 +58,6 @@ CFDataRef SecCertificateCopyIssuerSequence(SecCertificateRef certificate);
 /* Return the DER encoded subject sequence for the receiving certificates subject. */
 CFDataRef SecCertificateCopySubjectSequence(SecCertificateRef certificate);
 
-/* Return the content of a DER encoded X.501 name (without the tag and length
-   fields) for the receiving certificates issuer. */
-CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRef certificate);
-
-/* Return the content of a DER encoded X.501 name (without the tag and length
-   fields) for the receiving certificates subject. */
-CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRef certificate);
-
 /* Return the normalized name or NULL if it fails to parse */
 CFDataRef SecDistinguishedNameCopyNormalizedContent(CFDataRef distinguished_name);
 

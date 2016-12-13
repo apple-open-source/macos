@@ -49,7 +49,7 @@ int CommonRandom(int __unused argc, char *const * __unused argv)
     uint8_t buf1[bufmax], buf2[bufmax], buf3[bufmax], buf4[bufmax], buf5[bufmax], buf6[bufmax], buf7[bufmax];
     CCRandomRef rngref;
     
-	plan_tests(kTestTestCount * 14 + 11);
+	plan_tests(kTestTestCount * 14 + 14);
 
     struct ccrng_state *devRandom = NULL;
     struct ccrng_state *drbg = NULL;
@@ -143,6 +143,10 @@ int CommonRandom(int __unused argc, char *const * __unused argv)
     isnt(CCRandomCopyBytes(kCCRandomDefault, NULL, 1),0, "NULL pointer");
     isnt(CCRandomCopyBytes(kCCRandomDevRandom, NULL, 1),0, "NULL pointer");
     isnt(CCRandomGenerateBytes(NULL, 1),0, "NULL pointer");
+
+    is(CCRandomCopyBytes(kCCRandomDefault, NULL, 0),0, "Zero Length, NULL pointer");
+    is(CCRandomCopyBytes(kCCRandomDevRandom, NULL, 0),0, "Zero Length, NULL pointer");
+    is(CCRandomGenerateBytes(NULL, 0),0, "Zero Length, NULL pointer");
 
     CCRNGRelease(rngref);
         

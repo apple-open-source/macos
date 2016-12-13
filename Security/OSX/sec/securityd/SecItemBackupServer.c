@@ -23,7 +23,7 @@
 
 #include <securityd/SecItemBackupServer.h>
 #include <securityd/SecItemServer.h>
-#include <Security/SecureObjectSync/SOSEngine.h>
+#include <Security/SecureObjectSync/SOSEnginePriv.h>
 #include <Security/SecureObjectSync/SOSPeer.h>
 #include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
 #include <Security/SecureObjectSync/SOSViews.h>
@@ -50,7 +50,7 @@ static bool withDataSourceAndEngine(CFErrorRef *error, void (^action)(SOSDataSou
 int SecServerItemBackupHandoffFD(CFStringRef backupName, CFErrorRef *error) {
     __block int fd = -1;
     if (!withDataSourceAndEngine(error, ^(SOSDataSourceRef ds, SOSEngineRef engine) {
-        SOSEngineForPeerIDNoCoder(engine, backupName, error, ^(SOSTransactionRef txn, SOSPeerRef peer) {
+        SOSEngineForPeerID(engine, backupName, error, ^(SOSTransactionRef txn, SOSPeerRef peer) {
             fd = SOSPeerHandoffFD(peer, error);
         });
     }) && fd >= 0) {

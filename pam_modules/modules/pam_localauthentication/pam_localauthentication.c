@@ -30,6 +30,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <coreauthd_spi.h>
+#include <pwd.h>
 #include <LocalAuthentication/LAPrivateDefines.h>
 
 #define PAM_SM_AUTH
@@ -53,6 +54,25 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     CFNumberRef value = NULL;
     int tmp;
 
+    const char *user = NULL;
+    struct passwd *pwd = NULL;
+    struct passwd pwdbuf;
+    
+    /* determine the required bufsize for getpwnam_r */
+    int bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if (bufsize == -1) {
+        bufsize = 2 * PATH_MAX;
+    }
+    
+    /* get information about user to authenticate for */
+    char *buffer = malloc(bufsize);
+    if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS || !user ||
+        getpwnam_r(user, &pwdbuf, buffer, bufsize, &pwd) != 0 || !pwd) {
+        openpam_log(PAM_LOG_ERROR, "unable to obtain the username.");
+        retval = PAM_AUTHINFO_UNAVAIL;
+        goto cleanup;
+    }
+    
     /* get the externalized context */
     tmpval = pam_get_data(pamh, "token", (void *)&externalized_context);
     if (tmpval != PAM_SUCCESS) {
@@ -93,6 +113,13 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
         goto cleanup;
     }
 
+    /* verify that M8 is not spoofed */
+    if (!LAVerifySEP(pwd->pw_uid, &error)) {
+        openpam_log(PAM_LOG_ERROR, "LAVerifySEP failed: %ld", CFErrorGetCode(error));
+        retval = PAM_AUTH_ERR;
+        goto cleanup;
+    }
+    
     /* we passed the Touch ID authentication successfully */
     retval = PAM_SUCCESS;
     
@@ -117,6 +144,9 @@ cleanup:
         CFRelease(error);
     }
 
+    if (buffer) {
+        free(buffer);
+    }
     openpam_log(PAM_LOG_NOTICE, "pam_localauthentication: pam_sm_authenticate returned %d", retval);
     return retval;
 }

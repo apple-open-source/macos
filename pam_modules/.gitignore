@@ -1,0 +1,13 @@
+*~
+*.o
+build/
+*/build/
+BuildRoots/
+cscope.*
+.DS_Store
+xcuserdata
+*.xccheckout
+*.xcworkspacedata
+.pbuild_resume
+pbuild.log
+secsubmit.log

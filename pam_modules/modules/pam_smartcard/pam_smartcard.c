@@ -51,6 +51,7 @@
 #include "scmatch_evaluation.h"
 
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
+#define PAM_OPT_PKINIT	"pkinit"
 
 void cleanup_func(__unused pam_handle_t *pamh, void *data, __unused int error_status)
 {
@@ -147,6 +148,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	CFDataRef pub_key_hash = NULL;
 	CFDataRef pub_key_hash_wrap = NULL;
 	CFStringRef token_id = NULL;
+	CFStringRef kerberosPrincipal = NULL;
 	CFPropertyListRef context = NULL;
 	CFErrorRef error = NULL;
 	Boolean interactive;
@@ -181,6 +183,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	if (retval != PAM_SUCCESS) {
 		openpam_log(PAM_LOG_ERROR, "%s - Unable to get user record %d.", PM_DISPLAY_NAME, retval);
 		goto cleanup;
+	}
+
+	if (openpam_get_option(pamh, PAM_OPT_PKINIT)) {
+		pam_get_data(pamh, "kerberos", (void *)&kerberosPrincipal);
+		if (kerberosPrincipal) {
+			openpam_log(PAM_LOG_DEBUG, "%s - Will ask for kerberos ticket", PM_DISPLAY_NAME);
+		}
 	}
 
 	uid_t *tmpUid;
@@ -316,11 +325,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 					status = SecKeychainUnlock(keychain, (UInt32)strlen(pin), pin, TRUE);
 				} else {
 					// modern smartcard check
-					status = TKPerformLogin(agent_uid, token_id, pub_key_hash, cfPin, &error);
+					status = TKPerformLogin(agent_uid, token_id, pub_key_hash, cfPin, kerberosPrincipal, &error);
 				}
 				CFRelease(cfPin);
 				openpam_log(PAM_LOG_DEBUG, "%s - Smartcard verification result %d", PM_DISPLAY_NAME, (int)status);
-				if (status == 0) {
+				if (status == errSecSuccess) {
 					CFReleaseSafe(error);
 					retval = PAM_SUCCESS;
 					break;

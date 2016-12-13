@@ -287,7 +287,7 @@ public:
     };
     StReadWriteLock(ReadWriteLock &lck, Type type) : mType(type), mIsLocked(false), mRWLock(lck)
                        { lock(); }
-    ~StReadWriteLock() { if(mIsLocked) mRWLock.unlock(); }
+    ~StReadWriteLock() { if(mIsLocked) unlock(); }
 
     bool lock();
     void unlock();

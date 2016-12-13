@@ -75,6 +75,7 @@ static int      tpl_supported           = 0;
 
 static UserActiveStruct gUserActive;
 
+__private_extern__ bool isDisplayAsleep( );
 /************************* ****************************** ********************/
 
 static uint32_t updateUserActivityLevels(void);
@@ -145,7 +146,11 @@ void userActiveHandleRootDomainActivity(void)
         // without any more HID activity, lastHid_ts won't change to true
         SystemLoadUserActiveAssertions(true);
     }
+    else {
+        gUserActive.rootDomain = false;
+    }
 
+    INFO_LOG("rootDomain's user activity state:%d\n", gUserActive.rootDomain);
     if (userIsActive) {
         CFRelease(userIsActive);
     }
@@ -229,8 +234,11 @@ uint32_t updateUserActivityLevels(void)
         notify_set_state(token, levels);
         notify_post("com.apple.system.powermanagement.useractivity2");
 
-        DEBUG_LOG("Activity changes from 0x%llx to 0x%llx. UseActiveState:%d\n",
+        INFO_LOG("Activity changes from 0x%llx to 0x%llx. UseActiveState:%d\n",
             gUserActive.postedLevels, levels, gUserActive.userActive);
+        INFO_LOG("hidActive:%d displayOff:%d assertionActivityValid:%d now:0x%llx  hid_ts:0x%llx assertion_ts:0x%llx\n",
+                gUserActive.hidActive, displayIsOff, gUserActive.assertionActivityValid,
+                getMonotonicTime(), gUserActive.lastHid_ts, gUserActive.lastAssertion_ts);
 
         if (((gUserActive.postedLevels & kIOPMUserNotificationActive) == 0) &&
             (levels & kIOPMUserNotificationActive)) {
@@ -408,13 +416,12 @@ static void shareTheSystemLoad(bool shouldNotify)
         if (thermalPressureLevel == kOSThermalPressureLevelNominal) {
             powerLevel = kIOSystemLoadAdvisoryLevelGreat;
         }
-        else if ((thermalPressureLevel == kOSThermalPressureLevelModerate) ||
-            (thermalPressureLevel == kOSThermalPressureLevelHeavy))
+        else if (thermalPressureLevel == kOSThermalPressureLevelModerate)
         {
             powerLevel = kIOSystemLoadAdvisoryLevelOK;
         }
         else {
-            // trapping or sleeping
+            // heavy or trapping or sleeping
             powerLevel = kIOSystemLoadAdvisoryLevelBad;
         }
     }
@@ -750,6 +757,7 @@ __private_extern__ void SystemLoad_prime(void)
     gUserActive.assertionActivityValid = false;
 
     registerForHidActivity();
+    displayIsOff = isDisplayAsleep();
 
 
 
@@ -783,6 +791,7 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
         // assertions created prior to display sleep
         gUserActive.assertionActivityValid = 0;
     }
+    INFO_LOG("Display state: %s\n", (displayIsOff ? "Off" : "On"));
 
     shareTheSystemLoad(kYesNotify);
     evaluateHidIdleNotification();

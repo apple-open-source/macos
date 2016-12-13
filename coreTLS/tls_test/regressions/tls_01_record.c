@@ -24,6 +24,11 @@ int record_test(uint16_t cipher, tls_protocol_version pv, size_t write_size, boo
 
     uint8_t key_data[256] = {0,};
 
+    // For 3DES, the keys *cannot* be the same. So we must make each key unique. 
+    for (int i = 0; i < 256; i++) {
+        key_data[i] = i;
+    }
+
     tls_buffer key = {
         .data = key_data,
         .length = sslCipherSuiteGetKeydataSize(cipher),

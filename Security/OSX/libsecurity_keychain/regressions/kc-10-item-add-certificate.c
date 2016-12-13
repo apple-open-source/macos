@@ -188,7 +188,7 @@ certTests(SecKeychainRef keychain)
 	CFRelease(certificate);
 
 	ok_status(SecKeychainDelete(keychain), "SecKeychainDelete");
-	is(CFGetRetainCount(keychain), 1, "keychain retain count is 1");
+	cmp_ok(CFGetRetainCount(keychain), >=, 1, "keychain retain count is 1");
 	CFRelease(keychain);
 }
 

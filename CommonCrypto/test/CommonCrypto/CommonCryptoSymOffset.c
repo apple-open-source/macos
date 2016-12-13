@@ -58,7 +58,6 @@ int CommonCryptoSymOffset(int __unused argc, char *const * __unused argv) {
     
     plan_tests(kTestTestCount);
 
-    
     for(i=0; i<ALITTLEONTHESIDE; i++) {
         retval = CCCrypt(kCCEncrypt, kCCAlgorithmAES128, 0, key->bytes, key->len, NULL, iLikeBigBuffs+i, ILIKEEMDISBIG-16, andICannotLie+i, ILIKEEMDISBIG, &moved);
         ok(retval == 0, "Encrypt worked");
@@ -71,7 +70,7 @@ int CommonCryptoSymOffset(int __unused argc, char *const * __unused argv) {
         ok(retval == 0, "Encrypt/Decrypt Cycle");
         accum += retval;
     }
-    
+    free(key);
     return accum != 0;
 }
 #endif

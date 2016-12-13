@@ -444,13 +444,27 @@ IOService * IOHIDEventSystemUserClient::getService( void )
 IOReturn IOHIDEventSystemUserClient::clientMemoryForType( UInt32 type,
         UInt32 * flags, IOMemoryDescriptor ** memory )
 {
+    IOReturn result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    
+    result = commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventSystemUserClient::clientMemoryForTypeGated), (void*)(intptr_t)type, flags, memory);
+    
+exit:
+    
+    return result;
+}
+
+IOReturn IOHIDEventSystemUserClient::clientMemoryForTypeGated( UInt32 type,
+        UInt32 * flags, IOMemoryDescriptor ** memory )
+{
     IODataQueue *   eventQueue = NULL;
     IOReturn        ret = kIOReturnNoMemory;
-
-	if (type == kIOHIDEventSystemKernelQueueID)
-		eventQueue = kernelQueue;
-	else
-		eventQueue  = copyDataQueueWithID(type);
+    
+    if (type == kIOHIDEventSystemKernelQueueID)
+        eventQueue = kernelQueue;
+    else
+        eventQueue  = copyDataQueueWithID(type);
 
     if ( eventQueue ) {
         IOMemoryDescriptor * desc = NULL;
@@ -464,8 +478,8 @@ IOReturn IOHIDEventSystemUserClient::clientMemoryForType( UInt32 type,
         }
 
         *memory = desc;
-		if (type != kIOHIDEventSystemKernelQueueID)
-			eventQueue->release();
+        if (type != kIOHIDEventSystemKernelQueueID)
+            eventQueue->release();
 
     } else {
         ret = kIOReturnBadArgument;

@@ -82,7 +82,7 @@ DatabaseSession::DbDelete(const char *inDbName,
 {
     // The databaseManager will notify all its DbContext instances
     // that the database is question is being deleted.
-	secnotice("dbsession", "DbDelete of %s", inDbName); 
+	secinfo("dbsession", "DbDelete of %s", inDbName);
     mDatabaseManager.dbDelete(*this, DbName(inDbName, CssmNetAddress::optional(inDbLocation)), inAccessCred);
 }
 
@@ -97,7 +97,7 @@ DatabaseSession::DbCreate(const char *inDbName,
                           CSSM_DB_HANDLE &outDbHandle)
 {
 	outDbHandle = CSSM_INVALID_HANDLE;	// CDSA 2.0 says to set this if we fail
-	secnotice("dbsession", "DbCreate of %s", inDbName);
+	secinfo("dbsession", "DbCreate of %s", inDbName);
 	
     outDbHandle = insertDbContext(mDatabaseManager.dbCreate(*this,
                                                             DbName(inDbName, CssmNetAddress::optional(inDbLocation)),
@@ -117,7 +117,7 @@ DatabaseSession::DbOpen(const char *inDbName,
                         CSSM_DB_HANDLE &outDbHandle)
 {
 	DOCDebug("DatabaseSession::DbOpen: dbName %s", inDbName);
-	secnotice("dbsession", "DbOpen of %s", inDbName);
+	secinfo("dbsession", "DbOpen of %s", inDbName);
 	outDbHandle = CSSM_INVALID_HANDLE;	// CDSA 2.0 says to set this if we fail 
     outDbHandle = insertDbContext(mDatabaseManager.dbOpen(*this,
                                                           DbName(inDbName, CssmNetAddress::optional(inDbLocation)),

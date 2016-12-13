@@ -3655,6 +3655,9 @@ CFDataRef SecCertificateGetNormalizedSubjectContentP(
  */
 CFDataRef SecCertificateCopyNormalizedIssuerSequenceP(
     SecCertificateRefP certificate) {
+	if (!certificate || !certificate->_normalizedIssuer) {
+		return NULL;
+	}
 	DERItem tmpdi;
 	tmpdi.data = (DERByte *)CFDataGetBytePtr(certificate->_normalizedIssuer);
 	tmpdi.length = CFDataGetLength(certificate->_normalizedIssuer);
@@ -3668,6 +3671,9 @@ CFDataRef SecCertificateCopyNormalizedIssuerSequenceP(
  */
 CFDataRef SecCertificateCopyNormalizedSubjectSequenceP(
     SecCertificateRefP certificate) {
+	if (!certificate || !certificate->_normalizedSubject) {
+		return NULL;
+	}
 	DERItem tmpdi;
 	tmpdi.data = (DERByte *)CFDataGetBytePtr(certificate->_normalizedSubject);
 	tmpdi.length = CFDataGetLength(certificate->_normalizedSubject);

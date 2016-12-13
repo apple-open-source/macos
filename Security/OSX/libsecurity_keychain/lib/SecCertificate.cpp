@@ -38,6 +38,7 @@
 // %%% used by SecCertificate{Copy,Set}Preference
 #include <Security/SecKeychainItemPriv.h>
 #include <Security/SecIdentityPriv.h>
+#include <Security/SecItemPriv.h>
 #include <security_keychain/KCCursor.h>
 #include <security_cdsa_utilities/Schema.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
@@ -649,6 +650,24 @@ OSStatus
 SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issuer,
 	const CSSM_DATA *serialNumber, SecCertificateRef *certificate)
 {
+    if (issuer && serialNumber) {
+        CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecAttrNoLegacy, kCFBooleanTrue);
+
+        CFRef<CFDataRef> issuerData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)issuer->Data, issuer->Length, kCFAllocatorNull);
+        CFDictionarySetValue(query, kSecAttrIssuer, issuerData);
+
+        CFRef<CFDataRef> serialNumberData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)serialNumber->Data, serialNumber->Length, kCFAllocatorNull);
+        CFDictionarySetValue(query, kSecAttrSerialNumber, serialNumberData);
+
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+        if (status == errSecSuccess) {
+            return status;
+        }
+    }
+
 	BEGIN_SECAPI
 
 	StorageManager::KeychainList keychains;
@@ -672,7 +691,22 @@ OSStatus
 SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *subjectKeyID,
 	SecCertificateRef *certificate)
 {
-	BEGIN_SECAPI
+    if (subjectKeyID) {
+        CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecAttrNoLegacy, kCFBooleanTrue);
+
+        CFRef<CFDataRef> subjectKeyIDData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)subjectKeyID->Data, subjectKeyID->Length, kCFAllocatorNull);
+        CFDictionarySetValue(query, kSecAttrSubjectKeyID, subjectKeyIDData);
+
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+        if (status == errSecSuccess) {
+            return status;
+        }
+    }
+
+    BEGIN_SECAPI
 
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
@@ -694,7 +728,26 @@ SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *sub
 OSStatus
 SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailAddress, SecCertificateRef *certificate)
 {
-	BEGIN_SECAPI
+    if (emailAddress) {
+        CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
+        CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecAttrNoLegacy, kCFBooleanTrue);
+
+        CFRef<CFStringRef> emailAddressString = CFStringCreateWithCString(kCFAllocatorDefault, emailAddress, kCFStringEncodingUTF8);
+        CFTypeRef keys[] = { kSecPolicyName };
+        CFTypeRef values[] = { emailAddressString };
+        CFRef<CFDictionaryRef> properties = CFDictionaryCreate(kCFAllocatorDefault, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFRef<SecPolicyRef> policy = SecPolicyCreateWithProperties(kSecPolicyAppleSMIME, properties);
+        CFDictionarySetValue(query, kSecMatchPolicy, policy);
+
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef*)certificate);
+        if (status == errSecSuccess) {
+            return status;
+        }
+    }
+
+    BEGIN_SECAPI
 
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);

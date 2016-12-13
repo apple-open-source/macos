@@ -4180,6 +4180,7 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 {
 	IOReturn ret = kIOReturnNotReady;
 	uint32_t restoreType;
+    bool bPerformVRAMWrite = true;
 
 	if (2 == pendingPowerState)
 	{
@@ -4215,7 +4216,70 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 
 		if (!__private->saveLength) restoreType = kIOScreenRestoreStateDark;
 
-		if (frameBuffer)
+        // Fix for <rdar://problem/20429613> SEED: BUG: kernel panic after connecting to a display in closed clamshell@doSetPowerState
+        if (frameBuffer)
+        {
+            // No vramMap?!?  Don't attempt to fill the screen.
+            if (vramMap)
+            {
+                // If the map length is below the current resolution, handle the error
+                IOByteCount frameBufferLength = vramMap->getLength();
+                if (frameBufferLength < (rowBytes * __private->framebufferHeight))
+                {
+                    bPerformVRAMWrite = false;
+#if 0 /*DEBUG*/
+                    // Perform an extra check for the base.  Did it change?
+                    IOPhysicalAddress64 base = vramMap->getVirtualAddress();
+                    if (base == (IOPhysicalAddress64)frameBuffer)
+                    {
+                        IOLog("%d: Invalid aperture range found for: %#llx (%u:%llu)\n", __LINE__, __private->regID, rowBytes * __private->framebufferHeight, frameBufferLength);
+                        kprintf("%d: Invalid aperture range found for: %#llx (%u:%llu)\n", __LINE__, __private->regID, rowBytes * __private->framebufferHeight, frameBufferLength);
+                    }
+                    else
+                    {
+                        IOLog("%d: Invalid aperture base and range found for: %#llx (%#llx:%#llx, %u:%llu)\n", __LINE__, __private->regID, base, (IOPhysicalAddress64)frameBuffer, rowBytes * __private->framebufferHeight, frameBufferLength);
+                        kprintf("%d: Invalid aperture base and range found for: %#llx (%#llx:%#llx, %u:%llu)\n", __LINE__, __private->regID, base, (IOPhysicalAddress64)frameBuffer, rowBytes * __private->framebufferHeight, frameBufferLength);
+                    }
+#endif /*DEBUG*/
+
+                    // Attempt to remap and re-acquire the memory map, if this fails there is nothing we can do with the CPU
+                    IOMemoryDescriptor * fbRange = getApertureRange(kIOFBSystemAperture);
+                    if (NULL != fbRange)
+                    {
+                        IOMemoryMap * newVramMap = fbRange->map(kIOFBMapCacheMode);
+                        fbRange->release();
+                        if (NULL != newVramMap)
+                        {
+                            vramMap->release();
+                            vramMap = newVramMap;
+
+                            frameBuffer = (volatile unsigned char *)vramMap->getVirtualAddress();
+                            if (NULL != frameBuffer)
+                            {
+                                frameBufferLength = vramMap->getLength();
+                                if (frameBufferLength < (rowBytes * __private->framebufferHeight))
+                                {
+                                    // If we end up here even after remap, then the vendor has a driver bug
+                                    // They are reporting a memory range that is less than required for the active size & depth.
+                                    IOLog("VENDOR_BUG: Invalid aperture range found during restore for: %#llx (%#x:%u:%llu)\n", __private->regID, __private->online, __private->pixelInfo.bytesPerRow * __private->pixelInfo.activeHeight, frameBufferLength);
+                                }
+                                else
+                                {
+                                    bPerformVRAMWrite = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // No vram map?  Should never be the case if frameBuffer is valid.
+                bPerformVRAMWrite = false;
+            }
+        }
+
+		if (frameBuffer && (true == bPerformVRAMWrite))
 		{
             if (kIOScreenRestoreStateDark == restoreType)
 			{
@@ -7535,6 +7599,20 @@ IOReturn IOFramebuffer::doSetup( bool full )
 			{
 				base = vramMap->getVirtualAddress();
 				frameBuffer = (volatile unsigned char *) base;
+
+                // Defensive fix for the panic aspect of:
+                // <rdar://problem/20429613> SEED: BUG: kernel panic after connecting to a display in closed clamshell@doSetPowerState
+                if (haveFB)
+                {
+                    // If the map length is below the current resolution, report the error
+                    IOByteCount frameBufferLength = vramMap->getLength();
+                    if (frameBufferLength < (__private->pixelInfo.bytesPerRow * __private->pixelInfo.activeHeight))
+                    {
+                        // If we end up here even after remap, then the vendor has a driver bug
+                        // They are reporting a memory range that is less than required for the active size & depth.
+                        IOLog("VENDOR_BUG: Invalid aperture range found during setup for: %#llx (%#x:%u:%llu)\n", __private->regID, __private->online, __private->pixelInfo.bytesPerRow * __private->pixelInfo.activeHeight, frameBufferLength);
+                    }
+                }
 			}
 
 			DEBG1(thisName, " using (%dx%d,%d bpp)\n",
@@ -7756,7 +7834,7 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
      to issue a flip from the scanout buffer back to the IOFramebuffer owned framebuffer, thus preventing the
      teardown of a scanout buffer that is in active use since the flip was deferred due to kIOWSAA_From_Accelerated.
      */
-    switch (value & (~(kIOWSAA_Transactional)))
+    switch (value & (~(kIOWSAA_Transactional | kIOWSAA_Reserved)))
     {
         case kIOWSAA_To_Accelerated:
         case kIOWSAA_From_Accelerated:
@@ -7798,6 +7876,7 @@ IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
         case kIOWSAA_DeferEnd:
         case kIOWSAA_DriverOpen:
             /* case kIOWSAA_Transactional: */
+            /* case kIOWSAA_Reserved: */
         default:
         {
             // These attributes require no action be sent to the vendor driver.
@@ -7822,7 +7901,7 @@ IOReturn IOFramebuffer::extSetAttribute(
     if (kIOWindowServerActiveAttribute == attribute)
         bAllow = true;
 
-    if ((err = inst->extEntry(bAllow)))
+    if ((err = inst->extEntrySys(bAllow)))
         return (err);
     
     switch (attribute)
@@ -7853,7 +7932,7 @@ IOReturn IOFramebuffer::extSetAttribute(
             break;
     }
 
-	inst->extExit(err);
+	inst->extExitSys(err);
 
     return (err);
 }

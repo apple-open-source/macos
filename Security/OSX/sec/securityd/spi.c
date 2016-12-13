@@ -42,21 +42,28 @@
 
 static struct securityd spi = {
 #if !TRUSTD_SERVER
+    /* Trustd must xpc to secd to use these. */
     .sec_item_add                           = _SecItemAdd,
     .sec_item_copy_matching                 = _SecItemCopyMatching,
     .sec_item_update                        = _SecItemUpdate,
     .sec_item_delete                        = _SecItemDelete,
+#if TARGET_OS_IOS
     .sec_add_shared_web_credential          = _SecAddSharedWebCredential,
     .sec_copy_shared_web_credential         = _SecCopySharedWebCredential,
+#endif
     .sec_trust_store_for_domain             = SecTrustStoreForDomainName,
     .sec_trust_store_contains               = SecTrustStoreContainsCertificateWithDigest,
     .sec_trust_store_set_trust_settings     = _SecTrustStoreSetTrustSettings,
     .sec_trust_store_remove_certificate     = SecTrustStoreRemoveCertificateWithDigest,
     .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
     .sec_item_delete_all                    = _SecItemDeleteAll,
-#endif /* !TRUSTD_SERVER */
+#endif
+#if TRUSTD_SERVER || TARGET_OS_IPHONE
+    /* Local trust evaluation only occurs in trustd and iOS securityd */
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
+#endif
 #if !TRUSTD_SERVER
+    /* Trustd must xpc to secd to use these. */
     .sec_keychain_backup                    = _SecServerKeychainCreateBackup,
     .sec_keychain_restore                   = _SecServerKeychainRestore,
     .sec_keychain_backup_syncable           = _SecServerBackupSyncable,

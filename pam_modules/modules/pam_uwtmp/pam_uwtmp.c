@@ -124,25 +124,22 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		memcpy(&pam_data->backup, t, sizeof(*t));
 		pam_data->restore = 1;
 
-		if (PAM_SUCCESS != (status = populate_struct(pamh, &pam_data->utmpx, 0))) {
-			pam_set_data(pamh, DATA_NAME, NULL, NULL);
+		if (PAM_SUCCESS != (status = populate_struct(pamh, &pam_data->utmpx, 0)))
 			goto err;
-		}
 	} else {
 		// NO: create new utmpx entry
 		openpam_log(PAM_LOG_DEBUG, "New entry for %s", tty ?: "-");
-		if (PAM_SUCCESS != (status = populate_struct(pamh, u, 1))) {
-			pam_set_data(pamh, DATA_NAME, NULL, NULL);
+		if (PAM_SUCCESS != (status = populate_struct(pamh, u, 1)))
 			goto err;
-		}
 
 		u->ut_type = UTMPX_AUTOFILL_MASK | USER_PROCESS;
 	}
 
-	if (PAM_SUCCESS != (status = pam_set_data(pamh, DATA_NAME, u, openpam_free_data))) {
+	if (PAM_SUCCESS != (status = pam_set_data(pamh, DATA_NAME, pam_data, openpam_free_data))) {
 		openpam_log(PAM_LOG_ERROR, "There was an error setting data in the context.");
 		goto err;
 	}
+	pam_data = NULL;
 
 	if( pututxline(u) == NULL ) {
 		openpam_log(PAM_LOG_ERROR, "Unable to write the utmp record.");
@@ -153,6 +150,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	return PAM_SUCCESS;
 
 err:
+	pam_set_data(pamh, DATA_NAME, NULL, NULL);
 	free(pam_data);
 	return status;
 }

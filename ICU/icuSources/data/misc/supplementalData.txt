@@ -16575,6 +16575,7 @@ supplementalData:table(nofallback){
             "es_AR",
             "es_BO",
             "es_BR",
+            "es_BZ",
             "es_CL",
             "es_CO",
             "es_CR",

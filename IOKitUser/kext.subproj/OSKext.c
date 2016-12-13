@@ -18291,6 +18291,13 @@ static CFDataRef __OSKextCreatePrelinkInfoDictionary(
                 
                 CFDictionarySetValue(kextInfoDict, CFSTR(kPrelinkExecutableSizeKey), cfnum);
                 SAFE_RELEASE_NULL(cfnum);
+
+                // Update the KC ID based on the start addresses of each segment in the KEXT
+                uint64_t seg_addr = 0;
+                for (enum enumSegIdx idx = SEG_IDX_TEXT; idx < SEG_IDX_COUNT; ++idx) {
+                    seg_addr = getKextVMAddr(aKext, idx);
+                    CC_SHA256_Update(&ctx, &seg_addr, sizeof(seg_addr));
+                }
             }
             else {
                 cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type,
@@ -18321,6 +18328,10 @@ static CFDataRef __OSKextCreatePrelinkInfoDictionary(
                 }
                 CFDictionarySetValue(kextInfoDict, CFSTR(kPrelinkExecutableSizeKey), cfnum);
                 SAFE_RELEASE_NULL(cfnum);
+
+                // Update the KC ID based on the start address of the KEXT
+                CC_SHA256_Update(&ctx, &aKext->loadInfo->linkInfo.vmaddr_TEXT,
+                                 sizeof(aKext->loadInfo->linkInfo.vmaddr_TEXT));
             }
 
             cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type,
@@ -18336,7 +18347,7 @@ static CFDataRef __OSKextCreatePrelinkInfoDictionary(
         uuid = OSKextCopyUUIDForArchitecture(aKext, OSKextGetArchitecture());
         if (uuid) {
             /* Add UUID to KC ID hash */
-            CC_SHA256_Update(&ctx, uuid, sizeof(uuid));
+            CC_SHA256_Update(&ctx, CFDataGetBytePtr(uuid), CFDataGetLength(uuid));
 
             /* If this is an interface kext, add its UUID. */
             if (OSKextDeclaresExecutable(aKext) && OSKextIsInterface(aKext)) {

@@ -50,6 +50,7 @@
 #define AUTH_XPC_ITEM_FLAGS "_item_flags"
 #define AUTH_XPC_ITEM_VALUE "_item_value"
 #define AUTH_XPC_ITEM_TYPE  "_item_type"
+#define AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH "_item_sensitive_value_length"
 
 #define AUTH_XPC_REQUEST_METHOD_KEY "_agent_request_key"
 #define AUTH_XPC_REQUEST_METHOD_CREATE "_agent_request_create"
@@ -298,8 +299,20 @@ static void xpcArrayToAuthItemSet(AuthItemSet *setToBuild, xpc_object_t input) {
 
         size_t length;
         const void *data = xpc_dictionary_get_data(item, AUTH_XPC_ITEM_VALUE, &length);
-        void *dataCopy = malloc(length);
-        memcpy(dataCopy, data, length);
+        void *dataCopy = 0;
+
+        // <rdar://problem/13033889> authd is holding on to multiple copies of my password in the clear
+        bool sensitive = xpc_dictionary_get_value(item, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+        if (sensitive) {
+            size_t sensitiveLength = (size_t)xpc_dictionary_get_uint64(item, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+            dataCopy = malloc(sensitiveLength);
+            memcpy(dataCopy, data, sensitiveLength);
+            memset_s((void *)data, length, 0, sensitiveLength); // clear the sensitive data, memset_s is never optimized away
+            length = sensitiveLength;
+        } else {
+            dataCopy = malloc(length);
+            memcpy(dataCopy, data, length);
+        }
 
         uint64_t flags = xpc_dictionary_get_uint64(item, AUTH_XPC_ITEM_FLAGS);
         AuthItemRef nextItem(name, AuthValueOverlay((uint32_t)length, dataCopy), (uint32_t)flags);

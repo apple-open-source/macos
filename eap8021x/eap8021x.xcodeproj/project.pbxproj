@@ -7,6 +7,30 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		44F5021A1DB6E54F00EF6B04 /* embedded_frameworks */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 44F502231DB6E54F00EF6B04 /* Build configuration list for PBXAggregateTarget "embedded_frameworks" */;
+			buildPhases = (
+			);
+			dependencies = (
+				44F5021B1DB6E54F00EF6B04 /* PBXTargetDependency */,
+			);
+			name = embedded_frameworks;
+			productName = embedded;
+		};
+		44F502261DB6E56900EF6B04 /* embedded_executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 44F5022F1DB6E56900EF6B04 /* Build configuration list for PBXAggregateTarget "embedded_executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				44F502291DB6E56900EF6B04 /* PBXTargetDependency */,
+				44F5022B1DB6E56900EF6B04 /* PBXTargetDependency */,
+				44F5022D1DB6E56900EF6B04 /* PBXTargetDependency */,
+			);
+			name = embedded_executables;
+			productName = embedded;
+		};
 		F9B0E0190C95BC8500323767 /* All */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = F9B0E01E0C95BCE900323767 /* Build configuration list for PBXAggregateTarget "All" */;
@@ -25,10 +49,8 @@
 			buildPhases = (
 			);
 			dependencies = (
-				F90043CF0CD790B6006AC0B4 /* PBXTargetDependency */,
-				F90FEE880CA3349400A7B5A8 /* PBXTargetDependency */,
-				F98535AF0CCD29F1000C3260 /* PBXTargetDependency */,
-				F952CB640D5A732100ED1EFD /* PBXTargetDependency */,
+				44F502331DB6E5D900EF6B04 /* PBXTargetDependency */,
+				44F502351DB6E5D900EF6B04 /* PBXTargetDependency */,
 			);
 			name = embedded;
 			productName = embedded;
@@ -63,6 +85,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 442403301DA86E6E0041C533 /* MobileWiFi.framework */; };
 		449213AC1D12062700D8FB30 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 449213AB1D12062700D8FB30 /* CoreTelephony.framework */; };
 		44980A3E1ABBC60400B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
 		44980A3F1ABBC61A00B76F01 /* sim_simulator.c in Sources */ = {isa = PBXBuildFile; fileRef = 44980A3C1ABB93B200B76F01 /* sim_simulator.c */; };
@@ -307,33 +330,47 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		F90043CE0CD790B6006AC0B4 /* PBXContainerItemProxy */ = {
+		44F5021C1DB6E54F00EF6B04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = F915472A0CD78FA7008D9897;
 			remoteInfo = "EAP8021X.framework(embedded)";
 		};
-		F90FEE870CA3349400A7B5A8 /* PBXContainerItemProxy */ = {
+		44F5022A1DB6E56900EF6B04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = F90FEE640CA3342D00A7B5A8;
 			remoteInfo = "EAPOLController(embedded)";
 		};
-		F952CB630D5A732100ED1EFD /* PBXContainerItemProxy */ = {
+		44F5022C1DB6E56900EF6B04 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F90FEE450CA3338A00A7B5A8;
+			remoteInfo = "eapolclient(embedded)";
+		};
+		44F5022E1DB6E56900EF6B04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = F952CB570D5A72CE00ED1EFD;
 			remoteInfo = "eapoltest(embedded)";
 		};
-		F98535AE0CCD29F1000C3260 /* PBXContainerItemProxy */ = {
+		44F502321DB6E5D900EF6B04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = F90FEE450CA3338A00A7B5A8;
-			remoteInfo = "eapolclient(embedded)";
+			remoteGlobalIDString = 44F5021A1DB6E54F00EF6B04;
+			remoteInfo = embedded_frameworks;
+		};
+		44F502341DB6E5D900EF6B04 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 44F502261DB6E56900EF6B04;
+			remoteInfo = embedded_executables;
 		};
 		F9D8877A1ABC9B3A000220CD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -436,6 +473,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		442403301DA86E6E0041C533 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = DEVELOPER_DIR; };
 		4478B6F71AE19D0100051F29 /* sim_simulator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sim_simulator.h; sourceTree = "<group>"; };
 		449213AB1D12062700D8FB30 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = ../../../../../../../../../System/Library/Frameworks/CoreTelephony.framework; sourceTree = "<group>"; };
 		44980A3C1ABB93B200B76F01 /* sim_simulator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sim_simulator.c; sourceTree = "<group>"; };
@@ -608,6 +646,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */,
 				449213AC1D12062700D8FB30 /* CoreTelephony.framework in Frameworks */,
 				F90FEE6F0CA3342D00A7B5A8 /* SystemConfiguration.framework in Frameworks */,
 				F90FEE700CA3342D00A7B5A8 /* CoreFoundation.framework in Frameworks */,
@@ -721,6 +760,7 @@
 		449213AA1D12062700D8FB30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				442403301DA86E6E0041C533 /* MobileWiFi.framework */,
 				449213AB1D12062700D8FB30 /* CoreTelephony.framework */,
 			);
 			name = Frameworks;
@@ -1381,6 +1421,8 @@
 				F9D887761ABC9B2B000220CD /* executables */,
 				F9D8877C1ABC9B57000220CD /* frameworks */,
 				F9C62A8F0CA3307200E0B011 /* embedded */,
+				44F5021A1DB6E54F00EF6B04 /* embedded_frameworks */,
+				44F502261DB6E56900EF6B04 /* embedded_executables */,
 				F91F7BBA0C8F873D000EA394 /* EAP8021X.framework */,
 				F915472A0CD78FA7008D9897 /* EAP8021X.framework(embedded) */,
 				F9FE9CA20C95B4B00004CCD4 /* EAPOLController */,
@@ -1643,25 +1685,35 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		F90043CF0CD790B6006AC0B4 /* PBXTargetDependency */ = {
+		44F5021B1DB6E54F00EF6B04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F915472A0CD78FA7008D9897 /* EAP8021X.framework(embedded) */;
-			targetProxy = F90043CE0CD790B6006AC0B4 /* PBXContainerItemProxy */;
+			targetProxy = 44F5021C1DB6E54F00EF6B04 /* PBXContainerItemProxy */;
 		};
-		F90FEE880CA3349400A7B5A8 /* PBXTargetDependency */ = {
+		44F502291DB6E56900EF6B04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F90FEE640CA3342D00A7B5A8 /* EAPOLController(embedded) */;
-			targetProxy = F90FEE870CA3349400A7B5A8 /* PBXContainerItemProxy */;
+			targetProxy = 44F5022A1DB6E56900EF6B04 /* PBXContainerItemProxy */;
 		};
-		F952CB640D5A732100ED1EFD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F952CB570D5A72CE00ED1EFD /* eapoltest(embedded) */;
-			targetProxy = F952CB630D5A732100ED1EFD /* PBXContainerItemProxy */;
-		};
-		F98535AF0CCD29F1000C3260 /* PBXTargetDependency */ = {
+		44F5022B1DB6E56900EF6B04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F90FEE450CA3338A00A7B5A8 /* eapolclient(embedded) */;
-			targetProxy = F98535AE0CCD29F1000C3260 /* PBXContainerItemProxy */;
+			targetProxy = 44F5022C1DB6E56900EF6B04 /* PBXContainerItemProxy */;
+		};
+		44F5022D1DB6E56900EF6B04 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F952CB570D5A72CE00ED1EFD /* eapoltest(embedded) */;
+			targetProxy = 44F5022E1DB6E56900EF6B04 /* PBXContainerItemProxy */;
+		};
+		44F502331DB6E5D900EF6B04 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44F5021A1DB6E54F00EF6B04 /* embedded_frameworks */;
+			targetProxy = 44F502321DB6E5D900EF6B04 /* PBXContainerItemProxy */;
+		};
+		44F502351DB6E5D900EF6B04 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 44F502261DB6E56900EF6B04 /* embedded_executables */;
+			targetProxy = 44F502341DB6E5D900EF6B04 /* PBXContainerItemProxy */;
 		};
 		F9D8877B1ABC9B3A000220CD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1730,6 +1782,74 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		44F502241DB6E54F00EF6B04 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_NO_COMMON_BLOCKS = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wcast-align",
+				);
+			};
+			name = Deployment;
+		};
+		44F502251DB6E54F00EF6B04 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wcast-align",
+				);
+			};
+			name = Development;
+		};
+		44F502301DB6E56900EF6B04 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_NO_COMMON_BLOCKS = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wcast-align",
+				);
+			};
+			name = Deployment;
+		};
+		44F502311DB6E56900EF6B04 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Wcast-align",
+				);
+			};
+			name = Development;
+		};
 		F90FEE590CA3338A00A7B5A8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1793,7 +1913,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
-				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "$(SRCROOT)/EAPOLController.bproj/Info.plist";
@@ -1801,6 +1921,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				PRODUCT_NAME = EAPOLController;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SHARED_PRECOMPS_DIR = "$(CACHE_ROOT)/SharedPrecompiledHeaders";
 				WARNING_CFLAGS = (
@@ -1817,7 +1938,7 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
-				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "$(SRCROOT)/EAPOLController.bproj/Info.plist";
@@ -1825,6 +1946,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				PRODUCT_NAME = EAPOLController;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SHARED_PRECOMPS_DIR = "$(CACHE_ROOT)/SharedPrecompiledHeaders";
 				WARNING_CFLAGS = (
@@ -2398,6 +2520,24 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		44F502231DB6E54F00EF6B04 /* Build configuration list for PBXAggregateTarget "embedded_frameworks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44F502241DB6E54F00EF6B04 /* Deployment */,
+				44F502251DB6E54F00EF6B04 /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		44F5022F1DB6E56900EF6B04 /* Build configuration list for PBXAggregateTarget "embedded_executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				44F502301DB6E56900EF6B04 /* Deployment */,
+				44F502311DB6E56900EF6B04 /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
 		F90FEE580CA3338A00A7B5A8 /* Build configuration list for PBXNativeTarget "eapolclient(embedded)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

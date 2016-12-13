@@ -85,7 +85,7 @@ convertccHmacSelector(CCHmacAlgorithm oldSelector)
 
 void CCHmacInit(
                 CCHmacContext *ctx, 
-                CCHmacAlgorithm algorithm,	/* kCCHmacSHA1, kCCHmacMD5 */
+                CCHmacAlgorithm algorithm,	/* kCCHmacAlgSHA1, kCCHmacAlgMD5 */
                 const void *key,
                 size_t keyLength)		/* length of key in bytes */
 {
@@ -165,7 +165,7 @@ CCHmacOutputSize(CCDigestAlg alg)
  * Output is written to caller-supplied buffer, as in CCHmacFinal().
  */
 void CCHmac(
-            CCHmacAlgorithm algorithm,	/* kCCHmacSHA1, kCCHmacMD5 */
+            CCHmacAlgorithm algorithm,	/* kCCHmacAlgSHA1, kCCHmacAlgMD5 */
             const void *key,
             size_t keyLength,		/* length of key in bytes */
             const void *data,

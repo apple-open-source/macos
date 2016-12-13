@@ -1,4 +1,5 @@
 perf/perf.launchtime.ksh
+perf/perf.fbt_probes.ksh
 aggs/err.D_AGG_FUNC.bad.d
 aggs/err.D_AGG_MDIM.bad.d
 aggs/err.D_AGG_NULL.bad.d

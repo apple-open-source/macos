@@ -73,7 +73,6 @@ private:
 
 protected:
 	Mutex mMutex;
-    StReadWriteLock* mKeychainReadLock;
 
     // Call this every time we switch to a new keychain
     // Will:

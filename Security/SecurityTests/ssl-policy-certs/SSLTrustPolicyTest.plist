@@ -100,8 +100,6 @@
 		<string>apple.co.uk</string>
 		<key>Result</key>
 		<string>kSecTrustResultRecoverableTrustFailure</string>
-		<key>Reason</key>
-		<string>rdar://problem/26555272</string>
 	</dict>
 	<key>Test12</key>
 	<dict>

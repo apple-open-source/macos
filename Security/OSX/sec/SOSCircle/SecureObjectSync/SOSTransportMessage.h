@@ -3,7 +3,7 @@
 #define SOSTransportMessage_h
 
 #include <Security/SecureObjectSync/SOSAccount.h>
-#include <Security/SecureObjectSync/SOSEngine.h> // TODO: Remove when SOSEnginePeerMessageSentBlock moves to SOSPeer.h
+#include <Security/SecureObjectSync/SOSEnginePriv.h>
 #include <CoreFoundation/CFRuntime.h>
 
 typedef struct __OpaqueSOSTransportMessage *SOSTransportMessageRef;

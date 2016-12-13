@@ -46,6 +46,8 @@
 #include <CoreFoundation/CFDictionary.h>
 
 
+#if !SECTRUST_OSX
+
 static CFStringRef kSecSystemTrustStoreBundlePath = CFSTR("/System/Library/Security/Certificates.bundle");
 
 static CFURLRef SecSystemTrustStoreCopyResourceURL(CFStringRef resourceName,
@@ -219,4 +221,14 @@ errout:
 		CFRelease(allowList);
 	return result;
 }
+
+#else
+
+/* Legacy code path, only known to be used by IdentityCursorPolicyAndID::next. (rdar://28622060) */
+
+CSSM_RETURN tpCheckCertificateAllowList(TPCertGroup &certGroup) {
+	return CSSMERR_TP_NOT_TRUSTED;
+}
+
+#endif /* !SECTRUST_OSX */
 

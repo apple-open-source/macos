@@ -33,8 +33,9 @@ int CommonCryptoWithData(int __unused argc, char *const * __unused argv)
                                      kCCOptionECBMode, key->bytes, key->len, NULL,
                                      data, AES_KEYST_SIZE, &cryptor, NULL);
 
+    CCCryptorRelease(cryptor);
     ok(retval == kCCSuccess, "Cryptor was created");
-    
+    free(key);
     return 0;
 }
 #endif

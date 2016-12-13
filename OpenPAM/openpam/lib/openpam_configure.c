@@ -143,7 +143,7 @@ openpam_read_chain(pam_handle_t *pamh,
 	if ((f = fopen(filename, "r")) == NULL) {
 		openpam_log(errno == ENOENT ? PAM_LOG_LIBDEBUG : PAM_LOG_NOTICE,
 		    "%s: %m", filename);
-		return (0);
+		return (errno == EPERM ? -1 : 0);
 	}
 	this = NULL;
 	count = lineno = 0;
@@ -332,6 +332,30 @@ openpam_configure(pam_handle_t *pamh,
 			continue;
 		if (openpam_load_chain(pamh, PAM_OTHER, fclt) < 0)
 			goto load_err;
+	}
+	// <rdar://problem/27991863> Sandbox apps report all passwords as valid
+	// Default all empty facilities to "required pam_deny.so"
+	for (fclt = 0; fclt < PAM_NUM_FACILITIES; ++fclt) {
+		if (pamh->chains[fclt] == NULL) {
+			pam_chain_t *this = calloc(1, sizeof(pam_chain_t));
+			if (this == NULL)
+				goto load_err;
+			this->flag   = PAM_REQUIRED;
+			this->module = openpam_load_module("pam_deny.so");
+		//	this->optc   = 0;
+			this->optv   = calloc(1, sizeof(char *));
+		//	this->next	 = NULL;
+			if (this->optv != NULL && this->module != NULL) {
+				pamh->chains[fclt] = this;
+			} else {
+				if (this->optv != NULL)
+					free(this->optv);
+				if (this->module != NULL)
+					openpam_release_module(this->module);
+				free(this);
+				goto load_err;
+			}
+		}
 	}
 	return (PAM_SUCCESS);
  load_err:

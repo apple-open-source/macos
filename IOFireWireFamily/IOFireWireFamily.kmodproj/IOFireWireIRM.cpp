@@ -677,7 +677,7 @@ void IOFireWireIRMAllocation::threadFunc( void * arg )
 	IORecursiveLockUnlock(fLock);
 	
 	// clean up thread info
-	IOFree( threadInfo, sizeof(threadInfo) );
+	IOFree( threadInfo, sizeof(IRMAllocationThreadInfo) );
     pIRMAllocation->release();		// retain occurred in handleBusReset
     pIRMAllocation=NULL;
 	

@@ -267,12 +267,11 @@ void Server::notifyDeadName(Port port)
 	// unbounded time, including calls out to token daemons etc.
 	
 	StLock<Mutex> serverLock(*this);
-	secnotice("SSports", "port %d is dead", port.port());
-    
+
     // is it a connection?
     PortMap<Connection>::iterator conIt = mConnections.find(port);
     if (conIt != mConnections.end()) {
-        secnotice("SS", "%p dead connection %d", this, port.port());
+        secinfo("SS", "%p dead connection %d", this, port.port());
         RefPointer<Connection> con = conIt->second;
 		mConnections.erase(conIt);
         serverLock.unlock();
@@ -283,7 +282,7 @@ void Server::notifyDeadName(Port port)
     // is it a process?
     PortMap<Process>::iterator procIt = mProcesses.find(port);
     if (procIt != mProcesses.end()) {
-        secnotice("SS", "%p dead process %d", this, port.port());
+        secinfo("SS", "%p dead process %d", this, port.port());
         RefPointer<Process> proc = procIt->second;
 		mPids.erase(proc->pid());
 		mProcesses.erase(procIt);
@@ -306,7 +305,7 @@ void Server::notifyDeadName(Port port)
 //
 void Server::notifyNoSenders(Port port, mach_port_mscount_t)
 {
-    secnotice("SS", "%p dead session %d", this, port.port());
+    secinfo("SS", "%p dead session %d", this, port.port());
 }
 
 

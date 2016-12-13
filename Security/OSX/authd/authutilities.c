@@ -50,6 +50,7 @@ DeserializeItemSet(const xpc_object_t data)
         require_action(set->items != NULL, done, set->count = 0);
         
         xpc_array_apply(data, ^bool(size_t index, xpc_object_t value) {
+            void *dataCopy = 0;
             require(xpc_get_type(value) == XPC_TYPE_DICTIONARY, done);
             size_t nameLen = 0;
             const char * name = xpc_dictionary_get_string(value, AUTH_XPC_ITEM_NAME);
@@ -63,14 +64,32 @@ DeserializeItemSet(const xpc_object_t data)
             set->items[index].flags = (uint32_t)xpc_dictionary_get_uint64(value, AUTH_XPC_ITEM_FLAGS);
             size_t len;
             const void * valueData = xpc_dictionary_get_data(value, AUTH_XPC_ITEM_VALUE, &len);
+
+            // <rdar://problem/13033889> authd is holding on to multiple copies of my password in the clear
+            if (xpc_dictionary_get_value(value, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH) != NULL) {
+                size_t sensitiveLength = (size_t)xpc_dictionary_get_uint64(value, AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH);
+                dataCopy = malloc(sensitiveLength);
+                require(dataCopy != NULL, done);
+                memcpy(dataCopy, valueData, sensitiveLength);
+                memset_s((void *)valueData, len, 0, sensitiveLength); // clear the sensitive data, memset_s is never optimized away
+                len = sensitiveLength;
+            } else {
+                dataCopy = malloc(len);
+                require(dataCopy != NULL, done);
+                memcpy(dataCopy, valueData, len);
+            }
+
             set->items[index].valueLength = len;
             if (len) {
                 set->items[index].value = calloc(1u, len);
                 require(set->items[index].value != NULL, done);
                 
-                memcpy(set->items[index].value, valueData, len);
+                memcpy(set->items[index].value, dataCopy, len);
             }
+
         done:
+            if (dataCopy)
+                free(dataCopy);
             return true;
         });
     }

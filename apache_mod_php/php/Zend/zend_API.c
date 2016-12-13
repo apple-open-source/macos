@@ -1074,7 +1074,7 @@ static int zval_update_class_constant(zval **pp, int is_static, int offset TSRML
 						*scope = old_scope;
 						return ret;
 					}
-				}				
+				}
 				ce = ce->parent;
 			} while (ce);
 
@@ -1279,9 +1279,14 @@ ZEND_API int add_assoc_double_ex(zval *arg, const char *key, uint key_len, doubl
 ZEND_API int add_assoc_string_ex(zval *arg, const char *key, uint key_len, char *str, int duplicate) /* {{{ */
 {
 	zval *tmp;
+	size_t _len = strlen(str);
+
+	if (UNEXPECTED(_len > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
-	ZVAL_STRING(tmp, str, duplicate);
+	ZVAL_STRINGL(tmp, str, _len, duplicate);
 
 	return zend_symtable_update(Z_ARRVAL_P(arg), key, key_len, (void *) &tmp, sizeof(zval *), NULL);
 }
@@ -1290,6 +1295,10 @@ ZEND_API int add_assoc_string_ex(zval *arg, const char *key, uint key_len, char 
 ZEND_API int add_assoc_stringl_ex(zval *arg, const char *key, uint key_len, char *str, uint length, int duplicate) /* {{{ */
 {
 	zval *tmp;
+
+	if (UNEXPECTED(length > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
 	ZVAL_STRINGL(tmp, str, length, duplicate);
@@ -1362,6 +1371,11 @@ ZEND_API int add_index_double(zval *arg, ulong index, double d) /* {{{ */
 ZEND_API int add_index_string(zval *arg, ulong index, const char *str, int duplicate) /* {{{ */
 {
 	zval *tmp;
+	size_t _len = strlen(str);
+
+	if (UNEXPECTED(_len > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
 	ZVAL_STRING(tmp, str, duplicate);
@@ -1373,6 +1387,10 @@ ZEND_API int add_index_string(zval *arg, ulong index, const char *str, int dupli
 ZEND_API int add_index_stringl(zval *arg, ulong index, const char *str, uint length, int duplicate) /* {{{ */
 {
 	zval *tmp;
+
+	if (UNEXPECTED(length > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
 	ZVAL_STRINGL(tmp, str, length, duplicate);
@@ -1457,6 +1475,9 @@ ZEND_API int add_next_index_stringl(zval *arg, const char *str, uint length, int
 {
 	zval *tmp;
 
+	if (UNEXPECTED(length > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 	MAKE_STD_ZVAL(tmp);
 	ZVAL_STRINGL(tmp, str, length, duplicate);
 
@@ -1473,9 +1494,14 @@ ZEND_API int add_next_index_zval(zval *arg, zval *value) /* {{{ */
 ZEND_API int add_get_assoc_string_ex(zval *arg, const char *key, uint key_len, const char *str, void **dest, int duplicate) /* {{{ */
 {
 	zval *tmp;
+	size_t _len = strlen(str);
+
+	if (UNEXPECTED(_len > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
-	ZVAL_STRING(tmp, str, duplicate);
+	ZVAL_STRINGL(tmp, str, _len, duplicate);
 
 	return zend_symtable_update(Z_ARRVAL_P(arg), key, key_len, (void *) &tmp, sizeof(zval *), dest);
 }
@@ -1484,6 +1510,10 @@ ZEND_API int add_get_assoc_string_ex(zval *arg, const char *key, uint key_len, c
 ZEND_API int add_get_assoc_stringl_ex(zval *arg, const char *key, uint key_len, const char *str, uint length, void **dest, int duplicate) /* {{{ */
 {
 	zval *tmp;
+
+	if (UNEXPECTED(length > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
 	ZVAL_STRINGL(tmp, str, length, duplicate);
@@ -1664,9 +1694,14 @@ ZEND_API int add_property_string_ex(zval *arg, const char *key, uint key_len, co
 {
 	zval *tmp;
 	zval *z_key;
+	size_t _len = strlen(str);
+
+	if (UNEXPECTED(_len > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
-	ZVAL_STRING(tmp, str, duplicate);
+	ZVAL_STRINGL(tmp, str, _len, duplicate);
 
 	MAKE_STD_ZVAL(z_key);
 	ZVAL_STRINGL(z_key, key, key_len-1, 1);
@@ -1682,6 +1717,10 @@ ZEND_API int add_property_stringl_ex(zval *arg, const char *key, uint key_len, c
 {
 	zval *tmp;
 	zval *z_key;
+
+	if (UNEXPECTED(length > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String overflow, max size is %d", INT_MAX);
+	}
 
 	MAKE_STD_ZVAL(tmp);
 	ZVAL_STRINGL(tmp, str, length, duplicate);
@@ -1766,6 +1805,12 @@ ZEND_API int zend_startup_module_ex(zend_module_entry *module TSRMLS_DC) /* {{{ 
 }
 /* }}} */
 
+static int zend_startup_module_int(zend_module_entry *module TSRMLS_DC) /* {{{ */
+{
+	return (zend_startup_module_ex(module TSRMLS_CC) == SUCCESS) ? ZEND_HASH_APPLY_KEEP : ZEND_HASH_APPLY_REMOVE;
+}
+/* }}} */
+
 static void zend_sort_modules(void *base, size_t count, size_t siz, compare_func_t compare TSRMLS_DC) /* {{{ */
 {
 	Bucket **b1 = base;
@@ -1836,7 +1881,7 @@ ZEND_API void zend_collect_module_handlers(TSRMLS_D) /* {{{ */
 	module_post_deactivate_handlers = module_request_shutdown_handlers + shutdown_count + 1;
 	module_post_deactivate_handlers[post_deactivate_count] = NULL;
 	startup_count = 0;
-	
+
 	for (zend_hash_internal_pointer_reset_ex(&module_registry, &pos);
 	     zend_hash_get_current_data_ex(&module_registry, (void *) &module, &pos) == SUCCESS;
 	     zend_hash_move_forward_ex(&module_registry, &pos)) {
@@ -1882,7 +1927,7 @@ ZEND_API void zend_collect_module_handlers(TSRMLS_D) /* {{{ */
 ZEND_API int zend_startup_modules(TSRMLS_D) /* {{{ */
 {
 	zend_hash_sort(&module_registry, zend_sort_modules, NULL, 0 TSRMLS_CC);
-	zend_hash_apply(&module_registry, (apply_func_t)zend_startup_module_ex TSRMLS_CC);
+	zend_hash_apply(&module_registry, (apply_func_t)zend_startup_module_int TSRMLS_CC);
 	return SUCCESS;
 }
 /* }}} */
@@ -2083,7 +2128,7 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, const zend_functio
 		}
 		if (ptr->arg_info) {
 			zend_internal_function_info *info = (zend_internal_function_info*)ptr->arg_info;
-			
+
 			internal_function->arg_info = (zend_arg_info*)ptr->arg_info+1;
 			internal_function->num_args = ptr->num_args;
 			/* Currently you cannot denote that the function can accept less arguments than num_args */
@@ -2701,7 +2746,7 @@ static int zend_is_callable_check_class(const char *name, int name_len, zend_fca
 			}
 			ret = 1;
 		}
-	} else if (name_len == sizeof("parent") - 1 && 
+	} else if (name_len == sizeof("parent") - 1 &&
 		       !memcmp(lcname, "parent", sizeof("parent") - 1)) {
 		if (!EG(scope)) {
 			if (error) *error = estrdup("cannot access parent:: when no class scope is active");
@@ -3030,7 +3075,7 @@ ZEND_API zend_bool zend_is_callable_ex(zval *callable, zval *object_ptr, uint ch
 	if (error) {
 		*error = NULL;
 	}
-	
+
 	fcc->initialized = 0;
 	fcc->calling_scope = NULL;
 	fcc->called_scope = NULL;
@@ -3042,7 +3087,7 @@ ZEND_API zend_bool zend_is_callable_ex(zval *callable, zval *object_ptr, uint ch
 		object_ptr = NULL;
 	}
 	if (object_ptr &&
-	    (!EG(objects_store).object_buckets || 
+	    (!EG(objects_store).object_buckets ||
 	     !EG(objects_store).object_buckets[Z_OBJ_HANDLE_P(object_ptr)].valid)) {
 		return 0;
 	}
@@ -3123,7 +3168,7 @@ ZEND_API zend_bool zend_is_callable_ex(zval *callable, zval *object_ptr, uint ch
 						}
 
 					} else {
-						if (!EG(objects_store).object_buckets || 
+						if (!EG(objects_store).object_buckets ||
 						    !EG(objects_store).object_buckets[Z_OBJ_HANDLE_PP(obj)].valid) {
 							return 0;
 						}
@@ -3192,7 +3237,7 @@ ZEND_API zend_bool zend_is_callable_ex(zval *callable, zval *object_ptr, uint ch
 					*callable_name = emalloc(*callable_name_len + 1);
 					memcpy(*callable_name, ce->name, ce->name_length);
 					memcpy((*callable_name) + ce->name_length, "::__invoke", sizeof("::__invoke"));
-				}									
+				}
 				return 1;
 			}
 			/* break missing intentionally */
@@ -3725,6 +3770,30 @@ ZEND_API void zend_update_property(zend_class_entry *scope, zval *object, const 
 	MAKE_STD_ZVAL(property);
 	ZVAL_STRINGL(property, name, name_length, 1);
 	Z_OBJ_HT_P(object)->write_property(object, property, value, 0 TSRMLS_CC);
+	zval_ptr_dtor(&property);
+
+	EG(scope) = old_scope;
+}
+/* }}} */
+
+ZEND_API void zend_unset_property(zend_class_entry *scope, zval *object, const char *name, int name_length TSRMLS_DC) /* {{{ */
+{
+	zval *property;
+	zend_class_entry *old_scope = EG(scope);
+
+	EG(scope) = scope;
+
+	if (!Z_OBJ_HT_P(object)->unset_property) {
+		const char *class_name;
+		zend_uint class_name_len;
+
+		zend_get_object_classname(object, &class_name, &class_name_len TSRMLS_CC);
+
+		zend_error(E_CORE_ERROR, "Property %s of class %s cannot be unset", name, class_name);
+	}
+	MAKE_STD_ZVAL(property);
+	ZVAL_STRINGL(property, name, name_length, 1);
+	Z_OBJ_HT_P(object)->unset_property(object, property, 0 TSRMLS_CC);
 	zval_ptr_dtor(&property);
 
 	EG(scope) = old_scope;

@@ -2614,6 +2614,9 @@ static void SecORVCFinish(SecORVCRef orvc) {
     }
 }
 
+#define MAX_OCSP_RESPONDERS 3
+#define OCSP_REQUEST_THRESHOLD 10
+
 /* Return the next responder we should contact for this rvc or NULL if we
  exhausted them all. */
 static CFURLRef SecORVCGetNextResponder(SecORVCRef rvc) {
@@ -2621,7 +2624,11 @@ static CFURLRef SecORVCGetNextResponder(SecORVCRef rvc) {
     CFArrayRef ocspResponders = SecCertificateGetOCSPResponders(cert);
     if (ocspResponders) {
         CFIndex responderCount = CFArrayGetCount(ocspResponders);
-        while (rvc->responderIX < responderCount) {
+        if (responderCount >= OCSP_REQUEST_THRESHOLD) {
+            secnotice("rvc", "too many ocsp responders (%ld)", (long)responderCount);
+            return NULL;
+        }
+        while (rvc->responderIX < responderCount && rvc->responderIX < MAX_OCSP_RESPONDERS) {
             CFURLRef responder = CFArrayGetValueAtIndex(ocspResponders, rvc->responderIX);
             rvc->responderIX++;
             CFStringRef scheme = CFURLCopyScheme(responder);
@@ -3013,12 +3020,19 @@ static void SecCRVCFinish(SecCRVCRef crvc) {
     // nothing yet
 }
 
+#define MAX_CRL_DPS 3
+#define CRL_REQUEST_THRESHOLD 10
+
 static CFURLRef SecCRVCGetNextDistributionPoint(SecCRVCRef rvc) {
     SecCertificateRef cert = SecPVCGetCertificateAtIndex(rvc->pvc, rvc->certIX);
     CFArrayRef crlDPs = SecCertificateGetCRLDistributionPoints(cert);
     if (crlDPs) {
         CFIndex crlDPCount = CFArrayGetCount(crlDPs);
-        while (rvc->distributionPointIX < crlDPCount) {
+        if (crlDPCount >= CRL_REQUEST_THRESHOLD) {
+            secnotice("rvc", "too many CRL DP entries (%ld)", (long)crlDPCount);
+            return NULL;
+        }
+        while (rvc->distributionPointIX < crlDPCount && rvc->distributionPointIX < MAX_CRL_DPS) {
             CFURLRef distributionPoint = CFArrayGetValueAtIndex(crlDPs, rvc->distributionPointIX);
             rvc->distributionPointIX++;
             CFStringRef scheme = CFURLCopyScheme(distributionPoint);
@@ -3595,7 +3609,11 @@ void SecPVCSetPath(SecPVCRef pvc, SecCertificatePathRef path,
         policy_tree_prune(&pvc->valid_policy_tree);
     }
     pvc->policyIX = 0;
-    pvc->result = true;
+
+    /* Since we don't run the LeafChecks again, we need to preserve the
+     * result the leaf had. */
+    pvc->result = (details) ? (CFDictionaryGetCount(CFArrayGetValueAtIndex(details, 0)) == 0)
+                            : true;
 }
 
 SecPolicyRef SecPVCGetPolicy(SecPVCRef pvc) {
@@ -3982,7 +4000,7 @@ static bool SecPVCContainsString(SecPVCRef pvc, CFIndex policyIX, CFStringRef st
         tmpStringValue = CFStringCreateCopy(NULL, stringValue);
     }
     if (policyIX >= 0 && policyIX < CFArrayGetCount(pvc->policies)) {
-		SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, policyIX);
+        SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, policyIX);
         /* Have to look for all the possible locations of name string */
         CFStringRef policyString = NULL;
         policyString = CFDictionaryGetValue(policy->_options, kSecPolicyCheckSSLHostname);
@@ -4227,6 +4245,84 @@ bool SecPVCCheckUsageConstraints(SecPVCRef pvc) {
     return shouldDeny;
 }
 
+#define kSecPolicySHA256Size 32
+static const UInt8 kTestDateConstraintsRoot[kSecPolicySHA256Size] = {
+    0x51,0xA0,0xF3,0x1F,0xC0,0x1D,0xEC,0x87,0x32,0xB6,0xFD,0x13,0x6A,0x43,0x4D,0x6C,
+    0x87,0xCD,0x62,0xE0,0x38,0xB4,0xFB,0xD6,0x40,0xB0,0xFD,0x62,0x4D,0x1F,0xCF,0x6D
+};
+static const UInt8 kWS_CA1_G2[kSecPolicySHA256Size] = {
+    0xD4,0x87,0xA5,0x6F,0x83,0xB0,0x74,0x82,0xE8,0x5E,0x96,0x33,0x94,0xC1,0xEC,0xC2,
+    0xC9,0xE5,0x1D,0x09,0x03,0xEE,0x94,0x6B,0x02,0xC3,0x01,0x58,0x1E,0xD9,0x9E,0x16
+};
+static const UInt8 kWS_CA1_NEW[kSecPolicySHA256Size] = {
+    0x4B,0x22,0xD5,0xA6,0xAE,0xC9,0x9F,0x3C,0xDB,0x79,0xAA,0x5E,0xC0,0x68,0x38,0x47,
+    0x9C,0xD5,0xEC,0xBA,0x71,0x64,0xF7,0xF2,0x2D,0xC1,0xD6,0x5F,0x63,0xD8,0x57,0x08
+};
+static const UInt8 kWS_CA2_NEW[kSecPolicySHA256Size] = {
+    0xD6,0xF0,0x34,0xBD,0x94,0xAA,0x23,0x3F,0x02,0x97,0xEC,0xA4,0x24,0x5B,0x28,0x39,
+    0x73,0xE4,0x47,0xAA,0x59,0x0F,0x31,0x0C,0x77,0xF4,0x8F,0xDF,0x83,0x11,0x22,0x54
+};
+static const UInt8 kWS_ECC[kSecPolicySHA256Size] = {
+    0x8B,0x45,0xDA,0x1C,0x06,0xF7,0x91,0xEB,0x0C,0xAB,0xF2,0x6B,0xE5,0x88,0xF5,0xFB,
+    0x23,0x16,0x5C,0x2E,0x61,0x4B,0xF8,0x85,0x56,0x2D,0x0D,0xCE,0x50,0xB2,0x9B,0x02
+};
+static const UInt8 kSC_SFSCA[kSecPolicySHA256Size] = {
+    0xC7,0x66,0xA9,0xBE,0xF2,0xD4,0x07,0x1C,0x86,0x3A,0x31,0xAA,0x49,0x20,0xE8,0x13,
+    0xB2,0xD1,0x98,0x60,0x8C,0xB7,0xB7,0xCF,0xE2,0x11,0x43,0xB8,0x36,0xDF,0x09,0xEA
+};
+static const UInt8 kSC_SHA2[kSecPolicySHA256Size] = {
+    0xE1,0x78,0x90,0xEE,0x09,0xA3,0xFB,0xF4,0xF4,0x8B,0x9C,0x41,0x4A,0x17,0xD6,0x37,
+    0xB7,0xA5,0x06,0x47,0xE9,0xBC,0x75,0x23,0x22,0x72,0x7F,0xCC,0x17,0x42,0xA9,0x11
+};
+static const UInt8 kSC_G2[kSecPolicySHA256Size] = {
+    0xC7,0xBA,0x65,0x67,0xDE,0x93,0xA7,0x98,0xAE,0x1F,0xAA,0x79,0x1E,0x71,0x2D,0x37,
+    0x8F,0xAE,0x1F,0x93,0xC4,0x39,0x7F,0xEA,0x44,0x1B,0xB7,0xCB,0xE6,0xFD,0x59,0x95
+};
+
+bool SecPVCCheckIssuerDateConstraints(SecPVCRef pvc) {
+    static CFSetRef sConstrainedRoots = NULL;
+    static dispatch_once_t _t;
+    dispatch_once(&_t, ^{
+        const UInt8 *v_hashes[] = {
+            kWS_CA1_G2, kWS_CA1_NEW, kWS_CA2_NEW, kWS_ECC,
+            kSC_SFSCA, kSC_SHA2, kSC_G2, kTestDateConstraintsRoot
+        };
+        CFMutableSetRef set = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+        CFIndex ix, count = sizeof(v_hashes)/sizeof(*v_hashes);
+        for (ix=0; ix<count; ix++) {
+            CFDataRef hash = CFDataCreateWithBytesNoCopy(NULL, v_hashes[ix],
+                kSecPolicySHA256Size, kCFAllocatorNull);
+            if (hash) {
+                CFSetAddValue(set, hash);
+                CFRelease(hash);
+            }
+        }
+        sConstrainedRoots = set;
+    });
+
+    bool shouldDeny = false;
+    CFIndex certIX, certCount = SecCertificatePathGetCount(pvc->path);
+    for (certIX = certCount - 1; certIX >= 0 && !shouldDeny; certIX--) {
+        SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(pvc->path, certIX);
+        CFDataRef sha256 = SecCertificateCopySHA256Digest(cert);
+        if (sha256 && CFSetContainsValue(sConstrainedRoots, sha256)) {
+            /* matched a constrained root; check notBefore dates on all its children. */
+            CFIndex childIX = certIX;
+            while (--childIX >= 0) {
+                SecCertificateRef child = SecCertificatePathGetCertificateAtIndex(pvc->path, childIX);
+                /* 1 Dec 2016 00:00:00 GMT */
+                if (child && (CFAbsoluteTime)502243200.0 <= SecCertificateNotValidBefore(child)) {
+                    SecPVCSetResultForced(pvc, kSecPolicyCheckBlackListedKey, certIX, kCFBooleanFalse, true);
+                    shouldDeny = true;
+                    break;
+                }
+            }
+        }
+        CFReleaseNull(sha256);
+    }
+    return shouldDeny;
+}
+
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
@@ -4244,18 +4340,21 @@ bool SecPVCPathChecks(SecPVCRef pvc) {
     }
 
     CFArrayRef policies = pvc->policies;
-	CFIndex count = CFArrayGetCount(policies);
-	for (; pvc->policyIX < count; ++pvc->policyIX) {
+    CFIndex count = CFArrayGetCount(policies);
+    for (; pvc->policyIX < count; ++pvc->policyIX) {
         /* Validate all keys for all policies. */
         pvc->callbacks = gSecPolicyPathCallbacks;
-		SecPolicyRef policy = SecPVCGetPolicy(pvc);
+        SecPolicyRef policy = SecPVCGetPolicy(pvc);
         CFDictionaryApplyFunction(policy->_options, SecPVCValidateKey, pvc);
         if (!pvc->result && !pvc->details)
             return completed;
-	}
+    }
 
     /* Check whether the TrustSettings say to deny a cert in the path. */
     (void)SecPVCCheckUsageConstraints(pvc);
+
+    /* Check for issuer date constraints. */
+    (void)SecPVCCheckIssuerDateConstraints(pvc);
 
     /* Check the things we can't check statically for the certificate path. */
     /* Critical Extensions, chainLength. */

@@ -27,6 +27,7 @@
 #include <Security/SecureObjectSync/SOSCoder.h>
 #include <Security/SecureObjectSync/SOSAccount.h>
 #include <Security/SecureObjectSync/SOSEngine.h>
+#include <Security/SecureObjectSync/SOSEnginePriv.h>
 
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
@@ -104,6 +105,7 @@ xit:
 
 bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef circle_id, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error) {
     bool ok = false;
+    secnotice("transport", "coder state: %@", coder);
     require_action_quiet(coder, xit, secerror("%@ getCoder: %@", peer_id, error ? *error : NULL));
 
     if (SOSCoderCanWrap(coder)) {
@@ -119,6 +121,7 @@ bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn,
                 secnotice("transport", "%@ SOSCoderWrap failed: %@", peer_id, *error);
             } else {
                 CFRetainAssign(*message_to_send, codedMessage);
+                engine->codersNeedSaving = true;
             }
             CFReleaseNull(codedMessage);
         } else {
@@ -128,6 +131,7 @@ bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn,
         CFReleaseNull(message);
     } else {
         *message_to_send = SOSCoderCopyPendingResponse(coder);
+        engine->codersNeedSaving = true;
         secinfo("transport", "%@ negotiating, %@", peer_id, message_to_send ? CFSTR("sending negotiation message.") : CFSTR("waiting for negotiation message."));
         *sent = Block_copy(^(bool wasSent){
             if (wasSent)

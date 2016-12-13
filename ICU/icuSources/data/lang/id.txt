@@ -81,7 +81,7 @@ id{
         bew{"Betawi"}
         bez{"Bena"}
         bfd{"Bafut"}
-        bg{"Bulgaria"}
+        bg{"Bulgar"}
         bgn{"Balochi Barat"}
         bho{"Bhojpuri"}
         bi{"Bislama"}
@@ -221,7 +221,7 @@ id{
         hr{"Kroasia"}
         hsb{"Sorbia Atas"}
         ht{"Haiti"}
-        hu{"Hungaria"}
+        hu{"Magyar"}
         hup{"Hupa"}
         hy{"Armenia"}
         hz{"Herero"}
@@ -363,7 +363,7 @@ id{
         na{"Nauru"}
         nap{"Neapolitan"}
         naq{"Nama"}
-        nb{"Bokmål Norwegia"}
+        nb{"Bokmål Norsk"}
         nd{"Ndebele Utara"}
         nds{"Jerman Rendah"}
         ne{"Nepali"}
@@ -373,9 +373,9 @@ id{
         niu{"Niuea"}
         nl{"Belanda"}
         nmg{"Kwasio"}
-        nn{"Nynorsk Norwegia"}
+        nn{"Nynorsk Norsk"}
         nnh{"Ngiemboon"}
-        no{"Norwegia"}
+        no{"Norsk"}
         nog{"Nogai"}
         non{"Norse Kuno"}
         nqo{"N’Ko"}
@@ -561,9 +561,9 @@ id{
         zbl{"Blissymbol"}
         zen{"Zenaga"}
         zgh{"Tamazight Maroko Standar"}
-        zh{"Tionghoa"}
-        zh_Hans{"Tionghoa (Aksara Sederhana)"}
-        zh_Hant{"Tionghoa (Aksara Tradisional)"}
+        zh{"Cina"}
+        zh_Hans{"Cina (Aksara Sederhana)"}
+        zh_Hant{"Cina (Aksara Tradisional)"}
         zu{"Zulu"}
         zun{"Zuni"}
         zxx{"Tidak ada konten linguistik"}

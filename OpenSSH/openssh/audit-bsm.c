@@ -65,6 +65,14 @@
 #include <bsm/audit_record.h>
 #include <locale.h>
 
+#ifdef __APPLE__
+#include <bsm/audit_session.h>
+#include "auth-options.h"
+#include "misc.h"
+#include "servconf.h"
+extern ServerOptions options;
+#endif
+
 #if defined(HAVE_GETAUDIT_ADDR)
 #define	AuditInfoStruct		auditinfo_addr
 #define AuditInfoTermID		au_tid_addr_t
@@ -307,6 +315,17 @@ bsm_audit_session_setup(void)
 		error("BSM audit: session setup internal error (NULL ctxt)");
 		return;
 	}
+
+#ifdef __APPLE__
+	bzero(&info, sizeof (info));
+	info.ai_flags = AU_SESSION_FLAG_IS_REMOTE;
+	if (the_authctxt->valid)  {
+	    info.ai_flags |=  AU_SESSION_FLAG_HAS_AUTHENTICATED;
+	}
+	if (!no_pty_flag && options.permit_tty) {
+		info.ai_flags |=  AU_SESSION_FLAG_HAS_TTY;
+	}
+#endif
 
 	if (the_authctxt->valid)
 		info.ai_auid = the_authctxt->pw->pw_uid;

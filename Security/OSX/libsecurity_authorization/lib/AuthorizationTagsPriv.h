@@ -292,6 +292,8 @@
 #define AGENT_HINT_LOGIN_KC_CUST_STR2 "loginKCCreate:customStr2"
 #define AGENT_HINT_LOGIN_KC_USER_HAS_OTHER_KCS_STR "loginKCCreate:moreThanOneKeychainExists"
 
+#define AGENT_HINT_IGNORE_SESSION "ignore-session-state"
+
 /* Keychain synchronization */
 // iDisk keychain blob metainfo dictionary; follows "defaults" naming
 #define AGENT_HINT_KCSYNC_DICT "com.apple.keychainsync.dictionary"

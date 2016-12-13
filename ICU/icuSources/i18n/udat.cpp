@@ -583,6 +583,51 @@ udat_applyPattern(  UDateFormat     *format,
         ((SimpleDateFormat*)format)->applyPattern(pat);
 }
 
+// Apple addition
+static DateFormatSymbols::ECapitalizationContextUsageType capUsageFromSymbolType(UDateFormatSymbolType type)
+{
+    DateFormatSymbols::ECapitalizationContextUsageType capContextUsageType = DateFormatSymbols::kCapContextUsageOther;
+    switch (type) {
+        case UDAT_ERA_NAMES:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageEraWide;
+            break;
+        case UDAT_ERAS:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageEraAbbrev;
+            break;
+        case UDAT_MONTHS:
+        case UDAT_SHORT_MONTHS:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageMonthFormat;
+            break;
+        case UDAT_STANDALONE_MONTHS:
+        case UDAT_STANDALONE_SHORT_MONTHS:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageMonthStandalone;
+            break;
+        case UDAT_NARROW_MONTHS:
+        case UDAT_STANDALONE_NARROW_MONTHS:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageMonthNarrow;
+            break;
+        case UDAT_WEEKDAYS:
+        case UDAT_SHORT_WEEKDAYS:
+        case UDAT_SHORTER_WEEKDAYS:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageDayFormat;
+            break;
+        case UDAT_STANDALONE_WEEKDAYS:
+        case UDAT_STANDALONE_SHORT_WEEKDAYS:
+        case UDAT_STANDALONE_SHORTER_WEEKDAYS:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageDayStandalone;
+            break;
+        case UDAT_STANDALONE_NARROW_WEEKDAYS:
+        case UDAT_NARROW_WEEKDAYS:
+            capContextUsageType = DateFormatSymbols::kCapContextUsageDayNarrow;
+            break;
+        default:
+            break;
+    }
+    return capContextUsageType;
+}
+
+
+
 U_CAPI int32_t U_EXPORT2
 udat_getSymbols(const   UDateFormat     *fmt,
                 UDateFormatSymbolType   type,
@@ -594,10 +639,13 @@ udat_getSymbols(const   UDateFormat     *fmt,
     const DateFormatSymbols *syms;
     const SimpleDateFormat* sdtfmt;
     const RelativeDateFormat* rdtfmt;
+    BreakIterator* capitalizationBrkIter;
     if ((sdtfmt = dynamic_cast<const SimpleDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
         syms = sdtfmt->getDateFormatSymbols();
+        capitalizationBrkIter = sdtfmt->getCapitalizationBrkIter();
     } else if ((rdtfmt = dynamic_cast<const RelativeDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
         syms = rdtfmt->getDateFormatSymbols();
+        capitalizationBrkIter = rdtfmt->getCapitalizationBrkIter();
     } else {
         return -1;
     }
@@ -733,6 +781,40 @@ udat_getSymbols(const   UDateFormat     *fmt,
     }
 
     if(index < count) {
+#if !UCONFIG_NO_BREAK_ITERATION
+        // Apple addition for <rdar://problem/27335144>
+        if (u_islower(res[index].char32At(0)) && capitalizationBrkIter != NULL) {
+            UDisplayContext capitalizationContext = ((const DateFormat*)fmt)->getContext(UDISPCTX_TYPE_CAPITALIZATION, *status);
+            UBool titlecase = FALSE;
+            switch (capitalizationContext) {
+                case UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE:
+                    titlecase = TRUE;
+                    break;
+                case UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU:
+                    titlecase = syms->capitalizeForUsage(capUsageFromSymbolType(type), 0);
+                    break;
+                case UDISPCTX_CAPITALIZATION_FOR_STANDALONE:
+                    titlecase = syms->capitalizeForUsage(capUsageFromSymbolType(type), 1);
+                    break;
+                default:
+                    // titlecase = FALSE;
+                    break;
+            }
+            if (titlecase) {
+                UnicodeString symbolToModify(res[index]);
+                BreakIterator* capBrkIterToUse = capitalizationBrkIter->clone();
+                if (capBrkIterToUse != NULL) {
+                    Locale locale = capBrkIterToUse->getLocale(ULOC_ACTUAL_LOCALE, *status);
+                    if (U_SUCCESS(*status)) {
+                        symbolToModify.toTitle(capBrkIterToUse, locale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
+                        delete capBrkIterToUse;
+                        return symbolToModify.extract(result, resultLength, *status);
+                    }
+                    delete capBrkIterToUse;
+                }
+            }
+        }
+#endif
         return res[index].extract(result, resultLength, *status);
     }
     return 0;

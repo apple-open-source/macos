@@ -514,7 +514,7 @@ hfs_readdirattr_internal(struct vnode *dvp, struct attrlist *alist,
 	 * Do not use the valence as a way to determine if we hit EOF, since
 	 * it can be wrong.  Use the catalog's output only.
 	 */
-	if ((*(eofflag) == 0) && (lastdescp != NULL) && (lastdescp->cd_nameptr != NULL)) {
+	if ((*(eofflag) == 0) && (lastdescp != NULL)) {
 
 		/* Remember last entry */
 		if ((dirhint->dh_desc.cd_flags & CD_HASBUF) &&
@@ -522,10 +522,15 @@ hfs_readdirattr_internal(struct vnode *dvp, struct attrlist *alist,
 			dirhint->dh_desc.cd_flags &= ~CD_HASBUF;
 			vfs_removename((const char *)dirhint->dh_desc.cd_nameptr);
 		}
-		dirhint->dh_desc.cd_namelen = lastdescp->cd_namelen;
-		dirhint->dh_desc.cd_nameptr = (const u_int8_t *)
-		vfs_addname((const char *)lastdescp->cd_nameptr, lastdescp->cd_namelen, 0, 0);
-		dirhint->dh_desc.cd_flags |= CD_HASBUF;
+		if (lastdescp->cd_nameptr != NULL) {
+			dirhint->dh_desc.cd_namelen = lastdescp->cd_namelen;
+			dirhint->dh_desc.cd_nameptr = (const u_int8_t *)
+			vfs_addname((const char *)lastdescp->cd_nameptr, lastdescp->cd_namelen, 0, 0);
+			dirhint->dh_desc.cd_flags |= CD_HASBUF;
+		} else {
+			dirhint->dh_desc.cd_namelen = 0;
+			dirhint->dh_desc.cd_nameptr = NULL;
+		}
 		dirhint->dh_index = index - 1;
 		dirhint->dh_desc.cd_cnid = lastdescp->cd_cnid;
 		dirhint->dh_desc.cd_hint = lastdescp->cd_hint;

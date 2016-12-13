@@ -70,6 +70,8 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-mbregex \
 			--with-mysql=mysqlnd \
 			--with-mysqli=mysqlnd \
+			--with-pdo-pgsql=/usr/local/bin/pg_config \
+			--with-pgsql=/usr/local/bin/pg_config \
 			--without-pear \
 			--with-pear=no\
 			--with-pdo-mysql=mysqlnd \

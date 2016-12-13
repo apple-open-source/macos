@@ -27,4 +27,4 @@
 #
 #ident	"@(#)tst.libmap.exe	1.1	06/08/28 SMI"
 
-sleep 100000000
+exec sleep 100000000

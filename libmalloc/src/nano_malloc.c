@@ -566,6 +566,10 @@ __nano_vet_and_size(nanozone_t *nanozone, const void *ptr)
 
 	p.addr = (uint64_t)ptr; // Begin the dissection of ptr
 
+	if (nanozone->our_signature != p.fields.nano_signature) {
+		return 0;
+	}
+
 	if (nanozone->phys_ncpus <= p.fields.nano_mag_index) {
 		return 0;
 	}
@@ -952,14 +956,19 @@ static MALLOC_INLINE void
 __nano_free(nanozone_t *nanozone, void *ptr, boolean_t do_scribble)
 {
 	MALLOC_TRACE(TRACE_nano_free, (uintptr_t)nanozone, (uintptr_t)ptr, do_scribble, 0);
-	nano_blk_addr_t p; // happily, the compiler holds this in a register
 
 	if (!ptr) {
 		return; // Protect against malloc_zone_free() passing NULL.
 	}
-	p.addr = (uint64_t)ptr; // place ptr on the dissecting table
-	if (nanozone->our_signature == p.fields.nano_signature) {
-		_nano_free_check_scribble(nanozone, ptr, do_scribble);
+
+	// <rdar://problem/26481467> exhausting a slot may result in a pointer with
+	// the nanozone prefix being given to nano_free via malloc_zone_free. Calling
+	// vet_and_size here, instead of in _nano_free_check_scribble means we can
+	// early-out into the helper_zone if it turns out nano does not own this ptr.
+	size_t sz = _nano_vet_and_size_of_live(nanozone, ptr);
+
+	if (sz) {
+		_nano_free_trusted_size_check_scribble(nanozone, ptr, sz, do_scribble);
 		return;
 	} else {
 		malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);

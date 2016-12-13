@@ -100,8 +100,7 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
 SOSPeerRef SOSEngineCopyPeerWithID(SOSEngineRef engine, CFStringRef peer_id, CFErrorRef *error);
 
 // Operate on a peer with a given peer_id under the engine lock
-bool SOSEngineForPeerID(SOSEngineRef engine, CFStringRef peer_id, CFErrorRef *error, void (^forPeer)(SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder));
-bool SOSEngineForPeerIDNoCoder(SOSEngineRef engine, CFStringRef peerID, CFErrorRef *error, void (^forPeer)(SOSTransactionRef txn, SOSPeerRef peer));
+bool SOSEngineForPeerID(SOSEngineRef engine, CFStringRef peer_id, CFErrorRef *error, void (^forPeer)(SOSTransactionRef txn, SOSPeerRef peer));
 
 // Modify a peer inside a transaction under then engine lock and optionally force an engine state save when done.
 bool SOSEngineWithPeerID(SOSEngineRef engine, CFStringRef peer_id, CFErrorRef *error, void (^with)(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState));
@@ -130,6 +129,8 @@ CFArrayRef SOSEngineCopyPeerConfirmedDigests(SOSEngineRef engine, CFErrorRef *er
 // Private do not use!
 SOSDataSourceRef SOSEngineGetDataSource(SOSEngineRef engine);
 bool SOSTestEngineSaveWithDER(SOSEngineRef engine, CFDataRef derState, CFErrorRef *error);
+bool SOSTestEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
+bool TestSOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 
 // MARK: Sync completion notification registration
 

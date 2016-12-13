@@ -15,7 +15,19 @@
 #include <IOKit/hid/IOHIDSession.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDPrivateKeys.h>
+#include <IOKit/hid/IOHIDEventData.h>
+#include <IOKit/hid/IOHIDEventSystemKeys.h>
+#include <IOKit/hid/AppleHIDUsageTables.h>
 #include <mach/mach_time.h>
+
+#define kKeyboardCancelThresholdMS      100
+#define kDFRTouchCancelThresholdMS      100
+#define kBioCancelThresholdMS           100
+
+#define ABSOLUTE_TO_MS(abs)         ((abs) * sDFREventFilterTimebaseInfo.numer / sDFREventFilterTimebaseInfo.denom / NSEC_PER_MSEC)
+#define DELTA_IN_MS(cur, prev)      ABSOLUTE_TO_MS(cur - prev)
+
+static mach_timebase_info_data_t    sDFREventFilterTimebaseInfo;
 
 // 4F2A35AF-A17D-4020-B62A-0E64B825F069
 #define kIOHIDDFREventFilterFactor CFUUIDGetConstantUUIDWithBytes(kCFAllocatorSystemDefault, 0x4F, 0x2A, 0x35, 0xAF, 0xA1, 0x7D, 0x40, 0x20, 0xB6, 0x2A, 0x0E, 0x64, 0xB8, 0x25, 0xF0, 0x69)
@@ -74,11 +86,21 @@ _session(NULL),
 _lastDFREvent(NULL),
 _keyboardFilterEnabled(true),
 _touchIDFilterEnabled(true),
-_touchInProgress(false),
+_cancelledTouchInProgress(false),
 _bioInProgress(false),
-_cancel(false)
+_cancel(false),
+_lastDFREventTime(0),
+_lastKeyboardEventTime(0),
+_keyboardCancelThresholdMS(kKeyboardCancelThresholdMS),
+_dfrTouchCancelThresholdMS(kDFRTouchCancelThresholdMS),
+_bioCancelThresholdMS(kBioCancelThresholdMS),
+_eventCancelTimer(0)
 {
     CFPlugInAddInstanceForFactory(factoryID);
+    
+    if (sDFREventFilterTimebaseInfo.denom == 0) {
+        (void) mach_timebase_info(&sDFREventFilterTimebaseInfo);
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -229,6 +251,20 @@ void IOHIDDFREventFilter::scheduleWithDispatchQueue(void *self, dispatch_queue_t
 void IOHIDDFREventFilter::scheduleWithDispatchQueue(dispatch_queue_t queue)
 {
     _dispatchQueue = queue;
+    
+    _eventCancelTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _dispatchQueue);
+    if (_eventCancelTimer != NULL) {
+        dispatch_source_set_event_handler(_eventCancelTimer, ^(void) {
+            dispatch_source_set_timer(_eventCancelTimer, DISPATCH_TIME_FOREVER, 0, 0);
+            _cancel = false;
+            if (_bioInProgress) {
+                // We're not guaranteed a finger off event, so set this to false
+                _bioInProgress = false;
+            }
+        });
+        dispatch_source_set_timer(_eventCancelTimer, DISPATCH_TIME_FOREVER, 0, 0);
+        dispatch_resume(_eventCancelTimer);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -244,6 +280,10 @@ void IOHIDDFREventFilter::unscheduleFromDispatchQueue(dispatch_queue_t queue __u
     if (_lastDFREvent) {
         CFRelease(_lastDFREvent);
         _lastDFREvent = NULL;
+    }
+    
+    if (_eventCancelTimer) {
+        dispatch_source_cancel(_eventCancelTimer);
     }
 }
 
@@ -282,16 +322,15 @@ IOHIDEventRef IOHIDDFREventFilter::filter(IOHIDServiceRef sender, IOHIDEventRef 
         
         if (!handleDFREvent(event)) {
             // keep track of active touches during cancellation phase, so we know to continue to cancel them
-            _touchInProgress = (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerRange) == 1);
+            _cancelledTouchInProgress = (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerRange) == 1);
             
-            HIDLogDebug("Event cancelled due to %s. touch: %d flags = %x", _bioInProgress ? "touch ID" : "active keys", _touchInProgress,  (unsigned int)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerEventMask));
+            HIDLogDebug("Event cancelled due to %s. touch: %d flags = %x", _bioInProgress ? "touch ID" : "active keys", _cancelledTouchInProgress,  (unsigned int)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerEventMask));
             
-            startTouchCancellation();
             CFRelease(event);
             event = NULL;
-        } else if (_touchInProgress && _cancel) {
+        } else if (_cancelledTouchInProgress) {
             // Touch has ended on DFR, allow events
-            _touchInProgress = (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerRange) == 1);
+            _cancelledTouchInProgress = (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerRange) == 1);
 
             HIDLogDebug("Event cancelled due to touch in progress.");
             
@@ -323,6 +362,19 @@ CFTypeRef IOHIDDFREventFilter::getPropertyForClient(CFStringRef key, CFTypeRef c
         result = _keyboardFilterEnabled ? kCFBooleanTrue : kCFBooleanFalse;
     } else if (CFEqual(key, CFSTR(kIOHIDDFRTouchIDEventFilterEnabledKey))) {
         result = _touchIDFilterEnabled ? kCFBooleanTrue : kCFBooleanFalse;
+    } else if (CFEqual(key, CFSTR(kIOHIDDFREventFilterKeyboardCancelThreshold))) {
+        result = CFNumberRefWrap((SInt32)_keyboardCancelThresholdMS);
+    } else if (CFEqual(key, CFSTR(kIOHIDDFREventFilterDFRTouchCancelThreshold))) {
+        result = CFNumberRefWrap((SInt32)_dfrTouchCancelThresholdMS);
+    } else if (CFEqual(key, CFSTR(kIOHIDDFREventFilterBiometricCancelThreshold))) {
+        result = CFNumberRefWrap((SInt32)_bioCancelThresholdMS);
+    } else if (CFEqual(key, CFSTR(kIOHIDSessionFilterDebugKey))) {
+        CFMutableDictionaryRefWrap serializer;
+        serialize(serializer);
+        
+        if (serializer) {
+            result = CFRetain(serializer.Reference());
+        }
     }
     
     return result;
@@ -342,6 +394,18 @@ void IOHIDDFREventFilter::setPropertyForClient(CFStringRef key, CFTypeRef proper
         _keyboardFilterEnabled = CFBooleanGetValue((CFBooleanRef)property);
     } else if (CFEqual(key, CFSTR(kIOHIDDFRTouchIDEventFilterEnabledKey))) {
         _touchIDFilterEnabled = CFBooleanGetValue((CFBooleanRef)property);
+    } else if (CFEqual(key, CFSTR(kIOHIDDFREventFilterKeyboardCancelThreshold))) {
+        if (property && CFGetTypeID(property) == CFNumberGetTypeID()) {
+            CFNumberGetValue((CFNumberRef)property, kCFNumberSInt32Type, &_keyboardCancelThresholdMS);
+        }
+    } else if (CFEqual(key, CFSTR(kIOHIDDFREventFilterDFRTouchCancelThreshold))) {
+        if (property && CFGetTypeID(property) == CFNumberGetTypeID()) {
+            CFNumberGetValue((CFNumberRef)property, kCFNumberSInt32Type, &_dfrTouchCancelThresholdMS);
+        }
+    } else if (CFEqual(key, CFSTR(kIOHIDDFREventFilterBiometricCancelThreshold))) {
+        if (property && CFGetTypeID(property) == CFNumberGetTypeID()) {
+            CFNumberGetValue((CFNumberRef)property, kCFNumberSInt32Type, &_bioCancelThresholdMS);
+        }
     }
 }
 
@@ -368,8 +432,12 @@ void IOHIDDFREventFilter::handleKeyboardEvent(IOHIDEventRef event)
     
     key = Key(usagePage, usage);
     if (keyDown) {
+        uint64_t current = mach_absolute_time();
+        uint64_t deltaMS = _lastDFREventTime ? DELTA_IN_MS(current, _lastDFREventTime) : 0;
+        
         _activeKeys.insert(std::make_pair(key, KeyAttribute(flags)));
-        if (!key.isModifier()) {
+        if (!modifierPressed() && key.isTopRow() && !(flags & kIOHIDKeyboardIsRepeat) && deltaMS <= _dfrTouchCancelThresholdMS) {
+            _lastKeyboardEventTime = IOHIDEventGetTimeStamp(event);
             startTouchCancellation();
         }
     } else {
@@ -378,7 +446,7 @@ void IOHIDDFREventFilter::handleKeyboardEvent(IOHIDEventRef event)
             _activeKeys.erase(iter);
         }
         
-        if (_activeKeys.empty() && !_bioInProgress && !_touchInProgress) {
+        if (!topRowPressed() && !_bioInProgress && !_cancelledTouchInProgress) {
             _cancel = false;
         }
     }
@@ -397,8 +465,14 @@ void IOHIDDFREventFilter::handleBiometricEvent(IOHIDEventRef event)
         if (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldBiometricLevel) == 1) {
             _bioInProgress = true;
             startTouchCancellation();
+            
+            dispatch_source_set_timer(_eventCancelTimer,
+                                      dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * _bioCancelThresholdMS),
+                                      DISPATCH_TIME_FOREVER, 0);
         } else {
             _bioInProgress = false;
+            _cancel = false;
+            dispatch_source_set_timer(_eventCancelTimer, DISPATCH_TIME_FOREVER, 0, 0);
         }
     }
 }
@@ -417,16 +491,31 @@ bool IOHIDDFREventFilter::modifierPressed() {
 }
 
 //------------------------------------------------------------------------------
+// IOHIDDFREventFilter::topRowPressed
+//------------------------------------------------------------------------------
+bool IOHIDDFREventFilter::topRowPressed() {
+    auto iter = _activeKeys.begin();
+    for (; iter != _activeKeys.end(); ++iter) {
+        if (iter->first.isTopRow()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+//------------------------------------------------------------------------------
 // IOHIDDFREventFilter::handleDFREvent
 //------------------------------------------------------------------------------
 IOHIDEventRef IOHIDDFREventFilter::handleDFREvent(IOHIDEventRef event)
 {
-    IOHIDEventRef result = event;
+    IOHIDEventRef   result  = event;
+    uint64_t        current = mach_absolute_time();
+    uint64_t        deltaMS = DELTA_IN_MS(current, _lastKeyboardEventTime);
     
-    // Cancel events when a non-modifier key is pressed or biometric event is in
-    // progress
+    // Cancel events when a non-modifier top row key is pressed within then cancel threshold
+    // or biometric event is in progress
     
-    if ((!_activeKeys.empty() && !modifierPressed() && _keyboardFilterEnabled) ||
+    if ((topRowPressed() && !modifierPressed() && _keyboardFilterEnabled && deltaMS <= _keyboardCancelThresholdMS) ||
         (_bioInProgress)) {
         result = NULL;
         goto exit;
@@ -437,9 +526,17 @@ IOHIDEventRef IOHIDDFREventFilter::handleDFREvent(IOHIDEventRef event)
         _lastDFREvent = NULL;
     }
     
-    // save last event to dispatch on next cancellation
-    _lastDFREvent = event;
-    CFRetain(event);
+    // keep track of how long we're touching for
+    if (IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerRange) == 1) {
+        if (_lastDFREventTime == 0) {
+            _lastDFREventTime = IOHIDEventGetTimeStamp(event);
+        }
+        // save last event to dispatch on next cancellation
+        _lastDFREvent = event;
+        CFRetain(event);
+    } else {
+        _lastDFREventTime = 0;
+    }
     
 exit:
     return result;
@@ -456,12 +553,6 @@ void IOHIDDFREventFilter::startTouchCancellation()
     
     if (_lastDFREvent) {
         CFArrayRef children = NULL;
-
-        if (IOHIDEventGetIntegerValue(_lastDFREvent, kIOHIDEventFieldDigitizerRange) == 0) {
-            goto exit;
-        } else {
-            _touchInProgress = true;
-        }
         
         // Set cancel flag for event and all child digitizer events
         IOHIDEventSetIntegerValue(_lastDFREvent, kIOHIDEventFieldDigitizerEventMask, kIOHIDDigitizerEventCancel);
@@ -476,11 +567,29 @@ void IOHIDDFREventFilter::startTouchCancellation()
         
         IOHIDEventSetTimeStamp(_lastDFREvent, mach_absolute_time());
         _IOHIDSessionDispatchEvent(_session, _lastDFREvent);
-
+        HIDLogDebug("Dispatch touch cancel event");
+        
+        // a touch is in progress, continue to cancel events until it is lifted
+        _cancelledTouchInProgress = true;
         CFRelease(_lastDFREvent);
         _lastDFREvent = NULL;
     }
     
-exit:
     _cancel = true;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDDFREventFilter::serialize
+//------------------------------------------------------------------------------
+void IOHIDDFREventFilter::serialize(CFMutableDictionaryRef dict) const {
+    CFMutableDictionaryRefWrap serializer (dict);
+    serializer.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDDFREventFilter"));
+    serializer.SetValueForKey(CFSTR("Keyboard Filter Enabled"), CFNumberRefWrap(_keyboardFilterEnabled));
+    serializer.SetValueForKey(CFSTR("TouchID Filter Enabled"), CFNumberRefWrap(_touchIDFilterEnabled));
+    serializer.SetValueForKey(CFSTR("Touch in Progress"), CFNumberRefWrap(_cancelledTouchInProgress));
+    serializer.SetValueForKey(CFSTR("Biometry in Progress"), CFNumberRefWrap(_bioInProgress));
+    serializer.SetValueForKey(CFSTR("Cancellation in Progress"), CFNumberRefWrap(_cancel));
+    serializer.SetValueForKey(CFSTR("Keyboard Cancel Threshold (ms)"), CFNumberRefWrap(_keyboardCancelThresholdMS));
+    serializer.SetValueForKey(CFSTR("DFR Touch Cancel Threshold (ms)"), CFNumberRefWrap(_dfrTouchCancelThresholdMS));
+    serializer.SetValueForKey(CFSTR("Biometric Cancel Threshold (ms)"), CFNumberRefWrap(_bioCancelThresholdMS));
 }

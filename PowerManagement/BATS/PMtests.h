@@ -40,4 +40,9 @@ do { \
 } while (0)
 
 
+#define INT_TO_CFNUMBER(numRef, val) { \
+    int __n = (val);  \
+    numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &__n); \
+}
+
 

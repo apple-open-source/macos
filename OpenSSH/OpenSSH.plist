@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2015-07-15</string>
+	<string>2016-09-30</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
@@ -11,36 +11,20 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Storing keys in Keychain on Leopard and later.</string>
-		<string>A getpwuid usage fix.</string>
-		<string>Some manpage fixes.</string>
-		<string>Added EAs to scp.</string>
-		<string>Corrected UsePAM comment in sshd config file.</string>
-		<string>An auth_error logging fix.</string>
-		<string>A fix to preserve EA mtime.</string>
 		<string>Launch ssh-agent via launchd.</string>
-		<string>Enable GSSAPI by default (pre-Leopard).</string>
 		<string>PAM support.</string>
-		<string>A GSSKEX patch.</string>
 		<string>Using membership APIs for AllowGroups.</string>
-		<string>Modified scp to pre-allocate files.</string>
-		<string>Logging local IP for break in attempts.</string>
-		<string>Added cross-realm authorization mechanism.</string>
-		<string>CVE-2011-0539 patch.</string>
 		<string>Updated sandbox for privilege-separated pre-authorization sshd process</string>
-		<string>Replaced use of OpenSSL with CommonCrypto</string>
 		<string>Use LibreSSL libcrypto</string>
-        <string>Fix CVE-2015-5600</string>
-        <string>Fix CVE-2015-6563 and CVE-2015-6564</string>
-        <string>Fix CVE-2016-0777 and CVE-2016-0778</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>OpenSSH</string>
-	<key>OpenSourceSHA1</key>
-	<string>86ab57f00d0fd9bf302760f2f6deac1b6e9df265</string>
+	<key>OpenSourceSHA256</key>
+	<string>3ffb989a6dcaa69594c3b550d4855a5a2e1718ccdde7f5e36387b424220fbecc</string>
 	<key>OpenSourceURL</key>
-	<string> http://ftp5.usa.openbsd.org/pub/OpenBSD/OpenSSH/portable</string>
+	<string>http://ftp5.usa.openbsd.org/pub/OpenBSD/OpenSSH/portable</string>
 	<key>OpenSourceVersion</key>
-	<string>6.9p1</string>
+	<string>7.3p1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.openssh.org/</string>
 </dict>

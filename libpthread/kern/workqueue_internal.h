@@ -51,7 +51,7 @@
 #define WQ_FLAG_THREAD_EVENT_MANAGER	0x00100000  /* event manager thread */
 #define WQ_FLAG_THREAD_TSD_BASE_SET		0x00200000  /* tsd base has already been set */
 
-#define WQ_THREAD_CLEANUP_QOS QOS_CLASS_UTILITY
+#define WQ_THREAD_CLEANUP_QOS QOS_CLASS_DEFAULT
 
 /* These definitions are only available to the kext, to avoid bleeding constants and types across the boundary to
  * the userspace library.

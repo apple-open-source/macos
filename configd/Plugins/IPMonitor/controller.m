@@ -58,6 +58,7 @@ typedef struct resolverList {
 @property (nonatomic) NSMutableDictionary	*	floatingDNSAgentList;
 @property (nonatomic) NSMutableDictionary	*	policyDB;
 @property (nonatomic) NEPolicySession		*	policySession;
+@property (nonatomic) NEPolicySession		*	controlPolicySession;
 
 @end
 
@@ -689,6 +690,19 @@ typedef struct resolverList {
 	[self deleteAgentList:self.floatingProxyAgentList list:old_service_list];
 }
 
+- (BOOL)isGlobalProxy:(CFDictionaryRef)proxies
+{
+	if (CFDictionaryContainsKey(proxies, kSCPropNetProxiesBypassAllowed)) {
+		/*
+		 * Since we did not ask to "bypass" the proxies, this key will always
+		 * be present in a managed (global) proxy configuration
+		 */
+		return YES;
+	}
+
+	return NO;
+}
+
 - (void)processDefaultProxyChanges:(CFDictionaryRef)proxies
 {
 	CFArrayRef			global_proxy;
@@ -710,22 +724,34 @@ typedef struct resolverList {
 	CFRelease(proxies_copy);
 
 	if (global_proxy_count > 0) {
+		BOOL		spawnAgent = YES;
 		id		proxyAgent;
 		NSData *	data;
 
 		data = [self dataForProxyArray:global_proxy];
 		proxyAgent = [self.floatingProxyAgentList objectForKey:@proxyAgentDefault];
-		if (proxyAgent == nil) {
+		if (proxyAgent != nil) {
+			if (![data isEqual:[proxyAgent getAgentData]]) {
+				[self destroyFloatingAgent:proxyAgent];
+			} else {
+				spawnAgent = NO;
+			}
+		}
+
+		if (spawnAgent) {
+			AgentSubType subtype = kAgentSubTypeDefault;
+			NEPolicyConditionType conditionType = NEPolicyConditionTypeNone;
+			if ([self isGlobalProxy:proxies_copy]) {
+				SC_log(LOG_INFO, "Global proxy detected...");
+				conditionType = NEPolicyConditionTypeAllInterfaces;
+				subtype = kAgentSubTypeGlobal;
+			}
+
 			[self spawnFloatingAgent:[ProxyAgent class]
 					entity:@proxyAgentDefault
-					agentSubType:kAgentSubTypeDefault
-					addPolicyOfType:NEPolicyConditionTypeNone
+					agentSubType:subtype
+					addPolicyOfType:conditionType
 					publishData:data];
-		} else {
-			[proxyAgent updateAgentData:data];
-			if ([proxyAgent shouldUpdateAgent]) {
-				[self publishToAgent:proxyAgent];
-			}
 		}
 	} else {
 		/* No default proxy config OR generic (no protocols enabled) default proxy config.
@@ -1775,8 +1801,10 @@ done:
 			  domain:(NSString *)domain
 		  agentUUIDToUse:(NSUUID *)uuid
 		      policyType:(NEPolicyConditionType)policyType
+	 useControlPolicySession:(BOOL)useControlPolicySession
 {
 	NEPolicyCondition	*	condition = nil;
+	NEPolicySession		*	session;
 	uint32_t			multiple_entity_offset;
 	NEPolicy		*	newPolicy;
 	BOOL				ok;
@@ -1811,6 +1839,12 @@ done:
 			orderForSkip = SKIP_ORDER_FOR_DOMAIN_POLICY + typeOffset;
 			break;
 
+		case NEPolicyConditionTypeAllInterfaces:
+			order = INIT_ORDER_FOR_DEFAULT_POLICY + typeOffset + multiple_entity_offset;
+			condition = [NEPolicyCondition allInterfaces];
+			orderForSkip = SKIP_ORDER_FOR_DEFAULT_POLICY + typeOffset;
+			break;
+
 		case NEPolicyConditionTypeNone:
 			order = INIT_ORDER_FOR_DEFAULT_POLICY + typeOffset + multiple_entity_offset;
 			orderForSkip = SKIP_ORDER_FOR_DEFAULT_POLICY + typeOffset;
@@ -1831,7 +1865,24 @@ done:
 		return NO;
 	}
 
-	policyID1 = [self.policySession addPolicy:newPolicy];
+	if (useControlPolicySession) {
+		if (self.controlPolicySession == nil) {
+			/*	The NE policy session at "control" level for the controller */
+			self.controlPolicySession = [self createPolicySession];
+			if (self.controlPolicySession == nil) {
+				SC_log(LOG_NOTICE, "Could not create a control policy session for agent %@", [agent getAgentName]);
+				return NO;
+			}
+			[self.controlPolicySession setPriority:NEPolicySessionPriorityControl];
+		}
+		((ConfigAgent *)agent).preferredPolicySession = self.controlPolicySession;
+	} else {
+		((ConfigAgent *)agent).preferredPolicySession = self.policySession;
+	}
+
+	session = ((ConfigAgent *)agent).preferredPolicySession;
+
+	policyID1 = [session addPolicy:newPolicy];
 	if (policyID1 == 0) {
 		SC_log(LOG_NOTICE, "Could not add a netagent policy for agent %@", [agent getAgentName]);
 		return NO;
@@ -1847,13 +1898,13 @@ done:
 		return NO;
 	}
 
-	policyID2 = [self.policySession addPolicy:newPolicy];
+	policyID2 = [session addPolicy:newPolicy];
 	if (policyID2 == 0) {
 		SC_log(LOG_NOTICE, "Could not add a skip policy for agent %@", [agent getAgentName]);
 		return NO;
 	}
 
-	ok = [self.policySession apply];
+	ok = [session apply];
 	if (!ok) {
 		SC_log(LOG_NOTICE, "Could not apply policy for agent %@", [agent getAgentName]);
 		return NO;
@@ -1906,10 +1957,17 @@ done:
 	 * POLICY_TYPE_NO_POLICY will be set for service-specific agents, in which case we rely on
 	 * service owners to install custom policies to point at the agents. */
 	if (policyType >= NEPolicyResultTypeNone) {
+		BOOL useControlPolicySession = NO;
+		if (subtype == kAgentSubTypeGlobal) {
+			/* Policies for a Global scoped agents are at "control" level */
+			useControlPolicySession = YES;
+		}
+
 		ok = [self addPolicyToFloatingAgent:agent
 					     domain:entity
 				     agentUUIDToUse:[agent agentUUID]
-					 policyType:policyType];
+					 policyType:policyType
+				useControlPolicySession:useControlPolicySession];
 
 		if (!ok) {
 			[self unregisterAgent:agent];
@@ -1954,10 +2012,17 @@ done:
 		[dummyAgent updateAgentData:data];
 	}
 
+	BOOL useControlPolicySession = NO;
+	if (subtype == kAgentSubTypeGlobal) {
+		/* Policies for a Global scoped agents are at "control" level */
+		useControlPolicySession = YES;
+	}
+
 	BOOL ok = [self addPolicyToFloatingAgent:dummyAgent
 					domain:entity
 					agentUUIDToUse:[mapped_agent agentUUID]
-					policyType:policyType];
+					policyType:policyType
+					useControlPolicySession:useControlPolicySession];
 
 	if (!ok) {
 		return NO;
@@ -2025,19 +2090,20 @@ done:
 
 		policyArray = [self.policyDB objectForKey:[agent getAgentName]];
 		if (policyArray != nil) {
-			BOOL result = NO;
+			NEPolicySession *	session = ((ConfigAgent *)agent).preferredPolicySession;
+			BOOL 			result = NO;
 
 			for (NSNumber *policyID in policyArray) {
 				NSUInteger idVal;
 
 				idVal = [policyID unsignedIntegerValue];
-				result = [self.policySession removePolicyWithID:idVal];
+				result = [session removePolicyWithID:idVal];
 				if (result == NO) {
-					SC_log(LOG_NOTICE, "Could not remove policy %@ for agent %@", [self.policySession policyWithID:idVal], [agent getAgentName]);
+					SC_log(LOG_NOTICE, "Could not remove policy %@ for agent %@", [session policyWithID:idVal], [agent getAgentName]);
 				}
 			}
 
-			result = [self.policySession apply];
+			result = [session apply];
 			if (result == NO) {
 				SC_log(LOG_NOTICE, "Could not apply removed policies for agent %@", [agent getAgentName]);
 			}
@@ -2056,6 +2122,23 @@ done:
 		}
 
 		SC_log(LOG_INFO, "X - Destroyed agent %@", [agent getAgentName]);
+
+		/* Check if we need to close the "control" policy session */
+		if (self.controlPolicySession != nil) {
+			NSMutableArray *globalProxyAgentList;
+			NSMutableArray *globalDNSAgentList;
+			globalProxyAgentList = [self getAgentList:self.floatingProxyAgentList agentType:kAgentTypeProxy agentSubType:kAgentSubTypeGlobal];
+			globalDNSAgentList = [self getAgentList:self.floatingDNSAgentList agentType:kAgentTypeDNS agentSubType:kAgentSubTypeGlobal];
+
+			if ([globalProxyAgentList count] == 0 &&
+			    [globalDNSAgentList count] == 0) {
+				[self.controlPolicySession removeAllPolicies];
+				[self.controlPolicySession apply];
+				self.controlPolicySession = nil;
+				SC_log(LOG_NOTICE, "Closed control policy session");
+			}
+		}
+
 		ok = YES;
 	}
 

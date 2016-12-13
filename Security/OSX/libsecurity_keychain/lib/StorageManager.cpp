@@ -47,6 +47,7 @@
 #include <Security/AuthorizationTagsPriv.h>
 #include <Security/SecTask.h>
 #include <security_keychain/SecCFTypes.h>
+#include <Security/SecCFAllocator.h>
 #include "TrustSettingsSchema.h"
 #include <security_cdsa_client/wrapkey.h>
 #include <securityd_client/ssblob.h>
@@ -153,22 +154,31 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 	if (!dLDbIdentifier)
 		return Keychain();
 
-    DLDbIdentifier dldbi = mungeDLDbIdentifier(dLDbIdentifier, false);
+    KeychainMap::iterator it = mKeychainMap.end();
 
-    KeychainMap::iterator it = mKeychainMap.find(dldbi);
+    // If we have a keychain object for the munged keychain, return that.
+    // Don't hit the filesystem to check file status if we've already done that work...
+    DLDbIdentifier munge_dldbi = forceMungeDLDbIDentifier(dLDbIdentifier);
+    it = mKeychainMap.find(munge_dldbi);
+    if (it != mKeychainMap.end()) {
+        return it->second;
+    }
+
+    // If we have a keychain object for the un/demunged keychain, return that.
+    // We might be in the middle of an upgrade, where the -db file exists as a bit-perfect copy of the original file.
+    DLDbIdentifier demunge_dldbi = demungeDLDbIdentifier(dLDbIdentifier);
+    it = mKeychainMap.find(demunge_dldbi);
+    if (it != mKeychainMap.end()) {
+        return it->second;
+    }
+
+    // Okay, we haven't seen this keychain before. Do the full process...
+    DLDbIdentifier dldbi = mungeDLDbIdentifier(dLDbIdentifier, false);
+    it = mKeychainMap.find(dldbi); // Almost certain not to find it here
     if (it != mKeychainMap.end())
 	{
         return it->second;
 	}
-
-    // If we have a keychain object for the un/demunged keychain, return that.
-    // We might be in the middle of an upgrade...
-    DLDbIdentifier demunge_dldbi = demungeDLDbIdentifier(dLDbIdentifier);
-    it = mKeychainMap.find(demunge_dldbi);
-    if (it != mKeychainMap.end()) {
-        secnotice("integrity", "returning unmunged keychain ref");
-        return it->second;
-    }
 
 	if (gServerMode) {
 		secnotice("servermode", "keychain reference in server mode");
@@ -234,12 +244,18 @@ StorageManager::mungeDLDbIdentifier(const DLDbIdentifier& dLDbIdentifier, bool i
         string pathdb = makeKeychainDbFilename(path);
 
         struct stat st;
-        int stat_result;
-        stat_result = ::stat(path.c_str(), &st);
-        bool path_exists = (stat_result == 0);
 
-        stat_result = ::stat(pathdb.c_str(), &st);
-        bool pathdb_exists = (stat_result == 0);
+        int path_stat_err = 0;
+        bool path_exists = (::stat(path.c_str(), &st) == 0);
+        if(!path_exists) {
+            path_stat_err = errno;
+        }
+
+        int pathdb_stat_err = 0;
+        bool pathdb_exists = (::stat(pathdb.c_str(), &st) == 0);
+        if(!pathdb_exists) {
+            pathdb_stat_err = errno;
+        }
 
         // If protections are off, don't change the requested filename.
         // If protictions are on and the -db file exists, always use it.
@@ -257,16 +273,27 @@ StorageManager::mungeDLDbIdentifier(const DLDbIdentifier& dLDbIdentifier, bool i
         bool switchPaths = shouldCreateProtected && (pathdb_exists || (!pathdb_exists && !path_exists) || isReset);
 
         if(switchPaths) {
-            secnotice("integrity", "switching to keychain-db: %s from %s (%d %d %d %d)", pathdb.c_str(), path.c_str(), isReset, shouldCreateProtected, path_exists, pathdb_exists);
+            secinfo("integrity", "switching to keychain-db: %s from %s (%d %d %d_%d %d_%d)", pathdb.c_str(), path.c_str(), isReset, shouldCreateProtected, path_exists, path_stat_err, pathdb_exists, pathdb_stat_err);
             path = pathdb;
         } else {
-            secnotice("integrity", "not switching: %s from %s (%d %d %d %d)", pathdb.c_str(), path.c_str(), isReset, shouldCreateProtected, path_exists, pathdb_exists);
+            secinfo("integrity", "not switching: %s from %s (%d %d %d_%d %d_%d)", pathdb.c_str(), path.c_str(), isReset, shouldCreateProtected, path_exists, path_stat_err, pathdb_exists, pathdb_stat_err);
         }
-    } else {
-        secnotice("integrity", "not switching as we're not in ~/Library/Keychains/: %s (%d)", path.c_str(), isReset);
     }
 
     DLDbIdentifier id(dLDbIdentifier.ssuid(), path.c_str(), dLDbIdentifier.dbLocation());
+    return id;
+}
+
+DLDbIdentifier
+StorageManager::forceMungeDLDbIDentifier(const DLDbIdentifier& dLDbIdentifier) {
+    if(!dLDbIdentifier.dbName() || dLDbIdentifier.mImpl == NULL) {
+        return dLDbIdentifier;
+    }
+
+    string path = dLDbIdentifier.dbName();
+    string pathdb = makeKeychainDbFilename(path);
+
+    DLDbIdentifier id(dLDbIdentifier.ssuid(), pathdb.c_str(), dLDbIdentifier.dbLocation());
     return id;
 }
 
@@ -391,6 +418,7 @@ StorageManager::tickleKeychain(KeychainImpl *keychainImpl) {
         if(kcImpl->mCacheTimer) {
             // Update the cache timer to be seconds from now
             dispatch_source_set_timer(kcImpl->mCacheTimer, dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, NSEC_PER_SEC/2);
+            secdebug("keychain", "updating cache on %p %s", kcImpl, kcImpl->name());
 
             // We've added an extra retain to this keychain right before invoking this block. Release it.
             CFRelease(kcHandle);
@@ -399,8 +427,10 @@ StorageManager::tickleKeychain(KeychainImpl *keychainImpl) {
             // No cache timer; make one.
             kcImpl->mCacheTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, release_queue);
             dispatch_source_set_timer(kcImpl->mCacheTimer, dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, NSEC_PER_SEC/2);
+            secdebug("keychain", "taking cache on %p %s", kcImpl, kcImpl->name());
 
             dispatch_source_set_event_handler(kcImpl->mCacheTimer, ^{
+                secdebug("keychain", "releasing cache on %p %s", kcImpl, kcImpl->name());
                 dispatch_source_cancel(kcImpl->mCacheTimer);
                 dispatch_release(kcImpl->mCacheTimer);
                 kcImpl->mCacheTimer = NULL;
@@ -626,6 +656,14 @@ StorageManager::loginKeychain()
 	MacOSError::throwMe(errSecNoSuchKeychain);
 }
 
+DLDbIdentifier
+StorageManager::loginKeychainDLDbIdentifer()
+{
+    StLock<Mutex>_(mMutex);
+    DLDbIdentifier loginDLDbIdentifier(mSavedList.loginDLDbIdentifier());
+    return mungeDLDbIdentifier(loginDLDbIdentifier, false);
+}
+
 void
 StorageManager::loginKeychain(Keychain keychain)
 {
@@ -782,7 +820,8 @@ void StorageManager::forceRemoveFromCache(KeychainImpl* inKeychainImpl) {
     }
 }
 
-void StorageManager::renameUnique(Keychain keychain, CFStringRef newName, bool appendDbSuffix)
+// If you pass NULL as the keychain, you must pass an oldName.
+void StorageManager::renameUnique(Keychain keychain, CFStringRef oldName, CFStringRef newName, bool appendDbSuffix)
 {
 	StLock<Mutex>_(mMutex);
 
@@ -811,10 +850,24 @@ void StorageManager::renameUnique(Keychain keychain, CFStringRef newName, bool a
                     struct stat filebuf;
                     if ( lstat(toUseBuff2, &filebuf) )
                     {
-                        rename(keychain, toUseBuff2);
-						KeychainList kcList;
-						kcList.push_back(keychain);
-						remove(kcList, false);
+                        if(keychain) {
+                            rename(keychain, toUseBuff2);
+                            KeychainList kcList;
+                            kcList.push_back(keychain);
+                            remove(kcList, false);
+                        } else {
+                            // We don't have a Keychain object, so force the rename here if possible
+                            char oldNameCString[MAXPATHLEN];
+                            if ( CFStringGetCString(oldName, oldNameCString, MAXPATHLEN, kCFStringEncodingUTF8) ) {
+                                int result = ::rename(oldNameCString, toUseBuff2);
+                                secnotice("KClogin", "keychain force rename to %s: %d %d", newNameCString, result, (result == 0) ? 0 : errno);
+                                if(result != 0) {
+                                    UnixError::throwMe(errno);
+                                }
+                            } else {
+                                secnotice("KClogin", "path is wrong, quitting");
+                            }
+                        }
                         doneCreating = true;
                     }
                     else
@@ -1466,12 +1519,78 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         }
     }
 
-    // if login.keychain does not exist at this point, create it
-    if (!loginKeychainExists || (isReset && !loginKeychainDbExists)) {
+	// is it token login?
+	CFRef<CFDictionaryRef> tokenLoginContext;
+	CFRef<CFStringRef> smartCardPassword;
+	OSStatus tokenContextStatus = TokenLoginGetContext(password, passwordLength, tokenLoginContext.take());
+	// if login.keychain does not exist at this point, create it
+	if (!loginKeychainExists || (isReset && !loginKeychainDbExists)) {
+		// when we creating new KC and user is logged using token (i.e. smart card), we have to get
+		// the password for that account first
+		if (tokenContextStatus == errSecSuccess) {
+			secnotice("KCLogin", "Going to create login keychain for sc login");
+			AuthorizationRef authRef;
+			OSStatus status = AuthorizationCreate(NULL, NULL, 0, &authRef);
+			if (status == errSecSuccess) {
+				AuthorizationItem right = { "com.apple.builtin.sc-kc-new-passphrase", 0, NULL, 0 };
+				AuthorizationItemSet rightSet = { 1, &right };
+
+				uint32_t reason, tries;
+				reason = 0;
+				tries = 0;
+				AuthorizationItem envRights[] = {
+					{ AGENT_HINT_RETRY_REASON, sizeof(reason), &reason, 0 },
+					{ AGENT_HINT_TRIES, sizeof(tries), &tries, 0 }};
+
+				AuthorizationItemSet envSet = { sizeof(envRights) / sizeof(*envRights), envRights };
+				status = AuthorizationCopyRights(authRef, &rightSet, &envSet, kAuthorizationFlagDefaults|kAuthorizationFlagInteractionAllowed|kAuthorizationFlagExtendRights, NULL);
+				if (status == errSecSuccess) {
+					AuthorizationItemSet *returnedInfo;
+					status = AuthorizationCopyInfo(authRef, NULL, &returnedInfo);
+					if (status == errSecSuccess) {
+						if (returnedInfo && (returnedInfo->count > 0)) {
+							for (uint32_t index = 0; index < returnedInfo->count; index++) {
+								AuthorizationItem &item = returnedInfo->items[index];
+								if (!strcmp(AGENT_PASSWORD, item.name)) {
+									CFIndex len = item.valueLength;
+									if (len) {
+										secnotice("KCLogin", "User entered pwd");
+										smartCardPassword = CFStringCreateWithBytes(SecCFAllocatorZeroize(), (UInt8 *)item.value, (CFIndex)len, kCFStringEncodingUTF8, TRUE);
+										memset(item.value, 0, len);
+									}
+								}
+							}
+						}
+					}
+					AuthorizationFreeItemSet(returnedInfo);
+				}
+				AuthorizationFree(authRef, 0);
+			}
+		}
+
         // but don't add it to the search list yet; we'll do that later
         Keychain theKeychain = makeKeychain(loginDLDbIdentifier, false, true);
-        secnotice("KCLogin", "Creating login keychain %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
-        theKeychain->create(passwordLength, password);
+		secnotice("KCLogin", "Creating login keychain %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+		if (tokenContextStatus == errSecSuccess) {
+			if (smartCardPassword.get()) {
+				CFIndex length = CFStringGetLength(smartCardPassword);
+				CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+				char *buffer = (char *)malloc(maxSize);
+				if (CFStringGetCString(smartCardPassword, buffer, maxSize, kCFStringEncodingUTF8)) {
+					secnotice("KCLogin", "Keychain is created using password provided by sc user");
+					theKeychain->create((UInt32)strlen(buffer), buffer);
+					memset(buffer, 0, maxSize);
+				} else {
+					secnotice("KCLogin", "Conversion failed");
+					MacOSError::throwMe(errSecNotAvailable);
+				}
+			} else {
+				secnotice("KCLogin", "User did not provide kc password");
+				MacOSError::throwMe(errSecNotAvailable);
+			}
+		} else {
+			theKeychain->create(passwordLength, password);
+		}
         secnotice("KCLogin", "Login keychain created successfully");
         loginKeychainExists = true;
         // Set the prefs for this new login keychain.
@@ -1558,10 +1677,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         }
     }
 
-	// is it token login?
-	CFRef<CFDictionaryRef> tokenLoginContext;
-	OSStatus status = TokenLoginGetContext(password, passwordLength, tokenLoginContext.take());
-	if (!loginUnlocked || status == errSecSuccess) {
+	if (!loginUnlocked || tokenContextStatus == errSecSuccess) {
 		Keychain theKeychain(keychain(loginDLDbIdentifier));
 		bool tokenLoginDataUpdated = false;
 
@@ -1570,7 +1686,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 
 			CFRef<CFDictionaryRef> tokenLoginData;
 			if (tokenLoginContext) {
-				status = TokenLoginGetLoginData(tokenLoginContext, tokenLoginData.take());
+				OSStatus status = TokenLoginGetLoginData(tokenLoginContext, tokenLoginData.take());
 				if (status != errSecSuccess) {
 					if (tokenLoginDataUpdated) {
 						loginResult = status;
@@ -1578,7 +1694,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 					}
 					// updating unlock key fails if it is not token login
 					secnotice("KCLogin", "Error %d, reconstructing unlock data", (int)status);
-					status = TokenLoginUpdateUnlockData(tokenLoginContext);
+					status = TokenLoginUpdateUnlockData(tokenLoginContext, smartCardPassword);
 					if (status == errSecSuccess) {
 						loginResult = TokenLoginGetLoginData(tokenLoginContext, tokenLoginData.take());
 						if (loginResult != errSecSuccess) {
@@ -1593,7 +1709,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 				// first try to unlock login keychain because if this fails, token keychain unlock fails as well
 				if (tokenLoginData) {
 					secnotice("KCLogin", "Going to unlock keybag using scBlob");
-					status = TokenLoginUnlockKeybag(tokenLoginContext, tokenLoginData);
+					OSStatus status = TokenLoginUnlockKeybag(tokenLoginContext, tokenLoginData);
 					secnotice("KCLogin", "Keybag unlock result %d", (int)status);
 					if (status)
 						CssmError::throwMe(status); // to trigger login data regeneration
@@ -1609,7 +1725,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
                 key.header().KeyAttr = 0;
                 CFRef<CFDataRef> tokenLoginUnlockKey;
 				if (tokenLoginData) {
-					status = TokenLoginGetUnlockKey(tokenLoginContext, tokenLoginUnlockKey.take());
+					OSStatus status = TokenLoginGetUnlockKey(tokenLoginContext, tokenLoginUnlockKey.take());
 					if (status)
 						CssmError::throwMe(status); // to trigger login data regeneration
 					key.KeyData = CssmData(tokenLoginUnlockKey.get());
@@ -1642,7 +1758,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
             } catch (const CssmError &e) {
                 if (tokenLoginData && !tokenLoginDataUpdated) {
                     // token login unlock key was invalid
-                    loginResult = TokenLoginUpdateUnlockData(tokenLoginContext);
+					loginResult = TokenLoginUpdateUnlockData(tokenLoginContext, smartCardPassword);
                     if (loginResult == errSecSuccess) {
                         tokenLoginDataUpdated = true;
                         continue;
@@ -1770,6 +1886,8 @@ void StorageManager::resetKeychain(Boolean resetSearchList)
 	StLock<Mutex>_(mMutex);
 
     // Clear the keychain search list.
+    Keychain keychain = NULL;
+    DLDbIdentifier dldbi;
     try
     {
         if ( resetSearchList )
@@ -1780,14 +1898,33 @@ void StorageManager::resetKeychain(Boolean resetSearchList)
         // Get a reference to the existing login keychain...
         // If we don't have one, we throw (not requiring a rename).
         //
-        Keychain keychain = loginKeychain();
+        keychain = loginKeychain();
+    } catch(const CommonError& e) {
+        secnotice("KClogin", "Failed to open login keychain due to an error: %s", e.what());
+
+        // Set up fallback rename.
+        dldbi = loginKeychainDLDbIdentifer();
+
+        struct stat exists;
+        if(::stat(dldbi.dbName(), &exists) != 0) {
+            // no file exists, everything is fine
+            secnotice("KClogin", "no file exists; resetKeychain() is done");
+            return;
+        }
+    }
+
+    try{
         //
         // Rename the existing login.keychain (i.e. put it aside).
         //
         CFMutableStringRef newName = NULL;
         newName = CFStringCreateMutable(NULL, 0);
         CFStringRef currName = NULL;
-        currName = CFStringCreateWithCString(NULL, keychain->name(), kCFStringEncodingUTF8);
+        if(keychain) {
+            currName = CFStringCreateWithCString(NULL, keychain->name(), kCFStringEncodingUTF8);
+        } else {
+            currName = CFStringCreateWithCString(NULL, dldbi.dbName(), kCFStringEncodingUTF8);
+        }
         if ( newName && currName )
         {
             CFStringAppend(newName, currName);
@@ -1808,22 +1945,35 @@ void StorageManager::resetKeychain(Boolean resetSearchList)
             CFStringAppend(newName, CFSTR(kKeychainRenamedSuffix));	// add "_renamed_"
             try
             {
-                renameUnique(keychain, newName, hasDbSuffix);
+                secnotice("KClogin", "attempting keychain rename to %@", newName);
+                renameUnique(keychain, currName, newName, hasDbSuffix);
+            }
+            catch(const CommonError& e)
+            {
+                // we need to release 'newName' & 'currName'
+                secnotice("KClogin", "Failed to renameUnique due to an error: %s", e.what());
             }
             catch(...)
             {
-                // we need to release 'newName' & 'currName'
+                secnotice("KClogin", "Failed to renameUnique due to an unknown error");
             }
         }	 // else, let the login call report a duplicate
+        else {
+            secnotice("KClogin", "don't have paths, quitting");
+        }
         if ( newName )
             CFRelease(newName);
         if ( currName )
             CFRelease(currName);
     }
+    catch(const CommonError& e) {
+        secnotice("KClogin", "Failed to reset login keychain due to an error: %s", e.what());
+    }
     catch(...)
     {
         // We either don't have a login keychain, or there was a
         // failure to rename the existing one.
+        secnotice("KClogin", "Failed to reset keychain due to an unknown error");
     }
 }
 

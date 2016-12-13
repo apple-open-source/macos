@@ -136,8 +136,8 @@ int CCRandomCopyBytes(CCRandomRef rnd, void *bytes, size_t count)
     struct ccrng_state *rng;
 
     // Sanity on the input parameters
-    if(NULL == bytes) return -1;
     if(0 == count) return 0;
+    if(NULL == bytes) return -1;
 
     if(NULL == rnd) {
         // It should really not be NULL, but we deal with NULL.

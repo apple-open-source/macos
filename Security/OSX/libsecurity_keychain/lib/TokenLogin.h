@@ -32,9 +32,10 @@ extern "C" {
 
 OSStatus TokenLoginGetContext(const void *base64TokenLoginData, UInt32 base64TokenLoginDataLength, CFDictionaryRef *context);
 OSStatus TokenLoginGetLoginData(CFDictionaryRef context, CFDictionaryRef *loginData);
+OSStatus TokenLoginGetPin(CFDictionaryRef context, CFStringRef *pin);
 
 OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CFDataRef pubKeyHashWrap, CFDataRef unlockKey, CFDataRef scBlob);
-OSStatus TokenLoginUpdateUnlockData(CFDictionaryRef context);
+OSStatus TokenLoginUpdateUnlockData(CFDictionaryRef context, CFStringRef password);
 OSStatus TokenLoginStoreUnlockData(CFDictionaryRef context, CFDictionaryRef loginData);
 OSStatus TokenLoginDeleteUnlockData(CFDataRef pubKeyHash);
 

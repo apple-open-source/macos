@@ -73,16 +73,6 @@ daemon for each incoming connection.
 The forked daemons handle
 key exchange, encryption, authentication, command execution,
 and data exchange.
-.\" Apple:
-.Pp
-On OS X,
-.Nm
-is started by
-.Xr launchd 8
-and controlled by the
-.Xr launchd.plist 5
-file in
-.Pa  /System/Library/LaunchDaemons/ssh.plist .
 .Pp
 .Nm
 can be configured using command-line options or a configuration file
@@ -996,11 +986,10 @@ The content of this file is not sensitive; it can be world-readable.
 .Xr ssh-keygen 1 ,
 .Xr ssh-keyscan 1 ,
 .Xr chroot 2 ,
-.\" Apple:
-.Xr launchd 8 ,
-.Xr launchd.plist 5 ,
+.Xr login.conf 5 ,
 .Xr moduli 5 ,
 .Xr sshd_config 5 ,
+.Xr inetd 8 ,
 .Xr sftp-server 8
 .Sh AUTHORS
 OpenSSH is a derivative of the original and free

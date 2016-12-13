@@ -317,7 +317,7 @@ private:
 	DefaultCredentials mCustomUnlockCreds;
 	bool mIsInBatchMode;
 	EventBuffer *mEventBuffer;
-	Mutex mMutex;
+    mutable Mutex mMutex;
 
     // Now that we sometimes change the database object, Db object
     // creation/returning needs a mutex. You should only hold this if you're

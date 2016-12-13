@@ -27,4 +27,4 @@
 #
 #ident	"@(#)err.D_PROC_CREATEFAIL.many.exe	1.1	06/08/28 SMI"
 
-sleep 1000000
+exec sleep 1000000

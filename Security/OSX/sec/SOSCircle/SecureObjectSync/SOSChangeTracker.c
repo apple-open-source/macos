@@ -27,7 +27,7 @@
 
 #include <Security/SecureObjectSync/SOSChangeTracker.h>
 #include <Security/SecureObjectSync/SOSDigestVector.h>
-#include <Security/SecureObjectSync/SOSEngine.h>
+#include <Security/SecureObjectSync/SOSEnginePriv.h>
 #include <Security/SecureObjectSync/SOSManifest.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <utilities/SecCFError.h>

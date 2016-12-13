@@ -126,13 +126,14 @@
      RETURN = 342,
      WHILE = 343,
      CAT = 344,
-     UMINUS = 345,
-     NOT = 346,
-     POWER = 347,
-     INCR = 348,
-     DECR = 349,
-     INDIRECT = 350,
-     LASTTOKEN = 351
+     UPLUS = 345,
+     UMINUS = 346,
+     NOT = 347,
+     POWER = 348,
+     INCR = 349,
+     DECR = 350,
+     INDIRECT = 351,
+     LASTTOKEN = 352
    };
 #endif
 /* Tokens.  */
@@ -223,13 +224,14 @@
 #define RETURN 342
 #define WHILE 343
 #define CAT 344
-#define UMINUS 345
-#define NOT 346
-#define POWER 347
-#define INCR 348
-#define DECR 349
-#define INDIRECT 350
-#define LASTTOKEN 351
+#define UPLUS 345
+#define UMINUS 346
+#define NOT 347
+#define POWER 348
+#define INCR 349
+#define DECR 350
+#define INDIRECT 351
+#define LASTTOKEN 352
 
 
 
@@ -244,7 +246,7 @@ typedef union YYSTYPE
 	char	*s;
 }
 /* Line 1529 of yacc.c.  */
-#line 248 "y.tab.h"
+#line 250 "y.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

@@ -370,6 +370,7 @@ static int testNewDiscreetDigest(CCDigestAlgorithm alg, char *input, byteBuffer 
     ok(status = expectedEqualsComputed(testString("New OneShot Digest %s", alg), expected, computedMD2), "Digest is as expected");
 out:
     free(computedMD);
+    free(computedMD2);
     return status;
 }
 

@@ -2,7 +2,7 @@
 #include "awk.h"
 #include "ytab.h"
 
-static char *printname[94] = {
+static char *printname[95] = {
 	(char *) "FIRSTTOKEN",	/* 258 */
 	(char *) "PROGRAM",	/* 259 */
 	(char *) "PASTAT",	/* 260 */
@@ -90,17 +90,18 @@ static char *printname[94] = {
 	(char *) "RETURN",	/* 342 */
 	(char *) "WHILE",	/* 343 */
 	(char *) "CAT",	/* 344 */
-	(char *) "UMINUS",	/* 345 */
-	(char *) "NOT",	/* 346 */
-	(char *) "POWER",	/* 347 */
-	(char *) "INCR",	/* 348 */
-	(char *) "DECR",	/* 349 */
-	(char *) "INDIRECT",	/* 350 */
-	(char *) "LASTTOKEN",	/* 351 */
+	(char *) "UPLUS",	/* 345 */
+	(char *) "UMINUS",	/* 346 */
+	(char *) "NOT",	/* 347 */
+	(char *) "POWER",	/* 348 */
+	(char *) "INCR",	/* 349 */
+	(char *) "DECR",	/* 350 */
+	(char *) "INDIRECT",	/* 351 */
+	(char *) "LASTTOKEN",	/* 352 */
 };
 
 
-Cell *(*proctab[94])(Node **, int) = {
+Cell *(*proctab[95])(Node **, int) = {
 	nullproc,	/* FIRSTTOKEN */
 	program,	/* PROGRAM */
 	pastat,	/* PASTAT */
@@ -188,6 +189,7 @@ Cell *(*proctab[94])(Node **, int) = {
 	jump,	/* RETURN */
 	whilestat,	/* WHILE */
 	cat,	/* CAT */
+	arith,	/* UPLUS */
 	arith,	/* UMINUS */
 	boolop,	/* NOT */
 	arith,	/* POWER */

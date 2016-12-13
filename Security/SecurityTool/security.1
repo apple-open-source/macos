@@ -127,10 +127,18 @@ Add certificates to a keychain.
 Find a generic password item.
 .It Nm delete-generic-password
 Delete a generic password item.
+.It Nm set-generic-password-partition-list
+Set the partition list of a generic password item.
 .It Nm find-internet-password
 Find an internet password item.
 .It Nm delete-internet-password
 Delete an internet password item.
+.It Nm set-internet-password-partition-list
+Set the partition list of a internet password item.
+.It Nm find-key
+Find keys in the keychain
+.It Nm set-key-partition-list
+Set the partition list of a key.
 .It Nm find-certificate
 Find a certificate item.
 .It Nm find-identity
@@ -665,6 +673,160 @@ Match authenticationType (four-character code)
 Display the password for the item found
 .It Fl w
 Display the password(only) for the item found
+.El
+.El
+.It
+.Nm find-key
+.Op Ar options...
+.Op Ar keychain...
+.Bl -item -offset -indent
+Search the keychain for keys.
+.It
+.Bl -tag -compact -width -indent-indent
+.It Fl a Ar application-label
+Match "application label" string
+.It Fl c Ar creator
+Match creator (four-character code)
+.It Fl d
+Match keys that can decrypt
+.It Fl D Ar description
+Match "description" string
+.It Fl e
+Match keys that can encrypt
+.It Fl j Ar comment
+Match comment string
+.It Fl l Ar label
+Match label string
+.It Fl r
+Match keys that can derive
+.It Fl s
+Match keys that can sign
+.It Fl t Ar type
+Type of key to find: one of "symmetric", "public", or "private"
+.It Fl u
+Match keys that can unwrap
+.It Fl v
+Match keys that can verify
+.It Fl w
+Match keys that can wrap
+.El
+.El
+.It
+.Nm set-generic-password-partition-list
+.Op Fl a Ar account
+.Op Fl s Ar service
+.Op Fl S Ar <partition list (comma separated)>
+.Op Fl k Ar <keychain password>
+.Op Ar options...
+.Op Ar keychain
+.Bl -item -offset -indent
+Sets the "partition list" for a generic password. The "partition list" is an extra parameter in the ACL which limits access to the item based on an application's code signature. You must present the keychain's password to change a partition list.
+.It
+.Bl -tag -compact -width -indent-indent
+.It Fl S Ar partition-list
+Comma-separated partition list. See output of "security dump-keychain" for examples.
+.It Fl k Ar password
+Password for keychain
+.It Fl a Ar account
+Match account string
+.It Fl c Ar creator
+Match creator (four-character code)
+.It Fl C Ar type
+Match type (four-character code)
+.It Fl D Ar kind
+Match kind string
+.It Fl G Ar value
+Match value string (generic attribute)
+.It Fl j Ar comment
+Match comment string
+.It Fl l Ar label
+Match label string
+.It Fl s Ar service
+Match service string
+.El
+.El
+.It
+.Nm set-internet-password-partition-list
+.Op Fl a Ar account
+.Op Fl s Ar server
+.Op Fl S Ar <partition list (comma separated)>
+.Op Fl k Ar <keychain password>
+.Op Ar options...
+.Op Ar keychain
+.Bl -item -offset -indent
+Sets the "partition list" for an internet password. The "partition list" is an extra parameter in the ACL which limits access to the item based on an application's code signature. You must present the keychain's password to change a partition list.
+.It
+.Bl -tag -compact -width -indent-indent
+.It Fl S Ar partition-list
+Comma-separated partition list. See output of "security dump-keychain" for examples.
+.It Fl k Ar password
+Password for keychain
+.It Fl a Ar account
+Match account string
+.It Fl c Ar creator
+Match creator (four-character code)
+.It Fl C Ar type
+Match type (four-character code)
+.It Fl d Ar securityDomain
+Match securityDomain string
+.It Fl D Ar kind
+Match kind string
+.It Fl j Ar comment
+Match comment string
+.It Fl l Ar label
+Match label string
+.It Fl p Ar path
+Match path string
+.It Fl P Ar port
+Match port number
+.It Fl r Ar protocol
+Match protocol (four-character code)
+.It Fl s Ar server
+Match server string
+.It Fl t Ar authenticationType
+Match authenticationType (four-character code)
+.El
+.El
+.It
+.Nm set-key-partition-list
+.Op Fl S Ar <partition list (comma separated)>
+.Op Fl k Ar <keychain password>
+.Op Ar options...
+.Op Ar keychain
+.Bl -item -offset -indent
+Sets the "partition list" for a key. The "partition list" is an extra parameter in the ACL which limits access to the key based on an application's code signature. You must present the keychain's password to change a partition list. If you'd like to run /usr/bin/codesign with the key, "apple:" must be an element of the partition list.
+.It
+.Bl -tag -compact -width -indent-indent
+.It Fl S Ar partition-list
+Comma-separated partition list. See output of "security dump-keychain" for examples.
+.It Fl k Ar password
+Password for keychain
+.It Fl a Ar application-label
+Match "application label" string
+.It Fl c Ar creator
+Match creator (four-character code)
+.It Fl d
+Match keys that can decrypt
+.It Fl D Ar description
+Match "description" string
+.It Fl e
+Match keys that can encrypt
+.It Fl j Ar comment
+Match comment string
+.It Fl l Ar label
+Match label string
+.It Fl r
+Match keys that can derive
+.It Fl s
+Match keys that can sign
+.It Fl t Ar type
+Type of key to find: one of "symmetric", "public", or "private"
+.It Fl u
+Match keys that can unwrap
+.It Fl v
+Match keys that can verify
+.It Fl w
+Match keys that can wrap
 .El
 .El
 .It

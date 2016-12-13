@@ -308,7 +308,17 @@ OSStatus TokenLoginGetLoginData(CFDictionaryRef context, CFDictionaryRef *loginD
 	return errSecSuccess;
 }
 
-OSStatus TokenLoginUpdateUnlockData(CFDictionaryRef context)
+OSStatus TokenLoginGetPin(CFDictionaryRef context, CFStringRef *pin)
+{
+	if (!pin || !context) {
+		return errSecParam;
+	}
+	*pin = getPin(context);
+
+	return errSecSuccess;
+}
+
+OSStatus TokenLoginUpdateUnlockData(CFDictionaryRef context, CFStringRef password)
 {
 	if (!context) {
 		return errSecParam;
@@ -321,7 +331,7 @@ OSStatus TokenLoginUpdateUnlockData(CFDictionaryRef context)
 		return result;
 	}
 
-    return SecKeychainStoreUnlockKeyWithPubKeyHash(getPubKeyHash(context), getTokenId(context), getPubKeyHashWrap(context), loginKeychain, NULL);
+    return SecKeychainStoreUnlockKeyWithPubKeyHash(getPubKeyHash(context), getTokenId(context), getPubKeyHashWrap(context), loginKeychain, password);
 }
 
 OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CFDataRef pubKeyHashWrap, CFDataRef unlockKey, CFDataRef scBlob)

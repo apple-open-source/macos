@@ -36,10 +36,10 @@
 #include "memdebug.h"
 
 /*
- * This is supposed to be called in the beginning of a perform() session
- * and should reset all session-info variables
+ * This is supposed to be called in the beginning of a perform() session and
+ * in curl_easy_reset() and should reset all session-info variables.
  */
-CURLcode Curl_initinfo(struct SessionHandle *data)
+CURLcode Curl_initinfo(struct Curl_easy *data)
 {
   struct Progress *pro = &data->progress;
   struct PureInfo *info = &data->info;
@@ -58,22 +58,31 @@ CURLcode Curl_initinfo(struct SessionHandle *data)
   info->filetime = -1; /* -1 is an illegal time and thus means unknown */
   info->timecond = FALSE;
 
+  info->header_size = 0;
+  info->request_size = 0;
+  info->proxyauthavail = 0;
+  info->httpauthavail = 0;
+  info->numconnects = 0;
+
   free(info->contenttype);
   info->contenttype = NULL;
 
-  info->header_size = 0;
-  info->request_size = 0;
-  info->numconnects = 0;
+  free(info->wouldredirect);
+  info->wouldredirect = NULL;
 
   info->conn_primary_ip[0] = '\0';
   info->conn_local_ip[0] = '\0';
   info->conn_primary_port = 0;
   info->conn_local_port = 0;
 
+#ifdef USE_SSL
+  Curl_ssl_free_certinfo(data);
+#endif
+
   return CURLE_OK;
 }
 
-static CURLcode getinfo_char(struct SessionHandle *data, CURLINFO info,
+static CURLcode getinfo_char(struct Curl_easy *data, CURLINFO info,
                              char **param_charp)
 {
   switch(info) {
@@ -119,7 +128,7 @@ static CURLcode getinfo_char(struct SessionHandle *data, CURLINFO info,
   return CURLE_OK;
 }
 
-static CURLcode getinfo_long(struct SessionHandle *data, CURLINFO info,
+static CURLcode getinfo_long(struct Curl_easy *data, CURLINFO info,
                              long *param_longp)
 {
   curl_socket_t sockfd;
@@ -198,6 +207,22 @@ static CURLcode getinfo_long(struct SessionHandle *data, CURLINFO info,
   case CURLINFO_RTSP_CSEQ_RECV:
     *param_longp = data->state.rtsp_CSeq_recv;
     break;
+  case CURLINFO_HTTP_VERSION:
+    switch (data->info.httpversion) {
+    case 10:
+      *param_longp = CURL_HTTP_VERSION_1_0;
+      break;
+    case 11:
+      *param_longp = CURL_HTTP_VERSION_1_1;
+      break;
+    case 20:
+      *param_longp = CURL_HTTP_VERSION_2_0;
+      break;
+    default:
+      *param_longp = CURL_HTTP_VERSION_NONE;
+      break;
+    }
+    break;
 
   default:
     return CURLE_UNKNOWN_OPTION;
@@ -206,7 +231,7 @@ static CURLcode getinfo_long(struct SessionHandle *data, CURLINFO info,
   return CURLE_OK;
 }
 
-static CURLcode getinfo_double(struct SessionHandle *data, CURLINFO info,
+static CURLcode getinfo_double(struct Curl_easy *data, CURLINFO info,
                                double *param_doublep)
 {
   switch(info) {
@@ -259,7 +284,7 @@ static CURLcode getinfo_double(struct SessionHandle *data, CURLINFO info,
   return CURLE_OK;
 }
 
-static CURLcode getinfo_slist(struct SessionHandle *data, CURLINFO info,
+static CURLcode getinfo_slist(struct Curl_easy *data, CURLINFO info,
                               struct curl_slist **param_slistp)
 {
   union {
@@ -335,7 +360,7 @@ static CURLcode getinfo_slist(struct SessionHandle *data, CURLINFO info,
   return CURLE_OK;
 }
 
-static CURLcode getinfo_socket(struct SessionHandle *data, CURLINFO info,
+static CURLcode getinfo_socket(struct Curl_easy *data, CURLINFO info,
                                curl_socket_t *param_socketp)
 {
   switch(info) {
@@ -349,7 +374,7 @@ static CURLcode getinfo_socket(struct SessionHandle *data, CURLINFO info,
   return CURLE_OK;
 }
 
-CURLcode Curl_getinfo(struct SessionHandle *data, CURLINFO info, ...)
+CURLcode Curl_getinfo(struct Curl_easy *data, CURLINFO info, ...)
 {
   va_list arg;
   long *param_longp = NULL;

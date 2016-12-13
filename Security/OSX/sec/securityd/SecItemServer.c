@@ -44,10 +44,12 @@
 #include <Security/SecTrustInternal.h>
 #include <Security/SecCertificatePriv.h>
 
+#if USE_KEYSTORE
+#include <MobileKeyBag/MobileKeyBag.h>
+#endif
 // TODO: Make this include work on both platforms. rdar://problem/16526848
 #if TARGET_OS_EMBEDDED
 #include <Security/SecEntitlements.h>
-#include <MobileKeyBag/MobileKeyBag.h>
 #else
 /* defines from <Security/SecEntitlements.h> */
 #define kSecEntitlementAssociatedDomains CFSTR("com.apple.developer.associated-domains")
@@ -712,17 +714,55 @@ static bool SecServerImportBackupableKeychain(SecDbConnectionRef dbt,
     });
 }
 
+#if USE_KEYSTORE
+/*
+ * Similar to ks_open_keybag, but goes through MKB interface
+ */
+static bool mkb_open_keybag(CFDataRef keybag, CFDataRef password, MKBKeyBagHandleRef *handle, CFErrorRef *error) {
+    kern_return_t rc;
+    MKBKeyBagHandleRef mkbhandle = NULL;
+
+    rc = MKBKeyBagCreateWithData(keybag, &mkbhandle);
+    if (rc != kMobileKeyBagSuccess) {
+        return SecKernError(rc, error, CFSTR("MKBKeyBagCreateWithData failed: %d"), rc);
+    }
+
+    if (password) {
+        rc = MKBKeyBagUnlock(mkbhandle, password);
+        if (rc != kMobileKeyBagSuccess) {
+            CFRelease(mkbhandle);
+            return SecKernError(rc, error, CFSTR("failed to unlock bag: %d"), rc);
+        }
+    }
+
+    *handle = mkbhandle;
+
+    return true;
+}
+#endif
+
+
 static CFDataRef SecServerKeychainCreateBackup(SecDbConnectionRef dbt, SecurityClient *client, CFDataRef keybag,
     CFDataRef password, CFErrorRef *error) {
     CFDataRef backup = NULL;
     keybag_handle_t backup_keybag;
-    if (ks_open_keybag(keybag, password, &backup_keybag, error)) {
-        /* Export from system keybag to backup keybag. */
-        backup = SecServerExportBackupableKeychain(dbt, client, KEYBAG_DEVICE, backup_keybag, error);
-        if (!ks_close_keybag(backup_keybag, error)) {
-            CFReleaseNull(backup);
-        }
-    }
+#if USE_KEYSTORE
+    MKBKeyBagHandleRef mkbhandle = NULL;
+    require(mkb_open_keybag(keybag, password, &mkbhandle, error), out);
+
+    require_noerr(MKBKeyBagGetAKSHandle(mkbhandle, &backup_keybag), out);
+
+#else
+    backup_keybag = KEYBAG_NONE;
+#endif
+    /* Export from system keybag to backup keybag. */
+    backup = SecServerExportBackupableKeychain(dbt, client, KEYBAG_DEVICE, backup_keybag, error);
+
+out:
+#if USE_KEYSTORE
+    if (mkbhandle)
+        CFRelease(mkbhandle);
+#endif
     return backup;
 }
 
@@ -733,15 +773,25 @@ static bool SecServerKeychainRestore(SecDbConnectionRef dbt,
                                      CFDataRef password,
                                      CFErrorRef *error)
 {
+    bool ok = false;
     keybag_handle_t backup_keybag;
-    if (!ks_open_keybag(keybag, password, &backup_keybag, error))
-        return false;
+#if USE_KEYSTORE
+    MKBKeyBagHandleRef mkbhandle = NULL;
+    require(mkb_open_keybag(keybag, password, &mkbhandle, error), out);
 
+    require_noerr(MKBKeyBagGetAKSHandle(mkbhandle, &backup_keybag), out);
+#else
+    backup_keybag = KEYBAG_NONE;
+#endif
     /* Import from backup keybag to system keybag. */
-    bool ok = SecServerImportBackupableKeychain(dbt, client, backup_keybag, KEYBAG_DEVICE,
-                                      backup, error);
-    ok &= ks_close_keybag(backup_keybag, error);
+    require(SecServerImportBackupableKeychain(dbt, client, backup_keybag, KEYBAG_DEVICE, backup, error), out);
 
+    ok = true;
+out:
+#if USE_KEYSTORE
+    if (mkbhandle)
+        CFRelease(mkbhandle);
+#endif
     return ok;
 }
 
@@ -1643,6 +1693,8 @@ fail:
 // MARK: -
 // MARK: Shared web credentials
 
+#if TARGET_OS_IOS
+
 /* constants */
 #define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
 
@@ -2400,6 +2452,9 @@ cleanup:
 
     return ok;
 }
+
+#endif /* TARGET_OS_IOS */
+
 
 // MARK: -
 // MARK: Keychain backup

@@ -1,13 +1,13 @@
 #
 # Apple wrapper Makefile for PostgreSQL
-# Copyright (c) 2009-2013 Apple Inc. All Rights Reserved.
+# Copyright (c) 2009-2013,2016 Apple Inc. All Rights Reserved.
 #
 
 # General project info for use with RC/GNUsource.make makefile
 Project         = postgresql
 UserType        = Administrator
 ToolType        = Commands
-Submission      = 207.3
+Submission      = 207.4
 
 # Include common server build variables
 -include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
@@ -42,6 +42,7 @@ Extra_Configure_Flags	= --prefix=$(SERVER_INSTALL_PATH_PREFIX)$(USRDIR) --sbindi
 	--localstatedir=$(DBDirCustomer) \
 	--htmldir=$(DocDir) \
 	--enable-thread-safety \
+	--includedir=$(SDKROOT)/usr/include \
 	--enable-dtrace \
 	--with-perl \
 	--with-python \
@@ -231,12 +232,13 @@ cleanup-dst-root:
 	$(RM) $(DSTROOT)$(SERVER_INSTALL_PATH_PREFIX)/usr/lib/postgresql9.1/*.a
 	$(RM) $(DSTROOT)$(SERVER_INSTALL_PATH_PREFIX)/usr/lib/postgresql9.2/*.a
 	if [ -z $(SERVER_INSTALL_PATH_PREFIX) ]; then \
-		echo "We only want libraries installed, so remove everything else."; \
+		echo "We only want libraries installed (and headers and pg_config for internal use), so remove everything else."; \
+		$(MKDIR) $(DSTROOT)/usr/local/bin; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/System; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/private; \
+		$(CP) $(DSTROOT)/usr/bin/pg_config $(DSTROOT)/usr/local/bin; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/bin; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/libexec; \
-		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/include; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/share; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/lib/postgresql9.0; \
 		$(SILENT) $(RM) -Rf $(DSTROOT)/usr/lib/postgresql9.1; \

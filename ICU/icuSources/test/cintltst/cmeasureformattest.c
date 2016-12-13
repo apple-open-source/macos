@@ -10,11 +10,13 @@
 
 #include "unicode/uameasureformat.h"
 #include "unicode/ustring.h"
+#include "unicode/uloc.h"
 #include "cintltst.h"
 #include "cmemory.h"
 #include "cstring.h"
 
 static void TestUAMeasureFormat(void);
+static void TestUAMeasFmtOpenAllLocs(void);
 static void TestUAGetUnitsForUsage(void);
 static void TestUAGetCategoryForUnit(void);
 
@@ -25,6 +27,7 @@ void addMeasureFormatTest(TestNode** root);
 void addMeasureFormatTest(TestNode** root)
 {
     TESTCASE(TestUAMeasureFormat);
+    TESTCASE(TestUAMeasFmtOpenAllLocs);
     TESTCASE(TestUAGetUnitsForUsage);
     TESTCASE(TestUAGetCategoryForUnit);
 }
@@ -777,6 +780,51 @@ static void TestUAMeasureFormat()
    }
    /* sleep to check leaks etc */
    sleep(8);
+}
+
+static void TestUAMeasFmtOpenAllLocs()
+{
+    int32_t iLoc, nLoc = uloc_countAvailable();
+    for (iLoc = 0; iLoc <= nLoc; iLoc++) {
+        const char *loc = (iLoc < nLoc)? uloc_getAvailable(iLoc): "xyz" /* something bogus */;
+        if (loc != NULL) {
+            UAMeasureFormat* measfmt;
+            UErrorCode status;
+            
+            status = U_ZERO_ERROR;
+            measfmt = uameasfmt_open(loc, UAMEASFMT_WIDTH_WIDE, NULL, &status);
+            if ( U_SUCCESS(status) ) {
+                uameasfmt_close(measfmt);
+            } else {
+                log_data_err("FAIL: uameasfmt_open fails for locale %-10s, width WIDE   : %s\n", loc, u_errorName(status) );
+            }
+
+            status = U_ZERO_ERROR;
+            measfmt = uameasfmt_open(loc, UAMEASFMT_WIDTH_SHORT, NULL, &status);
+            if ( U_SUCCESS(status) ) {
+                uameasfmt_close(measfmt);
+            } else {
+                log_data_err("FAIL: uameasfmt_open fails for locale %-10s, width SHORT  : %s\n", loc, u_errorName(status) );
+            }
+
+            status = U_ZERO_ERROR;
+            measfmt = uameasfmt_open(loc, UAMEASFMT_WIDTH_NARROW, NULL, &status);
+            if ( U_SUCCESS(status) ) {
+                uameasfmt_close(measfmt);
+            } else {
+                log_data_err("FAIL: uameasfmt_open fails for locale %-10s, width NARROW : %s\n", loc, u_errorName(status) );
+            }
+
+
+            status = U_ZERO_ERROR;
+            measfmt = uameasfmt_open(loc, UAMEASFMT_WIDTH_NUMERIC, NULL, &status);
+            if ( U_SUCCESS(status) ) {
+                uameasfmt_close(measfmt);
+            } else {
+                log_data_err("FAIL: uameasfmt_open fails for locale %-10s, width NUMERIC: %s\n", loc, u_errorName(status) );
+            }
+        }
+    }
 }
 
 enum { kMeasureUnitMax = 3 };

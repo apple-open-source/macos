@@ -178,7 +178,7 @@ static int testHMac(HMacVector *hv) {
     expectedMD = hexStringToBytesIfNotNULL(hv->sha512str);
     ok(status &= testAllHMacs(kCCDigestSHA512, key, hv->input, expectedMD), "Testing all SHA512 Implementations");
     free(expectedMD);
-    
+    free(key);
     return status;
 }
 

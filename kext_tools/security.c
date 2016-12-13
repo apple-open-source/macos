@@ -1004,13 +1004,8 @@ static void filterKextLoadForMT(OSKextRef aKext, CFMutableArrayRef *kextList)
         if (CFStringHasPrefix(myCFString, __kOSKextApplePrefix)) {
             if (status == noErr) {
                 /* This is a signed Apple kext, with an Apple root certificate.
-                 * There is no need to retrieve additional signing information */
-                kextSigningCategory = CFSTR(kAppleKextWithAppleRoot);
-                copySigningInfo(kextURL,
-                                &hashString,
-                                NULL,
-                                NULL,
-                                NULL);
+                 * There is no need to log these, so simply jump to the cleanup */
+                goto finish;
             }
             else {
                 /* This is a signed Apple kext, but the root certificate is not Apple.

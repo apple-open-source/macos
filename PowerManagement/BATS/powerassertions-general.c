@@ -31,6 +31,7 @@ static void test_IOPMCopyAssertionActivityAggregate();
 static void test_assertionExceptions();
 static void test_IOPMPerformBlockWithAssertion();
 static void test_sysQualifiers();
+static void testUserActivityAssertion();
 
 int gPassCnt = 0, gFailCnt = 0;
 
@@ -38,11 +39,6 @@ int gPassCnt = 0, gFailCnt = 0;
 #define kSystemMaxAssertionsAllowed 64
 #define kKnownGoodAssertionType     CFSTR("NoDisplaySleepAssertion")
 
-
-#define INT_TO_CFNUMBER(numRef, val) { \
-    int __n = (val);  \
-    numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &__n); \
-}
 
 int main()
 {
@@ -75,6 +71,7 @@ int main()
     test_assertionExceptions();
     test_IOPMPerformBlockWithAssertion();
     test_sysQualifiers();
+    testUserActivityAssertion();
 
     dispatch_main();
     return 0;
@@ -1210,6 +1207,48 @@ exit:
     }
     if (props) {
         CFRelease(props);
+    }
+    return;
+}
+
+static void testUserActivityAssertion()
+{
+    START_TEST_CASE("Test creating UserActivity assertion\n");
+    IOReturn rc;
+    IOPMAssertionID id;
+
+    CFMutableDictionaryRef properties = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!properties)
+    {
+        FAIL("CFDictionaryCreateMutable failed\n");
+        goto exit;
+    }
+    CFNumberRef assertionTimeout;
+    INT_TO_CFNUMBER(assertionTimeout, 30);
+    if ( assertionTimeout != nil )
+    {
+        CFDictionarySetValue(properties, kIOPMAssertionTimeoutKey, assertionTimeout);
+        CFDictionarySetValue(properties, kIOPMAssertionTimeoutActionKey, kIOPMAssertionTimeoutActionRelease);
+        CFRelease(assertionTimeout);
+    }
+    CFDictionarySetValue(properties, kIOPMAssertionTypeKey, kIOPMAssertionUserIsActive);
+    CFDictionarySetValue(properties, kIOPMAssertionNameKey, CFSTR("Testing User activity assertion"));
+    CFDictionarySetValue(properties, kIOPMAssertionAppliesOnLidClose, kCFBooleanTrue);
+
+    rc = IOPMAssertionCreateWithProperties(properties, &id);
+    if ( rc != kIOReturnSuccess )
+    {
+        FAIL("IOPMAssertionDeclareUserActivity returned 0x%x\n", rc);
+        goto exit;
+    }
+
+    sleep(30);
+    IOPMAssertionRelease(id);
+
+    PASS("UserActivity assertion\n");
+exit:
+    if (properties) {
+        CFRelease(properties);
     }
     return;
 }

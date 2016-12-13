@@ -40,8 +40,10 @@
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecCertificatePath.h>
 #include <Security/SecFramework.h>
+#include <Security/SecPolicyPriv.h>
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecTrustSettingsPriv.h>
+#include <Security/SecTask.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFSet.h>
 #include <CoreFoundation/CFString.h>
@@ -53,6 +55,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <sys/codesign.h>
 #include <Security/SecBase.h>
 #include "SecRSAKey.h"
 #include <libDER/oids.h>
@@ -64,6 +67,10 @@
 #include "OTATrustUtilities.h"
 #include "personalization.h"
 #include <utilities/SecInternalReleasePriv.h>
+
+#if TARGET_OS_OSX
+#include <Security/SecTaskPriv.h>
+#endif
 
 
 /********************************************************
@@ -1186,8 +1193,12 @@ static bool SecPathBuilderIsPartial(SecPathBuilderRef builder,
 		if (SecCertificatePathIsAnchored(path)) {
             secdebug("trust", "Adding candidate %@", path);
 			CFArrayAppendValue(builder->candidatePaths, path);
-			return false;
 		}
+        /* The path is not partial if the last cert is self-signed. */
+        if ((SecCertificatePathSelfSignedIndex(path) >= 0) &&
+            (SecCertificatePathSelfSignedIndex(path) == SecCertificatePathGetCount(path)-1)) {
+            return false;
+        }
 	}
 
 	return true;
@@ -1536,8 +1547,8 @@ static bool SecPathBuilderComputeDetails(SecPathBuilderRef builder) {
     }
 
     /* Accept a partial path if certificate is on the allow list
-       and is temporally valid. */
-    if (completed && pvc->is_allowlisted &&
+       and is temporally valid and passed all PVC checks. */
+    if (completed && pvc->is_allowlisted && pvc->result &&
         builder->bestPathScore < ACCEPT_PATH_SCORE &&
         SecCertificatePathIsValid(pvc->path, pvc->verifyTime)) {
         builder->bestPathScore += ACCEPT_PATH_SCORE;
@@ -1547,6 +1558,7 @@ static bool SecPathBuilderComputeDetails(SecPathBuilderRef builder) {
 
     return completed;
 }
+
 
 static bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
     SecPVCRef pvc = &builder->path;
@@ -1660,10 +1672,10 @@ bool SecPathBuilderStep(SecPathBuilderRef builder) {
     }
 
     SecTrustResultType result  = kSecTrustResultInvalid;
-    if (builder->bestPathScore > ACCEPT_PATH_SCORE) {
-        result = kSecTrustResultUnspecified;
-    } else if (builder->denyBestPath) {
+    if (builder->denyBestPath) {
         result = kSecTrustResultDeny;
+    } else if (builder->bestPathScore > ACCEPT_PATH_SCORE) {
+        result = kSecTrustResultUnspecified;
     } else {
         result = kSecTrustResultRecoverableTrustFailure;
     }

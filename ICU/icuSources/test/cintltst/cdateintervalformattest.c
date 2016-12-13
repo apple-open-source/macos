@@ -32,6 +32,7 @@ static const char tzUSPacific[] = "US/Pacific";
 static const char tzAsiaTokyo[] = "Asia/Tokyo";
 #define Date201103021030 1299090600000.0 /* 2011-Mar-02 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
 #define Date201009270800 1285599629000.0 /* 2010-Sep-27 0800 in US/Pacific */
+#define Date201712300900 1514653200000.0 /* 2017-Dec-30 0900 in US/Pacific */
 #define _MINUTE (60.0*1000.0)
 #define _HOUR   (60.0*60.0*1000.0)
 #define _DAY    (24.0*60.0*60.0*1000.0)
@@ -62,8 +63,22 @@ static const DateIntervalFormatTestItem testItems[] = {
     // Apple-specific
     { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27 - 3" },
     { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27 - Oct 29" },
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30 - 5" }, // across year boundary
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017 - Jan 31, 2018" }, // across year boundary but > 1 month
     { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct." },
     { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept. \\u2013 29 oct." },
+    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "30\\u20135 janv." }, // across year boundary
+    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017 \\u2013 31 janv. 2018" }, // across year boundary but > 1 month
+
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27 - 3, 2010" },
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27 - Oct 29, 2010" },
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30, 2017 - Jan 5, 2018" }, // across year boundary
+    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017 - Jan 31, 2018" }, // across year boundary but > 1 month
+    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct. 2010" },
+    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept. \\u2013 29 oct. 2010" },
+    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "30 d\\u00E9c. 2017 \\u2013 5 janv. 2018" }, // across year boundary
+    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017 \\u2013 31 janv. 2018" }, // across year boundary but > 1 month
+
     { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "Sep 27, 8:00 AM - 6:00 PM" },
     { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 AM - Sep 28, 1:00 AM" },
     { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 PM - 1:00 AM" },

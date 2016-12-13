@@ -52,9 +52,17 @@ private:
     std::map<Key,KeyAttribute>          _activeKeys;
     boolean_t                           _keyboardFilterEnabled;
     boolean_t                           _touchIDFilterEnabled;
-    boolean_t                           _touchInProgress;
+    boolean_t                           _cancelledTouchInProgress;
     boolean_t                           _bioInProgress;
     boolean_t                           _cancel;
+    
+    uint64_t                            _lastDFREventTime;
+    uint64_t                            _lastKeyboardEventTime;
+    
+    UInt32                              _keyboardCancelThresholdMS;
+    UInt32                              _dfrTouchCancelThresholdMS;
+    UInt32                              _bioCancelThresholdMS;
+    dispatch_source_t                   _eventCancelTimer;
     
 private:
     static IOHIDSessionFilterPlugInInterface sIOHIDDFREventFilterFtbl;
@@ -76,8 +84,10 @@ private:
     void handleKeyboardEvent(IOHIDEventRef event);
     void handleBiometricEvent(IOHIDEventRef event);
     bool modifierPressed();
+    bool topRowPressed();
     IOHIDEventRef handleDFREvent(IOHIDEventRef event);
     void startTouchCancellation();
+    void serialize(CFMutableDictionaryRef dict) const;
     
 private:
     IOHIDDFREventFilter();

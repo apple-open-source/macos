@@ -131,6 +131,7 @@ value;age;6.2;V6_2
 value;age;6.3;V6_3
 value;age;7.0;V7_0
 value;age;8.0;V8_0
+value;age;9.0;V9_0
 value;age;NA;Unassigned
 value;bc;AL;Arabic_Letter
 value;bc;AN;Arabic_Number
@@ -31889,17 +31890,17 @@ cp;1F3BE;na=TENNIS RACQUET AND BALL
 cp;1F3BF;na=SKI AND SKI BOOT
 cp;1F3C0;na=BASKETBALL AND HOOP
 cp;1F3C1;na=CHEQUERED FLAG
-cp;1F3C2;na=SNOWBOARDER
+cp;1F3C2;Emoji_Modifier_Base;na=SNOWBOARDER
 cp;1F3C3;Emoji_Modifier_Base;na=RUNNER
 cp;1F3C4;Emoji_Modifier_Base;na=SURFER
 cp;1F3C5;age=7.0;na=SPORTS MEDAL
 cp;1F3C6;na=TROPHY
-cp;1F3C7;na=HORSE RACING
+cp;1F3C7;Emoji_Modifier_Base;na=HORSE RACING
 cp;1F3C8;na=AMERICAN FOOTBALL
 cp;1F3C9;na=RUGBY FOOTBALL
 cp;1F3CA;Emoji_Modifier_Base;na=SWIMMER
 cp;1F3CB;age=7.0;Emoji_Modifier_Base;-Emoji_Presentation;na=WEIGHT LIFTER
-cp;1F3CC;age=7.0;-Emoji_Presentation;na=GOLFER
+cp;1F3CC;age=7.0;Emoji_Modifier_Base;-Emoji_Presentation;na=GOLFER
 cp;1F3CD;age=7.0;-Emoji_Presentation;na=RACING MOTORCYCLE
 cp;1F3CE;age=7.0;-Emoji_Presentation;na=RACING CAR
 cp;1F3CF;age=8.0;na=CRICKET BAT AND BALL
@@ -32363,7 +32364,7 @@ cp;1F570;age=7.0;-Emoji_Presentation;na=MANTELPIECE CLOCK
 cp;1F571;age=7.0;-Emoji;-Emoji_Presentation;na=BLACK SKULL AND CROSSBONES
 cp;1F572;age=7.0;-Emoji;-Emoji_Presentation;na=NO PIRACY
 cp;1F573;age=7.0;-Emoji_Presentation;na=HOLE
-cp;1F574;age=7.0;-Emoji_Presentation;na=MAN IN BUSINESS SUIT LEVITATING
+cp;1F574;age=7.0;Emoji_Modifier_Base;-Emoji_Presentation;na=MAN IN BUSINESS SUIT LEVITATING
 cp;1F575;age=7.0;Emoji_Modifier_Base;-Emoji_Presentation;na=SLEUTH OR SPY
 cp;1F576;age=7.0;-Emoji_Presentation;na=DARK SUNGLASSES
 # Animal symbols
@@ -32371,7 +32372,8 @@ cp;1F577;age=7.0;-Emoji_Presentation;na=SPIDER
 cp;1F578;age=7.0;-Emoji_Presentation;na=SPIDER WEB
 # Game symbol
 cp;1F579;age=7.0;-Emoji_Presentation;na=JOYSTICK
-cp;1F57A;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+# Role symbol
+cp;1F57A;age=9.0;Emoji_Modifier_Base;na=MAN DANCING
 # Communication symbols
 cp;1F57B;age=7.0;-Emoji;-Emoji_Presentation;na=LEFT HAND TELEPHONE RECEIVER
 cp;1F57C;age=7.0;-Emoji;-Emoji_Presentation;na=TELEPHONE RECEIVER WITH PAGE
@@ -32415,7 +32417,8 @@ cp;1F5A0;age=7.0;-Emoji;-Emoji_Presentation;na=SIDEWAYS BLACK UP POINTING INDEX
 cp;1F5A1;age=7.0;-Emoji;-Emoji_Presentation;na=SIDEWAYS BLACK DOWN POINTING INDEX
 cp;1F5A2;age=7.0;-Emoji;-Emoji_Presentation;na=BLACK UP POINTING BACKHAND INDEX
 cp;1F5A3;age=7.0;-Emoji;-Emoji_Presentation;na=BLACK DOWN POINTING BACKHAND INDEX
-cp;1F5A4;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+# Heart symbol
+cp;1F5A4;age=9.0;na=BLACK HEART
 # Computer symbols
 cp;1F5A5;age=7.0;-Emoji_Presentation;na=DESKTOP COMPUTER
 cp;1F5A6;age=7.0;-Emoji;-Emoji_Presentation;na=KEYBOARD AND MOUSE
@@ -32744,13 +32747,15 @@ cp;1F6C9;age=7.0;-Emoji;-Emoji_Presentation;na=BOYS SYMBOL
 cp;1F6CA;age=7.0;-Emoji;-Emoji_Presentation;na=GIRLS SYMBOL
 # Accommodation symbols
 cp;1F6CB;age=7.0;-Emoji_Presentation;na=COUCH AND LAMP
-cp;1F6CC;age=7.0;na=SLEEPING ACCOMMODATION
+cp;1F6CC;age=7.0;Emoji_Modifier_Base;na=SLEEPING ACCOMMODATION
 cp;1F6CD;age=7.0;-Emoji_Presentation;na=SHOPPING BAGS
 cp;1F6CE;age=7.0;-Emoji_Presentation;na=BELLHOP BELL
 cp;1F6CF;age=7.0;-Emoji_Presentation;na=BED
 # Signage
 cp;1F6D0;age=8.0;na=PLACE OF WORSHIP
-cp;1F6D1..1F6DF;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+cp;1F6D1;age=9.0;na=OCTAGONAL SIGN
+cp;1F6D2;age=9.0;na=SHOPPING TROLLEY
+cp;1F6D3..1F6DF;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
 # Miscellaneous symbols
 cp;1F6E0;age=7.0;-Emoji_Presentation;na=HAMMER AND WRENCH
 cp;1F6E1;age=7.0;-Emoji_Presentation;na=SHIELD
@@ -32771,7 +32776,10 @@ cp;1F6F0;age=7.0;-Emoji_Presentation;na=SATELLITE
 cp;1F6F1;age=7.0;-Emoji;-Emoji_Presentation;na=ONCOMING FIRE ENGINE
 cp;1F6F2;age=7.0;-Emoji;-Emoji_Presentation;na=DIESEL LOCOMOTIVE
 cp;1F6F3;age=7.0;-Emoji_Presentation;na=PASSENGER SHIP
-cp;1F6F4..1F6FF;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+cp;1F6F4;age=9.0;na=SCOOTER
+cp;1F6F5;age=9.0;na=MOTOR SCOOTER
+cp;1F6F6;age=9.0;na=CANOE
+cp;1F6F7..1F6FF;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
 
 block;1F700..1F77F;age=6.0;bc=ON;blk=Alchemical;gc=So;Gr_Base;lb=AL;sc=Zyyy
 # 1F700..1F77F Alchemical Symbols
@@ -33203,16 +33211,92 @@ cp;1F914;na=THINKING FACE
 cp;1F915;na=FACE WITH HEAD-BANDAGE
 cp;1F916;na=ROBOT FACE
 cp;1F917;na=HUGGING FACE
-# Hand symbol
+# Hand symbols
 cp;1F918;Emoji_Modifier_Base;na=SIGN OF THE HORNS
-cp;1F919..1F97F;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+cp;1F919;age=9.0;Emoji_Modifier_Base;na=CALL ME HAND
+cp;1F91A;age=9.0;Emoji_Modifier_Base;na=RAISED BACK OF HAND
+cp;1F91B;age=9.0;Emoji_Modifier_Base;na=LEFT-FACING FIST
+cp;1F91C;age=9.0;Emoji_Modifier_Base;na=RIGHT-FACING FIST
+cp;1F91D;age=9.0;Emoji_Modifier_Base;na=HANDSHAKE
+cp;1F91E;age=9.0;Emoji_Modifier_Base;na=HAND WITH INDEX AND MIDDLE FINGERS CROSSED
+cp;1F91F;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+# Emoticon faces
+cp;1F920;age=9.0;na=FACE WITH COWBOY HAT
+cp;1F921;age=9.0;na=CLOWN FACE
+cp;1F922;age=9.0;na=NAUSEATED FACE
+cp;1F923;age=9.0;na=ROLLING ON THE FLOOR LAUGHING
+cp;1F924;age=9.0;na=DROOLING FACE
+cp;1F925;age=9.0;na=LYING FACE
+cp;1F926;age=9.0;Emoji_Modifier_Base;na=FACE PALM
+cp;1F927;age=9.0;na=SNEEZING FACE
+cp;1F928..1F92F;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+# Portrait and role symbols
+cp;1F930;age=9.0;Emoji_Modifier_Base;na=PREGNANT WOMAN
+cp;1F931..1F932;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+cp;1F933;age=9.0;Emoji_Modifier_Base;na=SELFIE
+cp;1F934;age=9.0;Emoji_Modifier_Base;na=PRINCE
+cp;1F935;age=9.0;Emoji_Modifier_Base;na=MAN IN TUXEDO
+cp;1F936;age=9.0;Emoji_Modifier_Base;na=MOTHER CHRISTMAS
+cp;1F937;age=9.0;Emoji_Modifier_Base;na=SHRUG
+cp;1F938;age=9.0;Emoji_Modifier_Base;na=PERSON DOING CARTWHEEL
+cp;1F939;age=9.0;Emoji_Modifier_Base;na=JUGGLING
+cp;1F93A;age=9.0;na=FENCER
+cp;1F93B;age=9.0;-Emoji;-Emoji_Presentation;na=MODERN PENTATHLON
+cp;1F93C;age=9.0;Emoji_Modifier_Base;na=WRESTLERS
+cp;1F93D;age=9.0;Emoji_Modifier_Base;na=WATER POLO
+cp;1F93E;age=9.0;Emoji_Modifier_Base;na=HANDBALL
+cp;1F93F;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+# Miscellaneous symbols
+cp;1F940;age=9.0;na=WILTED FLOWER
+cp;1F941;age=9.0;na=DRUM WITH DRUMSTICKS
+cp;1F942;age=9.0;na=CLINKING GLASSES
+cp;1F943;age=9.0;na=TUMBLER GLASS
+cp;1F944;age=9.0;na=SPOON
+cp;1F945;age=9.0;na=GOAL NET
+cp;1F946;age=9.0;-Emoji;-Emoji_Presentation;na=RIFLE
+cp;1F947;age=9.0;na=FIRST PLACE MEDAL
+cp;1F948;age=9.0;na=SECOND PLACE MEDAL
+cp;1F949;age=9.0;na=THIRD PLACE MEDAL
+cp;1F94A;age=9.0;na=BOXING GLOVE
+cp;1F94B;age=9.0;na=MARTIAL ARTS UNIFORM
+cp;1F94C..1F94F;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+# Food symbols
+cp;1F950;age=9.0;na=CROISSANT
+cp;1F951;age=9.0;na=AVOCADO
+cp;1F952;age=9.0;na=CUCUMBER
+cp;1F953;age=9.0;na=BACON
+cp;1F954;age=9.0;na=POTATO
+cp;1F955;age=9.0;na=CARROT
+cp;1F956;age=9.0;na=BAGUETTE BREAD
+cp;1F957;age=9.0;na=GREEN SALAD
+cp;1F958;age=9.0;na=SHALLOW PAN OF FOOD
+cp;1F959;age=9.0;na=STUFFED FLATBREAD
+cp;1F95A;age=9.0;na=EGG
+cp;1F95B;age=9.0;na=GLASS OF MILK
+cp;1F95C;age=9.0;na=PEANUTS
+cp;1F95D;age=9.0;na=KIWIFRUIT
+cp;1F95E;age=9.0;na=PANCAKES
+cp;1F95F..1F97F;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
 # Animal symbols
 cp;1F980;na=CRAB
 cp;1F981;na=LION FACE
 cp;1F982;na=SCORPION
 cp;1F983;na=TURKEY
 cp;1F984;na=UNICORN FACE
-cp;1F985..1F9BF;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
+cp;1F985;age=9.0;na=EAGLE
+cp;1F986;age=9.0;na=DUCK
+cp;1F987;age=9.0;na=BAT
+cp;1F988;age=9.0;na=SHARK
+cp;1F989;age=9.0;na=OWL
+cp;1F98A;age=9.0;na=FOX FACE
+cp;1F98B;age=9.0;na=BUTTERFLY
+cp;1F98C;age=9.0;na=DEER
+cp;1F98D;age=9.0;na=GORILLA
+cp;1F98E;age=9.0;na=LIZARD
+cp;1F98F;age=9.0;na=RHINOCEROS
+cp;1F990;age=9.0;na=SHRIMP
+cp;1F991;age=9.0;na=SQUID
+cp;1F992..1F9BF;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz
 # Food symbol
 cp;1F9C0;na=CHEESE WEDGE
 cp;1F9C1..1F9FF;age=NA;bc=L;-Emoji;-Emoji_Presentation;gc=Cn;-Gr_Base;lb=XX;sc=Zzzz

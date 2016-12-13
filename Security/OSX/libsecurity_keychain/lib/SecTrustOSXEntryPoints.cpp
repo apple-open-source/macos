@@ -51,7 +51,14 @@
  * MARK: CFRunloop
  */
 
-static OSStatus SecLegacySourceChanged(__unused SecKeychainEvent keychainEvent, __unused SecKeychainCallbackInfo *info, __unused void *context) {
+static OSStatus SecLegacySourceChanged(SecKeychainEvent keychainEvent, SecKeychainCallbackInfo *info, __unused void *context) {
+    if (keychainEvent == kSecAddEvent || keychainEvent == kSecDeleteEvent || keychainEvent == kSecUpdateEvent) {
+        /* We don't need to purge the cache if the item changed wasn't a cert */
+        SecKeychainItemRef item = info->item;
+        if (item && CFGetTypeID(item) != SecCertificateGetTypeID()) {
+            return 0;
+        }
+    }
     // Purge keychain parent cache
     SecItemParentCachePurge();
     // Purge unrestricted roots cache

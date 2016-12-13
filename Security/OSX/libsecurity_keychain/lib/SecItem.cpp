@@ -43,12 +43,17 @@
 
 #include <AssertMacros.h>
 #include <syslog.h>
+#include <dlfcn.h>
 
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecTrustedApplicationPriv.h>
 #include <Security/SecCode.h>
 #include <Security/SecCodePriv.h>
 #include <Security/SecRequirement.h>
+
+#include <login/SessionAgentCom.h>
+#include <login/SessionAgentStatusCom.h>
+
 
 const uint8_t kUUIDStringLength = 36;
 
@@ -4371,11 +4376,18 @@ SecItemCopyParentCertificates(SecCertificateRef certificate, void *context)
 		CFDictionaryAddValue(query, kSecMatchSearchList, combinedSearchList);
 		CFRelease(combinedSearchList);
 	}
-	CFDictionaryAddValue(query, kSecAttrSubject, normalizedIssuer);
 
-	/* Get all certificates matching our query. */
 	CFTypeRef results = NULL;
-	status = SecItemCopyMatching_osx(query, &results);
+	if (normalizedIssuer) {
+		/* Look up certs whose subject is the same as this cert's issuer. */
+		CFDictionaryAddValue(query, kSecAttrSubject, normalizedIssuer);
+		status = SecItemCopyMatching_osx(query, &results);
+	}
+	else {
+		/* Cannot match anything without an issuer! */
+		status = errSecItemNotFound;
+	}
+
 	if ((status != errSecSuccess) && (status != errSecItemNotFound)) {
 		secitemlog(LOG_WARNING, "SecItemCopyParentCertificates: %d", (int)status);
 	}
@@ -4680,6 +4692,33 @@ SecItemMergeResults(bool can_target_ios, OSStatus status_ios, CFTypeRef result_i
 	}
 }
 
+static bool
+ShouldTryUnlockKeybag(OSErr status)
+{
+    static typeof(SASSessionStateForUser) *soft_SASSessionStateForUser = NULL;
+	static dispatch_once_t onceToken;
+	static void *framework;
+
+	if (status != errSecInteractionNotAllowed)
+		return false;
+
+    dispatch_once(&onceToken, ^{
+		framework = dlopen("/System/Library/PrivateFrameworks/login.framework/login", RTLD_LAZY);
+		if (framework == NULL)
+			return;
+		soft_SASSessionStateForUser = (typeof(soft_SASSessionStateForUser)) dlsym(framework, "SASSessionStateForUser");
+    });
+
+    if (soft_SASSessionStateForUser == NULL)
+        return false;
+
+    SessionAgentState sessionState = soft_SASSessionStateForUser(getuid());
+    if(sessionState != kSA_state_desktopshowing)
+        return false;
+
+    return true;
+}
+
 OSStatus
 SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
 {
@@ -4705,9 +4744,10 @@ SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
 		}
 		else {
 			status_ios = SecItemCopyMatching_ios(attrs_ios, &result_ios);
-            if(status_ios == errSecInteractionNotAllowed) {
+            if(ShouldTryUnlockKeybag(status_ios)) {
                 // The keybag is locked. Attempt to unlock it...
-                if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(3)) {
+				secitemlog(LOG_WARNING, "SecItemCopyMatching triggering SecurityAgent");
+                if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
                     CFReleaseNull(result_ios);
                     status_ios = SecItemCopyMatching_ios(attrs_ios, &result_ios);
                 }
@@ -4765,8 +4805,9 @@ SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result)
 			status = errSecParam;
 		} else {
             status = SecItemAdd_ios(attrs_ios, &result_ios);
-            if(status == errSecInteractionNotAllowed) {
+            if(ShouldTryUnlockKeybag(status)) {
                 // The keybag is locked. Attempt to unlock it...
+				secitemlog(LOG_WARNING, "SecItemAdd triggering SecurityAgent");
                 if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(3)) {
                     CFReleaseNull(result_ios);
                     status = SecItemAdd_ios(attrs_ios, &result_ios);
@@ -4818,17 +4859,19 @@ SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate)
 		else {
             if (SecItemHasSynchronizableUpdate(true, attributesToUpdate)) {
                 status_ios = SecItemChangeSynchronizability(attrs_ios, attributesToUpdate, false);
-                if(status_ios == errSecInteractionNotAllowed) {
+                if(ShouldTryUnlockKeybag(status_ios)) {
                     // The keybag is locked. Attempt to unlock it...
-                    if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(3)) {
+					secitemlog(LOG_WARNING, "SecItemUpdate triggering SecurityAgent");
+                    if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
                         status_ios = SecItemChangeSynchronizability(attrs_ios, attributesToUpdate, false);
                     }
                 }
             } else {
                 status_ios = SecItemUpdate_ios(attrs_ios, attributesToUpdate);
-                if(status_ios == errSecInteractionNotAllowed) {
+                if(ShouldTryUnlockKeybag(status_ios)) {
                     // The keybag is locked. Attempt to unlock it...
-                    if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(3)) {
+					secitemlog(LOG_WARNING, "SecItemUpdate triggering SecurityAgent");
+                    if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
                         status_ios = SecItemUpdate_ios(attrs_ios, attributesToUpdate);
                     }
                 }
@@ -4884,12 +4927,6 @@ SecItemDelete(CFDictionaryRef query)
 			status_ios = errSecParam;
 		} else {
             status_ios = SecItemDelete_ios(attrs_ios);
-            if(status_ios == errSecInteractionNotAllowed) {
-                // The keybag is locked. Attempt to unlock it...
-                if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(3)) {
-                    status_ios = SecItemDelete_ios(attrs_ios);
-                }
-            }
 			CFRelease(attrs_ios);
 		}
 		secitemlog(LOG_NOTICE, "SecItemDelete_ios result: %d", status_ios);
@@ -4917,9 +4954,10 @@ OSStatus
 SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes)
 {
 	OSStatus status = SecItemUpdateTokenItems_ios(tokenID, tokenItemsAttributes);
-    if(status == errSecInteractionNotAllowed) {
+    if(ShouldTryUnlockKeybag(status)) {
         // The keybag is locked. Attempt to unlock it...
-        if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(3)) {
+        if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
+			secitemlog(LOG_WARNING, "SecItemUpdateTokenItems triggering SecurityAgent");
             status = SecItemUpdateTokenItems_ios(tokenID, tokenItemsAttributes);
         }
     }

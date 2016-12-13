@@ -27,6 +27,7 @@
 
 #include <IOKit/hidevent/IOHIDEventDriver.h>
 
+class IOHIDEvent;
 
 /*! @class IOHIDOverridRepairDriver : public IOHIDEventDriver
     @abstract

@@ -1,5 +1,5 @@
---- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2015-11-08 10:00:05.000000000 -0800
-+++ icuSources/data/unidata/DerivedCoreProperties.txt	2015-11-09 19:56:46.000000000 -0800
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2016-08-25 19:34:36.000000000 -0700
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2016-08-25 21:55:13.000000000 -0700
 @@ -162,6 +162,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
@@ -90,18 +90,18 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
-@@ -10973,7 +10992,7 @@
+@@ -10976,7 +10995,7 @@
  2B820..2CEA1  ; Grapheme_Base
  2F800..2FA1D  ; Grapheme_Base
  
--# Total code points: 118912
-+# Total code points: 118912+ApplePUA
+-# Total code points: 118912+74 additions
++# Total code points: 118912+74 additions+ApplePUA
  
  # ================================================
  
---- icuSources/data/unidata/base_unidata/ppucd.txt	2015-11-08 10:00:05.000000000 -0800
-+++ icuSources/data/unidata/ppucd.txt	2015-11-09 19:58:33.000000000 -0800
-@@ -18455,8 +18455,47 @@
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2016-08-25 15:16:52.000000000 -0700
++++ icuSources/data/unidata/ppucd.txt	2016-08-25 21:57:10.000000000 -0700
+@@ -18460,8 +18460,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;GCB=CN;lb=SG
  # DC00..DFFF Low Surrogates
  
@@ -151,8 +151,8 @@
  
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- icuSources/data/unidata/base_unidata/UnicodeData.txt	2015-11-08 10:00:05.000000000 -0800
-+++ icuSources/data/unidata/UnicodeData.txt	2015-11-09 20:00:13.000000000 -0800
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2016-08-25 14:39:20.000000000 -0700
++++ icuSources/data/unidata/UnicodeData.txt	2016-08-25 21:55:45.000000000 -0700
 @@ -14876,7 +14876,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
@@ -220,8 +220,8 @@
  F900;CJK COMPATIBILITY IDEOGRAPH-F900;Lo;0;L;8C48;;;;N;;;;;
  F901;CJK COMPATIBILITY IDEOGRAPH-F901;Lo;0;L;66F4;;;;N;;;;;
  F902;CJK COMPATIBILITY IDEOGRAPH-F902;Lo;0;L;8ECA;;;;N;;;;;
---- icuSources/data/unidata/norm2/base_norm2/nfc.txt	2015-11-08 10:00:05.000000000 -0800
-+++ icuSources/data/unidata/norm2/nfc.txt	2015-11-09 20:01:09.000000000 -0800
+--- icuSources/data/unidata/norm2/base_norm2/nfc.txt	2016-07-06 16:40:03.000000000 -0700
++++ icuSources/data/unidata/norm2/nfc.txt	2016-08-25 21:58:56.000000000 -0700
 @@ -278,6 +278,8 @@
  AAC1:230
  AAF6:9

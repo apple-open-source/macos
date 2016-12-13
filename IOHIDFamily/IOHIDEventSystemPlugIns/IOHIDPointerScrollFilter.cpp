@@ -334,7 +334,10 @@ CFTypeRef IOHIDPointerScrollFilter::copyPropertyForClient(CFStringRef key, CFTyp
   CFSTR(kIOHIDTrackpadScrollAccelerationKey),
   CFSTR(kIOHIDTrackpadAccelerationType),
   CFSTR(kIOHIDScrollAccelerationTypeKey),
-  CFSTR(kIOHIDPointerAccelerationTypeKey)
+  CFSTR(kIOHIDPointerAccelerationTypeKey),
+  CFSTR(kIOHIDUserPointerAccelCurvesKey),
+  CFSTR(kIOHIDUserScrollAccelCurvesKey)
+  
 };
 
 //------------------------------------------------------------------------------
@@ -361,6 +364,7 @@ void IOHIDPointerScrollFilter::setPropertyForClient(CFStringRef key,CFTypeRef pr
   }
   if (updated && _queue) {
       setupAcceleration ();
+      _cachedProperty.RemoveAll();
   }
   return;
 }

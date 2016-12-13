@@ -1,3 +1,299 @@
+2016-11-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r208619. rdar://problem/29225966
+
+    2016-11-11  Saam Barati  <sbarati@apple.com>
+
+            Unreviewed try to fix windows build after https://bugs.webkit.org/show_bug.cgi?id=164650
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::parseBlock):
+
+2016-11-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r208614. rdar://problem/29225966
+
+    2016-11-11  Saam Barati  <sbarati@apple.com>
+
+            We recursively grab a lock in the DFGBytecodeParser causing us to deadlock
+            https://bugs.webkit.org/show_bug.cgi?id=164650
+
+            Reviewed by Geoffrey Garen.
+
+            Some code was incorrectly holding a lock when recursively calling
+            back into the bytecode parser's via inlining a put_by_val as a put_by_id.
+            This can cause a deadlock if the inlinee CodeBlock is something we're
+            already holding a lock for. I've changed the range of the lock holder
+            to be as narrow as possible.
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::parseBlock):
+
+2016-11-03  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r208299. rdar://problem/28857505
+
+    2016-11-02  Michael Saboff  <msaboff@apple.com>
+
+            Crash beneath SlotVisitor::drain @ cooksillustrated.com
+            https://bugs.webkit.org/show_bug.cgi?id=164304
+
+            Reviewed by Mark Lam.
+
+            Added back write barrier for the base cell of put-by_id in the LLInt when the structure is
+            changed.  Also removed the unused macro "storeStructureWithTypeInfo".
+
+            * llint/LowLevelInterpreter32_64.asm:
+            * llint/LowLevelInterpreter64.asm:
+
+2016-10-28  Mark Lam  <mark.lam@apple.com>
+
+        Merge r208018. rdar://problem/28962887, rdar://problem/28962912
+
+    2016-10-27  Mark Lam  <mark.lam@apple.com>
+
+            JSFunction::put() should not allow caching of lazily reified properties.
+            https://bugs.webkit.org/show_bug.cgi?id=164081
+
+            Reviewed by Geoffrey Garen.
+
+            It is incorrect for JSFunction::put() to return PutPropertySlots that indicates
+            that its lazily reified properties (e.g. .caller, and .arguments) are cacheable.
+            The reason for this is:
+
+            1. Currently, a cacheable put may only consist of the following types of put
+               operations:
+               a. putting a new property at an offset in the object storage.
+               b. changing the value of an existing property at an offset in the object storage.
+               c. invoking the setter for a property at an offset in the object storage.
+
+               Returning a PutPropertySlot that indicates the property is cacheable means that
+               the property put must be one of the above operations.
+
+               For lazily reified properties, JSFunction::put() implements complex conditional
+               behavior that is different than the set of cacheable put operations above.
+               Hence, it should not claim that the property put is cacheable.
+    
+            2. Cacheable puts are cached on the original structure of the object before the
+               put operation.
+
+               Reifying a lazy property will trigger a structure transition.  Even though
+               subsequent puts to such a property may be cacheable after the structure
+               transition, it is incorrect to indicate that the property put is cacheable
+               because the caching is on the original structure, not the new transitioned
+               structure.
+
+            Also fixed some missing exception checks.
+
+            * jit/JITOperations.cpp:
+            * runtime/JSFunction.cpp:
+            (JSC::JSFunction::put):
+            (JSC::JSFunction::reifyLazyPropertyIfNeeded):
+            (JSC::JSFunction::reifyBoundNameIfNeeded):
+            * runtime/JSFunction.h:
+
+2016-10-27  Mark Lam  <mark.lam@apple.com>
+
+        Merge r207518. rdar://problem/28216050, rdar://problem/28216232
+
+    2016-10-18  Mark Lam  <mark.lam@apple.com>
+
+            Invoking Object.prototype.__proto__ accessors directly should throw a TypeError.
+            https://bugs.webkit.org/show_bug.cgi?id=154377
+            <rdar://problem/27330808>
+
+            Reviewed by Filip Pizlo and Saam Barati.
+
+            In a scenario where we cache the __proto__ accessors in global variables, and
+            later explicitly invoke those accessors as functions, the spec for Function Calls
+            (see https://tc39.github.io/ecma262/#sec-function-calls) states that the function
+            ref value is of type Reference, and base of ref is an Environment Record.  Then,
+            it follows that the thisValue should be set to refEnv.WithBaseObject()
+            (see section 4.b.ii of 12.3.4.1 at
+            https://tc39.github.io/ecma262/#sec-function-calls-runtime-semantics-evaluation).
+
+            refEnv in this case is the environment record that the cached accessors were
+            found in i.e. the global object.  The WithBaseObject() of the global object is
+            undefined (see details about WithBaseObject at
+            https://tc39.github.io/ecma262/#sec-environment-records).
+
+            Hence, the __proto__ accessors should see a thisValue of undefined, and throw
+            TypeErrors.  See https://tc39.github.io/ecma262/#sec-get-object.prototype.__proto__,
+            https://tc39.github.io/ecma262/#sec-set-object.prototype.__proto__,
+            https://tc39.github.io/ecma262/#sec-toobject, and
+            https://tc39.github.io/ecma262/#sec-requireobjectcoercible.
+
+            In JSC's implementation, the callee needs to do a ToThis operation on the
+            incoming "this" argument in order to get the specified thisValue.  The
+            implementations of the __proto__ accessors were not doing this correctly.  This
+            has now been fixed.
+
+            * runtime/JSGlobalObjectFunctions.cpp:
+            (JSC::globalFuncProtoGetter):
+            (JSC::globalFuncProtoSetter):
+
+2016-10-24  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r207229. rdar://problem/28718809
+
+    2016-10-12  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Improve support for logging Proxy objects in console
+            https://bugs.webkit.org/show_bug.cgi?id=163323
+            <rdar://problem/28432553>
+
+            Reviewed by Timothy Hatcher.
+
+            This is based off of similiar patches in Blink for Proxy handling.
+
+            * bindings/ScriptValue.cpp:
+            (Deprecated::ScriptValue::isEqual):
+            Use strict equality. This is the intent, and it prevents the possibility of triggering
+            primitive conversion on objects in previous ConsoleMessage argument lists.
+
+            * inspector/InjectedScriptSource.js:
+            (InjectedScript.prototype._propertyDescriptors):
+            Bail if the object is a Proxy.
+
+            (InjectedScript.prototype._describe):
+            Provide a friendlier name, "Proxy" instead of "ProxyObject".
+        
+            (InjectedScript.RemoteObject):
+            When generating a preview for a Proxy object, generate it from the final target
+            and mark it as lossy so that the object can always be expanded to get the internal
+            target/handler properties.
+
+            * inspector/JSInjectedScriptHost.h:
+            * inspector/JSInjectedScriptHost.cpp:
+            (Inspector::JSInjectedScriptHost::subtype):
+            New subtype for Proxy objects.
+
+            (Inspector::JSInjectedScriptHost::proxyTargetValue):
+            Resolve the final target value for a Proxy.
+
+            * inspector/JSInjectedScriptHostPrototype.cpp:
+            (Inspector::JSInjectedScriptHostPrototype::finishCreation):
+            (Inspector::jsInjectedScriptHostPrototypeFunctionProxyTargetValue):
+            Add the new method.
+
+            * inspector/ScriptArguments.cpp:
+            (Inspector::ScriptArguments::getFirstArgumentAsString):
+            Avoid triggering Proxy traps on a Proxy object when getting a quick
+            string description for ConsoleMessages.
+
+            * inspector/protocol/Runtime.json:
+            Add new "proxy" subtype.
+
+2016-10-24  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r206281. rdar://problem/28870938
+
+    2016-09-22  Mark Lam  <mark.lam@apple.com>
+
+            Array.prototype.join should do overflow checks on string joins.
+            https://bugs.webkit.org/show_bug.cgi?id=162459
+
+            Reviewed by Saam Barati.
+
+            Change the 2 JSRopeString::create() functions that do joins to be private, and
+            force all clients of it to go through the jsString() utility functions that do
+            overflow checks before creating the ropes.
+
+            * dfg/DFGOperations.cpp:
+            * runtime/ArrayPrototype.cpp:
+            (JSC::slowJoin):
+            * runtime/JSString.h:
+            * runtime/Operations.h:
+            (JSC::jsString):
+
+2016-10-24  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r207623. rdar://problem/28857477
+
+    2016-10-20  Keith Miller  <keith_miller@apple.com>
+
+            Invalid assertion in arguments elimination
+            https://bugs.webkit.org/show_bug.cgi?id=163740
+            <rdar://problem/27911462>
+
+            Reviewed by Michael Saboff.
+
+            The DFGFTL's arguments elimination phase incorrectly asserted that a GetFromArguments' first
+            child would always be a CreateDirectArguments.  While we only create the
+            op_get_from_arguments bytecode pointing to a create_direct_arguments, its possible for a
+            number of reasons that a DFG GetFromArguments may not point to a CreateDirectArguments. For
+            example, if we are OSR entering in some function with direct arguments the
+            CreateDirectArguments node might become ExtractOSREntryLocals.
+
+            * dfg/DFGArgumentsEliminationPhase.cpp:
+
+2016-10-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r206955. rdar://problem/28216236
+
+    2016-10-08  Saam Barati  <sbarati@apple.com>
+
+            HasIndexedProperty clobberize rule is wrong for Array::ForceOSRExit
+            https://bugs.webkit.org/show_bug.cgi?id=159942
+            <rdar://problem/27328836>
+
+            Reviewed by Filip Pizlo.
+
+            When HasIndexedProperty has a ForceOSRExit array mode, it should
+            report to write to side state, like the ForceOSRExit node, and the
+            other nodes with ForceOSRExit array mode.
+
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+
+2016-10-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r206472. rdar://problem/28545009
+
+    2016-09-27  Filip Pizlo  <fpizlo@apple.com>
+
+            B3::lowerMacros forgets to before->updatePredecessorsAfter() when lowering ChillMod on ARM64
+            https://bugs.webkit.org/show_bug.cgi?id=162644
+
+            Reviewed by Keith Miller.
+
+            If you forget to update the predecessors of your successors, then bad things will happen if you
+            do something that requires accurate predecessors for correctness. lowerMacros() uses
+            BlockInsertionSet, which relies on accurate predecessors.
+
+            * b3/B3LowerMacros.cpp:
+
+2016-10-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r204868. rdar://problem/28216263
+
+    2016-08-23  Keith Miller  <keith_miller@apple.com>
+
+            %TypedArray%.prototype.slice needs to check that the source and destination have not been detached.
+            https://bugs.webkit.org/show_bug.cgi?id=161031
+            <rdar://problem/27937019>
+
+            Reviewed by Geoffrey Garen.
+
+            * runtime/JSGenericTypedArrayViewPrototypeFunctions.h:
+            (JSC::speciesConstruct):
+            (JSC::genericTypedArrayViewProtoFuncSlice):
+
+2016-10-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r204612. rdar://problem/28216278
+
+    2016-08-18  Mark Lam  <mark.lam@apple.com>
+
+            ScopedArguments is using the wrong owner object for a write barrier.
+            https://bugs.webkit.org/show_bug.cgi?id=160976
+            <rdar://problem/27328506>
+
+            Reviewed by Keith Miller.
+
+            * runtime/ScopedArguments.h:
+            (JSC::ScopedArguments::setIndexQuickly):
+
 2016-09-14  Babak Shafiei  <bshafiei@apple.com>
 
         Merge r205882. rdar://problem/28233331

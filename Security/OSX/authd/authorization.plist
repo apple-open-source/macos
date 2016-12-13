@@ -265,8 +265,10 @@ See remaining rules for examples.
 			<key>rule</key>
 			<array>
 				<string>is-root</string>
-				<string>entitled-admin-or-authenticate-admin</string>
+				<string>entitled-admin-or-authenticate-admin-nonshared</string>
 			</array>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 		<key>com.apple.SoftwareUpdate.modify-settings</key>
 		<dict>
@@ -391,6 +393,15 @@ See remaining rules for examples.
 			<key>mechanisms</key>
 			<array>
 				<string>builtin:generic-unlock</string>
+			</array>
+		</dict>
+		<key>com.apple.builtin.sc-kc-new-passphrase</key>
+		<dict>
+			<key>class</key>
+			<string>evaluate-mechanisms</string>
+			<key>mechanisms</key>
+			<array>
+				<string>builtin:generic-new-passphrase</string>
 			</array>
 		</dict>
 		<key>com.apple.container-repair</key>
@@ -891,7 +902,7 @@ See remaining rules for examples.
 				<string>loginwindow:done</string>
 			</array>
 			<key>version</key>
-			<integer>4</integer>
+			<integer>6</integer>
 		</dict>
 		<key>system.login.fus</key>
 		<dict>
@@ -1587,6 +1598,19 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
+		<key>authenticate-admin-nonshared</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Authenticate as an administrator.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>timeout</key>
+			<integer>30</integer>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
 		<key>authenticate-admin-30</key>
 		<dict>
 			<key>class</key>
@@ -1761,6 +1785,30 @@ See remaining rules for examples.
 				<string>entitled</string>
 			</array>
 		</dict>
+		<key>entitled-admin-nonshared</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>2</integer>
+			<key>rule</key>
+			<array>
+				<string>is-admin-nonshared</string>
+				<string>entitled</string>
+			</array>
+		</dict>
+		<key>entitled-admin-or-authenticate-admin-nonshared</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>entitled-admin-nonshared</string>
+				<string>authenticate-admin-nonshared</string>
+			</array>
+		</dict>
 		<key>entitled-admin-or-authenticate-admin</key>
 		<dict>
 			<key>class</key>
@@ -1857,6 +1905,17 @@ See remaining rules for examples.
 			<string>admin</string>
 			<key>shared</key>
 			<true/>
+		</dict>
+		<key>is-admin-nonshared</key>
+		<dict>
+			<key>authenticate-user</key>
+			<false/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Verify that the user asking for authorization is an administrator - nonshared right.</string>
+			<key>group</key>
+			<string>admin</string>
 		</dict>
 		<key>is-appstore</key>
 		<dict>

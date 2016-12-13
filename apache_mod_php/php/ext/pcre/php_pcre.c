@@ -396,6 +396,7 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache(char *regex, int regex_le
 						coptions |= PCRE_UCP;
 #endif
 				break;
+			case 'J':	coptions |= PCRE_DUPNAMES;		break;
 
 			/* Custom preg options */
 			case 'e':	poptions |= PREG_REPLACE_EVAL;	break;
@@ -805,7 +806,7 @@ PHPAPI void php_pcre_match_impl(pcre_cache_entry *pce, char *subject, int subjec
 			   to achieve this, unless we're already at the end of the string. */
 			if (g_notempty != 0 && start_offset < subject_len) {
 				int unit_len = calculate_unit_length(pce, subject + start_offset);
-				
+
 				offsets[0] = start_offset;
 				offsets[1] = start_offset + unit_len;
 			} else
@@ -820,7 +821,7 @@ PHPAPI void php_pcre_match_impl(pcre_cache_entry *pce, char *subject, int subjec
 		   the match again at the same point. If this fails (picked up above) we
 		   advance to the next character. */
 		g_notempty = (offsets[1] == offsets[0])? PCRE_NOTEMPTY_ATSTART | PCRE_ANCHORED : 0;
-		
+
 		/* Advance to the position right after the last full match */
 		start_offset = offsets[1];
 	} while (global);
@@ -1054,7 +1055,7 @@ PHPAPI char *php_pcre_replace(char *regex,   int regex_len,
 		return NULL;
 	}
 	pce->refcount++;
-	result = php_pcre_replace_impl(pce, subject, subject_len, replace_val, 
+	result = php_pcre_replace_impl(pce, subject, subject_len, replace_val,
 		is_callable_replace, result_len, limit, replace_count TSRMLS_CC);
 	pce->refcount--;
 
@@ -1074,8 +1075,8 @@ PHPAPI char *php_pcre_replace_impl(pcre_cache_entry *pce, char *subject, int sub
 	char 			**subpat_names;		/* Array for named subpatterns */
 	int				 num_subpats;		/* Number of captured subpatterns */
 	int				 size_offsets;		/* Size of the offsets array */
-	int				 new_len;			/* Length of needed storage */
-	int				 alloc_len;			/* Actual allocated length */
+	size_t			 new_len;			/* Length of needed storage */
+	size_t			 alloc_len;			/* Actual allocated length */
 	int				 eval_result_len=0;	/* Length of the eval'ed or
 										   function-returned string */
 	int				 match_len;			/* Length of the current match */
@@ -1145,8 +1146,8 @@ PHPAPI char *php_pcre_replace_impl(pcre_cache_entry *pce, char *subject, int sub
 
 	offsets = (int *)safe_emalloc(size_offsets, sizeof(int), 0);
 
-	alloc_len = 2 * subject_len + 1;
-	result = safe_emalloc(alloc_len, sizeof(char), 0);
+	result = safe_emalloc(subject_len, 2*sizeof(char), 1);
+	alloc_len = 2 * (size_t)subject_len + 1;
 
 	/* Initialize */
 	match = NULL;
@@ -1211,8 +1212,8 @@ PHPAPI char *php_pcre_replace_impl(pcre_cache_entry *pce, char *subject, int sub
 			}
 
 			if (new_len + 1 > alloc_len) {
-				alloc_len = 1 + alloc_len + 2 * new_len;
-				new_buf = emalloc(alloc_len);
+				new_buf = safe_emalloc(2, new_len + 1, alloc_len);
+				alloc_len = 1 + alloc_len + 2 * (size_t)new_len;
 				memcpy(new_buf, result, *result_len);
 				efree(result);
 				result = new_buf;
@@ -1275,8 +1276,8 @@ PHPAPI char *php_pcre_replace_impl(pcre_cache_entry *pce, char *subject, int sub
 			} else {
 				new_len = *result_len + subject_len - start_offset;
 				if (new_len + 1 > alloc_len) {
-					alloc_len = new_len + 1; /* now we know exactly how long it is */
-					new_buf = safe_emalloc(alloc_len, sizeof(char), 0);
+					new_buf = safe_emalloc(new_len, sizeof(char), 1);
+					alloc_len = (size_t)new_len + 1; /* now we know exactly how long it is */
 					memcpy(new_buf, result, *result_len);
 					efree(result);
 					result = new_buf;
@@ -1299,13 +1300,19 @@ PHPAPI char *php_pcre_replace_impl(pcre_cache_entry *pce, char *subject, int sub
 		   the match again at the same point. If this fails (picked up above) we
 		   advance to the next character. */
 		g_notempty = (offsets[1] == offsets[0])? PCRE_NOTEMPTY_ATSTART | PCRE_ANCHORED : 0;
-		
+
 		/* Advance to the next piece. */
 		start_offset = offsets[1];
 	}
 
 	efree(offsets);
 	efree(subpat_names);
+
+	if(result && (size_t)(*result_len) > INT_MAX) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Result is too big, max is %d", INT_MAX);
+		efree(result);
+		result = NULL;
+	}
 
 	return result;
 }
@@ -1592,7 +1599,7 @@ PHPAPI void php_pcre_split_impl(pcre_cache_entry *pce, char *subject, int subjec
 #ifdef PCRE_EXTRA_MARK
 	extra->flags &= ~PCRE_EXTRA_MARK;
 #endif
-	
+
 	/* Initialize return value */
 	array_init(return_value);
 
@@ -1700,7 +1707,7 @@ PHPAPI void php_pcre_split_impl(pcre_cache_entry *pce, char *subject, int subjec
 		   the match again at the same point. If this fails (picked up above) we
 		   advance to the next character. */
 		g_notempty = (offsets[1] == offsets[0])? PCRE_NOTEMPTY_ATSTART | PCRE_ANCHORED : 0;
-		
+
 		/* Advance to the position right after the last full match */
 		start_offset = offsets[1];
 	}
@@ -1761,7 +1768,7 @@ static PHP_FUNCTION(preg_quote)
 
 	/* Allocate enough memory so that even if each character
 	   is quoted, we won't run out of room */
-	out_str = safe_emalloc(4, in_str_len, 1);
+	out_str = safe_emalloc_string(4, in_str_len, 1);
 
 	/* Go through the string and quote necessary characters */
 	for(p = in_str, q = out_str; p != in_str_end; p++) {

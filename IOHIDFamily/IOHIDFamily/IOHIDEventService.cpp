@@ -43,6 +43,7 @@
     #include "IOHIDPointing.h"
     #include "IOHIDKeyboard.h"
     #include "IOHIDConsumer.h"
+    #include "IOHIDEvent.h"
 #endif /* !TARGET_OS_EMBEDDED */
 
 #include "IOHIDEventData.h"
@@ -400,15 +401,6 @@ void IOHIDEventService::stop( IOService * provider )
 
         _keyboard.debug.stackshotTimer->release();
         _keyboard.debug.stackshotTimer = 0;
-    }
-
-    if (_keyboard.debug.shutdownDebugTimer) {
-		 _keyboard.debug.shutdownDebugTimer->cancelTimeout();
-        if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.debug.shutdownDebugTimer);
-
-        _keyboard.debug.shutdownDebugTimer->release();
-        _keyboard.debug.shutdownDebugTimer = 0;
     }
 
 #else
@@ -1102,14 +1094,6 @@ void IOHIDEventService::free()
         _keyboard.debug.stackshotTimer->release();
         _keyboard.debug.stackshotTimer = 0;
     }
-	
-    if (_keyboard.debug.shutdownDebugTimer) {
-        if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.debug.shutdownDebugTimer);
-
-        _keyboard.debug.shutdownDebugTimer->release();
-        _keyboard.debug.shutdownDebugTimer = 0;
-    }
 
 #endif /* TARGET_OS_EMBEDDED */
 
@@ -1370,82 +1354,6 @@ void IOHIDEventService::debuggerTimerCallback(IOTimerEventSource *sender)
         PE_enter_debugger("NMI");
     }
 }
-
-#if TARGET_OS_IPHONE || TARGET_OS_WATCH
-//==============================================================================
-// IOHIDEventService::forcedShutdownDebugTimerCallback
-//==============================================================================
-void IOHIDEventService::forcedShutdownDebugTimerCallback(IOTimerEventSource *sender)
-{
-    if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask && _keyboard.debug.mask == _keyboard.debug.shutdownDebugKeyMask) {
-        if (_keyboard.debug.shutdownDebugMode == kHIDShutdownDebugModePanic) {
-            HIDLogError ("HID: Debug panic on forced shutdown");
-            panic_with_options (0, NULL, DEBUGGER_OPTION_PANICLOGANDREBOOT, "btn_rst");
-        } else if (_keyboard.debug.shutdownDebugMode == kHIDShutdownDebugModeStackshots) {
-            HIDLogError ("HID: Debug stackshot on forced shutdown");
-            handle_stackshot_keychord(0x3);
-        }
-    }
-}
-//==============================================================================
-// IOHIDEventService::forcedShutdownDebugInit
-//==============================================================================
-void IOHIDEventService::forcedShutdownDebugInit() {
-    _keyboard.debug.shutdownDebugMode = kHIDShutdownDebugModeDisabled;
-    if(!PE_parse_boot_argn("forced_shutdown_mode", &_keyboard.debug.shutdownDebugMode, sizeof (_keyboard.debug.shutdownDebugMode))) {
-        OSDictionary *matchingDict = nameMatching("defaults");
-        if (matchingDict) {
-            IOService *defaults = copyMatchingService(matchingDict);
-            _keyboard.debug.shutdownDebugMode = kHIDShutdownDebugModeStackshots;
-            if (defaults) {
-                OSData *shutdownDebugMode = OSDynamicCast(OSData, defaults->getProperty("panic-on-home-lock-button",gIOServicePlane));
-                if (shutdownDebugMode && shutdownDebugMode->getLength() == sizeof(uint32_t) && *((uint32_t*)shutdownDebugMode->getBytesNoCopy()) == 1) {
-                    _keyboard.debug.shutdownDebugMode = kHIDShutdownDebugModePanic;
-                }
-                defaults->release();
-            }
-            matchingDict->release();
-        }
-    }
-    if (_keyboard.debug.shutdownDebugMode != kHIDShutdownDebugModeDisabled) {
-        if (!PE_parse_boot_argn("forced_shutdown_debug_delay", &_keyboard.debug.shutdownDebugDelay, sizeof (_keyboard.debug.shutdownDebugDelay))) {
-            if (_keyboard.debug.shutdownDebugMode == kHIDShutdownDebugModeStackshots) {
-              _keyboard.debug.shutdownDebugDelay = kShutdownDelayForStackshot;
-            } else {
-              _keyboard.debug.shutdownDebugDelay = kShutdownDelayForPanic;
-            }
-        }
-        if (!PE_parse_boot_argn("forced_shutdown_debug_key_mask", &_keyboard.debug.shutdownDebugKeyMask, sizeof (_keyboard.debug.shutdownDebugKeyMask))) {
-#if TARGET_OS_WATCH
-          _keyboard.debug.shutdownDebugKeyMask = STACKSHOT_MASK_WATCH;
-#else
-          _keyboard.debug.shutdownDebugKeyMask = 0x5;
-#endif
-        }
-        OSNumber * value;
-        OSDictionary * debug = OSDictionary::withCapacity (3);
-        if (debug) {
-          value = OSNumber::withNumber (_keyboard.debug.shutdownDebugMode, 32);
-          if (value) {
-            debug->setObject ("shutdownDebugMode",value);
-            value->release();
-          }
-          value = OSNumber::withNumber (_keyboard.debug.shutdownDebugDelay, 32);
-          if (value) {
-            debug->setObject ("shutdownDebugDelay",value);
-            value->release();
-          }
-          value = OSNumber::withNumber (_keyboard.debug.shutdownDebugKeyMask, 32);
-          if (value) {
-            debug->setObject ("shutdownDebugKeyMask",value);
-            value->release();
-          }
-          setProperty("ForcedShutdownDebug", debug);
-          debug->release();
-        }
-    }
-}
-#endif
 #endif /* TARGET_OS_EMBEDDED */
 
 #if TARGET_OS_EMBEDDED
@@ -1632,26 +1540,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
             _keyboard.debug.startMask = _keyboard.debug.mask;
         }
     }
-#if TARGET_OS_IPHONE || TARGET_OS_WATCH
-    if (_keyboard.debug.shutdownDebugMode == 0) {
-      forcedShutdownDebugInit();
-    }
-    if ( _keyboard.debug.shutdownDebugMode != kHIDShutdownDebugModeDisabled && _keyboard.debug.mask == _keyboard.debug.shutdownDebugKeyMask ) {
-        if ( !_keyboard.debug.shutdownDebugTimer) {
-            _keyboard.debug.shutdownDebugTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::forcedShutdownDebugTimerCallback));
-            if (_keyboard.debug.shutdownDebugTimer) {
-                if ((_workLoop->addEventSource(_keyboard.debug.shutdownDebugTimer) != kIOReturnSuccess)) {
-                    _keyboard.debug.shutdownDebugTimer->release();
-                    _keyboard.debug.shutdownDebugTimer = NULL;
-                }
-            }
-        }
-        if ( _keyboard.debug.shutdownDebugTimer ) {
-            _keyboard.debug.shutdownDebugTimer->setTimeoutMS( _keyboard.debug.shutdownDebugDelay );
-            _keyboard.debug.startMask = _keyboard.debug.shutdownDebugKeyMask;
-        }
-    }
-#endif
+    
     // stackshot keychord check
     if(_keyboard.debug.mask == 0x3  || // Power + Volume up
        _keyboard.debug.mask == 0x6  || // Menu (Home) + Volume up

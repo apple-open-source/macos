@@ -150,7 +150,7 @@ krb5_auth(void *app_data, struct connectdata *conn)
   const char *host = conn->host.name;
   ssize_t nread;
   curl_socklen_t l = sizeof(conn->local_addr);
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   CURLcode result;
   const char *service = data->set.str[STRING_SERVICE_NAME] ?
                         data->set.str[STRING_SERVICE_NAME] :
@@ -182,7 +182,7 @@ krb5_auth(void *app_data, struct connectdata *conn)
   for(;;) {
     /* this really shouldn't be repeated here, but can't help it */
     if(service == srv_host) {
-      result = Curl_ftpsendf(conn, "AUTH GSSAPI");
+      result = Curl_ftpsend(conn, "AUTH GSSAPI");
       if(result)
         return -2;
 
@@ -243,16 +243,22 @@ krb5_auth(void *app_data, struct connectdata *conn)
       }
 
       if(output_buffer.length != 0) {
+        char *cmd;
+
         result = Curl_base64_encode(data, (char *)output_buffer.value,
                                     output_buffer.length, &p, &base64_sz);
         if(result) {
           Curl_infof(data, "base64-encoding: %s\n",
                      curl_easy_strerror(result));
-          ret = AUTH_CONTINUE;
+          ret = AUTH_ERROR;
           break;
         }
 
-        result = Curl_ftpsendf(conn, "ADAT %s", p);
+        cmd = aprintf("ADAT %s", p);
+        if(cmd)
+          result = Curl_ftpsend(conn, cmd);
+        else
+          result = CURLE_OUT_OF_MEMORY;
 
         free(p);
 

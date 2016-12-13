@@ -1686,18 +1686,18 @@ _dispatch_queue_resume(dispatch_queue_t dq, bool activate)
 	}
 
 	if ((dq_state ^ value) & DISPATCH_QUEUE_IN_BARRIER) {
-		_dispatch_release(dq);
-		return _dispatch_try_lock_transfer_or_wakeup(dq);
-	}
-
-	if (_dq_state_should_wakeup(value)) {
+		_dispatch_try_lock_transfer_or_wakeup(dq);
+	} else if (_dq_state_should_wakeup(value)) {
 		// <rdar://problem/14637483>
 		// seq_cst wrt state changes that were flushed and not acted upon
 		os_atomic_thread_fence(acquire);
 		pthread_priority_t pp = _dispatch_queue_reset_override_priority(dq,
 				_dispatch_queue_is_thread_bound(dq));
+		// Balancing the retain() done in suspend() for rdar://8181908
 		return dx_wakeup(dq, pp, DISPATCH_WAKEUP_CONSUME);
 	}
+
+	// Balancing the retain() done in suspend() for rdar://8181908
 	return _dispatch_release_tailcall(dq);
 
 over_resume:
@@ -3797,7 +3797,8 @@ _dispatch_non_barrier_complete(dispatch_queue_t dq)
 		return _dispatch_try_lock_transfer_or_wakeup(dq);
 	}
 	if (!_dq_state_is_runnable(old_state)) {
-		_dispatch_queue_try_wakeup(dq, new_state, 0);
+		_dispatch_queue_try_wakeup(dq, new_state,
+				DISPATCH_WAKEUP_WAITER_HANDOFF);
 	}
 }
 
@@ -4249,6 +4250,9 @@ _dispatch_global_queue_poke_slow(dispatch_queue_t dq, unsigned int n)
 	uint32_t i = n;
 	int r;
 
+	dispatch_once_f(&_dispatch_root_queues_pred, NULL,
+			_dispatch_root_queues_init_once);
+
 	_dispatch_debug_root_queue(dq, __func__);
 #if HAVE_PTHREAD_WORKQUEUES
 #if DISPATCH_USE_PTHREAD_POOL
@@ -4689,7 +4693,8 @@ attempt_running_slow_head:
 		// for sources and mach channels in the first place.
 		owned = _dispatch_queue_adjust_owned(dq, owned, dc);
 		dq_state = _dispatch_queue_drain_unlock(dq, owned, NULL);
-		return _dispatch_queue_try_wakeup(dq, dq_state, 0);
+		return _dispatch_queue_try_wakeup(dq, dq_state,
+				DISPATCH_WAKEUP_WAITER_HANDOFF);
 	} else if (!fastpath(_dispatch_queue_drain_try_unlock(dq, owned))) {
 		// someone enqueued a slow item at the head
 		// looping may be its last chance
@@ -4880,7 +4885,7 @@ _dispatch_queue_override_invoke(dispatch_continuation_t dc,
 
 DISPATCH_ALWAYS_INLINE
 static inline bool
-_dispatch_need_global_root_queue_push_override(dispatch_queue_t rq,
+_dispatch_need_global_root_queue_override(dispatch_queue_t rq,
 		pthread_priority_t pp)
 {
 	pthread_priority_t rqp = rq->dq_priority & _PTHREAD_PRIORITY_QOS_CLASS_MASK;
@@ -4894,13 +4899,19 @@ _dispatch_need_global_root_queue_push_override(dispatch_queue_t rq,
 
 DISPATCH_ALWAYS_INLINE
 static inline bool
-_dispatch_need_global_root_queue_push_override_stealer(dispatch_queue_t rq,
-		pthread_priority_t pp)
+_dispatch_need_global_root_queue_override_stealer(dispatch_queue_t rq,
+		pthread_priority_t pp, dispatch_wakeup_flags_t wflags)
 {
 	pthread_priority_t rqp = rq->dq_priority & _PTHREAD_PRIORITY_QOS_CLASS_MASK;
 	bool defaultqueue = rq->dq_priority & _PTHREAD_PRIORITY_DEFAULTQUEUE_FLAG;
 
 	if (unlikely(!rqp)) return false;
+
+	if (wflags & DISPATCH_WAKEUP_WAITER_HANDOFF) {
+		if (!(wflags & _DISPATCH_WAKEUP_OVERRIDE_BITS)) {
+			return false;
+		}
+	}
 
 	pp &= _PTHREAD_PRIORITY_QOS_CLASS_MASK;
 	return defaultqueue || pp > rqp;
@@ -5041,9 +5052,11 @@ _dispatch_queue_class_wakeup_with_override(dispatch_queue_t dq,
 
 apply_again:
 	if (dx_type(tq) == DISPATCH_QUEUE_GLOBAL_ROOT_TYPE) {
-		if (_dispatch_need_global_root_queue_push_override_stealer(tq, pp)) {
+		if (_dispatch_need_global_root_queue_override_stealer(tq, pp, flags)) {
 			_dispatch_root_queue_push_override_stealer(tq, dq, pp);
 		}
+	} else if (flags & DISPATCH_WAKEUP_WAITER_HANDOFF) {
+		dx_wakeup(tq, pp, flags);
 	} else if (_dispatch_queue_need_override(tq, pp)) {
 		dx_wakeup(tq, pp, DISPATCH_WAKEUP_OVERRIDING);
 	}
@@ -5131,7 +5144,7 @@ _dispatch_trystash_to_deferred_items(dispatch_queue_t dq, dispatch_object_t dou,
 		dq = old_dq;
 		dou._do = old_dou;
 	}
-	if (_dispatch_need_global_root_queue_push_override(dq, pp)) {
+	if (_dispatch_need_global_root_queue_override(dq, pp)) {
 		return _dispatch_root_queue_push_override(dq, dou, pp);
 	}
 	// bit of cheating: we should really pass `pp` but we know that we are
@@ -5172,7 +5185,7 @@ _dispatch_queue_push(dispatch_queue_t dq, dispatch_object_t dou,
 		if (unlikely(_dispatch_root_queues_pred != DLOCK_ONCE_DONE)) {
 			return _dispatch_queue_push_slow(dq, dou, pp);
 		}
-		if (_dispatch_need_global_root_queue_push_override(dq, pp)) {
+		if (_dispatch_need_global_root_queue_override(dq, pp)) {
 			return _dispatch_root_queue_push_override(dq, dou, pp);
 		}
 #endif
@@ -5314,7 +5327,7 @@ _dispatch_queue_class_wakeup(dispatch_queue_t dq, pthread_priority_t pp,
 	}
 
 #if HAVE_PTHREAD_WORKQUEUE_QOS
-	if ((flags & DISPATCH_WAKEUP_OVERRIDING)
+	if ((flags & (DISPATCH_WAKEUP_OVERRIDING | DISPATCH_WAKEUP_WAITER_HANDOFF))
 			&& target == DISPATCH_QUEUE_WAKEUP_TARGET) {
 		return _dispatch_queue_class_wakeup_with_override(dq, pp,
 				flags, new_state);

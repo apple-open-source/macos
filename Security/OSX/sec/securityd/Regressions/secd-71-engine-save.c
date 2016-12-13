@@ -29,7 +29,7 @@
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 
-#include <Security/SecureObjectSync/SOSEngine.h>
+#include <Security/SecureObjectSync/SOSEnginePriv.h>
 #include <Security/SecureObjectSync/SOSPeer.h>
 #include <Security/SecBase64.h>
 #include <Security/SecItem.h>

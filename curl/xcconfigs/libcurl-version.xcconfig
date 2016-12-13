@@ -13,4 +13,4 @@ CURL_LIBRARY_VERSION = 4
 DYLIB_COMPATIBILITY_VERSION = 7
 
 // The current version is less important, and can probably match upstream.
-DYLIB_CURRENT_VERSION = 8
+DYLIB_CURRENT_VERSION = 9

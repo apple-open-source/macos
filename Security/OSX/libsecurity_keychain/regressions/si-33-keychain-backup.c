@@ -32,12 +32,13 @@
 #include <libaks.h>
 #include <AssertMacros.h>
 
+#define DATA_ARG(x) (x) ? CFDataGetBytePtr((x)) : NULL, (x) ? (int)CFDataGetLength((x)) : 0
 
 static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
 {
     keybag_handle_t handle = bad_keybag_handle;
     
-    if (aks_create_bag(NULL, 0, bag_type, &handle) == 0) {
+    if (aks_create_bag(DATA_ARG(password), bag_type, &handle) == 0) {
         void * keybag = NULL;
         int keybag_size = 0;
         if (aks_save_bag(handle, &keybag, &keybag_size) == 0) {
@@ -66,7 +67,9 @@ static void tests(void)
     CFDictionaryAddValue(query, kSecValueData, pwdata);
     CFDictionaryAddValue(query, kSecAttrSynchronizable, kCFBooleanTrue);
     
-    CFDataRef keybag = NULL, password = NULL;
+    CFDataRef keybag = NULL;
+    const char *p = "sup3rsekretpassc0de";
+    CFDataRef password = CFDataCreate(NULL, (UInt8 *)p, strlen(p));
     
     keybag = create_keybag(kAppleKeyStoreAsymmetricBackupBag, password);
     
@@ -94,6 +97,7 @@ static void tests(void)
     ok_status(SecItemDelete(query), "delete restored item");
     
     if (backup) { CFRelease(backup); }
+    if (password) { CFRelease(password); }
 }
 
 int si_33_keychain_backup(int argc, char *const *argv)

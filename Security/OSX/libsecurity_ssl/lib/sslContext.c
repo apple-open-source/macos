@@ -2547,6 +2547,9 @@ const CFStringRef kSSLSessionConfig_TLSv1_fallback = CFSTR("TLSv1_fallback");
 const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback = CFSTR("TLSv1_RC4_fallback");
 const CFStringRef kSSLSessionConfig_legacy_DHE = CFSTR("legacy_DHE");
 const CFStringRef kSSLSessionConfig_anonymous = CFSTR("anonymous");
+const CFStringRef kSSLSessionConfig_3DES_fallback = CFSTR("3DES_fallback");
+const CFStringRef kSSLSessionConfig_TLSv1_3DES_fallback = CFSTR("TLSv1_3DES_fallback");
+
 
 static
 tls_handshake_config_t SSLSessionConfig_to_tls_handshake_config(CFStringRef config)
@@ -2563,6 +2566,10 @@ tls_handshake_config_t SSLSessionConfig_to_tls_handshake_config(CFStringRef conf
         return tls_handshake_config_TLSv1_RC4_fallback;
     } else if(CFEqual(config, kSSLSessionConfig_RC4_fallback)){
         return tls_handshake_config_RC4_fallback;
+    } else if(CFEqual(config, kSSLSessionConfig_3DES_fallback)){
+        return tls_handshake_config_3DES_fallback;
+    } else if(CFEqual(config, kSSLSessionConfig_TLSv1_3DES_fallback)){
+        return tls_handshake_config_TLSv1_3DES_fallback;
     } else if(CFEqual(config, kSSLSessionConfig_legacy)){
         return tls_handshake_config_legacy;
     } else if(CFEqual(config, kSSLSessionConfig_legacy_DHE)){

@@ -37,6 +37,7 @@
 OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFStringRef password, CFErrorRef *error);
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
 
+#if TARGET_OS_IOS
 
 OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
     CFStringRef account,
@@ -54,11 +55,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
         CFDictionaryAddValue(args, kSecAttrAccount, account);
     }
     if (password) {
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR && !TARGET_OS_WATCH && !TARGET_OS_TV
         CFDictionaryAddValue(args, kSecSharedPassword, password);
-#else
-        CFDictionaryAddValue(args, CFSTR("spwd"), password);
-#endif
     }
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         CFTypeRef raw_result = NULL;
@@ -87,6 +84,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
 
     return status;
 }
+#endif /* TARGET_OS_IOS */
 
 void SecAddSharedWebCredential(CFStringRef fqdn,
     CFStringRef account,
@@ -95,7 +93,7 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 {
 	__block CFErrorRef error = NULL;
 	__block dispatch_queue_t dst_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0);
-	dispatch_retain(dst_queue);
+#if TARGET_OS_IOS
 
     /* sanity check input arguments */
 	CFStringRef errStr = NULL;
@@ -113,7 +111,6 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 				completionHandler(error);
 			}
 			CFReleaseSafe(error);
-			dispatch_release(dst_queue);
 		});
 		return;
 	}
@@ -136,12 +133,20 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 				completionHandler(error);
 			}
 			CFReleaseSafe(error);
-			dispatch_release(dst_queue);
 		});
 	});
-
+#else
+    SecError(errSecParam, &error, CFSTR("SharedWebCredentials not supported on this platform"));
+    dispatch_async(dst_queue, ^{
+        if (completionHandler) {
+            completionHandler(error);
+        }
+        CFReleaseSafe(error);
+    });
+#endif
 }
 
+#if TARGET_OS_IOS
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
     CFStringRef account,
     CFArrayRef *credentials,
@@ -186,17 +191,17 @@ OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
     });
 
     return status;
-
 }
+#endif /* TARGET_OS_IOS */
 
 void SecRequestSharedWebCredential(CFStringRef fqdn,
     CFStringRef account,
     void (^completionHandler)(CFArrayRef credentials, CFErrorRef error))
 {
-    __block CFArrayRef result = NULL;
 	__block CFErrorRef error = NULL;
 	__block dispatch_queue_t dst_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0);
-	dispatch_retain(dst_queue);
+#if TARGET_OS_IOS
+    __block CFArrayRef result = NULL;
 
     /* sanity check input arguments, if provided */
 	CFStringRef errStr = NULL;
@@ -214,7 +219,6 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
 			}
 			CFReleaseSafe(error);
             CFReleaseSafe(result);
-			dispatch_release(dst_queue);
 		});
 		return;
 	}
@@ -236,9 +240,17 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
 			}
 			CFReleaseSafe(error);
 			CFReleaseSafe(result);
-			dispatch_release(dst_queue);
 		});
 	});
+#else
+    SecError(errSecParam, &error, CFSTR("SharedWebCredentials not supported on this platform"));
+    dispatch_async(dst_queue, ^{
+        if (completionHandler) {
+            completionHandler(NULL, error);
+        }
+        CFReleaseSafe(error);
+    });
+#endif
 
 }
 
@@ -297,4 +309,3 @@ CFStringRef SecCreateSharedWebCredentialPassword(void)
     }
 
 }
-

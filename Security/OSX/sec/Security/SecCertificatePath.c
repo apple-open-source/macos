@@ -626,7 +626,7 @@ bool SecCertificatePathHasWeakHash(SecCertificatePathRef certificatePath) {
     return false;
 }
 
-static bool SecCertificatePathHasWeakKeySize(SecCertificatePathRef certificatePath) {
+bool SecCertificatePathHasWeakKeySize(SecCertificatePathRef certificatePath) {
     CFDictionaryRef keySizes = NULL;
     CFNumberRef rsaSize = NULL, ecSize = NULL;
     bool result = true;

@@ -37,7 +37,7 @@
 #import "CKDSecuritydAccount.h"
 
 #include <Security/SecureObjectSync/SOSARCDefines.h>
-#include <Security/SecureObjectSync/SOSKVSKeys.h>
+#include <utilities/SecCFWrappers.h>
 
 #include "SOSCloudKeychainConstants.h"
 
@@ -84,6 +84,11 @@ static NSString *kMonitorThirdMinute = @"CThirdMinute";
 static NSString *kMonitorFourthMinute = @"DFourthMinute";
 static NSString *kMonitorFifthMinute = @"EFifthMinute";
 static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
+const CFStringRef kSOSKVSKeyParametersKey = CFSTR(">KeyParameters");
+const CFStringRef kSOSKVSInitialSyncKey = CFSTR("^InitialSync");
+const CFStringRef kSOSKVSAccountChangedKey = CFSTR("^AccountChanged");
+const CFStringRef kSOSKVSRequiredKey = CFSTR("^Required");
+const CFStringRef kSOSKVSOfficialDSIDKey = CFSTR("^OfficialDSID");
 
 #define kSecServerKeychainChangedNotification "com.apple.security.keychainchanged"
 
@@ -818,7 +823,8 @@ static NSString* asNSString(NSObject* object) {
         _shadowFlushBlock = block;
 }
 
-- (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration))) callout
+- (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration,
+                               dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration, NSError* error))) callout
 {
     // In CKDKVSProxy's serial queue
 
@@ -842,7 +848,7 @@ static NSString* asNSString(NSObject* object) {
             _shadowSyncWithPeersPending = NO;
         });
 
-        callout(myPending, mySyncWithPeersPending, myEnsurePeerRegistration, _ckdkvsproxy_queue, ^(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration) {
+        callout(myPending, mySyncWithPeersPending, myEnsurePeerRegistration, _ckdkvsproxy_queue, ^(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration, NSError* failure) {
             secdebug("event", "%@ %s%s before callout handled: %s%s", self, mySyncWithPeersPending ? "S" : "s", myEnsurePeerRegistration ? "E" : "e", handledSyncWithPeers ? "S" : "s", handledEnsurePeerRegistration ? "E" : "e");
             
             // In CKDKVSProxy's serial queue
@@ -902,6 +908,10 @@ static NSString* asNSString(NSObject* object) {
                 dispatch_async(_calloutQueue, _shadowFlushBlock);
                 _shadowFlushBlock = NULL;
             }
+
+            if (failure) {
+                [self updateIsLocked];
+            }
             
             xpc_transaction_end();
         });
@@ -909,7 +919,7 @@ static NSString* asNSString(NSObject* object) {
 }
 
 - (void) sendKeysCallout: (NSSet *(^)(NSSet* pending, NSError** error)) handleKeys {
-    [self calloutWith: ^(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *, bool, bool)) {
+    [self calloutWith: ^(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *, bool, bool, NSError*)) {
         NSError* error = NULL;
 
         secnotice("CloudKeychainProxy", "send keys: %@", pending);
@@ -920,7 +930,7 @@ static NSString* asNSString(NSObject* object) {
                 secerror("%@ ensurePeerRegistration failed: %@", self, error);
             }
 
-            done(handled, NO, NO);
+            done(handled, NO, NO, error);
         });
     }];
 }
@@ -928,12 +938,12 @@ static NSString* asNSString(NSObject* object) {
 - (void) doEnsurePeerRegistration
 {
     NSObject<CKDAccount>* accountDelegate = [self account];
-    [self calloutWith:^(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *, bool, bool)) {
+    [self calloutWith:^(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *, bool, bool, NSError*)) {
         NSError* error = nil;
         bool handledEnsurePeerRegistration = [accountDelegate ensurePeerRegistration:&error];
         secnotice("EnsurePeerRegistration", "%@ ensurePeerRegistration called, %@ (%@)", self, handledEnsurePeerRegistration ? @"success" : @"failure", error);
         dispatch_async(queue, ^{
-            done(nil, NO, handledEnsurePeerRegistration);
+            done(nil, NO, handledEnsurePeerRegistration, error);
         });
     }];
 }
@@ -941,7 +951,7 @@ static NSString* asNSString(NSObject* object) {
 - (void) doSyncWithAllPeers
 {
     NSObject<CKDAccount>* accountDelegate = [self account];
-    [self calloutWith:^(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *, bool, bool)) {
+    [self calloutWith:^(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *, bool, bool, NSError*)) {
         NSError* error = NULL;
         SyncWithAllPeersReason reason = [accountDelegate syncWithAllPeers: &error];
         dispatch_async(queue, ^{
@@ -963,7 +973,7 @@ static NSString* asNSString(NSObject* object) {
                 secerror("%@ syncWithAllPeers %@, unknown reason: %d", self, error, reason);
             }
             
-            done(nil, handledSyncWithPeers, false);
+            done(nil, handledSyncWithPeers, false, error);
         });
     }];
 }

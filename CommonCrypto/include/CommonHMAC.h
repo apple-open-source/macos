@@ -112,9 +112,9 @@ void CCHmacUpdate(
     @discussion The length of the MAC written to *macOut is the same as 
                 the digest length associated with the HMAC algorithm:
     
-                kCCHmacSHA1 : CC_SHA1_DIGEST_LENGTH
+                kCCHmacAlgSHA1 : CC_SHA1_DIGEST_LENGTH
                 
-                kCCHmacMD5  : CC_MD5_DIGEST_LENGTH
+                kCCHmacAlgMD5  : CC_MD5_DIGEST_LENGTH
  */
 void CCHmacFinal(
     CCHmacContext *ctx, 
@@ -127,7 +127,7 @@ void CCHmacFinal(
  * Output is written to caller-supplied buffer, as in CCHmacFinal().
  */
 void CCHmac(
-    CCHmacAlgorithm algorithm,  /* kCCHmacSHA1, kCCHmacMD5 */
+    CCHmacAlgorithm algorithm,  /* kCCHmacAlgSHA1, kCCHmacAlgMD5 */
     const void *key,
     size_t keyLength,           /* length of key in bytes */
     const void *data,

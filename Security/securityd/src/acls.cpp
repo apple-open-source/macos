@@ -152,7 +152,7 @@ void SecurityServerAcl::validatePartition(SecurityServerEnvironment& env, bool p
     // will end up trying to create the system keychain and causes a hang.
     // Avoid this by checking for the presence of the db first.
     if((!env.database) || env.database->dbVersion() < SecurityServer::CommonBlob::version_partition) {
-        secnotice("integrity", "no db or old db version, skipping");
+        secinfo("integrity", "no db or old db version, skipping");
         return;
     }
 

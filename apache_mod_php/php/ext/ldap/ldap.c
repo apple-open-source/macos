@@ -367,6 +367,7 @@ PHP_FUNCTION(ldap_connect)
 			int	urllen = hostlen + sizeof( "ldap://:65535" );
 
 			if (port <= 0 || port > 65535) {
+				efree(ld);
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid port number: %ld", port);
 				RETURN_FALSE;
 			}
@@ -2646,7 +2647,7 @@ static void php_ldap_do_escape(const zend_bool *map, const char *value, size_t v
 		len += (map[(unsigned char) value[i]]) ? 3 : 1;
 	}
 
-	(*result) = (char *) safe_emalloc(1, len, 1);
+	(*result) = (char *) safe_emalloc_string(1, len, 1);
 	(*resultlen) = len;
 
 	for (i = 0; i < valuelen; i++) {

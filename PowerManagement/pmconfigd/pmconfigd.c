@@ -135,6 +135,14 @@ static int                      gLastWakeTimeToken                  = -1;
 static int                      gLastSMCS3S0WakeIntervalToken       = -1;
 #endif
 
+enum {
+    kWranglerPowerStateMin   = 0,
+    kWranglerPowerStateSleep = 2,
+    kWranglerPowerStateDim   = 3,
+    kWranglerPowerStateMax   = 4
+};
+
+
 typedef struct {
     int  shutdown;
     int  restart;
@@ -839,12 +847,12 @@ displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, 
             // 0 Not visible to user
 
         case kIOMessageDeviceWillPowerOff:
-            if ( params->stateNumber != 4 )
+            if ( params->stateNumber != kWranglerPowerStateMax )
             {
                 gDisplayIsAsleep = true;
             }
 
-            if ( params->stateNumber <= 1)
+            if ( params->stateNumber < kWranglerPowerStateSleep)
             {
                // Notify a SystemLoad state change when display is completely off
                 SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
@@ -854,7 +862,7 @@ displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, 
             break;
             
         case kIOMessageDeviceHasPoweredOn:
-            if ( params->stateNumber == 4 )
+            if ( params->stateNumber == kWranglerPowerStateMax )
             {
                 gDisplayIsAsleep = false;            
                 SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
@@ -1059,21 +1067,6 @@ pm_mig_demux(
     if (processed) 
         return true;
     
-    if (MACH_NOTIFY_DEAD_NAME == request->msgh_id) 
-    {
-        __MACH_PORT_DEBUG(true, "pm_mig_demux: Dead name port should have 1+ send right(s)", deadRequest->not_port);
-
-        PMConnectionHandleDeadName(deadRequest->not_port);
-
-        __MACH_PORT_DEBUG(true, "pm_mig_demux: Deallocating dead name port", deadRequest->not_port);
-        mach_port_deallocate(mach_task_self(), deadRequest->not_port);
-        
-        reply->msgh_bits            = 0;
-        reply->msgh_remote_port     = MACH_PORT_NULL;
-
-        return TRUE;
-    }
-
     // mig request is not in our subsystem range!
     // generate error reply packet
     reply->msgh_bits        = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
@@ -1405,6 +1398,7 @@ initializeInterestNotifications()
     }
 #else
     int token;
+    uint64_t displayState;
     notify_register_dispatch( kIOHIDEventSystemDisplayStatusNotifyKey,
                               &token, dispatch_get_main_queue(),
                               ^(int token) {
@@ -1413,6 +1407,9 @@ initializeInterestNotifications()
                                     gDisplayIsAsleep = displayState ? 0 : 1;
                                     SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
                               });
+    // Set initial state
+    notify_get_state(token, &displayState);
+    gDisplayIsAsleep = displayState ? 0 : 1;
 
 
 #endif
@@ -1813,6 +1810,7 @@ static void displayMatched(
     IONotificationPortRef       note_port = (IONotificationPortRef)note_port_in;
     io_service_t                wrangler = MACH_PORT_NULL;
     io_object_t                 dimming_notification_object = MACH_PORT_NULL;
+    CFDictionaryRef             pmState = NULL;
     
     if((wrangler = (io_registry_entry_t)IOIteratorNext(iter))) 
     {        
@@ -1823,6 +1821,33 @@ static void displayMatched(
                     displayPowerStateChange,
                     NULL, 
                     &dimming_notification_object);
+
+        // Get initial display state
+        pmState = IORegistryEntryCreateCFProperty(
+                                                  wrangler,
+                                                  CFSTR("IOPowerManagement"),
+                                                  kCFAllocatorDefault,
+                                                  kNilOptions);
+        if (isA_CFDictionary(pmState)) {
+            CFNumberRef cfvalue = CFDictionaryGetValue(pmState, CFSTR("CurrentPowerState"));
+            int value = -1;
+            if (isA_CFNumber(cfvalue)) {
+                CFNumberGetValue(cfvalue, kCFNumberIntType, &value);
+            }
+            if (value != -1) {
+                if (value == kWranglerPowerStateMax) {
+                    gDisplayIsAsleep = false;
+                }
+                else {
+                    gDisplayIsAsleep = true;
+                }
+            }
+
+        }
+        if (pmState) {
+            CFRelease(pmState);
+        }
+
 
         IOObjectRelease(wrangler);
     }

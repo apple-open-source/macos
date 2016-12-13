@@ -30,6 +30,7 @@
 #include "IOHIDEventServiceQueue.h"
 #include "IOHIDEventService.h"
 #include "IOHIDEvent.h"
+#include "IOHIDDebug.h"
 
 #define super IOSharedDataQueue
 OSDefineMetaClassAndStructors( IOHIDEventServiceQueue, super )
@@ -45,6 +46,17 @@ IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(UInt32 size)
         }
     }
 
+    return dataQueue;
+}
+
+IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(UInt32 size, uint64_t owner)
+{
+    IOHIDEventServiceQueue *dataQueue = IOHIDEventServiceQueue::withCapacity(size);
+    
+    if (dataQueue) {
+        dataQueue->_owner = owner;
+    }
+    
     return dataQueue;
 }
 
@@ -157,9 +169,9 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationSuppress) == 0) {
         if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce) || ( head == tail )
             || ( __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED) == tail ) || queueFull) {
-    //        if (queueFull) {
-    //            HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again");
-    //        }
+            if (queueFull) {
+                HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again 0xllx", _owner);
+            }
             sendDataAvailableNotification();
         }
     }

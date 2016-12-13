@@ -169,6 +169,7 @@ struct OpaqueSecKeyRef {
     const SecKeyDescriptor *key_class;
     SecKeyRef cdsaKey;
     Security::KeychainCore::KeyItem *key;
+    SecCredentialType credentialType;
 };
 
 #endif // !_SECURITY_KEYITEM_H_

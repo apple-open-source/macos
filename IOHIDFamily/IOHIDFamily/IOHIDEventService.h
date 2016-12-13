@@ -34,7 +34,9 @@
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hid/IOHIDElement.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#if TARGET_OS_EMBEDDED
 #include <IOKit/hid/IOHIDEvent.h>
+#endif
 #include "IOHIDUtility.h"
 
 enum 
@@ -70,20 +72,18 @@ enum
     kHIDDispatchOptionKeyboardNoRepeat                  = (1<<0)
 };
 
-enum
-{
-    kHIDShutdownDebugModeStackshots = 1,
-    kHIDShutdownDebugModePanic,
-    kHIDShutdownDebugModeDisabled
-};
-
 
 class IOHIDEventService;
 class   IOHIDPointing;
 class   IOHIDKeyboard;
 class   IOHIDConsumer;
 struct  TransducerData;
+class   IOHIDEvent;
 
+#ifndef _IOKIT_HID_IOHIDEVENTTYPES_H
+typedef uint32_t IOHIDEventType;
+typedef uint32_t IOHIDBiometricEventType;
+#endif
 
 struct KeyValueMask {
     Key key;
@@ -152,10 +152,6 @@ private:
                 IOTimerEventSource *    nmiTimer;
                 UInt32                  stackshotHeld;
                 IOTimerEventSource *    stackshotTimer;
-                UInt32                  shutdownDebugMode;
-                UInt32                  shutdownDebugKeyMask;
-                UInt32                  shutdownDebugDelay;
-                IOTimerEventSource *    shutdownDebugTimer;
             } debug;
             bool                    swapISO;
 #else
@@ -226,12 +222,6 @@ private:
     void                    debuggerTimerCallback(IOTimerEventSource *sender);
 
     void                    stackshotTimerCallback(IOTimerEventSource *sender);
-
-#if TARGET_OS_IPHONE
-    void                    forcedShutdownDebugTimerCallback(IOTimerEventSource *sender);
-    void                    forcedShutdownDebugInit();
-  
-#endif
 #endif
     
     void                    multiAxisTimerCallback(IOTimerEventSource *sender);

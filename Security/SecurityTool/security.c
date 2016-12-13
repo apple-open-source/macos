@@ -310,7 +310,7 @@ const command commands[] =
         "    -k  The password for the keychain (required)\n"
         "If no keychains are specified to search, the default search list is used.\n"
         "Use of the -k option is insecure. Omit it to be prompted.\n",
-        "Set the partition ID list of a generic password item."},
+        "Set the partition list of a generic password item."},
 
 	{ "find-internet-password", keychain_find_internet_password,
 	  "[-a account] [-s server] [options...] [-g] [keychain...]\n"
@@ -367,7 +367,7 @@ const command commands[] =
 
         "If no keychains are specified to search, the default search list is used.\n"
         "Use of the -k option is insecure. Omit it to be prompted.\n",
-        "Set the partition ID list of a internet password item."},
+        "Set the partition list of a internet password item."},
 
     { "find-key", keychain_find_key,
         "[options...] [keychain...]\n"
@@ -407,7 +407,7 @@ const command commands[] =
         "    -k  password for keychain (required)\n"
 
         "If no keychains are specified to search, the default search list is used.",
-        "Set the partition ID list of a key."},
+        "Set the partition list of a key."},
 
 	{ "find-certificate", keychain_find_certificate,
 	  "[-a] [-c name] [-e emailAddress] [-m] [-p] [-Z] [keychain...]\n"

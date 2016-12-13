@@ -930,7 +930,6 @@ USE_GNUTLS
 HAVE_OPENSSL_SRP
 RANDOM_FILE
 SSL_LIBS
-PKGCONFIG
 USE_DARWINSSL
 USE_WINDOWS_SSPI
 USE_SCHANNEL
@@ -939,6 +938,7 @@ ZLIB_LIBS
 HAVE_LIBZ_FALSE
 HAVE_LIBZ_TRUE
 HAVE_LIBZ
+PKGCONFIG
 CURL_DISABLE_GOPHER
 CURL_DISABLE_SMTP
 CURL_DISABLE_SMB
@@ -1940,8 +1940,8 @@ Optional Packages:
   --with-gssapi=DIR       Where to look for GSS-API
   --with-winssl           enable Windows native SSL/TLS
   --without-winssl        disable Windows native SSL/TLS
-  --with-darwinssl        enable iOS/Mac OS X native SSL/TLS
-  --without-darwinssl     disable iOS/Mac OS X native SSL/TLS
+  --with-darwinssl        enable Apple OS native SSL/TLS
+  --without-darwinssl     disable Apple OS native SSL/TLS
   --with-ssl=PATH         Where to look for OpenSSL, PATH points to the SSL
                           installation (default: /usr/local/ssl); when
                           possible, set the PKG_CONFIG_PATH environment
@@ -1996,8 +1996,8 @@ Optional Packages:
   --without-librtmp       disable LIBRTMP
   --with-winidn=PATH      enable Windows native IDN
   --without-winidn        disable Windows native IDN
-  --with-libidn=PATH      Enable libidn usage
-  --without-libidn        Disable libidn usage
+  --with-libidn2=PATH     Enable libidn2 usage
+  --without-libidn2       Disable libidn2 usage
   --with-nghttp2=PATH     Enable nghttp2 usage
   --without-nghttp2       Disable nghttp2 usage
   --with-zsh-functions-dir=PATH
@@ -5627,7 +5627,7 @@ VERSIONNUM=`$SED -ne 's/^#define LIBCURL_VERSION_NUM 0x\(.*\)/\1/p' ${srcdir}/in
 
 
 PKGADD_PKG="HAXXcurl"
-PKGADD_NAME="cURL - a client that groks URLs"
+PKGADD_NAME="curl - a client that groks URLs"
 PKGADD_VENDOR="curl.haxx.se"
 
 
@@ -5641,7 +5641,7 @@ curl_tls_srp_msg="no      (--enable-tls-srp)"
     curl_res_msg="default (--enable-ares / --enable-threaded-resolver)"
    curl_ipv6_msg="no      (--enable-ipv6)"
 curl_unix_sockets_msg="no      (--enable-unix-sockets)"
-    curl_idn_msg="no      (--with-{libidn,winidn})"
+    curl_idn_msg="no      (--with-{libidn2,winidn})"
  curl_manual_msg="no      (--enable-manual)"
 curl_libcurl_msg="enabled (--disable-libcurl-option)"
 curl_verbose_msg="enabled (--disable-verbose)"
@@ -6078,12 +6078,15 @@ $as_echo "$cpp_p" >&6; }
       { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: failed to figure out cpp -P alternative" >&5
 $as_echo "$as_me: WARNING: failed to figure out cpp -P alternative" >&2;}
       # without -P
-      CPPPFLAGS=$OLDCPPFLAGS
+      CPPPFLAG=""
     else
       # with -P
-      CPPPFLAGS=$CPPFLAGS
+      CPPPFLAG="-P"
     fi
         CPPFLAGS=$OLDCPPFLAGS
+  else
+    # without -P
+    CPPPFLAG=""
   fi
 
 
@@ -6245,8 +6248,8 @@ if ac_fn_c_try_compile "$LINENO"; then :
       else
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
   as_ac_HaveDef=`$as_echo "curl_cv_have_def_$tmp_fmt" | $as_tr_sh`
   as_ac_Def=`$as_echo "curl_cv_def_$tmp_fmt" | $as_tr_sh`
   if test -z "$SED"; then
@@ -6363,8 +6366,8 @@ if ac_fn_c_try_compile "$LINENO"; then :
       else
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
   as_ac_HaveDef=`$as_echo "curl_cv_have_def_$tmp_fmt" | $as_tr_sh`
   as_ac_Def=`$as_echo "curl_cv_def_$tmp_fmt" | $as_tr_sh`
   if test -z "$SED"; then
@@ -16130,8 +16133,8 @@ esac
 $as_echo_n "checking if compiler is DEC/Compaq/HP C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16174,8 +16177,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16237,8 +16240,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is HP-UX C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16299,8 +16302,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is IBM C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16369,8 +16372,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is Intel C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16417,8 +16420,8 @@ $as_echo "yes" >&6; }
     compiler_num="$curl_cv_def___INTEL_COMPILER"
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16493,8 +16496,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is clang... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16566,8 +16569,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is GNU C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16632,8 +16635,8 @@ $as_echo "yes" >&6; }
     flags_opt_off="-O0"
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16684,8 +16687,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is LCC... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16746,8 +16749,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is SGI MIPSpro C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16790,8 +16793,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16834,8 +16837,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16898,8 +16901,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is SGI MIPS C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -16942,8 +16945,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17006,8 +17009,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is SunPro C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17068,8 +17071,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is Tiny C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17130,8 +17133,8 @@ $as_echo "no" >&6; }
 $as_echo_n "checking if compiler is Watcom C... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -17177,8 +17180,8 @@ rm -f conftest.err conftest.i conftest.$ac_ext
 $as_echo "yes" >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -18485,7 +18488,7 @@ $as_echo_n "checking if compiler supports hiding library internal symbols... " >
       ;;
     GNU_C)
             if test "$compiler_num" -ge "304"; then
-        if $CC --help --verbose 2>&1 | grep fvisibility= > /dev/null ; then
+        if $CC --help --verbose 2>/dev/null | grep fvisibility= >/dev/null ; then
           tmp_EXTERN="__attribute__ ((__visibility__ (\"default\")))"
           tmp_CFLAGS="-fvisibility=hidden"
           supports_symbol_hiding="yes"
@@ -19199,6 +19202,40 @@ _ACEOF
 $as_echo "no" >&6; }
       ;;
   esac
+
+
+
+
+  tst_cflags="no"
+  case $host_os in
+    darwin*)
+      tst_cflags="yes"
+      ;;
+  esac
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for good-to-use Mac CFLAGS" >&5
+$as_echo_n "checking for good-to-use Mac CFLAGS... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $tst_cflags" >&5
+$as_echo "$tst_cflags" >&6; };
+
+  if test "$tst_cflags" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for *version-min in CFLAGS" >&5
+$as_echo_n "checking for *version-min in CFLAGS... " >&6; }
+    min=""
+    if test -z "$(echo $CFLAGS | grep m.*os.*-version-min)"; then
+      min="-mmacosx-version-min=10.8"
+      CFLAGS="$CFLAGS $min"
+    fi
+    if test -z "$min"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: set by user" >&5
+$as_echo "set by user" >&6; }
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $min set" >&5
+$as_echo "$min set" >&6; }
+    fi
+    CFLAGS="$CFLAGS -Werror=partial-availability"
+  fi
+
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to support http" >&5
@@ -20433,7 +20470,7 @@ done
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for monotonic clock_gettime" >&5
 $as_echo_n "checking for monotonic clock_gettime... " >&6; }
   #
-  if test "x$dontwant_rt" == "xno" ; then
+  if test "x$dontwant_rt" = "xno" ; then
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -20665,9 +20702,147 @@ else
     OPT_ZLIB=""
   fi
 
+
+    if test -n "$PKG_CONFIG"; then
+      PKGCONFIG="$PKG_CONFIG"
+    else
+      if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKGCONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKGCONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKGCONFIG="$PKGCONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+as_dummy="$PATH:/usr/bin:/usr/local/bin"
+for as_dir in $as_dummy
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKGCONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+PKGCONFIG=$ac_cv_path_PKGCONFIG
+if test -n "$PKGCONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKGCONFIG" >&5
+$as_echo "$PKGCONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_path_PKGCONFIG"; then
+  ac_pt_PKGCONFIG=$PKGCONFIG
+  # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_ac_pt_PKGCONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $ac_pt_PKGCONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_ac_pt_PKGCONFIG="$ac_pt_PKGCONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+as_dummy="$PATH:/usr/bin:/usr/local/bin"
+for as_dir in $as_dummy
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_ac_pt_PKGCONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+ac_pt_PKGCONFIG=$ac_cv_path_ac_pt_PKGCONFIG
+if test -n "$ac_pt_PKGCONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_pt_PKGCONFIG" >&5
+$as_echo "$ac_pt_PKGCONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+  if test "x$ac_pt_PKGCONFIG" = x; then
+    PKGCONFIG="no"
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+$as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    PKGCONFIG=$ac_pt_PKGCONFIG
+  fi
+else
+  PKGCONFIG="$ac_cv_path_PKGCONFIG"
+fi
+
+    fi
+
+    if test "x$PKGCONFIG" != "xno"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for zlib options with pkg-config" >&5
+$as_echo_n "checking for zlib options with pkg-config... " >&6; }
+            itexists=`
+    if test -n ""; then
+      PKG_CONFIG_LIBDIR=""
+      export PKG_CONFIG_LIBDIR
+    fi
+         $PKGCONFIG --exists zlib >/dev/null 2>&1 && echo 1`
+
+      if test -z "$itexists"; then
+                        PKGCONFIG="no"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: found" >&5
+$as_echo "found" >&6; }
+      fi
+    fi
+
+
+  if test "$PKGCONFIG" != "no" ; then
+    LIBS="`$PKGCONFIG --libs-only-l zlib` $LIBS"
+    LDFLAGS="`$PKGCONFIG --libs-only-L zlib` $LDFLAGS"
+    CPPFLAGS="`$PKGCONFIG --cflags-only-I zlib` $CPPFLAGS"
+    OPT_ZLIB=""
+    HAVE_LIBZ="1"
+  fi
+
   if test -z "$OPT_ZLIB" ; then
 
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for inflateEnd in -lz" >&5
+    if test -z "$HAVE_LIBZ"; then
+
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for inflateEnd in -lz" >&5
 $as_echo_n "checking for inflateEnd in -lz... " >&6; }
 if ${ac_cv_lib_z_inflateEnd+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -20707,7 +20882,7 @@ else
                      OPT_ZLIB="/usr/local"
 fi
 
-
+    fi
   fi
 
     if test -n "$OPT_ZLIB"; then
@@ -21856,6 +22031,7 @@ $as_echo "#define USE_WINDOWS_SSPI 1" >>confdefs.h
     USE_WINDOWS_SSPI=1
 
     curl_sspi_msg="enabled"
+    LIBS="-lcrypt32 $LIBS"
   else
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -21873,8 +22049,8 @@ if test "${with_darwinssl+set}" = set; then :
 fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable iOS/Mac OS X native SSL/TLS" >&5
-$as_echo_n "checking whether to enable iOS/Mac OS X native SSL/TLS... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable Apple OS native SSL/TLS" >&5
+$as_echo_n "checking whether to enable Apple OS native SSL/TLS... " >&6; }
 if test "$curl_ssl_msg" = "$init_ssl_msg"; then
   if test "x$OPT_DARWINSSL" != "xno" &&
      test -d "/System/Library/Frameworks/Security.framework"; then
@@ -21885,7 +22061,7 @@ $as_echo "#define USE_DARWINSSL 1" >>confdefs.h
 
     USE_DARWINSSL=1
 
-    curl_ssl_msg="enabled (iOS/Mac OS X-native)"
+    curl_ssl_msg="enabled (Apple OS-native)"
     DARWINSSL_ENABLED=1
     LDFLAGS="$LDFLAGS -framework CoreFoundation -framework Security"
   else
@@ -22513,7 +22689,6 @@ fi
                     RAND_screen \
                     RAND_egd \
                     ENGINE_cleanup \
-                    CRYPTO_cleanup_all_ex_data \
                     SSL_get_shutdown \
                     SSLv2_client_method
 do :
@@ -22624,8 +22799,8 @@ $as_echo "$as_me: Added $LIB_OPENSSL to LD_LIBRARY_PATH" >&6;}
 $as_echo_n "checking for OpenSSL headers version... " >&6; }
 
     OLDCPPFLAGS=$CPPFLAGS
-  # CPPPFLAGS comes from CURL_CPP_P
-  CPPFLAGS="$CPPPFLAGS"
+  # CPPPFLAG comes from CURL_CPP_P
+  CPPFLAGS="$CPPFLAGS $CPPPFLAG"
       if test -z "$SED"; then
     as_fn_error $? "SED not set. Cannot continue without SED being set." "$LINENO" 5
   fi
@@ -25075,7 +25250,7 @@ fi
         for a in /etc/ssl/certs/ca-certificates.crt \
                  /etc/pki/tls/certs/ca-bundle.crt \
                  /usr/share/ssl/certs/ca-bundle.crt \
-                 /usr/local/share/certs/ca-root.crt \
+                 /usr/local/share/certs/ca-root-nss.crt \
                  /etc/ssl/cert.pem \
                  "$cac"; do
           if test -f "$a"; then
@@ -25794,7 +25969,7 @@ $as_echo "found" >&6; }
     DIR_SSH2=${PREFIX_SSH2}/lib$libsuff
   fi
 
-  LDFLAGS="$LDFLAGS $LD_SSH2"
+  LDFLAGS="$LD_SSH2 $LDFLAGS"
   CPPFLAGS="$CPPFLAGS $CPP_SSH2"
   LIBS="$LIB_SSH2 $LIBS"
 
@@ -26304,8 +26479,8 @@ $as_echo "$as_me: WARNING: Cannot find libraries for IDN support: IDN disabled" 
 fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to build with libidn" >&5
-$as_echo_n "checking whether to build with libidn... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to build with libidn2" >&5
+$as_echo_n "checking whether to build with libidn2... " >&6; }
 OPT_IDN="default"
 
 # Check whether --with-libidn was given.
@@ -26454,14 +26629,14 @@ fi
     fi
 
     if test "x$PKGCONFIG" != "xno"; then
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libidn options with pkg-config" >&5
-$as_echo_n "checking for libidn options with pkg-config... " >&6; }
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libidn2 options with pkg-config" >&5
+$as_echo_n "checking for libidn2 options with pkg-config... " >&6; }
             itexists=`
     if test -n "$IDN_PCDIR"; then
       PKG_CONFIG_LIBDIR="$IDN_PCDIR"
       export PKG_CONFIG_LIBDIR
     fi
-         $PKGCONFIG --exists libidn >/dev/null 2>&1 && echo 1`
+         $PKGCONFIG --exists libidn2 >/dev/null 2>&1 && echo 1`
 
       if test -z "$itexists"; then
                         PKGCONFIG="no"
@@ -26479,22 +26654,22 @@ $as_echo "found" >&6; }
       PKG_CONFIG_LIBDIR="$IDN_PCDIR"
       export PKG_CONFIG_LIBDIR
     fi
-         $PKGCONFIG --libs-only-l libidn 2>/dev/null`
+         $PKGCONFIG --libs-only-l libidn2 2>/dev/null`
       IDN_LDFLAGS=`
     if test -n "$IDN_PCDIR"; then
       PKG_CONFIG_LIBDIR="$IDN_PCDIR"
       export PKG_CONFIG_LIBDIR
     fi
-         $PKGCONFIG --libs-only-L libidn 2>/dev/null`
+         $PKGCONFIG --libs-only-L libidn2 2>/dev/null`
       IDN_CPPFLAGS=`
     if test -n "$IDN_PCDIR"; then
       PKG_CONFIG_LIBDIR="$IDN_PCDIR"
       export PKG_CONFIG_LIBDIR
     fi
-         $PKGCONFIG --cflags-only-I libidn 2>/dev/null`
+         $PKGCONFIG --cflags-only-I libidn2 2>/dev/null`
       IDN_DIR=`echo $IDN_LDFLAGS | $SED -e 's/-L//'`
     else
-            IDN_LIBS="-lidn"
+            IDN_LIBS="-lidn2"
       IDN_LDFLAGS="-L$want_idn_path/lib$libsuff"
       IDN_CPPFLAGS="-I$want_idn_path/include"
       IDN_DIR="$want_idn_path/lib$libsuff"
@@ -26607,14 +26782,14 @@ fi
     fi
 
     if test "x$PKGCONFIG" != "xno"; then
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libidn options with pkg-config" >&5
-$as_echo_n "checking for libidn options with pkg-config... " >&6; }
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libidn2 options with pkg-config" >&5
+$as_echo_n "checking for libidn2 options with pkg-config... " >&6; }
             itexists=`
     if test -n ""; then
       PKG_CONFIG_LIBDIR=""
       export PKG_CONFIG_LIBDIR
     fi
-         $PKGCONFIG --exists libidn >/dev/null 2>&1 && echo 1`
+         $PKGCONFIG --exists libidn2 >/dev/null 2>&1 && echo 1`
 
       if test -z "$itexists"; then
                         PKGCONFIG="no"
@@ -26627,12 +26802,12 @@ $as_echo "found" >&6; }
     fi
 
     if test "$PKGCONFIG" != "no"; then
-      IDN_LIBS=`$PKGCONFIG --libs-only-l libidn 2>/dev/null`
-      IDN_LDFLAGS=`$PKGCONFIG --libs-only-L libidn 2>/dev/null`
-      IDN_CPPFLAGS=`$PKGCONFIG --cflags-only-I libidn 2>/dev/null`
+      IDN_LIBS=`$PKGCONFIG --libs-only-l libidn2 2>/dev/null`
+      IDN_LDFLAGS=`$PKGCONFIG --libs-only-L libidn2 2>/dev/null`
+      IDN_CPPFLAGS=`$PKGCONFIG --cflags-only-I libidn2 2>/dev/null`
       IDN_DIR=`echo $IDN_LDFLAGS | $SED -e 's/-L//'`
     else
-            IDN_LIBS="-lidn"
+            IDN_LIBS="-lidn2"
     fi
   fi
   #
@@ -26660,30 +26835,30 @@ $as_echo "$as_me: IDN_DIR: \"$IDN_DIR\"" >&6;}
   LDFLAGS="$IDN_LDFLAGS $LDFLAGS"
   LIBS="$IDN_LIBS $LIBS"
   #
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if idna_to_ascii_4i can be linked" >&5
-$as_echo_n "checking if idna_to_ascii_4i can be linked... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if idn2_lookup_ul can be linked" >&5
+$as_echo_n "checking if idn2_lookup_ul can be linked... " >&6; }
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 
-#define idna_to_ascii_4i innocuous_idna_to_ascii_4i
+#define idn2_lookup_ul innocuous_idn2_lookup_ul
 #ifdef __STDC__
 # include <limits.h>
 #else
 # include <assert.h>
 #endif
-#undef idna_to_ascii_4i
+#undef idn2_lookup_ul
 #ifdef __cplusplus
 extern "C"
 #endif
-char idna_to_ascii_4i ();
-#if defined __stub_idna_to_ascii_4i || defined __stub___idna_to_ascii_4i
+char idn2_lookup_ul ();
+#if defined __stub_idn2_lookup_ul || defined __stub___idn2_lookup_ul
 choke me
 #endif
 
 int main (void)
 {
-return idna_to_ascii_4i ();
+return idn2_lookup_ul ();
  ;
  return 0;
 }
@@ -26704,70 +26879,8 @@ $as_echo "no" >&6; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-  if test "$tst_links_libidn" = "no"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking if idna_to_ascii_lz can be linked" >&5
-$as_echo_n "checking if idna_to_ascii_lz can be linked... " >&6; }
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-
-#define idna_to_ascii_lz innocuous_idna_to_ascii_lz
-#ifdef __STDC__
-# include <limits.h>
-#else
-# include <assert.h>
-#endif
-#undef idna_to_ascii_lz
-#ifdef __cplusplus
-extern "C"
-#endif
-char idna_to_ascii_lz ();
-#if defined __stub_idna_to_ascii_lz || defined __stub___idna_to_ascii_lz
-choke me
-#endif
-
-int main (void)
-{
-return idna_to_ascii_lz ();
- ;
- return 0;
-}
-
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-      tst_links_libidn="yes"
-
-else
-
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      tst_links_libidn="no"
-
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-  fi
   #
-  if test "$tst_links_libidn" = "yes"; then
-
-$as_echo "#define HAVE_LIBIDN 1" >>confdefs.h
-
-        for ac_func in idn_free idna_strerror tld_strerror
-do :
-  as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
-ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
-if eval test \"x\$"$as_ac_var"\" = x"yes"; then :
-  cat >>confdefs.h <<_ACEOF
-#define `$as_echo "HAVE_$ac_func" | $as_tr_cpp` 1
-_ACEOF
-
-fi
-done
-
-    for ac_header in idn-free.h tld.h
+  for ac_header in idn2.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -26780,22 +26893,20 @@ fi
 
 done
 
-    if test "x$ac_cv_header_tld_h" = "xyes"; then
-      IDN_ENABLED=1
 
-      curl_idn_msg="enabled"
-      if test -n "$IDN_DIR" -a "x$cross_compiling" != "xyes"; then
-        LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$IDN_DIR"
-        export LD_LIBRARY_PATH
-        { $as_echo "$as_me:${as_lineno-$LINENO}: Added $IDN_DIR to LD_LIBRARY_PATH" >&5
+  if test "$tst_links_libidn" = "yes"; then
+
+$as_echo "#define HAVE_LIBIDN2 1" >>confdefs.h
+
+
+    IDN_ENABLED=1
+
+    curl_idn_msg="enabled (libidn2)"
+    if test -n "$IDN_DIR" -a "x$cross_compiling" != "xyes"; then
+      LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$IDN_DIR"
+      export LD_LIBRARY_PATH
+      { $as_echo "$as_me:${as_lineno-$LINENO}: Added $IDN_DIR to LD_LIBRARY_PATH" >&5
 $as_echo "$as_me: Added $IDN_DIR to LD_LIBRARY_PATH" >&6;}
-      fi
-    else
-      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Libraries for IDN support too old: IDN disabled" >&5
-$as_echo "$as_me: WARNING: Libraries for IDN support too old: IDN disabled" >&2;}
-      CPPFLAGS="$clean_CPPFLAGS"
-      LDFLAGS="$clean_LDFLAGS"
-      LIBS="$clean_LIBS"
     fi
   else
     { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Cannot find libraries for IDN support: IDN disabled" >&5
@@ -35713,8 +35824,9 @@ $as_echo "no" >&6; }
   tst_allow_poll="unknown"
   #
   case $host_os in
-    darwin[123456789].*|darwin10.*|darwin11.*|darwin12.*|interix*)
-                              curl_disallow_poll="yes"
+    darwin*|interix*)
+                                          curl_disallow_poll="yes"
+      tst_compi_poll="no"
       ;;
   esac
   #
@@ -35832,14 +35944,30 @@ else
 
         $curl_includes_stdlib
         $curl_includes_poll
+        $curl_includes_time
 
 int main (void)
 {
 
+        /* detect the original poll() breakage */
         if(0 != poll(0, 0, 10))
           exit(1); /* fail */
-        else
-          exit(0);
+        else {
+          /* detect the 10.12 poll() breakage */
+          struct timeval before, after;
+          int rc;
+          size_t us;
+
+          gettimeofday(&before, NULL);
+          rc = poll(NULL, 0, 500);
+          gettimeofday(&after, NULL);
+
+          us = (after.tv_sec - before.tv_sec) * 1000000 +
+            (after.tv_usec - before.tv_usec);
+
+          if(us < 400000)
+            exit(1);
+        }
 
  ;
  return 0;
@@ -40495,8 +40623,8 @@ fi
 
 if test "x$CURL_DISABLE_CRYPTO_AUTH" != "x1"; then
   if test "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
-      -o "x$GNUTLS_ENABLED" = "x1" -o "x$NSS_ENABLED" = "x1" \
-      -o "x$DARWINSSL_ENABLED" = "x1"; then
+      -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
+      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1"; then
     SUPPORT_FEATURES="$SUPPORT_FEATURES NTLM"
 
     if test "x$CURL_DISABLE_HTTP" != "x1" -a \
@@ -40567,8 +40695,8 @@ fi
 if test "x$CURL_DISABLE_SMB" != "x1" \
     -a "x$CURL_DISABLE_CRYPTO_AUTH" != "x1" \
     -a \( "x$OPENSSL_ENABLED" = "x1" -o "x$USE_WINDOWS_SSPI" = "x1" \
-      -o "x$GNUTLS_ENABLED" = "x1" -o "x$NSS_ENABLED" = "x1" \
-      -o "x$DARWINSSL_ENABLED" = "x1" \); then
+      -o "x$GNUTLS_ENABLED" = "x1" -o "x$MBEDTLS_ENABLED" = "x1" \
+      -o "x$NSS_ENABLED" = "x1" -o "x$DARWINSSL_ENABLED" = "x1" \); then
   SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMB"
   if test "x$SSL_ENABLED" = "x1"; then
     SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS SMBS"
@@ -42599,7 +42727,6 @@ $as_echo X"$file" |
     cat <<_LT_EOF >> "$cfgfile"
 #! $SHELL
 # Generated automatically by $as_me ($PACKAGE) $VERSION
-# Libtool was configured on host `(hostname || uname -n) 2>/dev/null | sed 1q`:
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 
 # Provide generalized library-building support services.

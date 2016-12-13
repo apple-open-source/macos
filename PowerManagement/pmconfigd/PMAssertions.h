@@ -323,7 +323,6 @@ struct assertionType {
     // Fields changed by properties set on assertion. 
     // Not all fields are valid for all assertion types 
     uint32_t   validOnBattCount;        /* Count of assertions requesting to be active on Battery power */
-    uint32_t   lidSleepCount;           /* Count of assertions changing clamshellSleep state(For kDeclareUserActivityType only) */
 
     uint32_t   enTrQuality;             /* Quality or intensity for energy tracing */
 } ;

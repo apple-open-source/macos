@@ -410,6 +410,8 @@ static int testPrime()
     CCBigNumRef b = CCBigNumFromHexString(&status, "09c75c");
     ok(!CCBigNumIsPrime(&status, b), "not prime number");
 
+    CCBigNumFree(a);
+    CCBigNumFree(b);
     return 0;
 }
 

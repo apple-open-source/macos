@@ -1201,6 +1201,18 @@ public:
      * @internal ICU 4.0
      */
     const Locale& getSmpFmtLocale(void) const;
+
+    /**
+     * Apple addition
+     * This is for ICU internal use only. Please do not use.
+     * Get the capitalization break iterator of this simple date formatter.
+     * Should be cloned before using it.
+     * It is used in udat.
+     *
+     * @return   capitalization break iterator
+     * @internal
+     */
+    BreakIterator* getCapitalizationBrkIter(void) const;
 #endif  /* U_HIDE_INTERNAL_API */
 
 private:
@@ -1602,6 +1614,12 @@ inline UDate
 SimpleDateFormat::get2DigitYearStart(UErrorCode& /*status*/) const
 {
     return fDefaultCenturyStart;
+}
+
+inline BreakIterator*
+SimpleDateFormat::getCapitalizationBrkIter() const
+{
+    return fCapitalizationBrkIter;
 }
 
 U_NAMESPACE_END

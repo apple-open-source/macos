@@ -762,11 +762,22 @@ locallibdir=/usr/local/lib/
 INFOTOOL = icuinfo
 INFOTOOL_OBJS = ./tools/icuinfo/icuinfo.o ./tools/toolutil/udbgutil.o ./tools/toolutil/uoptions.o
 
+ICUZDUMPTOOL = icuzdump
+ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
+    ICUZDUMPTOOL_OBJS = ./tools/tzcode/icuzdump.o $(IO_OBJ)
+else
+    ICUZDUMPTOOL_OBJS = ./tools/tzcode/icuzdump.o
+endif
+
 TOOLSLIB_NAME = icutu
 TOOLS_DYLIB = libicutu.$(DYLIB_SUFF)
 TOOLS_DYLIB_OBJS = ./tools/toolutil/*.o
-# The following version enables the tz toools to be used on systems with ICU 55 or later
-TOOLS_DYLIB_OBJS_FORSDK = ./tools/toolutil/collationinfo.o ./tools/toolutil/filestrm.o \
+
+# The following modified version enables the tz toools to be used on systems with ICU 55 or later.
+# It is used with the toolchain tools below.
+TOOLSLIB_NAME_FORTOOLS = icutux
+TOOLS_DYLIB_FORTOOLS = libicutux.$(DYLIB_SUFF)
+TOOLS_DYLIB_OBJS_FORTOOLS = ./tools/toolutil/collationinfo.o ./tools/toolutil/filestrm.o \
 ./tools/toolutil/package.o ./tools/toolutil/pkg_icu.o ./tools/toolutil/pkgitems.o \
 ./tools/toolutil/swapimpl.o ./tools/toolutil/toolutil.o ./tools/toolutil/ucbuf.o \
 ./tools/toolutil/unewdata.o ./tools/toolutil/uoptions.o ./tools/toolutil/uparse.o \
@@ -787,12 +798,8 @@ PKGTOOL_OBJS = ./tools/icupkg/icupkg.o
 TZ2ICUTOOL = tz2icu
 TZ2ICUTOOL_OBJS = ./tools/tzcode/tz2icu.o
 
-ICUZDUMPTOOL = icuzdump
-ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
-    ICUZDUMPTOOL_OBJS = ./tools/tzcode/icuzdump.o $(IO_OBJ)
-else
-    ICUZDUMPTOOL_OBJS = ./tools/tzcode/icuzdump.o
-endif
+GENBRKTOOL = icugenbrk
+GENBRKTOOL_OBJS = ./tools/genbrk/genbrk.o
 
 #################################
 # CLDR file(s)
@@ -1168,29 +1175,34 @@ crossbuildhost : $(CROSSHOST_OBJROOT)/Makefile
 	);
 
 # For the install-icutztoolsforsdk target, SDKROOT will always be an OSX SDK root.
+# If the sources were installed using the minimalpatchconfig.txt patch, then
 # we need to patch using crosshostpatchconfig.txt as for $(CROSSHOST_OBJROOT)/Makefile
+# (otherwise we ignore the patch in crosshostpatchconfig.txt, using -N)
 icutztoolsforsdk : $(OBJROOT_CURRENT)/Makefile
 	echo "# make icutztoolsforsdk";
 	(cd $(OBJROOT_CURRENT); \
-		if test ! -d $(SRCROOT)/.git ; then patch -p1 <$(SRCROOT)/crosshostpatchconfig.txt; fi; \
+		if test ! -d $(SRCROOT)/.git ; then patch -N -p1 <$(SRCROOT)/crosshostpatchconfig.txt; fi; \
 		$(MAKE) $($(ENV)); \
-		echo '# build' $(TOOLS_DYLIB) 'linked against' $(LIB_NAME) ; \
+		echo '# build' $(TOOLS_DYLIB_FORTOOLS) 'linked against' $(LIB_NAME) ; \
 		$($(ENV)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
 			-g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) \
 			$(CXXFLAGS) $(LDFLAGS) -single_module \
-			-install_name $(locallibdir)$(TOOLS_DYLIB) -o ./$(TOOLS_DYLIB) $(TOOLS_DYLIB_OBJS_FORSDK) -L./ -l$(LIB_NAME) ; \
-		echo '# build' $(ZICTOOL) 'linked against' $(TOOLSLIB_NAME) ; \
+			-install_name $(locallibdir)$(TOOLS_DYLIB_FORTOOLS) -o ./$(TOOLS_DYLIB_FORTOOLS) $(TOOLS_DYLIB_OBJS_FORTOOLS) -L./ -l$(LIB_NAME) ; \
+		echo '# build' $(ZICTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
 		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(ZICTOOL) $(ZICTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) ; \
-		echo '# build' $(RESTOOL) 'linked against' $(TOOLSLIB_NAME) $(LIB_NAME) ; \
+			$(LDFLAGS) -dead_strip -o ./$(ZICTOOL) $(ZICTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
+		echo '# build' $(RESTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) $(LIB_NAME) ; \
 		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(RESTOOL) $(RESTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) -l$(LIB_NAME) ; \
-		echo '# build' $(PKGTOOL) 'linked against' $(TOOLSLIB_NAME) ; \
+			$(LDFLAGS) -dead_strip -o ./$(RESTOOL) $(RESTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) -l$(LIB_NAME) ; \
+		echo '# build' $(PKGTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
 		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(PKGTOOL) $(PKGTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) ; \
-		echo '# build' $(TZ2ICUTOOL) 'linked against' $(TOOLSLIB_NAME) ; \
+			$(LDFLAGS) -dead_strip -o ./$(PKGTOOL) $(PKGTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
+		echo '# build' $(TZ2ICUTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
 		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
-			$(LDFLAGS) -dead_strip -o ./$(TZ2ICUTOOL) $(TZ2ICUTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) ; \
+			$(LDFLAGS) -dead_strip -o ./$(TZ2ICUTOOL) $(TZ2ICUTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
+		echo '# build' $(GENBRKTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
+		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
+			$(LDFLAGS) -dead_strip -o ./$(GENBRKTOOL) $(GENBRKTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) ; \
 	);
 
 check : icu
@@ -1473,9 +1485,9 @@ install-icutztoolsforsdk : icutztoolsforsdk
 	if test ! -d $(DSTROOT)$(locallibdir)/; then \
 		$(INSTALL) -d -m 0755 $(DSTROOT)$(locallibdir)/; \
 	fi;
-	if test -f $(OBJROOT_CURRENT)/$(TOOLS_DYLIB); then \
-		echo '# install' $(TOOLS_DYLIB) 'to' $(DSTROOT)$(locallibdir)$(TOOLS_DYLIB) ; \
-		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(TOOLS_DYLIB) $(DSTROOT)$(locallibdir)$(TOOLS_DYLIB); \
+	if test -f $(OBJROOT_CURRENT)/$(TOOLS_DYLIB_FORTOOLS); then \
+		echo '# install' $(TOOLS_DYLIB_FORTOOLS) 'to' $(DSTROOT)$(locallibdir)$(TOOLS_DYLIB_FORTOOLS) ; \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(TOOLS_DYLIB_FORTOOLS) $(DSTROOT)$(locallibdir)$(TOOLS_DYLIB_FORTOOLS); \
 	fi;
 	if test -f $(OBJROOT_CURRENT)/$(ZICTOOL); then \
 		echo '# install' $(ZICTOOL) 'to' $(DSTROOT)$(localtooldir)$(ZICTOOL) ; \
@@ -1492,4 +1504,8 @@ install-icutztoolsforsdk : icutztoolsforsdk
 	if test -f $(OBJROOT_CURRENT)/$(TZ2ICUTOOL); then \
 		echo '# install' $(TZ2ICUTOOL) 'to' $(DSTROOT)$(localtooldir)$(TZ2ICUTOOL) ; \
 		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(TZ2ICUTOOL) $(DSTROOT)$(localtooldir)$(TZ2ICUTOOL); \
+	fi;
+	if test -f $(OBJROOT_CURRENT)/$(GENBRKTOOL); then \
+		echo '# install' $(GENBRKTOOL) 'to' $(DSTROOT)$(localtooldir)$(GENBRKTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(GENBRKTOOL) $(DSTROOT)$(localtooldir)$(GENBRKTOOL); \
 	fi;

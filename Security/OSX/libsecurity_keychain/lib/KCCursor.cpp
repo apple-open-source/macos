@@ -61,8 +61,7 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecIt
 	mAllFailed(true),
     mDeleteInvalidRecords(false),
     mIsNewKeychain(true),
-	mMutex(Mutex::recursive),
-    mKeychainReadLock(NULL)
+	mMutex(Mutex::recursive)
 {
     recordType(Schema::recordTypeFor(itemClass));
 
@@ -119,8 +118,7 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 	mAllFailed(true),
     mDeleteInvalidRecords(false),
     mIsNewKeychain(true),
-	mMutex(Mutex::recursive),
-    mKeychainReadLock(NULL)
+	mMutex(Mutex::recursive)
 {
 	if (!attrList) // No additional selectionPredicates: we are done
 		return;
@@ -174,9 +172,6 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 
 KCCursorImpl::~KCCursorImpl() throw()
 {
-    if(mKeychainReadLock) {
-        delete mKeychainReadLock;
-    }
 }
 
 //static ModuleNexus<Mutex> gActivationMutex;
@@ -226,6 +221,10 @@ KCCursorImpl::next(Item &item)
             }
 
             Keychain &kc = *mCurrent;
+
+            // Grab a read lock on the keychain
+            StReadWriteLock __(*(kc->getKeychainReadWriteLock()), StReadWriteLock::Read);
+
             Mutex* mutex = kc->getKeychainMutex();
             StLock<Mutex> _(*mutex);
 
@@ -322,7 +321,6 @@ KCCursorImpl::next(Item &item)
                 }
             }
         }
-        // release the Keychain lock before checking item integrity to avoid deadlock
 
 		item = tempItem;
 
@@ -370,18 +368,9 @@ void KCCursorImpl::newKeychain(StorageManager::KeychainList::iterator kcIter) {
         return;
     }
 
-    // Always lose the last keychain's lock
-    if(mKeychainReadLock) {
-        delete mKeychainReadLock;
-        mKeychainReadLock = NULL;
-    }
-
     if(kcIter != mSearchList.end()) {
         (*kcIter)->performKeychainUpgradeIfNeeded();
         (*kcIter)->tickle();
-
-        // Grab a read lock on the keychain
-        mKeychainReadLock = new StReadWriteLock(*((*kcIter)->getKeychainReadWriteLock()), StReadWriteLock::Read);
     }
 
     // Mark down that this function has been called

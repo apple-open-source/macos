@@ -154,7 +154,7 @@ routine io_pm_get_uuid(
 // IOPMConnection
 routine io_pm_connection_create(
             server      : mach_port_t;
-        in task_in       : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in name         : string_t;
         in interests    : int;
         out connection_id : uint32_t;
@@ -162,6 +162,7 @@ routine io_pm_connection_create(
 
 routine io_pm_connection_schedule_notification(
             server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in connection_id : uint32_t;
         in notify_port  : mach_port_t;
         in disable      : int;

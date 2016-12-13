@@ -613,6 +613,10 @@ errOut:
     return result;
 }
 
+#ifdef TARGET_OS_OSX
+static void set_ku_from_properties(SecPolicyRef policy, CFDictionaryRef properties);
+#endif
+
 SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
 	CFDictionaryRef properties) {
 	// Creates a policy reference for a given policy object identifier.
@@ -898,6 +902,9 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
 		secerror("ERROR: policy \"%@\" is unsupported", policyIdentifier);
 	}
 
+#ifdef TARGET_OS_OSX
+    set_ku_from_properties(policy, properties);
+#endif
 errOut:
 	return policy;
 }
@@ -1093,6 +1100,9 @@ OSStatus SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properti
 		}
 	}
 
+#ifdef TARGET_OS_OSX
+    set_ku_from_properties(policyRef, properties);
+#endif
 	CFRelease(oid);
 	return result;
 }
@@ -1446,6 +1456,53 @@ static void add_ku(CFMutableDictionaryRef options, SecKeyUsage keyUsage) {
     }
 }
 
+#ifdef TARGET_OS_OSX
+static void set_ku_from_properties(SecPolicyRef policy, CFDictionaryRef properties) {
+    if (!policy || !properties) {
+        return;
+    }
+
+    CFStringRef keyNames[] = { kSecPolicyKU_DigitalSignature, kSecPolicyKU_NonRepudiation, kSecPolicyKU_KeyEncipherment, kSecPolicyKU_DataEncipherment,
+        kSecPolicyKU_KeyAgreement, kSecPolicyKU_KeyCertSign, kSecPolicyKU_CRLSign, kSecPolicyKU_EncipherOnly, kSecPolicyKU_DecipherOnly };
+
+    uint32_t keyUsageValues[] = { kSecKeyUsageDigitalSignature, kSecKeyUsageNonRepudiation, kSecKeyUsageKeyEncipherment, kSecKeyUsageDataEncipherment,
+        kSecKeyUsageKeyAgreement, kSecKeyUsageKeyCertSign, kSecKeyUsageCRLSign, kSecKeyUsageEncipherOnly, kSecKeyUsageDecipherOnly };
+
+    bool haveKeyUsage = false;
+    CFTypeRef keyUsageBoolean;
+    for (uint32_t i = 0; i < sizeof(keyNames) / sizeof(CFStringRef); ++i) {
+        if (CFDictionaryGetValueIfPresent(properties, keyNames[i], (const void**)&keyUsageBoolean)) {
+            if (CFEqual(keyUsageBoolean, kCFBooleanTrue)) {
+                haveKeyUsage = true;
+                break;
+            }
+        }
+    }
+
+    if (!haveKeyUsage) {
+        return;
+    }
+
+    CFMutableDictionaryRef options = (CFMutableDictionaryRef) policy->_options;
+    if (!options) {
+        options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        if (!options) return;
+        policy->_options = options;
+    } else {
+        CFDictionaryRemoveValue(options, kSecPolicyCheckKeyUsage);
+    }
+
+    for (uint32_t i = 0; i < sizeof(keyNames) / sizeof(CFStringRef); ++i) {
+        if (CFDictionaryGetValueIfPresent(properties, keyNames[i], (const void**)&keyUsageBoolean)) {
+            if (CFEqual(keyUsageBoolean, kCFBooleanTrue)) {
+                add_ku(options, keyUsageValues[i]);
+            }
+        }
+    }
+}
+#endif
+
 static void add_oid(CFMutableDictionaryRef options, CFStringRef policy_key, const DERItem *oid) {
     CFDataRef oid_data = CFDataCreate(kCFAllocatorDefault,
                                  oid ? oid->data : NULL,
@@ -1617,6 +1674,29 @@ errOut:
     return success;
 }
 
+static bool SecPolicyAddStrongKeySizeOptions(CFMutableDictionaryRef options) {
+    bool success = false;
+    CFDictionaryRef keySizes = NULL;
+    CFNumberRef rsaSize = NULL, ecSize = NULL;
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
+    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
+    const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
+    const void *values[] = { rsaSize, ecSize };
+    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
+                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+    add_element(options, kSecPolicyCheckKeySize, keySizes);
+
+    success = true;
+
+errOut:
+    CFReleaseSafe(keySizes);
+    CFReleaseSafe(rsaSize);
+    CFReleaseSafe(ecSize);
+    return success;
+}
+
 static bool isAppleOid(CFStringRef oid) {
     if (!SecCertificateIsOidString(oid)) {
         return false;
@@ -1627,16 +1707,33 @@ static bool isAppleOid(CFStringRef oid) {
     return false;
 }
 
-static bool allowTestHierarchyForPolicy(CFStringRef policyName) {
+static bool isCFPreferenceInSecurityDomain(CFStringRef setting) {
+    /* For backwards compatibility reasons we have to check both "com.apple.security"
+     and "com.apple.Security". */
+    return (CFPreferencesGetAppBooleanValue(setting, CFSTR("com.apple.security"), NULL) ||
+            CFPreferencesGetAppBooleanValue(setting, CFSTR("com.apple.Security"), NULL));
+}
+
+static bool allowTestHierarchyForPolicy(CFStringRef policyName, bool isSSL) {
     bool allow = false;
+
     CFStringRef setting = CFStringCreateWithFormat(NULL, NULL, CFSTR("ApplePinningAllowTestCerts%@"), policyName);
     require(setting, fail);
-    if (CFPreferencesGetAppBooleanValue(setting, CFSTR("com.apple.security"), NULL)) {
+    if (isCFPreferenceInSecurityDomain(setting)) {
         allow = true;
     } else {
         secnotice("pinningQA", "could not enable test hierarchy: %@ not true", setting);
     }
     CFRelease(setting);
+
+    if (!allow && isSSL) {
+        if (isCFPreferenceInSecurityDomain(CFSTR("AppleServerAuthenticationAllowUAT"))) {
+            allow = true;
+        } else {
+            secnotice("pinningQA", "could not enable test hierarchy: AppleServerAuthenticationAllowUAT not true");
+        }
+    }
+
 fail:
     return allow;
 }
@@ -1649,7 +1746,7 @@ static bool SecPolicyAddAppleAnchorOptions(CFMutableDictionaryRef options, CFStr
         return false;
     }
 
-    if (allowTestHierarchyForPolicy(policyName)) {
+    if (allowTestHierarchyForPolicy(policyName, false)) {
         CFDictionarySetValue(appleAnchorOptions,
                              kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
     }
@@ -1708,8 +1805,6 @@ errOut:
 
 SecPolicyRef SecPolicyCreateApplePinned(CFStringRef policyName, CFStringRef intermediateMarkerOID, CFStringRef leafMarkerOID) {
     CFMutableDictionaryRef options = NULL;
-    CFDictionaryRef keySizes = NULL;
-    CFNumberRef rsaSize = NULL, ecSize = NULL;
     SecPolicyRef result = NULL;
 
     if (!policyName || !intermediateMarkerOID || !leafMarkerOID) {
@@ -1744,22 +1839,13 @@ SecPolicyRef SecPolicyCreateApplePinned(CFStringRef policyName, CFStringRef inte
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
-    const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
-    const void *values[] = { rsaSize, ecSize };
-    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
-                                  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
-    add_element(options, kSecPolicyCheckKeySize, keySizes);
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     require(result = SecPolicyCreate(kSecPolicyAppleGenericApplePinned,
                                      policyName, options), errOut);
 
 errOut:
     CFReleaseSafe(options);
-    CFReleaseSafe(keySizes);
-    CFReleaseSafe(rsaSize);
-    CFReleaseSafe(ecSize);
     return result;
 }
 
@@ -1771,12 +1857,22 @@ requireUATPinning(CFStringRef service)
     if (SecIsInternalRelease()) {
         CFStringRef setting = CFStringCreateWithFormat(NULL, NULL, CFSTR("AppleServerAuthenticationNoPinning%@"), service);
         require(setting, fail);
-        if (CFPreferencesGetAppBooleanValue(setting, CFSTR("com.apple.Security"), NULL)) {
+        if(isCFPreferenceInSecurityDomain(setting)) {
             pinningRequired = false;
         } else {
             secnotice("pinningQA", "could not disable pinning: %@ not true", setting);
         }
         CFRelease(setting);
+
+        if (!pinningRequired) {
+            goto fail;
+        }
+
+        if(isCFPreferenceInSecurityDomain(CFSTR("AppleServerAuthenticationNoPinning"))) {
+            pinningRequired = false;
+        } else {
+            secnotice("pinningQA", "could not disable pinning: AppleServerAuthenticationNoPinning not true");
+        }
     } else {
         secnotice("pinningQA", "could not disable pinning: not an internal release");
     }
@@ -1786,7 +1882,7 @@ fail:
 
 SecPolicyRef SecPolicyCreateAppleSSLPinned(CFStringRef policyName, CFStringRef hostname,
                                           CFStringRef intermediateMarkerOID, CFStringRef leafMarkerOID) {
-    CFMutableDictionaryRef options = NULL;
+    CFMutableDictionaryRef options = NULL, appleAnchorOptions = NULL;
     SecPolicyRef result = NULL;
 
     if (!policyName || !hostname || !leafMarkerOID) {
@@ -1794,13 +1890,41 @@ SecPolicyRef SecPolicyCreateAppleSSLPinned(CFStringRef policyName, CFStringRef h
     }
 
     if (requireUATPinning(policyName)) {
+        require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                    &kCFTypeDictionaryKeyCallBacks,
+                                                    &kCFTypeDictionaryValueCallBacks), errOut);
+
+        SecPolicyAddBasicX509Options(options);
+
+        /* Anchored to the Apple Roots */
+        require_quiet(appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL), errOut);
+        if (allowTestHierarchyForPolicy(policyName, true)) {
+            CFDictionarySetValue(appleAnchorOptions,
+                                 kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
+        }
+        add_element(options, kSecPolicyCheckAnchorApple, appleAnchorOptions);
+
+        /* Exactly 3 certs in the chain */
+        require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
         if (intermediateMarkerOID) {
-            require(result = SecPolicyCreateApplePinned(policyName, intermediateMarkerOID, leafMarkerOID), errOut);
+            /* Intermediate marker OID matches input OID */
+            if (!isAppleOid(intermediateMarkerOID)) {
+                secwarning("creating an Apple pinning policy with a non-Apple OID: %@", intermediateMarkerOID);
+            }
+            add_element(options, kSecPolicyCheckIntermediateMarkerOid, intermediateMarkerOID);
         } else {
-            require(result = SecPolicyCreateApplePinned(policyName, CFSTR("1.2.840.113635.100.6.2.12"), leafMarkerOID), errOut);
+            add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.2.12"));
         }
 
-        require_action(options = CFDictionaryCreateMutableCopy(NULL, 0, result->_options), errOut, CFReleaseNull(result));
+        /* Leaf marker OID matches input OID */
+        if (!isAppleOid(leafMarkerOID)) {
+            secwarning("creating an Apple pinning policy with a non-Apple OID: %@", leafMarkerOID);
+        }
+        add_leaf_marker_string(options, leafMarkerOID);
+
+        /* New leaf marker OID format */
+        add_leaf_marker_value_string(options, CFSTR("1.2.840.113635.100.6.48.1"), leafMarkerOID);
 
         /* ServerAuth EKU is in leaf cert */
         add_eku_string(options, CFSTR("1.3.6.1.5.5.7.3.1"));
@@ -1808,19 +1932,23 @@ SecPolicyRef SecPolicyCreateAppleSSLPinned(CFStringRef policyName, CFStringRef h
         /* Hostname is in leaf cert */
         add_element(options, kSecPolicyCheckSSLHostname, hostname);
 
-        /* New leaf marker OID format */
-        add_leaf_marker_value_string(options, CFSTR("1.2.840.113635.100.6.48.1"), leafMarkerOID);
+        /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+        require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
-        CFReleaseSafe(result->_options);
-        result->_options = CFRetainSafe(options);
+        /* Check revocation using any available method */
+        add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
+
+        require(result = SecPolicyCreate(kSecPolicyAppleGenericAppleSSLPinned,
+                                         policyName, options), errOut);
+
     } else {
         result = SecPolicyCreateSSL(true, hostname);
+        SecPolicySetOid(result, kSecPolicyAppleGenericAppleSSLPinned);
     }
-
-    SecPolicySetOid(result, kSecPolicyAppleGenericAppleSSLPinned);
 
 errOut:
     CFReleaseSafe(options);
+    CFReleaseSafe(appleAnchorOptions);
     return result;
 }
 
@@ -2057,7 +2185,7 @@ SecPolicyRef SecPolicyCreateiPhoneApplicationSigning(void) {
     appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL);
     require(appleAnchorOptions, errOut);
 
-    if (allowTestHierarchyForPolicy(kSecPolicyNameiPhoneApplicationSigning)) {
+    if (allowTestHierarchyForPolicy(kSecPolicyNameiPhoneApplicationSigning, false)) {
         /* Allow a test hierarchy-signed cert with prod name/OIDs */
         CFDictionarySetValue(appleAnchorOptions,
                              kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
@@ -3059,8 +3187,9 @@ static bool
 allowUATRoot(bool allowNonProd, CFStringRef service, CFDictionaryRef context)
 {
     bool UATAllowed = false;
+    CFStringRef setting = NULL;
     if (SecIsInternalRelease() || allowNonProd) {
-        CFStringRef setting = CFStringCreateWithFormat(NULL, NULL, CFSTR("AppleServerAuthenticationAllowUAT%@"), service);
+        setting = CFStringCreateWithFormat(NULL, NULL, CFSTR("AppleServerAuthenticationAllowUAT%@"), service);
         CFTypeRef value = NULL;
         require(setting, fail);
 
@@ -3072,18 +3201,26 @@ allowUATRoot(bool allowNonProd, CFStringRef service, CFDictionaryRef context)
             UATAllowed = true;
         }
 
-        if (CFPreferencesGetAppBooleanValue(setting, CFSTR("com.apple.Security"), NULL)) {
+        if (isCFPreferenceInSecurityDomain(setting)) {
             UATAllowed = true;
         }
 
         if (!UATAllowed) {
             secnotice("pinningQA", "could not enable test cert: %@ not true", setting);
+        } else {
+            goto fail;
         }
-        CFRelease(setting);
+
+        if (isCFPreferenceInSecurityDomain(CFSTR("AppleServerAuthenticationAllowUAT"))) {
+            UATAllowed = true;
+        } else {
+            secnotice("pinningQA", "could not enable test hierarchy: AppleServerAuthenticationAllowUAT not true");
+        }
     } else {
         secnotice("pinningQA", "could not enable test cert: not an internal release");
     }
 fail:
+    CFReleaseNull(setting);
     return UATAllowed;
 }
 
@@ -3133,11 +3270,10 @@ SecPolicyCreateAppleServerAuthCommon(CFStringRef hostname,
 	 * Require pinning to the Apple CA's (and if UAT environment,
 	 * include the Apple Test CA's as anchors).
 	 */
-
         appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL);
         require(appleAnchorOptions, errOut);
 
-        if (allowUAT || allowTestHierarchyForPolicy(service)) {
+        if (allowUAT || allowTestHierarchyForPolicy(service, true)) {
             /* Note: SecPolicyServer won't allow the test roots for non-internal devices */
             CFDictionarySetValue(appleAnchorOptions,
                                  kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
@@ -3679,7 +3815,7 @@ SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname) {
         // Apple anchors, allowing test anchors for internal releases properly configured
         appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL);
         require(appleAnchorOptions, errOut);
-        if (allowUAT || allowTestHierarchyForPolicy(kSecPolicyNameAppleHomeKitServerAuth)) {
+        if (allowUAT || allowTestHierarchyForPolicy(kSecPolicyNameAppleHomeKitServerAuth, true)) {
             CFDictionarySetValue(appleAnchorOptions,
                                  kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
         }
@@ -3778,15 +3914,7 @@ SecPolicyRef SecPolicyCreateAppleSoftwareSigning(void) {
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
-    const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
-    const void *values[] = { rsaSize, ecSize };
-    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
-                                          &kCFTypeDictionaryKeyCallBacks,
-                                          &kCFTypeDictionaryValueCallBacks), errOut);
-    add_element(options, kSecPolicyCheckKeySize, keySizes);
-
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     require(result = SecPolicyCreate(kSecPolicyAppleSoftwareSigning,
                                      kSecPolicyNameAppleSoftwareSigning, options), errOut);
@@ -3824,7 +3952,7 @@ SecPolicyRef SecPolicyCreateAppleUniqueDeviceCertificate(CFDataRef testRootHash)
     /* Anchored to the SEP Root CA. Allow alternative root for developers */
     require(SecPolicyAddAnchorSHA256Options(options, SEPRootCA_SHA256),errOut);
     if (testRootHash && SecIsInternalRelease() && !SecIsProductionFused() &&
-        allowTestHierarchyForPolicy(kSecPolicyNameAppleUniqueDeviceCertificate)
+        allowTestHierarchyForPolicy(kSecPolicyNameAppleUniqueDeviceCertificate, false)
         && (kSecPolicySHA256Size == CFDataGetLength(testRootHash))) {
         add_element(options, kSecPolicyCheckAnchorSHA256, testRootHash);
     }
@@ -3898,13 +4026,7 @@ SecPolicyRef SecPolicyCreateAppleWarsaw(void) {
     add_element(options, kSecPolicyCheckRevocation, kSecPolicyCheckRevocationAny);
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
-    const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
-    const void *values[] = { rsaSize, ecSize };
-    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
-                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
-    add_element(options, kSecPolicyCheckKeySize, keySizes);
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     require(result = SecPolicyCreate(kSecPolicyAppleWarsaw,
                                      kSecPolicyNameAppleWarsaw, options), errOut);
@@ -3956,13 +4078,7 @@ SecPolicyRef SecPolicyCreateAppleSecureIOStaticAsset(void) {
     add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.50"));
 
     /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
-    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
-    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
-    const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
-    const void *values[] = { rsaSize, ecSize };
-    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
-                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
-    add_element(options, kSecPolicyCheckKeySize, keySizes);
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
 
     require(result = SecPolicyCreate(kSecPolicyAppleSecureIOStaticAsset,
                                      kSecPolicyNameAppleSecureIOStaticAsset, options), errOut);

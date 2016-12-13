@@ -116,7 +116,6 @@ doCustomEncoder(const char *name,
     ok(retval == kCNSuccess, "got a decoder");
     
     doWithEncoders(encoder, decoder, input, expected);
-    
     return 0;
 }
 

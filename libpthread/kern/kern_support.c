@@ -3038,7 +3038,8 @@ wq_unpark_continue(void* __unused ptr, wait_result_t wait_result)
 		 */
 
 		if (!first_use &&
-				tl->th_priority != qos_class_get_class_index(WQ_THREAD_CLEANUP_QOS)) {
+				(tl->th_priority < qos_class_get_class_index(WQ_THREAD_CLEANUP_QOS) ||
+				(tl->th_priority == WORKQUEUE_EVENT_MANAGER_BUCKET))) {
 			// Reset the QoS to something low for the pthread cleanup
 			pthread_priority_t cleanup_pri = _pthread_priority_make_newest(WQ_THREAD_CLEANUP_QOS, 0, 0);
 			reset_priority(tl, cleanup_pri);

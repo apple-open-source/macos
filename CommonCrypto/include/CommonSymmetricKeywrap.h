@@ -46,8 +46,8 @@ enum {
     kCCWRAPAES = 1,
 };
 
-extern const uint8_t * const CCrfc3394_iv  __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_5_0);
-extern const size_t CCrfc3394_ivLen  __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_5_0);
+extern const uint8_t * const CCrfc3394_iv  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+extern const size_t CCrfc3394_ivLen  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 typedef uint32_t CCWrappingAlgorithm;
 

@@ -37,23 +37,13 @@
 
 #if defined(HAVE_FRAMEWORK_SECURITY)
 #include <Security/Security.h>
+#include <Security/SecKeyPriv.h>
 
-#if defined(HAVE_CDSA)
-
-/* Missing function decls in pre Leopard */
-#ifdef NEED_SECKEYGETCSPHANDLE_PROTO
-OSStatus SecKeyGetCSPHandle(SecKeyRef, CSSM_CSP_HANDLE *);
-OSStatus SecKeyGetCredentials(SecKeyRef, CSSM_ACL_AUTHORIZATION_TAG,
-			      int, const CSSM_ACCESS_CREDENTIALS **);
-#define kSecCredentialTypeDefault 0
-#define CSSM_SIZE uint32_t
-#endif
-
-#endif /* HAVE_CDSA */
 
 struct kc_rsa {
     SecKeyRef pkey;
     size_t keysize;
+    CFTypeRef authContext;
 };
 
 
@@ -77,287 +67,176 @@ kc_rsa_public_decrypt(int flen,
     return -1;
 }
 
-#if defined(HAVE_CDSA)
-
-/*
- *
- */
-
-static int
-kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
-	    unsigned char *to, unsigned int *tlen, const RSA *rsa)
+static SecKeyRef
+createKeyDuplicateWithAuthContext(SecKeyRef origKey, CFTypeRef authContext)
 {
-    struct kc_rsa *kc = RSA_get_app_data(rk_UNCONST(rsa));
+    SecKeyRef key = SecKeyCreateDuplicate(origKey);
+    bool allowAuthenticationUI = false;
 
-    CSSM_RETURN cret;
-    OSStatus ret;
-    const CSSM_ACCESS_CREDENTIALS *creds;
-    SecKeyRef privKeyRef = kc->pkey;
-    CSSM_CSP_HANDLE cspHandle;
-    const CSSM_KEY *cssmKey;
-    CSSM_CC_HANDLE sigHandle = 0;
-    CSSM_DATA sig, in;
-    int fret = 0;
-    CSSM_ALGORITHMS stype;
-
-    if (type == NID_md5) {
-	stype = CSSM_ALGID_MD5;
-    } else if (type == NID_sha1) {
-	stype = CSSM_ALGID_SHA1;
-    } else if (type == NID_sha256) {
-	stype = CSSM_ALGID_SHA256;
-    } else if (type == NID_sha384) {
-	stype = CSSM_ALGID_SHA384;
-    } else if (type == NID_sha512) {
-	stype = CSSM_ALGID_SHA512;
-    } else
-	return -1;
-
-    cret = SecKeyGetCSSMKey(privKeyRef, &cssmKey);
-    if(cret)
-	return -1;
-
-    cret = SecKeyGetCSPHandle(privKeyRef, &cspHandle);
-    if(cret)
-	return -1;
-
-    ret = SecKeyGetCredentials(privKeyRef, CSSM_ACL_AUTHORIZATION_SIGN,
-			       kSecCredentialTypeNoUI, &creds);
-    if(ret)
-	return -1;
-
-    ret = CSSM_CSP_CreateSignatureContext(cspHandle, CSSM_ALGID_RSA,
-					  creds, cssmKey, &sigHandle);
-    if(ret)
-	return -1;
-
-    in.Data = (uint8 *)from;
-    in.Length = flen;
-
-    sig.Data = (uint8 *)to;
-    sig.Length = kc->keysize;
-
-    cret = CSSM_SignData(sigHandle, &in, 1, stype, &sig);
-    if(cret) {
-	/* cssmErrorString(cret); */
-	fret = -1;
-    } else {
-	fret = 1;
-	*tlen = (unsigned int)sig.Length;
+    if (authContext) {
+        if (CFGetTypeID(authContext) == CFBooleanGetTypeID()) {
+            if (CFBooleanGetValue((CFBooleanRef)authContext)) {
+                allowAuthenticationUI = true;
+            }
+        } else { // otherwise we expect it's a LA context
+            SecKeySetParameter(key, kSecUseAuthenticationContext, authContext, NULL);
+            allowAuthenticationUI = true;
+        }
     }
 
-    if(sigHandle)
-	CSSM_DeleteContext(sigHandle);
+    if (!allowAuthenticationUI) {
+        SecKeySetParameter(key, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail, NULL);
+    }
 
-    return fret;
+    return key;
 }
-
-static int
-kc_rsa_private_encrypt(int flen,
-		       const unsigned char *from,
-		       unsigned char *to,
-		       RSA *rsa,
-		       int padding)
-{
-    struct kc_rsa *kc = RSA_get_app_data(rsa);
-
-    CSSM_RETURN cret;
-    OSStatus ret;
-    const CSSM_ACCESS_CREDENTIALS *creds;
-    SecKeyRef privKeyRef = kc->pkey;
-    CSSM_CSP_HANDLE cspHandle;
-    const CSSM_KEY *cssmKey;
-    CSSM_CC_HANDLE sigHandle = 0;
-    CSSM_DATA sig, in;
-    int fret = 0;
-
-    if (padding != RSA_PKCS1_PADDING)
-	return -1;
-
-    cret = SecKeyGetCSSMKey(privKeyRef, &cssmKey);
-    if(cret)
-	return -1;
-
-    cret = SecKeyGetCSPHandle(privKeyRef, &cspHandle);
-    if(cret)
-	return -1;
-
-    ret = SecKeyGetCredentials(privKeyRef, CSSM_ACL_AUTHORIZATION_SIGN,
-			       kSecCredentialTypeNoUI, &creds);
-    if(ret)
-	return -1;
-
-    ret = CSSM_CSP_CreateSignatureContext(cspHandle, CSSM_ALGID_RSA,
-					  creds, cssmKey, &sigHandle);
-    if(ret)
-	return -1;
-
-    in.Data = (uint8 *)from;
-    in.Length = flen;
-
-    sig.Data = (uint8 *)to;
-    sig.Length = kc->keysize;
-
-    cret = CSSM_SignData(sigHandle, &in, 1, CSSM_ALGID_NONE, &sig);
-    if(cret) {
-	/* cssmErrorString(cret); */
-	fret = -1;
-    } else
-	fret = (int)sig.Length;
-
-    if(sigHandle)
-	CSSM_DeleteContext(sigHandle);
-
-    return fret;
-}
-
-static int
-kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
-		       RSA * rsa, int padding)
-{
-    struct kc_rsa *kc = RSA_get_app_data(rsa);
-
-    CSSM_RETURN cret;
-    OSStatus ret;
-    const CSSM_ACCESS_CREDENTIALS *creds;
-    SecKeyRef privKeyRef = kc->pkey;
-    CSSM_CSP_HANDLE cspHandle;
-    const CSSM_KEY *cssmKey;
-    CSSM_CC_HANDLE handle = 0;
-    CSSM_DATA out, in, rem;
-    int fret = 0;
-    CSSM_SIZE outlen = 0;
-    char remdata[1024];
-
-    if (padding != RSA_PKCS1_PADDING)
-	return -1;
-
-    cret = SecKeyGetCSSMKey(privKeyRef, &cssmKey);
-    if(cret)
-	return -1;
-
-    cret = SecKeyGetCSPHandle(privKeyRef, &cspHandle);
-    if(cret)
-	return -1;
-
-    ret = SecKeyGetCredentials(privKeyRef, CSSM_ACL_AUTHORIZATION_DECRYPT,
-			       kSecCredentialTypeNoUI, &creds);
-    if(ret)
-	return -1;
-
-    ret = CSSM_CSP_CreateAsymmetricContext (cspHandle,
-					    CSSM_ALGID_RSA,
-					    creds,
-					    cssmKey,
-					    CSSM_PADDING_PKCS1,
-					    &handle);
-    if(ret)
-	return -1;
-
-    in.Data = (uint8 *)from;
-    in.Length = flen;
-
-    out.Data = (uint8 *)to;
-    out.Length = kc->keysize;
-
-    rem.Data = (uint8 *)remdata;
-    rem.Length = sizeof(remdata);
-
-    cret = CSSM_DecryptData(handle, &in, 1, &out, 1, &outlen, &rem);
-    if(cret) {
-	/* cssmErrorString(cret); */
-	fret = -1;
-    } else
-	fret = (int)out.Length;
-
-    if(handle)
-	CSSM_DeleteContext(handle);
-
-    return fret;
-}
-
-#else
 
 static int
 kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
-	    unsigned char *to, unsigned int *tlen, const RSA *rsa)
+            unsigned char *to, unsigned int *tlen, const RSA *rsa)
 {
     struct kc_rsa *kc = RSA_get_app_data(rk_UNCONST(rsa));
-    size_t sigLen = kc->keysize;
-    SecPadding padding;
-    OSStatus status;
+
+    SecKeyRef privKeyRef = kc->pkey;
+    SecKeyRef key;
+    CFTypeRef authContext = kc->authContext;
+    size_t klen = kc->keysize;
+    CFDataRef sig, in;
+    int fret = 0;
+    SecKeyAlgorithm stype;
 
     if (type == NID_md5) {
-	padding = kSecPaddingPKCS1MD5;
+        stype = kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5;
     } else if (type == NID_sha1) {
-	padding = kSecPaddingPKCS1SHA1;
+        stype = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1;
+    } else if (type == NID_sha256) {
+        stype = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256;
+    } else if (type == NID_sha384) {
+        stype = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384;
+    } else if (type == NID_sha512) {
+        stype = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512;
     } else
-	return -1;
+        return -1;
 
-    status =  SecKeyRawSign(kc->pkey, 
-			    padding,
-			    from,
-			    flen,
-			    to,
-			    &sigLen);
-    if (status)
-	return -2;
+    key = createKeyDuplicateWithAuthContext(privKeyRef, authContext);
 
-    *tlen = (unsigned int)sigLen;
+    in = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)from, flen);
+    sig = SecKeyCreateSignature(key, stype, in, NULL);
+    size_t slen = sig ? CFDataGetLength(sig) : 0;
 
-    return 1;
+    if (sig && slen <= klen) {
+        fret = 1;
+        *tlen = (unsigned int)slen;
+        memcpy(to, CFDataGetBytePtr(sig), slen);
+    } else {
+        fret = -1;
+    }
+
+    if (key) {
+        CFRelease(key);
+    }
+
+    if (in) {
+        CFRelease(in);
+    }
+
+    if (sig) {
+        CFRelease(sig);
+    }
+
+    return fret;
 }
-
 
 static int
 kc_rsa_private_encrypt(int flen,
-		       const unsigned char *from,
-		       unsigned char *to,
-		       RSA *rsa,
-		       int padding)
+                       const unsigned char *from,
+                       unsigned char *to,
+                       RSA *rsa,
+                       int padding)
 {
     struct kc_rsa *kc = RSA_get_app_data(rsa);
-    size_t sigLen = kc->keysize;
-    OSStatus status;
+
+    SecKeyRef privKeyRef = kc->pkey;
+    SecKeyRef key;
+    CFTypeRef authContext = kc->authContext;
+    size_t klen = kc->keysize;
+    CFDataRef sig, in;
+    int fret = 0;
 
     if (padding != RSA_PKCS1_PADDING)
-	return -1;
+        return -1;
 
-    status =  SecKeyRawSign(kc->pkey, 
-			    kSecPaddingPKCS1,
-			    from,
-			    flen,
-			    to,
-			    &sigLen);
-    if (status)
-	return -2;
+    key = createKeyDuplicateWithAuthContext(privKeyRef, authContext);
 
-    return (int)sigLen;
+    in = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)from, flen);
+    sig = SecKeyCreateSignature(key, kSecKeyAlgorithmRSASignatureRaw, in, NULL);
+    size_t slen = sig ? CFDataGetLength(sig) : 0;
+
+    if (sig && slen <= klen) {
+        fret = (int)slen;
+        memcpy(to, CFDataGetBytePtr(sig), slen);
+    } else {
+        fret = -1;
+    }
+
+    if (key) {
+        CFRelease(key);
+    }
+
+    if (in) {
+        CFRelease(in);
+    }
+
+    if (sig) {
+        CFRelease(sig);
+    }
+
+    return fret;
 }
 
 static int
 kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
-		       RSA * rsa, int padding)
+                       RSA * rsa, int padding)
 {
     struct kc_rsa *kc = RSA_get_app_data(rsa);
-    OSStatus status;
+
+    SecKeyRef privKeyRef = kc->pkey;
+    SecKeyRef key;
+    CFTypeRef authContext = kc->authContext;
+    size_t klen = kc->keysize;
+    CFDataRef out, in;
+    int fret = 0;
 
     if (padding != RSA_PKCS1_PADDING)
-	return -1;
+        return -1;
 
-    status =  SecKeyRawVerify(kc->pkey, 
-			      kSecPaddingPKCS1,
-			      from,
-			      flen,
-			      to,
-			      kc->keysize);
-    if (status)
-	return -2;
+    key = createKeyDuplicateWithAuthContext(privKeyRef, authContext);
 
-    return (int)kc->keysize;
+    in = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)from, flen);
+    out = SecKeyCreateDecryptedData(key, kSecKeyAlgorithmRSAEncryptionPKCS1, in, NULL);
+    size_t olen = out ? CFDataGetLength(out) : 0;
+
+    if (out && olen <= klen) {
+        fret = (int)olen;
+        memcpy(to, CFDataGetBytePtr(out), olen);
+    } else {
+        fret = -1;
+    }
+
+    if (key) {
+        CFRelease(key);
+    }
+
+    if (in) {
+        CFRelease(in);
+    }
+
+    if (out) {
+        CFRelease(out);
+    }
+
+    return fret;
 }
-
-#endif /* HAVE_CDSA */
 
 
 static int
@@ -372,6 +251,9 @@ kc_rsa_finish(RSA *rsa)
     struct kc_rsa *kc_rsa = RSA_get_app_data(rsa);
     if (kc_rsa) {
 	CFRelease(kc_rsa->pkey);
+	if (kc_rsa->authContext) {
+	    CFRelease(kc_rsa->authContext);
+	}
 	free(kc_rsa);
     }
     return 1;
@@ -396,7 +278,7 @@ static const RSA_METHOD kc_rsa_pkcs1_method = {
 
 
 static int
-set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey)
+set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey, void *authContext)
 {
     const SubjectPublicKeyInfo *spi;
     const Certificate *c;
@@ -417,6 +299,11 @@ set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey)
 
     CFRetain(pkey);
     kc->pkey = pkey;
+
+    if (authContext) {
+	CFRetain(authContext);
+	kc->authContext = authContext;
+    }
 
     rsa = RSA_new();
     if (rsa == NULL)
@@ -906,7 +793,7 @@ setPersistentRef(hx509_cert cert, SecCertificateRef itemRef)
 
 
 int
-hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert *cert)
+hx509_cert_init_SecFrameworkAuth(hx509_context context, void * identity, hx509_cert *cert, void *authContext)
 {
     CFTypeID typeid = CFGetTypeID(identity);
     SecCertificateRef seccert;
@@ -1003,7 +890,7 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
     }
 
     if (pkey) {
-	set_private_key(context, c, pkey);
+	set_private_key(context, c, pkey, authContext);
 	CFRelease(pkey);
     }
 
@@ -1015,4 +902,10 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
     *cert = c;
 
     return 0;
+}
+
+int
+hx509_cert_init_SecFramework(hx509_context context, void * identity, hx509_cert *cert)
+{
+    return hx509_cert_init_SecFrameworkAuth(context, identity, cert, NULL);
 }

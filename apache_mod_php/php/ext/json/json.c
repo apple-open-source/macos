@@ -589,7 +589,9 @@ static void json_encode_serializable_object(smart_str *buf, zval *val, int optio
 	ZVAL_STRING(&fname, "jsonSerialize", 0);
 
 	if (FAILURE == call_user_function_ex(EG(function_table), &val, &fname, &retval, 0, NULL, 1, NULL TSRMLS_CC) || !retval) {
-		zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Failed calling %s::jsonSerialize()", ce->name);
+		if (!EG(exception)) {
+			zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Failed calling %s::jsonSerialize()", ce->name);
+		}
 		smart_str_appendl(buf, "null", sizeof("null") - 1);
 		return;
     }
@@ -700,6 +702,12 @@ PHP_JSON_API void php_json_decode_ex(zval *return_value, char *str, int str_len,
 
 	if (depth <= 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Depth must be greater than zero");
+		efree(utf16);
+		RETURN_NULL();
+	}
+
+	if (depth > INT_MAX) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Depth must be lower than %d", INT_MAX);
 		efree(utf16);
 		RETURN_NULL();
 	}

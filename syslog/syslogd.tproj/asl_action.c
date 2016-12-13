@@ -2458,3 +2458,21 @@ asl_action_file_checkpoint(const char *module, const char *path)
 
 	return 0;
 }
+
+void
+asl_action_out_module_query(asl_msg_t *q, asl_msg_t *m, bool all)
+{
+	dispatch_sync(asl_action_queue, ^{
+		asl_out_module_t *om;
+		const char *val;
+		for (om = global.asl_out_module; om != NULL; om = om->next)
+		{
+			if (all || (0 == asl_msg_lookup(q, om->name, NULL, NULL)))
+			{
+				val = om->flags & MODULE_FLAG_ENABLED ? "enabled" : "disabled";
+				if (om->name == NULL) asl_msg_set_key_val(m, "asl.conf", val);
+				else asl_msg_set_key_val(m, om->name, val);
+			}
+		}
+	});
+}

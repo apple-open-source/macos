@@ -1,4 +1,4 @@
-The 'curl' subdirectory is based on curl 7.43.0
+The 'curl' subdirectory is based on curl 7.51.0
 
 == Updating ==
 
@@ -18,7 +18,7 @@ Might be able to process the Makefile.inc files into Xcode file lists at some po
 
 Make sure all man pages and headers are being installed.
 
-Update xcscripts/install_libtest.sh (see comment at top)
+Update xcscripts/install_libtest.sh (see comment at top) -- NOTE: This hasn't been updated in quite some time, see radar:17812072
 
 == Configuration ==
 
@@ -32,3 +32,4 @@ Changes to include/curl/curlbuild.h post-configure:
 Changes to lib/curl_config.h post-configure:
   (1) Add #ifdef __LP64__ for SIZEOF_LONG, SIZEOF_SIZE_T, SIZEOF_TIME_T, SIZEOF_VOIDP
   (2) #undef HAVE_GSSAPI, OS - conditionally defined in common.xcconfig
+  (3) #undef CURL_CA_BUNDLE - not available everywhere, and we currently use SecureTransport

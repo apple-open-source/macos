@@ -1040,7 +1040,7 @@ PHPAPI PHP_FUNCTION(fgets)
 		}
 	}
 
-	ZVAL_STRINGL(return_value, buf, line_len, 0);
+	RETVAL_STRINGL_CHECK(buf, line_len, 0);
 	/* resize buffer if it's much larger than the result.
 	 * Only needed if the user requested a buffer size. */
 	if (argc > 1 && Z_STRLEN_P(return_value) < len / 2) {
@@ -1124,7 +1124,7 @@ PHPAPI PHP_FUNCTION(fgetss)
 
 	retval_len = php_strip_tags(retval, actual_len, &stream->fgetss_state, allowed_tags, allowed_tags_len);
 
-	RETURN_STRINGL(retval, retval_len, 0);
+	RETVAL_STRINGL_CHECK(retval, retval_len, 0);
 }
 /* }}} */
 
@@ -1509,6 +1509,11 @@ PHP_NAMED_FUNCTION(php_if_ftruncate)
 	php_stream *stream;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl", &fp, &size) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	if (size < 0) {
+		/* php_error_docref(NULL TSRMLS_CC, E_WARNING, "Negative size is not supported"); */
 		RETURN_FALSE;
 	}
 
@@ -2296,6 +2301,10 @@ PHPAPI void php_fgetcsv(php_stream *stream, char delimiter, char enclosure, char
 
 		/* 3. Now pass our field back to php */
 		*comp_end = '\0';
+		if (UNEXPECTED((comp_end - temp) > INT_MAX)) {
+			zend_error_noreturn(E_WARNING, "String overflow, max size is %d", INT_MAX);
+			break;
+		}
 		add_next_index_stringl(return_value, temp, comp_end - temp, 1);
 	} while (inc_len > 0);
 

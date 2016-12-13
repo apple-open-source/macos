@@ -287,6 +287,8 @@ bool tls_handshake_kem_is_allowed(tls_handshake_config_t config, KeyExchangeMeth
         case tls_handshake_config_TLSv1_fallback:
         case tls_handshake_config_TLSv1_RC4_fallback:
         case tls_handshake_config_legacy:
+        case tls_handshake_config_3DES_fallback:
+        case tls_handshake_config_TLSv1_3DES_fallback:
             return (kem==SSL_RSA || kem == SSL_ECDHE_ECDSA || kem == SSL_ECDHE_RSA);
         case tls_handshake_config_anonymous:
             return (kem==SSL_ECDH_anon || kem == SSL_DH_anon);
@@ -343,10 +345,12 @@ bool tls_handshake_sym_is_allowed(tls_handshake_config_t config, SSL_CipherAlgor
         case tls_handshake_config_ATSv1:
         case tls_handshake_config_ATSv1_noPFS:
         case tls_handshake_config_anonymous:
+        case tls_handshake_config_standard:
             return (sym>=SSL_CipherAlgorithmAES_128_CBC);
         case tls_handshake_config_default:
-        case tls_handshake_config_standard:
         case tls_handshake_config_TLSv1_fallback:
+        case tls_handshake_config_3DES_fallback:
+        case tls_handshake_config_TLSv1_3DES_fallback:
             return (sym>=SSL_CipherAlgorithm3DES_CBC);
         case tls_handshake_config_legacy:
         case tls_handshake_config_RC4_fallback:
@@ -411,6 +415,8 @@ bool tls_handshake_mac_is_allowed(tls_handshake_config_t config, HMAC_Algs mac)
         case tls_handshake_config_standard:
         case tls_handshake_config_TLSv1_fallback:
         case tls_handshake_config_legacy_DHE:
+        case tls_handshake_config_3DES_fallback:
+        case tls_handshake_config_TLSv1_3DES_fallback:
             return (mac>=HA_MD5);
     }
 

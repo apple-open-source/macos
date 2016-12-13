@@ -190,6 +190,7 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 			break;
 		default:
 			/* not reached */
+            badFormat = true;
 			break;
 	}
 	

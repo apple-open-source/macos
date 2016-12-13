@@ -983,7 +983,7 @@ void IOFWIsochChannel::threadFunc( void * arg )
 	// clean up thread info
 	//
 	
-	IOFree( threadInfo, sizeof(threadInfo) );
+	IOFree( threadInfo, sizeof(ChannelThreadInfo) );
     channel->release();		// retain occurred in handleBusReset
 }
 

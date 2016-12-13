@@ -43,6 +43,8 @@ const OSSymbol * gIODisplayValueKey;
 const OSSymbol * gIODisplayMinValueKey;
 const OSSymbol * gIODisplayMaxValueKey;
 
+const OSSymbol * gIODisplayBrightnessProbeKey;
+const OSSymbol * gIODisplayLinearBrightnessProbeKey;
 const OSSymbol * gIODisplayContrastKey;
 const OSSymbol * gIODisplayBrightnessKey;
 const OSSymbol * gIODisplayLinearBrightnessKey;
@@ -245,6 +247,10 @@ void IODisplay::initialize( void )
 											kIODisplayControllerIDKey);
 	gIODisplayCapabilityStringKey = OSSymbol::withCStringNoCopy(
 											kIODisplayCapabilityStringKey);
+    gIODisplayBrightnessProbeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayBrightnessProbeKey);
+    gIODisplayLinearBrightnessProbeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayLinearBrightnessProbeKey);
 
 	gIODisplayFadeTime1Key = OSSymbol::withCStringNoCopy("fade-time1");
 	gIODisplayFadeTime2Key = OSSymbol::withCStringNoCopy("fade-time2");

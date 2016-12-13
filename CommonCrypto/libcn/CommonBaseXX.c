@@ -289,12 +289,18 @@ CNStatus CNEncoderCreate(CNEncodings encoding,
     if(direction != kCNEncode && direction != kCNDecode) return kCNParamError;
     if(!encoderRef) return kCNParamError;
     *encoderRef = NULL;
-    CoderFrame codeFrame = getCodeFrame (encoding);
-    if(!codeFrame) return kCNParamError;
-    
+    CoderFrame codeFrameOrigin = getCodeFrame (encoding);
+    if(!codeFrameOrigin) return kCNParamError;
     CNEncoder *coderRef = CC_XMALLOC(sizeof(CNEncoder));
     if(!coderRef) return kCNMemoryFailure;
-    
+
+    CoderFrame codeFrame = CC_XMALLOC(sizeof(BaseEncoderFrame));
+    if(!codeFrame) {
+        CC_XFREE(coderRef, sizeof(CNEncoder));
+        return kCNMemoryFailure;
+    }
+    CC_XMEMCPY(codeFrame, codeFrameOrigin,sizeof(BaseEncoderFrame));
+
     coderRef->direction = direction;
     coderRef->coderFrame = codeFrame;
     coderRef->base256buffer = NULL;
@@ -389,6 +395,7 @@ CNStatus CNEncoderRelease(CNEncoderRef *encoderRef)
         }
         if(coderRef->base256buffer) CNBufferRelease(&coderRef->base256buffer);
         if(coderRef->baseXXbuffer) CNBufferRelease(&coderRef->baseXXbuffer);
+        CC_XFREE(codeFrame, sizeof(BaseEncoderFrame));
         CC_XFREE(coderRef, sizeof(CNEncoder));
     }
     return kCNSuccess;

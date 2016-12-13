@@ -41,6 +41,7 @@ StringCaseTest::runIndexedTest(int32_t index, UBool exec, const char *&name, cha
     TESTCASE_AUTO(TestCasing);
 #endif
     TESTCASE_AUTO(TestFullCaseFoldingIterator);
+    TESTCASE_AUTO(TestLongUpper);
     TESTCASE_AUTO_END;
 }
 
@@ -569,5 +570,32 @@ StringCaseTest::TestFullCaseFoldingIterator() {
     }
     if(count<70) {
         errln("error: FullCaseFoldingIterator yielded only %d (cp, full) pairs", (int)count);
+    }
+}
+
+void
+StringCaseTest::TestLongUpper() {
+    if (quick) {
+        logln("not exhaustive mode: skipping this test");
+        return;
+    }
+    // Ticket #12663, crash with an extremely long string where
+    // U+0390 maps to 0399 0308 0301 so that the result is three times as long
+    // and overflows an int32_t.
+    int32_t length = 0x40000004;  // more than 1G UChars
+    UnicodeString s(length, (UChar32)0x390, length);
+    UnicodeString result;
+    UChar *dest = result.getBuffer(length + 1);
+    if (s.isBogus() || dest == NULL) {
+        logln("Out of memory, unable to run this test on this machine.");
+        return;
+    }
+    IcuTestErrorCode errorCode(*this, "TestLongUpper");
+    int32_t destLength = u_strToUpper(dest, result.getCapacity(),
+                                      s.getBuffer(), s.length(), "", errorCode);
+    result.releaseBuffer(destLength);
+    if (errorCode.reset() != U_INDEX_OUTOFBOUNDS_ERROR) {
+        errln("expected U_INDEX_OUTOFBOUNDS_ERROR, got %s (destLength is undefined, got %ld)",
+              errorCode.errorName(), (long)destLength);
     }
 }

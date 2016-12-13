@@ -40,6 +40,7 @@ hx509_cert_get_serialnumber
 hx509_cert_get_subject
 hx509_cert_init
 hx509_cert_init_SecFramework
+hx509_cert_init_SecFrameworkAuth
 hx509_cert_init_data
 hx509_cert_keyusage_print
 hx509_cert_ref

@@ -318,16 +318,28 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
 
     // First, find the largest different calendar field.
     UCalendarDateFields field = UCAL_FIELD_COUNT;
+    UChar patternDay  = 0x0064; // d
+    UChar patternYear = 0x0079; // y
 
     if ( fromCalendar.get(UCAL_ERA,status) != toCalendar.get(UCAL_ERA,status)) {
         field = UCAL_ERA;
     } else if ( fromCalendar.get(UCAL_YEAR, status) != 
                 toCalendar.get(UCAL_YEAR, status) ) {
         field = UCAL_YEAR;
+        if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_MONTHS && fSkeleton.indexOf(patternDay) >= 0 && fSkeleton.indexOf(patternYear) < 0) {
+            UDate fromDate = fromCalendar.getTime(status);
+            UDate toDate = toCalendar.getTime(status);
+            int32_t fromDay = fromCalendar.get(UCAL_DATE, status);
+            int32_t toDay = toCalendar.get(UCAL_DATE, status);
+            fromCalendar.add(UCAL_MONTH, 1, status);
+            if ( fromDate < toDate && fromCalendar.getTime(status) > toDate && fromDay > toDay ) {
+                field = UCAL_DATE;
+            }
+            fromCalendar.setTime(fromDate, status);
+        }
     } else if ( fromCalendar.get(UCAL_MONTH, status) !=
                 toCalendar.get(UCAL_MONTH, status) ) {
         field = UCAL_MONTH;
-        UChar patternDay = 0x0064; // d
         if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_MONTHS && fSkeleton.indexOf(patternDay) >= 0) {
             UDate fromDate = fromCalendar.getTime(status);
             UDate toDate = toCalendar.getTime(status);

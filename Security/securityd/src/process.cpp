@@ -64,7 +64,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
         || ServerChild::find<ServerChild>(this->pid()))   // securityd's child; do not mark this txn dirty
 		VProc::Transaction::deactivate();
 
-    secnotice("SS", "%p client new: pid:%d session:%d %s taskPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
+    secinfo("SS", "%p client new: pid:%d session:%d %s taskPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
              (char *)codePath(this->processCode()).c_str(), taskPort.port(), mUid, mGid);
 }
 
@@ -124,7 +124,7 @@ void Process::setup(const ClientSetupInfo *info)
 //
 Process::~Process()
 {
-    secnotice("SS", "%p client release: %d", this, this->pid());
+    secinfo("SS", "%p client release: %d", this, this->pid());
 
     // release our name for the process's task port
 	if (mTaskPort)

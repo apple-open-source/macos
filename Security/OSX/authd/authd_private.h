@@ -59,6 +59,7 @@ extern "C" {
 #define AUTH_XPC_ITEM_FLAGS "_item_flags"
 #define AUTH_XPC_ITEM_VALUE "_item_value"
 #define AUTH_XPC_ITEM_TYPE  "_item_type"
+#define AUTH_XPC_ITEM_SENSITIVE_VALUE_LENGTH "_item_sensitive_value_length"
 
 #define AUTH_XPC_REQUEST_METHOD_KEY "_agent_request_key"
 #define AUTH_XPC_REQUEST_METHOD_CREATE "_agent_request_create"

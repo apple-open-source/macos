@@ -25,6 +25,8 @@
 
 typedef uint64_t malloc_stack_id;
 
+uint64_t max_lite_mallocs = 0;
+
 static malloc_stack_id
 get_stack_id_from_ptr(void *ptr, size_t ptr_size)
 {
@@ -93,6 +95,7 @@ stack_logging_lite_malloc(malloc_zone_t *zone, size_t size)
 {
 	szone_t *szone = (szone_t *) zone;
 	void* p = NULL;
+	static uint64_t num_mallocs = 0;
 	
 	if (stack_logging_lite_enabled) {
 		__prepare_to_log_stacks(true);	// do this again in case stack logging was postponed
@@ -101,6 +104,14 @@ stack_logging_lite_malloc(malloc_zone_t *zone, size_t size)
 		
 		if (p) {
 			add_stack_to_ptr(szone, size, p);
+		}
+		
+		// this value doesn't need to be exact, so no need for atomic operations
+		num_mallocs++;
+		
+		if (max_lite_mallocs > 0 && num_mallocs > max_lite_mallocs) {
+			malloc_printf("lite allocations exceeded limit. disabling lite mode\n");
+			disable_stack_logging_lite();
 		}
 	} else {
 		p = szone->helper_zone->basic_zone.malloc((malloc_zone_t *) szone->helper_zone, size);
@@ -194,6 +205,11 @@ stack_logging_lite_free_definite_size(malloc_zone_t *zone, void *ptr, size_t siz
 	stack_logging_lite_free(zone, ptr);
 }
 
+// Three paths:
+// 1. do a szone_realloc with padding and add stack id
+// 2. do a szone_realloc on the helper zone
+// 3. do a manual free / malloc
+
 static void *
 stack_logging_lite_realloc(malloc_zone_t *zone, void *ptr, size_t new_size)
 {
@@ -212,6 +228,9 @@ stack_logging_lite_realloc(malloc_zone_t *zone, void *ptr, size_t new_size)
 			__decrement_table_slot_refcount(stack_id, old_size);
 			add_stack_to_ptr(szone, new_size, new_ptr);
 		}
+	} else if (!old_size && !stack_logging_lite_enabled) {
+		// we don't own the pointer and lite mode is disabled, so just pass the realloc on to the helper zone
+		return szone->helper_zone->basic_zone.realloc((malloc_zone_t *) szone->helper_zone, ptr, new_size);
 	} else {
 		// otherwise perform the realloc by hand:
 		// 1. malloc new ptr

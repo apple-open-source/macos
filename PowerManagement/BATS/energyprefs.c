@@ -18,6 +18,7 @@ static void testCopy(void);
 static void testRevert(void);
 static void testSet(void);
 static void testSystemPowerSettings(void);
+static void test_UsingDefaultPrefs(void);
 
 int gPassCnt = 0, gFailCnt = 0;
 
@@ -30,6 +31,7 @@ int main(int argc, const char * argv[]) {
     testRevert();
     testSet();
     testSystemPowerSettings();
+    test_UsingDefaultPrefs();
     
     // Restore preferences
     if (savedPrefs) {
@@ -55,6 +57,7 @@ static void testRegister(void)
 {
     IOPMNotificationHandle prefsHandle = 0;
     
+    START_TEST_CASE("Test IOPMRegisterPrefsChangeNotification\n");
     prefsHandle = IOPMRegisterPrefsChangeNotification(
                                 dispatch_get_main_queue(),
                                 ^(void) {
@@ -76,6 +79,7 @@ static void testCopy(void)
     CFNumberRef             numRef   = NULL;
     bool                    result   = false;
     
+    START_TEST_CASE("Test Copy/Set Preferences\n");
     mDict = IOPMCopyPMPreferences();
     if (!mDict) {
         FAIL("IOPMCopyPMPreferences failed\n");
@@ -128,6 +132,59 @@ static void testCopy(void)
     
     PASS("testCopy\n");
 }
+
+static void test_UsingDefaultPrefs()
+{
+    IOReturn rc;
+    bool ret;
+    CFNumberRef numRef;
+
+    START_TEST_CASE("Test Revert Preferences and Check for Defaults\n");
+    // Set null prefs
+    rc = IOPMRevertPMPreferences(NULL);
+    if (rc != kIOReturnSuccess) {
+        FAIL("IOPMSetPMPreferences returned 0x%x\n", rc) ;
+        goto exit;
+    }
+
+    ret = IOPMUsingDefaultPreferences(NULL);
+    if (ret != true) {
+        FAIL("IOPMUsingDefaultPreferences returned false, when true is expected\n");
+        goto exit;
+    }
+    ret = IOPMUsingDefaultPreferences(CFSTR(kIOPMACPowerKey));
+    if (ret != true) {
+        FAIL("IOPMUsingDefaultPreferences returned false for AC Power source, when true is expected\n");
+        goto exit;
+    }
+
+    INT_TO_CFNUMBER(numRef, 0);
+    IOPMSetPMPreference(CFSTR(kIOPMDisplaySleepKey), numRef, CFSTR(kIOPMBatteryPowerKey));
+    CFRelease(numRef);
+
+    ret = IOPMUsingDefaultPreferences(CFSTR(kIOPMACPowerKey));
+    if (ret != true) {
+        FAIL("IOPMUsingDefaultPreferences returned false for AC Power source, when true is expected\n");
+        goto exit;
+    }
+
+    ret = IOPMUsingDefaultPreferences(CFSTR(kIOPMBatteryPowerKey));
+    if (ret == true) {
+        FAIL("IOPMUsingDefaultPreferences returned true for Batt Power source, when false is expected\n");
+        goto exit;
+    }
+    ret = IOPMUsingDefaultPreferences(NULL);
+    if (ret == true) {
+        FAIL("IOPMUsingDefaultPreferences returned true, when false is expected\n");
+        goto exit;
+    }
+
+    PASS("Test Revert Preferences and Check for Defaults\n");
+
+exit:
+    return;
+}
+
 
 static void testRevert(void)
 {
@@ -220,6 +277,9 @@ static void testSet(void)
         FAIL("IOPMSetPMPreferences(NULL) failed (ret = 0x%x)\n", ret);
     }
     
+    if (dict) {
+        CFRelease(dict);
+    }
     PASS("testSet\n");
 }
 

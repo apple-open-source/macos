@@ -23,11 +23,11 @@
 #include "curl_setup.h"
 
 #if defined(USE_GSKIT) || defined(USE_NSS) || defined(USE_GNUTLS) || \
-    defined(USE_CYASSL)
+    defined(USE_CYASSL) || defined(USE_SCHANNEL)
 
 #include <curl/curl.h>
 #include "urldata.h"
-#include "strequal.h"
+#include "strcase.h"
 #include "hostcheck.h"
 #include "vtls/vtls.h"
 #include "sendf.h"
@@ -178,7 +178,7 @@ static const curl_OID * searchOID(const char * oid)
      Return the table entry pointer or NULL if not found. */
 
   for(op = OIDtable; op->numoid; op++)
-    if(!strcmp(op->numoid, oid) || curl_strequal(op->textoid, oid))
+    if(!strcmp(op->numoid, oid) || strcasecompare(op->textoid, oid))
       return op;
 
   return (const curl_OID *) NULL;
@@ -784,7 +784,7 @@ static const char * dumpAlgo(curl_asn1Element * param,
   return OID2str(oid.beg, oid.end, TRUE);
 }
 
-static void do_pubkey_field(struct SessionHandle * data, int certnum,
+static void do_pubkey_field(struct Curl_easy * data, int certnum,
                             const char * label, curl_asn1Element * elem)
 {
   const char * output;
@@ -801,7 +801,7 @@ static void do_pubkey_field(struct SessionHandle * data, int certnum,
   }
 }
 
-static void do_pubkey(struct SessionHandle * data, int certnum,
+static void do_pubkey(struct Curl_easy * data, int certnum,
                       const char * algo, curl_asn1Element * param,
                       curl_asn1Element * pubkey)
 {
@@ -817,7 +817,7 @@ static void do_pubkey(struct SessionHandle * data, int certnum,
   /* Get the public key (single element). */
   Curl_getASN1Element(&pk, pubkey->beg + 1, pubkey->end);
 
-  if(curl_strequal(algo, "rsaEncryption")) {
+  if(strcasecompare(algo, "rsaEncryption")) {
     p = Curl_getASN1Element(&elem, pk.beg, pk.end);
     /* Compute key length. */
     for(q = elem.beg; !*q && q < elem.end; q++)
@@ -842,7 +842,7 @@ static void do_pubkey(struct SessionHandle * data, int certnum,
     Curl_getASN1Element(&elem, p, pk.end);
     do_pubkey_field(data, certnum, "rsa(e)", &elem);
   }
-  else if(curl_strequal(algo, "dsa")) {
+  else if(strcasecompare(algo, "dsa")) {
     p = Curl_getASN1Element(&elem, param->beg, param->end);
     do_pubkey_field(data, certnum, "dsa(p)", &elem);
     p = Curl_getASN1Element(&elem, p, param->end);
@@ -851,7 +851,7 @@ static void do_pubkey(struct SessionHandle * data, int certnum,
     do_pubkey_field(data, certnum, "dsa(g)", &elem);
     do_pubkey_field(data, certnum, "dsa(pub_key)", &pk);
   }
-  else if(curl_strequal(algo, "dhpublicnumber")) {
+  else if(strcasecompare(algo, "dhpublicnumber")) {
     p = Curl_getASN1Element(&elem, param->beg, param->end);
     do_pubkey_field(data, certnum, "dh(p)", &elem);
     Curl_getASN1Element(&elem, param->beg, param->end);
@@ -859,7 +859,7 @@ static void do_pubkey(struct SessionHandle * data, int certnum,
     do_pubkey_field(data, certnum, "dh(pub_key)", &pk);
   }
 #if 0 /* Patent-encumbered. */
-  else if(curl_strequal(algo, "ecPublicKey")) {
+  else if(strcasecompare(algo, "ecPublicKey")) {
     /* Left TODO. */
   }
 #endif
@@ -871,7 +871,7 @@ CURLcode Curl_extract_certinfo(struct connectdata * conn,
                                const char * end)
 {
   curl_X509certificate cert;
-  struct SessionHandle * data = conn->data;
+  struct Curl_easy * data = conn->data;
   curl_asn1Element param;
   const char * ccp;
   char * cp1;
@@ -1025,7 +1025,7 @@ CURLcode Curl_extract_certinfo(struct connectdata * conn,
   return CURLE_OK;
 }
 
-#endif /* USE_GSKIT or USE_NSS or USE_GNUTLS or USE_CYASSL */
+#endif /* USE_GSKIT or USE_NSS or USE_GNUTLS or USE_CYASSL or USE_SCHANNEL */
 
 #if defined(USE_GSKIT)
 
@@ -1056,7 +1056,7 @@ static const char * checkOID(const char * beg, const char * end,
 CURLcode Curl_verifyhost(struct connectdata * conn,
                          const char * beg, const char * end)
 {
-  struct SessionHandle * data = conn->data;
+  struct Curl_easy * data = conn->data;
   curl_X509certificate cert;
   curl_asn1Element dn;
   curl_asn1Element elem;

@@ -147,6 +147,27 @@ const SSLCipherSuite standard_ciphersuites[] = {
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+};
+
+const SSLCipherSuite default_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
     TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
     TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -393,7 +414,7 @@ test_default(SSLProtocolSide side)
 
     /* The order of this tests does matter, be careful when adding tests */
     ok(!test_GetSupportedCiphers(ssl, server), "test_default: GetSupportedCiphers test failed (%s)", server?"server":"client");
-    ok(!test_GetEnabledCiphers(ssl, sizeof(standard_ciphersuites)/sizeof(SSLCipherSuite), standard_ciphersuites), "test_default: GetEnabledCiphers test failed (%s)", server?"server":"client");
+    ok(!test_GetEnabledCiphers(ssl, sizeof(default_ciphersuites)/sizeof(SSLCipherSuite), default_ciphersuites), "test_default: GetEnabledCiphers test failed (%s)", server?"server":"client");
 
     CFRelease(ssl); ssl=NULL;
 
@@ -412,7 +433,7 @@ out:
 
 int ssl_46_SSLGetSupportedCiphers(int argc, char *const *argv)
 {
-    plan_tests(154);
+    plan_tests(178);
 
     test_dhe(kSSLClientSide, true);
     test_dhe(kSSLServerSide, true);
@@ -433,10 +454,12 @@ int ssl_46_SSLGetSupportedCiphers(int argc, char *const *argv)
     TEST_CONFIG(kSSLSessionConfig_legacy_DHE, legacy_DHE_ciphersuites);
     TEST_CONFIG(kSSLSessionConfig_standard, standard_ciphersuites);
     TEST_CONFIG(kSSLSessionConfig_RC4_fallback, legacy_ciphersuites);
-    TEST_CONFIG(kSSLSessionConfig_TLSv1_fallback, standard_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_TLSv1_fallback, default_ciphersuites);
     TEST_CONFIG(kSSLSessionConfig_TLSv1_RC4_fallback, legacy_ciphersuites);
-    TEST_CONFIG(kSSLSessionConfig_default, standard_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_default, default_ciphersuites);
     TEST_CONFIG(kSSLSessionConfig_anonymous, anonymous_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_3DES_fallback, default_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_TLSv1_3DES_fallback, default_ciphersuites);
 
     return 0;
 }

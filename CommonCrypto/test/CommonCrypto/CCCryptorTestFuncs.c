@@ -647,6 +647,8 @@ errOut:
     free(ct);
     free(key);
     free(iv);
+    free(adata);
+    free(tag);
     // diag("Pass One-Shot GCM Test\n");
 	return rc;
 }
@@ -711,11 +713,13 @@ GCMDiscreetTestCase(CCOperation op, char *keyStr, char *ivStr, char *aDataStr, c
         }
     }
     free(tg);
+    free(tag);
     free(bb);
     free(pt);
     free(ct);
     free(key);
     free(iv);
+    free(adata);
     // diag("Pass Discreet GCM Test\n");
     
     return 0;

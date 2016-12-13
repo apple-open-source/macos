@@ -112,7 +112,7 @@ int CommonEC(int __unused argc, char *const * __unused argv) {
     CCECCryptorRelease(publicKey);
     CCECCryptorRelease(publicKey2);
     CCECCryptorRelease(privateKey);
-
+    free(hash);
     return accum;
 }
 #endif /* CCEC */

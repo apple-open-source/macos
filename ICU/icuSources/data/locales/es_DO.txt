@@ -127,10 +127,16 @@ es_DO{
     }
     listPattern{
         unit-narrow{
+            2{"{0} {1}"}
             end{"{0} y {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-short{
+            2{"{0} y {1}"}
             end{"{0} y {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
         }
     }
 }

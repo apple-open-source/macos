@@ -54,6 +54,7 @@
 #import "WKTextInputWindowController.h"
 #import "WKViewLayoutStrategy.h"
 #import "WKWebView.h"
+#import "WebBackForwardList.h"
 #import "WebEditCommandProxy.h"
 #import "WebEventFactory.h"
 #import "WebInspectorProxy.h"
@@ -3031,7 +3032,7 @@ void WebViewImpl::provideDataForPasteboard(NSPasteboard *pasteboard, NSString *t
     // FIXME: need to support NSRTFDPboardType
 
     if ([type isEqual:NSTIFFPboardType] && m_promisedImage) {
-        [pasteboard setData:(NSData *)m_promisedImage->getTIFFRepresentation() forType:NSTIFFPboardType];
+        [pasteboard setData:(NSData *)m_promisedImage->tiffRepresentation() forType:NSTIFFPboardType];
         m_promisedImage = nullptr;
     }
 }
@@ -3168,14 +3169,17 @@ RefPtr<ViewSnapshot> WebViewImpl::takeViewSnapshot()
     auto surface = WebCore::IOSurface::createFromImage(croppedSnapshotImage.get());
     if (!surface)
         return nullptr;
-    surface->setIsVolatile(true);
 
-    return ViewSnapshot::create(WTFMove(surface));
+    RefPtr<ViewSnapshot> snapshot = ViewSnapshot::create(WTFMove(surface));
+    snapshot->setVolatile(true);
+
+    return snapshot;
 }
 
 void WebViewImpl::saveBackForwardSnapshotForCurrentItem()
 {
-    m_page->recordNavigationSnapshot();
+    if (WebBackForwardListItem* item = m_page->backForwardList().currentItem())
+        m_page->recordNavigationSnapshot(*item);
 }
 
 void WebViewImpl::saveBackForwardSnapshotForItem(WebBackForwardListItem& item)

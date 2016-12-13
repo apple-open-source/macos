@@ -1180,11 +1180,19 @@ SecKeyRef SecKeyCreateDuplicate(SecKeyRef key) {
     }
 }
 
+Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
+    if (key->key_class->version >= 4 && key->key_class->setParameter) {
+        return key->key_class->setParameter(key, name, value, error);
+    } else {
+        return SecError(errSecUnimplemented, error, CFSTR("setParameter not implemented for %@"), key);
+    }
+}
+
 #pragma mark Generic algorithm adaptor lookup and invocation
 
 static CFTypeRef SecKeyCopyBackendOperationResult(SecKeyOperationContext *context, SecKeyAlgorithm algorithm,
                                                   CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
-    CFTypeRef result = NULL;
+    CFTypeRef result = kCFNull;
     assert(CFArrayGetCount(context->algorithm) > 0);
     if (context->key->key_class->version >= 4 && context->key->key_class->copyOperationResult != NULL) {
         return context->key->key_class->copyOperationResult(context->key, context->operation, algorithm,

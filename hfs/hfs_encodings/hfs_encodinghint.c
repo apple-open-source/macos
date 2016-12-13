@@ -741,7 +741,7 @@ static u_int8_t cjk_bitmap[] = {
 /*
  * Pick a suitable Mac encoding value for a Unicode string.
  *
- * This routine is only used during file creation and renaming.
+ * This routine is only used during file renaming.
  */
 u_int32_t
 hfs_pickencoding(const u_int16_t *src, int len)

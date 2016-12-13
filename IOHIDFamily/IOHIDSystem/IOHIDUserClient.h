@@ -130,6 +130,7 @@ public:
 
     virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
     virtual IOReturn clientMemoryForType( UInt32 type, UInt32 * flags, IOMemoryDescriptor ** memory );
+    IOReturn clientMemoryForTypeGated( UInt32 type, UInt32 * flags, IOMemoryDescriptor ** memory );
 
     virtual IOService * getService( void );
 

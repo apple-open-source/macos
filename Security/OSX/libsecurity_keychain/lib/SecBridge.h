@@ -149,7 +149,11 @@ extern "C" bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format,
 
 #define END_SECKEYAPI }\
 catch (const MacOSError &err) { SecError(err.osStatus(), error, CFSTR("%s"), err.what()); result = NULL; } \
-catch (const CommonError &err) { SecError(SecKeychainErrFromOSStatus(err.osStatus()), error, CFSTR("%s"), err.what()); result = NULL; } \
+catch (const CommonError &err) { \
+	if (err.osStatus() != CSSMERR_CSP_INVALID_DIGEST_ALGORITHM) { \
+    	OSStatus status = SecKeychainErrFromOSStatus(err.osStatus()); if (status == errSecInputLengthError) status = errSecParam; \
+    	SecError(status, error, CFSTR("%s"), err.what()); result = NULL; } \
+	} \
 catch (const std::bad_alloc &) { SecError(errSecAllocate, error, CFSTR("allocation failed")); result = NULL; } \
 catch (...) { SecError(errSecInternalComponent, error, CFSTR("internal error")); result = NULL; } \
 return result;

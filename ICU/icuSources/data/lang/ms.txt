@@ -418,7 +418,7 @@ ms{
         ybb{"Yemba"}
         yi{"Yiddish"}
         yo{"Yoruba"}
-        yue{"Cantonese"}
+        yue{"Kantonis"}
         zgh{"Tamazight Maghribi Standard"}
         zh{"Cina"}
         zh_Hans{"Cina Ringkas"}

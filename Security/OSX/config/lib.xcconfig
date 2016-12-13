@@ -7,6 +7,8 @@ CODE_SIGN_IDENTITY =
 
 HEADER_SEARCH_PATHS = $(PROJECT_DIR)/../regressions $(PROJECT_DIR)/../include $(BUILT_PRODUCTS_DIR)/derived_src $(BUILT_PRODUCTS_DIR) $(PROJECT_DIR)/lib $(PROJECT_DIR)/../utilities $(inherited)
 
+FRAMEWORK_SEARCH_PATHS = $(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
+
 SKIP_INSTALL = YES
 
 ALWAYS_SEARCH_USER_PATHS = YES

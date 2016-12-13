@@ -291,6 +291,10 @@ public:
   void Remove (CFTypeRef key) {
     CFDictionaryRemoveValue(Reference(), key);
   }
+
+  void RemoveAll () {
+    CFDictionaryRemoveAllValues(Reference());
+  }
   
   typedef std::function<void (const void *key, const void *value)> DictionaryApplier;
 

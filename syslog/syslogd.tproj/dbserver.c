@@ -821,7 +821,6 @@ syslogd_state_query(asl_msg_t *q, asl_msg_list_t **res, uid_t uid)
 	asl_msg_t *m;
 	char val[256];
 	const char *mval;
-	asl_out_module_t *om;
 
 	if (res == NULL) return ASL_STATUS_INVALID_ARG;
 	*res = NULL;
@@ -1001,15 +1000,8 @@ syslogd_state_query(asl_msg_t *q, asl_msg_list_t **res, uid_t uid)
 		}
 	}
 
-	for (om = global.asl_out_module; om != NULL; om = om->next)
-	{
-		if (all || (0 == asl_msg_lookup(q, om->name, NULL, NULL)))
-		{
-			snprintf(val, sizeof(val), "%s", om->flags & MODULE_FLAG_ENABLED ? "enabled" : "disabled");
-			if (om->name == NULL) asl_msg_set_key_val(m, "asl.conf", val);
-			else asl_msg_set_key_val(m, om->name, val);
-		}
-	}
+	/* output module query must be on the asl_action_queue */
+	asl_action_out_module_query(q, m, all);
 
 	/* synchronous actions use queries, since messages are simpleroutines */
 	if (0 == asl_msg_lookup(q, "action", &mval, NULL))
@@ -1183,7 +1175,8 @@ database_server()
 			abort();
 		}
 
-		if (request->head.msgh_id == MACH_NOTIFY_DEAD_NAME)
+		if (request->head.msgh_local_port == global.dead_session_port &&
+			request->head.msgh_id == MACH_NOTIFY_DEAD_NAME)
 		{
 			deadname = (mach_dead_name_notification_t *)request;
 			dispatch_async(asl_server_queue, ^{

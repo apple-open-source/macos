@@ -468,6 +468,9 @@
 		7A21DAE619B7F27C0007D37F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18270EFD14CF429600B05E7F /* IOKit.framework */; };
 		8E64DB4A1C17C26F0076C9DF /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1831329A14EB2C6D00F0BCAC /* libDER.a */; };
 		8E64DB4B1C17C2830076C9DF /* libASN1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1831329914EB2C6D00F0BCAC /* libASN1.a */; };
+		8EC74B8D1DA578EE00D7D801 /* MobileKeyBag.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8EC74B8C1DA578EE00D7D801 /* MobileKeyBag.framework */; };
+		8EC74BB21DA57A0300D7D801 /* MobileKeyBag.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8EC74B8C1DA578EE00D7D801 /* MobileKeyBag.framework */; };
+		8EC74BB31DA57B1000D7D801 /* MobileKeyBag.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8EC74B8C1DA578EE00D7D801 /* MobileKeyBag.framework */; };
 		AAF3DCCB1666D03300376593 /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F235F715CA0D9D00060520 /* libsecurity_utilities.a */; };
 		AC5688BC18B4396D00F0526C /* SecCMS.h in Headers */ = {isa = PBXBuildFile; fileRef = AC5688BA18B4396D00F0526C /* SecCMS.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		ACB6171918B5231800EBEDD7 /* libsecurity_smime_regressions.a in Frameworks */ = {isa = PBXBuildFile; fileRef = ACB6171818B5231800EBEDD7 /* libsecurity_smime_regressions.a */; };
@@ -2642,6 +2645,7 @@
 		721680A8179B40F600406BB4 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		721680AA179B40F600406BB4 /* iCloudStats.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = iCloudStats.1; sourceTree = "<group>"; };
 		721680BD179B4F9100406BB4 /* com.apple.iCloudStats.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.iCloudStats.plist; sourceTree = "<group>"; };
+		8EC74B8C1DA578EE00D7D801 /* MobileKeyBag.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileKeyBag.framework; path = System/Library/PrivateFrameworks/MobileKeyBag.framework; sourceTree = SDKROOT; };
 		AC5688BA18B4396D00F0526C /* SecCMS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecCMS.h; path = libsecurity_smime/lib/SecCMS.h; sourceTree = SOURCE_ROOT; };
 		BE48AE211ADF1DF4000836C1 /* trustd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = trustd; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE48AE241ADF1FD3000836C1 /* com.apple.trustd.agent.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.trustd.agent.plist; sourceTree = "<group>"; };
@@ -2752,6 +2756,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8EC74BB31DA57B1000D7D801 /* MobileKeyBag.framework in Frameworks */,
 				D447C0E71D2C9C390082FC1D /* libDiagnosticMessagesClient.dylib in Frameworks */,
 				5E7AF49B1ACD64E600005140 /* libACM.a in Frameworks */,
 				187A05B1170393FF0038C158 /* libaks.a in Frameworks */,
@@ -2843,6 +2848,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8EC74BB21DA57A0300D7D801 /* MobileKeyBag.framework in Frameworks */,
 				6C721DB11D3D18D700888AE1 /* login.framework in Frameworks */,
 				D447C0C21D2C9BAB0082FC1D /* libDiagnosticMessagesClient.dylib in Frameworks */,
 				5E7AF4731ACD64AC00005140 /* libACM.a in Frameworks */,
@@ -2991,6 +2997,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8EC74B8D1DA578EE00D7D801 /* MobileKeyBag.framework in Frameworks */,
 				6C721DD61D3D18EC00888AE1 /* login.framework in Frameworks */,
 				D45FC3E41C9E06B500509CDA /* libSecureObjectSync.a in Frameworks */,
 				D4DDD3D01BE3EC0300E8AE2D /* libDiagnosticMessagesClient.dylib in Frameworks */,
@@ -3146,6 +3153,7 @@
 		1807384D146D0D4E00F05C24 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				8EC74B8C1DA578EE00D7D801 /* MobileKeyBag.framework */,
 				DCA28DF61D629C6D00201446 /* libsqlite3.dylib */,
 				6C721DB01D3D18D700888AE1 /* login.framework */,
 				D447C0C11D2C9BAB0082FC1D /* libDiagnosticMessagesClient.dylib */,
@@ -6650,6 +6658,10 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = sec/securityd/entitlements.plist;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/sec",
@@ -6678,6 +6690,10 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = sec/securityd/entitlements.plist;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/sec",

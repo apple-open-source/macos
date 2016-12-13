@@ -55,13 +55,14 @@ public:
 
     RenderObject* layoutSpecialExcludedChild(bool relayoutChildren) override;
     void layout() override;
+    void layoutBlock(bool relayoutChildren, LayoutUnit pageHeight = 0) override;
 
     bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
     void addChild(RenderObject* child, RenderObject* beforeChild = 0) override;
     void removeChild(RenderObject&) override;
 
     RenderBlock* firstLineBlock() const override;
-    void updateFirstLetter() override;
+    void updateFirstLetter(RenderTreeMutationIsAllowed = RenderTreeMutationIsAllowed::Yes) override;
 
     void getOverhang(bool firstLine, RenderObject* startRenderer, RenderObject* endRenderer, float& startOverhang, float& endOverhang) const;
 

@@ -642,6 +642,7 @@ int main(int argc, char *argv[])
 	printf("\n");
 	printf("Enter your PIN: ");
 	fflush(stdout);
+	memset(bRecvBuffer, 0xAA, sizeof bRecvBuffer);
 	rv = SCardControl(hCard, verify_ioctl, bSendBuffer,
 		length, bRecvBuffer, sizeof(bRecvBuffer), &length);
 
@@ -787,14 +788,9 @@ int main(int argc, char *argv[])
 	printf("\n");
 	printf("Enter your PIN: ");
 	fflush(stdout);
+	memset(bRecvBuffer, 0xAA, sizeof bRecvBuffer);
 	rv = SCardControl(hCard, modify_ioctl, bSendBuffer,
 		length, bRecvBuffer, sizeof(bRecvBuffer), &length);
-
-	printf(" card response:");
-	for (i=0; i<length; i++)
-		printf(" %02X", bRecvBuffer[i]);
-	printf("\n");
-	PCSC_ERROR_CONT(rv, "SCardControl")
 
 	{
 #ifndef S_SPLINT_S
@@ -823,8 +819,22 @@ int main(int argc, char *argv[])
 				if (ret)
 					printf("keyboard sent: %s", in);
 			}
+			else
+			{
+				/* if it is not a keyboard */
+				printf("\n");
+
+				/* exit the for() loop */
+				break;
+			}
 		}
 	}
+
+	printf(" card response:");
+	for (i=0; i<length; i++)
+		printf(" %02X", bRecvBuffer[i]);
+	printf("\n");
+	PCSC_ERROR_CONT(rv, "SCardControl")
 
 	/* modify PIN dump */
 	printf("\nmodify PIN dump: ");

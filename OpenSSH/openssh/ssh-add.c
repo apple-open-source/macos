@@ -232,7 +232,6 @@ add_file(int agent_fd, const char *filename, int key_only)
 		    filename, ssh_err(r));
 		goto fail_load;
 	}
-
 	/* try last */
 	if (private == NULL && pass != NULL) {
 		if ((r = sshkey_parse_private_fileblob(keyblob, pass, &private,
@@ -329,7 +328,7 @@ add_file(int agent_fd, const char *filename, int key_only)
 		    certpath, filename);
 		sshkey_free(cert);
 		goto out;
-	}
+	} 
 
 	/* Graft with private bits */
 	if ((r = sshkey_to_certified(private)) != 0) {
@@ -521,6 +520,7 @@ main(int argc, char **argv)
 	int r, i, ch, deleting = 0, ret = 0, key_only = 0;
 	int xflag = 0, lflag = 0, Dflag = 0;
 
+	ssh_malloc_init();	/* must be called before any mallocs */
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
 
@@ -664,7 +664,8 @@ main(int argc, char **argv)
 			ret = 1;
 	} else {
 		for (i = 0; i < argc; i++) {
-			if (do_file(agent_fd, deleting, key_only, argv[i]) == -1)
+			if (do_file(agent_fd, deleting, key_only,
+			    argv[i]) == -1)
 				ret = 1;
 		}
 	}

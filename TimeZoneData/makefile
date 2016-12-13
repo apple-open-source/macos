@@ -43,7 +43,7 @@ endif
 
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
-	tar cf - ./makefile ./tz*.tar.gz ./boundaries | (cd $(SRCROOT) ; tar xfp -);
+	tar cf - ./makefile ./tz*.tar.gz ./boundaries ./icudata | (cd $(SRCROOT) ; tar xfp -);
 
 installhdrs :
 	echo "Nothing to do for installhdrs"
@@ -55,8 +55,12 @@ install : installhdrs
 	if test ! -d $(DSTROOT)$(INSTALLDIR)/boundaries/; then \
 		$(INSTALL) -d -m 0755 $(DSTROOT)$(INSTALLDIR)/boundaries/; \
 	fi;
+	if test ! -d $(DSTROOT)$(INSTALLDIR)/icudata/; then \
+		$(INSTALL) -d -m 0755 $(DSTROOT)$(INSTALLDIR)/icudata/; \
+	fi;
 	$(INSTALL) -b -m 0644 $(SRCROOT)/tz*.tar.gz $(DSTROOT)$(INSTALLDIR)
 	$(INSTALL) -b -m 0644 $(SRCROOT)/boundaries/*.gpx $(DSTROOT)$(INSTALLDIR)/boundaries
+	$(INSTALL) -b -m 0644 $(SRCROOT)/icudata/* $(DSTROOT)$(INSTALLDIR)/icudata
 	(cd $(DSTROOT)$(INSTALLDIR); \
 	ln -sf $(notdir $(lastword $(wildcard $(SRCROOT)/tzdata*.tar.gz))) latest_tzdata.tar.gz; \
 	ln -sf $(notdir $(lastword $(wildcard $(SRCROOT)/tzcode*.tar.gz))) latest_tzcode.tar.gz;);

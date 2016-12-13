@@ -38,5 +38,6 @@ SECURITY_COMMAND(
                  "    -i     info (current status)\n"
                  "    -D     [itemName]  dump contents of KVS\n"
                  "    -L     list all known view and their status\n"
+                 "    -M string   place a mark in the syslog - category \"mark\"\n"
                  "\n",
                  "iCloud Keychain Logging")

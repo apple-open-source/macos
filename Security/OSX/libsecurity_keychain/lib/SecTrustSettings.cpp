@@ -54,6 +54,7 @@
 #include <vector>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CFPreferences.h>
+#include <utilities/SecCFRelease.h>
 
 #define trustSettingsDbg(args...)	secinfo("trustSettings", ## args)
 
@@ -889,30 +890,34 @@ OSStatus SecTrustSettingsCopyCertificates(
 }
 
 static CFArrayRef gUserAdminCerts = NULL;
+static bool gUserAdminCertsCacheBuilt = false;
 static ReadWriteLock gUserAdminCertsLock;
 
 void SecTrustSettingsPurgeUserAdminCertsCache(void) {
     StReadWriteLock _(gUserAdminCertsLock, StReadWriteLock::Write);
-    if (gUserAdminCerts) {
-        CFRelease(gUserAdminCerts);
-        gUserAdminCerts = NULL;
-    }
+    CFReleaseNull(gUserAdminCerts);
+    gUserAdminCertsCacheBuilt = false;
 }
 
 OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
-    CFArrayRef  *certArray)
+                                                             CFArrayRef  *certArray)
 {
     TS_REQUIRED(certArray);
     OSStatus result = errSecSuccess;
 
-    { /* Only hold the lock for the check */
+    { /* Hold the read lock for the check */
         StReadWriteLock _(gUserAdminCertsLock, StReadWriteLock::Read);
-        if (gUserAdminCerts) {
-            *certArray = (CFArrayRef)CFRetain(gUserAdminCerts);
-            return errSecSuccess;
+        if (gUserAdminCertsCacheBuilt) {
+            if (gUserAdminCerts) {
+                *certArray = (CFArrayRef)CFRetain(gUserAdminCerts);
+                return errSecSuccess;
+            } else {
+                return errSecNoTrustSettings;
+            }
         }
     }
 
+    /* There were no cached results. We'll have to recreate them. */
     CFMutableArrayRef outArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (!outArray) {
         return errSecAllocate;
@@ -931,7 +936,7 @@ OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
         CFRelease(adminTrusted);
     }
 
-    /* Lack of trust settings for a domain results in an error. Only fail
+    /* Lack of trust settings for a domain results in an error above. Only fail
      * if we weren't able to get trust settings for both domains. */
     if (userStatus != errSecSuccess && adminStatus != errSecSuccess) {
         result = userStatus;
@@ -944,11 +949,12 @@ OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
 
     *certArray = outArray;
 
-    if (certArray && *certArray) {
+    /* For valid results, update the global cache */
+    if (result == errSecSuccess || result == errSecNoTrustSettings) {
         StReadWriteLock _(gUserAdminCertsLock, StReadWriteLock::Write);
-        if (!gUserAdminCerts) {
-            gUserAdminCerts = (CFArrayRef)CFRetain(*certArray);
-        }
+        CFReleaseNull(gUserAdminCerts);
+        gUserAdminCerts = (CFArrayRef)CFRetainSafe(outArray);
+        gUserAdminCertsCacheBuilt = true;
     }
 
     return result;

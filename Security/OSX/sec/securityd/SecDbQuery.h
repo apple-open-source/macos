@@ -110,7 +110,7 @@ typedef struct Query
 
     /* ACL and credHandle passed to the query. q_cred_handle contain LA context object. */
     SecAccessControlRef q_access_control;
-    CFTypeRef q_use_cred_handle;
+    CFDataRef q_use_cred_handle;
     
     // Flag indicating that ui-protected items should be simply skipped
     // instead of reporting them to the client as an error.

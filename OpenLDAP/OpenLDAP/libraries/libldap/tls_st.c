@@ -243,6 +243,33 @@ static const char *tlsst_tr2str(SecTrustResultType trustResult)
 	}
 }
 
+static bool
+tlsst_cipher_is_forbidden(const SSLCipherSuite cipher)
+{
+    // Triple-DES with CBC is forbidden due to SWEET32 attack (rdar://problem/26017795).
+    return (cipher == SSL_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == SSL_DH_DSS_WITH_3DES_EDE_CBC_SHA ||
+            cipher == SSL_DH_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA ||
+            cipher == SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == SSL_DH_anon_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_DH_anon_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_PSK_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA ||
+            cipher == TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA ||
+            cipher == SSL_RSA_WITH_3DES_EDE_CBC_MD5);
+}
+
 static SSLCipherSuite *
 tlsst_ciphers_get(const char *cipherspec, size_t *ciphers_count_r, const char *setting_name)
 {
@@ -282,17 +309,17 @@ tlsst_ciphers_set(SSLContextRef ssl, const SSLCipherSuite *want_set, size_t num_
 
 	/* these are the available ciphers */
 	size_t max_avail = 0;
-	OSStatus ret = SSLGetNumberSupportedCiphers(ssl, &max_avail);
+	OSStatus ret = SSLGetNumberEnabledCiphers(ssl, &max_avail);
 	if (ret) {
-		tlsst_report_oss(ret, "TLS: SSLGetNumberSupportedCiphers() failed");
+		tlsst_report_oss(ret, "TLS: SSLGetNumberEnabledCiphers() failed");
 		return num_want == 0 ? 0 : -1;
 	}
 
 	SSLCipherSuite *avail_set = LDAP_CALLOC(max_avail, sizeof *avail_set);
 	size_t num_avail = max_avail;
-	ret = SSLGetSupportedCiphers(ssl, avail_set, &num_avail);
+	ret = SSLGetEnabledCiphers(ssl, avail_set, &num_avail);
 	if (ret) {
-		tlsst_report_oss(ret, "TLS: SSLGetSupportedCiphers() failed");
+		tlsst_report_oss(ret, "TLS: SSLGetEnabledCiphers() failed");
 		LDAP_FREE(avail_set);
 		return num_want == 0 ? 0 : -1;
 	}
@@ -312,6 +339,9 @@ tlsst_ciphers_set(SSLContextRef ssl, const SSLCipherSuite *want_set, size_t num_
 	SSLCipherSuite *intersect_set = LDAP_CALLOC(max_intersect, sizeof *intersect_set);
 	size_t num_intersect = 0;
 	for (size_t w = 0; w < num_want; w++) {
+		if (tlsst_cipher_is_forbidden(want_set[w])) {
+		    continue;
+		}
 		for (size_t a = 0; a < num_avail; a++) {
 			if (want_set[w] == avail_set[a]) {
 				intersect_set[num_intersect++] = want_set[w];

@@ -2204,9 +2204,13 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *k
 
 thexit:
 	{
-		// Reset QoS to something low for the cleanup process
-		pthread_priority_t priority = _pthread_priority_make_newest(WQ_THREAD_CLEANUP_QOS, 0, 0);
-		_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, priority);
+		pthread_priority_t current_priority = _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS);
+		if ((current_priority & _PTHREAD_PRIORITY_EVENT_MANAGER_FLAG) ||
+			(_pthread_priority_get_qos_newest(current_priority) > WQ_THREAD_CLEANUP_QOS)) {
+			// Reset QoS to something low for the cleanup process
+			pthread_priority_t priority = _pthread_priority_make_newest(WQ_THREAD_CLEANUP_QOS, 0, 0);
+			_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, priority);
+		}
 	}
 
 	_pthread_exit(self, NULL);

@@ -1502,6 +1502,37 @@ static const TestRelativeContextItem textContextRelativeItems[] = {
     { NULL, (UDisplayContext)0, NULL, NULL }
 };
 
+static const UChar january_esDefault[] = { 0x65,0x6E,0x65,0x72,0x6F,0 }; /* "enero" */
+static const UChar january_esTitle[] = { 0x45,0x6E,0x65,0x72,0x6F,0 };  /* "Enero */
+static const UChar monday_daDefault[] = { 0x6D,0x61,0x6E,0x64,0x61,0x67,0 }; /* "mandag" */
+static const UChar monday_daTitle[] = { 0x4D,0x61,0x6E,0x64,0x61,0x67,0 };  /* "Mandag */
+
+typedef struct {
+    const char * locale;
+    UDateFormatSymbolType type;
+    int32_t index;
+    UDisplayContext capitalizationContext;
+    const UChar * expectedFormat;
+} TestSymbolContextItem;
+
+static const TestSymbolContextItem testContextSymbolItems[] = {
+    { "es", UDAT_MONTHS, 0, UDISPCTX_CAPITALIZATION_NONE,                       january_esDefault },
+#if !UCONFIG_NO_BREAK_ITERATION
+    { "es", UDAT_MONTHS, 0, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,     january_esDefault },
+    { "es", UDAT_MONTHS, 0, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE,  january_esTitle },
+    { "es", UDAT_MONTHS, 0, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,        january_esTitle },
+    { "es", UDAT_MONTHS, 0, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,             january_esTitle },
+#endif
+    { "da", UDAT_WEEKDAYS, 2, UDISPCTX_CAPITALIZATION_NONE,                      monday_daDefault },
+#if !UCONFIG_NO_BREAK_ITERATION
+    { "da", UDAT_WEEKDAYS, 2, UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE,    monday_daDefault },
+    { "da", UDAT_WEEKDAYS, 2, UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE, monday_daTitle },
+    { "da", UDAT_WEEKDAYS, 2, UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU,       monday_daDefault },
+    { "da", UDAT_WEEKDAYS, 2, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,            monday_daDefault },
+#endif
+    { NULL, (UDateFormatSymbolType)0, 0, (UDisplayContext)0, NULL }
+};
+
 static const UChar zoneGMT[] = { 0x47,0x4D,0x54,0 }; /* "GMT" */
 static const UDate july022008 = 1215000000000.0;
 enum { kUbufMax = 64, kBbufMax = 3*kUbufMax };
@@ -1509,6 +1540,8 @@ enum { kUbufMax = 64, kBbufMax = 3*kUbufMax };
 static void TestContext(void) {
     const TestContextItem* textContextItemPtr;
     const TestRelativeContextItem* textRelContextItemPtr;
+    const TestSymbolContextItem* testSymContextItemPtr;
+
     for (textContextItemPtr = textContextItems; textContextItemPtr->locale != NULL; ++textContextItemPtr) {
         UErrorCode status = U_ZERO_ERROR;
         UDateTimePatternGenerator* udtpg = udatpg_open(textContextItemPtr->locale, &status);
@@ -1557,6 +1590,7 @@ static void TestContext(void) {
             log_data_err("FAIL: udatpg_open for locale %s, status %s\n", textContextItemPtr->locale, u_errorName(status) );
         }
     }
+
     for (textRelContextItemPtr = textContextRelativeItems; textRelContextItemPtr->locale != NULL; ++textRelContextItemPtr) {
         UErrorCode status = U_ZERO_ERROR;
         UCalendar* ucal = ucal_open(zoneGMT, -1, "root", UCAL_GREGORIAN, &status);
@@ -1605,6 +1639,34 @@ static void TestContext(void) {
             ucal_close(ucal);
         } else {
             log_data_err("FAIL: ucal_open for locale root, status %s\n", u_errorName(status) );
+        }
+    }
+
+    for (testSymContextItemPtr = testContextSymbolItems; testSymContextItemPtr->locale != NULL; ++testSymContextItemPtr) {
+        UErrorCode status = U_ZERO_ERROR;
+        UDateFormat* udfmt = udat_open(UDAT_MEDIUM, UDAT_FULL, testSymContextItemPtr->locale, zoneGMT, -1, NULL, 0, &status);
+        if ( U_SUCCESS(status) ) {
+            udat_setContext(udfmt, testSymContextItemPtr->capitalizationContext, &status);
+            if ( U_SUCCESS(status) ) {
+                UChar ubuf[kUbufMax];
+                int32_t len = udat_getSymbols(udfmt, testSymContextItemPtr->type, testSymContextItemPtr->index, ubuf, kUbufMax, &status);
+                if ( U_FAILURE(status) ) {
+                    log_err("FAIL: udat_getSymbols for locale %s, capitalizationContext %d, status %s\n",
+                            testSymContextItemPtr->locale, (int)testSymContextItemPtr->capitalizationContext, u_errorName(status) );
+                } else if (u_strncmp(ubuf, testSymContextItemPtr->expectedFormat, kUbufMax) != 0) {
+                    char bbuf1[kBbufMax];
+                    char bbuf2[kBbufMax];
+                    log_err("FAIL: udat_getSymbols for locale %s, capitalizationContext %d, expected %s, got %s\n",
+                            testSymContextItemPtr->locale, (int)testSymContextItemPtr->capitalizationContext,
+                            u_austrncpy(bbuf1,testSymContextItemPtr->expectedFormat,kUbufMax), u_austrncpy(bbuf2,ubuf,kUbufMax) );
+                }
+            } else {
+                log_err("FAIL: udat_setContext std for locale %s, capitalizationContext %d, status %s\n",
+                        testSymContextItemPtr->locale, (int)testSymContextItemPtr->capitalizationContext, u_errorName(status) );
+            }
+            udat_close(udfmt);
+        } else {
+            log_data_err("FAIL: udat_open std for locale %s, status %s\n", testSymContextItemPtr->locale, u_errorName(status) );
         }
     }
 }
@@ -1866,7 +1928,7 @@ typedef struct {
 } StandardPatternItem;
 
 static const StandardPatternItem stdPatternItems[] = {
-    { "en_JP", UDAT_MEDIUM, UDAT_SHORT, "2015 Feb 25 5:10" },
+    { "en_JP", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 5:10" },
     { "en_CN", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015, 5:10 AM" },
     { "en_TW", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015, 5:10 AM" },
     { "en_KR", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015, 5:10 AM" },

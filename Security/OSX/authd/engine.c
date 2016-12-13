@@ -1091,8 +1091,10 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 
 			if (rule && _preevaluate_rule(engine, rule)) {
 				password_only = true;
+                CFReleaseSafe(rule);
 				return false;
 			}
+            CFReleaseSafe(rule);
 			return true;
 		});
 		authdb_connection_release(&dbconn); // release db handle

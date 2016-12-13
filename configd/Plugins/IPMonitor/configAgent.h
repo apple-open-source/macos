@@ -56,7 +56,8 @@ typedef NS_ENUM(NSUInteger, AgentSubType) {
 	kAgentSubTypeDefault,
 	kAgentSubTypeMulticast,
 	kAgentSubTypePrivate,
-	kAgentSubTypeServiceSpecific
+	kAgentSubTypeServiceSpecific,
+	kAgentSubTypeGlobal,
 };
 
 os_log_t	__log_IPMonitor();
@@ -66,6 +67,8 @@ os_log_t	__log_IPMonitor();
 #define kAgentSubType	"AgentSubType"
 
 @interface ConfigAgent : NSObject <NWNetworkAgent>
+
+@property NEPolicySession *preferredPolicySession;
 
 - (instancetype)initWithParameters:(NSDictionary *)parameters;
 - (void)addAgentRegistrationObject:(NWNetworkAgentRegistration *)regObject;

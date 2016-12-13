@@ -100,7 +100,7 @@ void CommonBlob::initialize(uint32 version)
 {
     magic = magicNumber;
 
-    secnotice("integrity", "creating a keychain with version %d", version);
+    secinfo("integrity", "creating a keychain with version %d", version);
     this->blobVersion = version;
 }
 

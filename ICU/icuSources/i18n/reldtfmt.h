@@ -325,8 +325,25 @@ public:
      * @internal ICU 3.8
      */
     virtual UClassID getDynamicClassID(void) const;
+
+    /**
+     * Apple addition
+     * This is for ICU internal use only. Please do not use.
+     * Get the capitalization break iterator of this relative date formatter.
+     * Should be cloned before using it.
+     * It is used in udat.
+     *
+     * @return   capitalization break iterator
+     * @internal
+     */
+    BreakIterator* getCapitalizationBrkIter(void) const;
 };
 
+inline BreakIterator*
+RelativeDateFormat::getCapitalizationBrkIter() const
+{
+    return fCapitalizationBrkIter;
+}
 
 U_NAMESPACE_END
 

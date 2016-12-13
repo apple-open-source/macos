@@ -94,9 +94,9 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm __unused algorithm,
     // require_action(rawKeyLen <= kekLen, out, err = -1);
 
     // kek multiple of 64 bits: 128, 192, 256
-    require_action(kekLen == 16 || kekLen == 24 || kekLen == 32, out, err = -1);
+    require_action(kekLen == 16 || kekLen == 24 || kekLen == 32, out, err = kCCParamError);
     // wrapped_key_len 64 bits larger than key_len
-    require_action(wrappedKeyLen && (*wrappedKeyLen >= rawKeyLen + 64/8), out, err = -1);
+    require_action(wrappedKeyLen && (*wrappedKeyLen >= rawKeyLen + 64/8), out, err = kCCParamError);
 
     // R[0][1] = P[0] ... R[1][n-1] = P[n-1]
     for (i = 0; i < (int) n; i++)
@@ -149,14 +149,14 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm __unused algorithm,
     ccecb_ctx_decl(ccmode->size, ctx);
 
     if(n < 1) {
-        err = -1;
+        err = kCCParamError;
         goto out;
     }
 
 	R = calloc(n, sizeof(uint64_t[2]));
 
     // kek multiple of 64 bits: 128, 192, 256
-    require_action(kekLen == 16 || kekLen == 24 || kekLen == 32, out, err = -1);
+    require_action(kekLen == 16 || kekLen == 24 || kekLen == 32, out, err = kCCParamError);
     // wrapped_key_len 64 bits larger than key_len
     // require_action(rawKeyLen && (*rawKeyLen <= wrappedKeyLen - 64/8), out, err = -1);
 
@@ -176,7 +176,7 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm __unused algorithm,
 	uint64_t kek_iv = pack64(iv, ivLen);
 
     // R[0][0] == iv?
-    require_action(R[0][0] == kek_iv, out, err = -1);
+    require_action(R[0][0] == kek_iv, out, err = kCCParamError);
 
     // write output
     for (size_t i = 0; i < n; i++)

@@ -888,6 +888,13 @@ hx509_cert_init_SecFramework (
 	void * identity,
 	hx509_cert *cert);
 
+int
+hx509_cert_init_SecFrameworkAuth (
+	hx509_context context,
+	void * identity,
+	hx509_cert *cert,
+	void *authContext);
+
 /**
  * Just like hx509_cert_init(), but instead of a decode certificate
  * takes an pointer and length to a memory region that contains a

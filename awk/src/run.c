@@ -1005,7 +1005,7 @@ Cell *arith(Node **a, int n)	/* a[0] + a[1], etc.  also -a[0] */
 	x = execute(a[0]);
 	i = getfval(x);
 	tempfree(x);
-	if (n != UMINUS) {
+	if (n != UMINUS && n != UPLUS) {
 		y = execute(a[1]);
 		j = getfval(y);
 		tempfree(y);
@@ -1034,6 +1034,9 @@ Cell *arith(Node **a, int n)	/* a[0] + a[1], etc.  also -a[0] */
 		break;
 	case UMINUS:
 		i = -i;
+		break;
+	case UPLUS:
+		i = i;
 		break;
 	case POWER:
 		if (j >= 0 && modf(j, &v) == 0.0)	/* pos integer exponent */

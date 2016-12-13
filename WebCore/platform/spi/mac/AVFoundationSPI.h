@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,19 +23,31 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
 #import "SoftLinking.h"
 #import <objc/runtime.h>
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
-
 #if USE(APPLE_INTERNAL_SDK)
 
+#import <AVFoundation/AVAssetCache_Private.h>
 #import <AVFoundation/AVOutputContext.h>
+#import <AVFoundation/AVPlayerLayer_Private.h>
 #import <AVFoundation/AVPlayer_Private.h>
+
+#if PLATFORM(IOS) && HAVE(AVKIT)
+#import <AVKit/AVPlayerViewController_WebKitOnly.h>
+#endif
+
+#if !PLATFORM(IOS)
+#import <AVFoundation/AVStreamDataParser.h>
+#endif
 
 #else
 
 #import <AVFoundation/AVPlayer.h>
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -51,13 +63,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 NS_ASSUME_NONNULL_END
 
-#endif
-
 #endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <AVFoundation/AVAssetCache_Private.h>
-#else
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 100000)
 #import <AVFoundation/AVAssetCache.h>
 #else
@@ -74,37 +81,18 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, copy) NSURL *URL;
 @end
 NS_ASSUME_NONNULL_END
-#endif
 
-#if PLATFORM(IOS)
-
-#if HAVE(AVKIT) && USE(APPLE_INTERNAL_SDK)
-
-#import <AVFoundation/AVPlayerLayer_Private.h>
-#import <AVKit/AVPlayerViewController_WebKitOnly.h>
-
-#else
-
-#import <AVFoundation/AVPlayerLayer.h>
-
-#endif
-
-#if !HAVE(AVKIT) || !USE(APPLE_INTERNAL_SDK)
-
-@interface AVPlayerLayer (AVPlayerLayerPictureInPictureModeSupportPrivate)
-- (void)setPIPModeEnabled:(BOOL)flag;
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+@interface AVPlayer (AVPlayerVideoSleepPrevention)
+@property (nonatomic, getter=_preventsSleepDuringVideoPlayback, setter=_setPreventsSleepDuringVideoPlayback:) BOOL preventsSleepDuringVideoPlayback;
 @end
 
-#endif
+#endif // PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
 
-#endif // PLATFORM(IOS)
+#if !PLATFORM(IOS)
 
 #pragma mark -
 #pragma mark AVStreamDataParser
-#if !PLATFORM(IOS)
-#if USE(APPLE_INTERNAL_SDK)
-#import <AVFoundation/AVStreamDataParser.h>
-#else
 
 @protocol AVStreamDataParserOutputHandling <NSObject>
 @end
@@ -132,18 +120,30 @@ typedef NS_ENUM(NSUInteger, AVStreamDataParserStreamDataFlags) {
 - (void)renewExpiringContentKeyResponseDataForTrackID:(CMPersistentTrackID)trackID;
 - (NSData *)streamingContentKeyRequestDataForApp:(NSData *)appIdentifier contentIdentifier:(NSData *)contentIdentifier trackID:(CMPersistentTrackID)trackID options:(NSDictionary *)options error:(NSError **)outError;
 @end
+
 NS_ASSUME_NONNULL_END
+
+#endif // !PLATFORM(IOS)
 #endif // USE(APPLE_INTERNAL_SDK)
 
+#if PLATFORM(MAC) && (!USE(APPLE_INTERNAL_SDK) || __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
 NS_ASSUME_NONNULL_BEGIN
 @interface AVStreamDataParser (AVStreamDataParserPrivate)
 + (NSString *)outputMIMECodecParameterForInputMIMECodecParameter:(NSString *)inputMIMECodecParameter;
 @end
 NS_ASSUME_NONNULL_END
+#endif
 
-#endif // !PLATFORM(IOS)
+#if PLATFORM(IOS) && (!HAVE(AVKIT) || !USE(APPLE_INTERNAL_SDK))
+#import <AVFoundation/AVPlayerLayer.h>
+@interface AVPlayerLayer (AVPlayerLayerPictureInPictureModeSupportPrivate)
+- (void)setPIPModeEnabled:(BOOL)flag;
+@end
+#endif // !HAVE(AVKIT)
+
 
 // FIXME: Wrap in a #if USE(APPLE_INTERNAL_SDK) once these SPI land
+#import <AVFoundation/AVAsset.h>
 #import <AVFoundation/AVAssetResourceLoader.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -152,6 +152,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) id<NSURLSessionDataDelegate> URLSessionDataDelegate;
 @property (nonatomic, readonly) NSOperationQueue *URLSessionDataDelegateQueue;
 @property (nonatomic, nullable, retain) NSURLSession *URLSession;
+@end
+
+@interface AVAsset (AVAssetFragmentsPrivate)
+@property (nonatomic, readonly) CMTime overallDurationHint;
 @end
 
 NS_ASSUME_NONNULL_END

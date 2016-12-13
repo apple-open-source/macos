@@ -5929,7 +5929,7 @@ void zend_do_add_array_element(znode *result, const znode *expr, const znode *of
 }
 /* }}} */
 
-void zend_do_add_static_array_element(zval *result, zval *offset, const zval *expr) /* {{{ */
+void zend_do_add_static_array_element(zval *result, zval *offset, zval *expr) /* {{{ */
 {
 	if (offset) {
 		switch (Z_TYPE_P(offset)) {
@@ -5940,6 +5940,9 @@ void zend_do_add_static_array_element(zval *result, zval *offset, const zval *ex
 			case IS_NULL:
 				zend_symtable_update(Z_ARRVAL_P(result), "", 1, &expr, sizeof(zval *), NULL);
 				break;
+			case IS_RESOURCE:
+				zend_error(E_STRICT, "Resource ID#%ld used as offset, casting to integer (%ld)", Z_LVAL_P(offset), Z_LVAL_P(offset));
+				/* break missing intentionally */
 			case IS_LONG:
 			case IS_BOOL:
 				zend_hash_index_update(Z_ARRVAL_P(result), Z_LVAL_P(offset), &expr, sizeof(zval *), NULL);
@@ -5952,7 +5955,10 @@ void zend_do_add_static_array_element(zval *result, zval *offset, const zval *ex
 				break;
 		}
 	} else {
-		zend_hash_next_index_insert(Z_ARRVAL_P(result), &expr, sizeof(zval *), NULL);
+		if (zend_hash_next_index_insert(Z_ARRVAL_P(result), &expr, sizeof(zval *), NULL) == FAILURE) {
+			zend_error(E_WARNING, "Cannot add element to the array as the next element is already occupied");
+			zval_ptr_dtor(&expr);
+		}
 	}
 }
 /* }}} */

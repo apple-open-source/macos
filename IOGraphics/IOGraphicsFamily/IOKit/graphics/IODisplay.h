@@ -33,6 +33,8 @@ extern const OSSymbol * gIODisplayValueKey;
 extern const OSSymbol * gIODisplayMinValueKey;
 extern const OSSymbol * gIODisplayMaxValueKey;
 
+extern const OSSymbol * gIODisplayBrightnessProbeKey;
+extern const OSSymbol * gIODisplayLinearBrightnessProbeKey;
 extern const OSSymbol * gIODisplayContrastKey;
 extern const OSSymbol * gIODisplayBrightnessKey;
 extern const OSSymbol * gIODisplayLinearBrightnessKey;

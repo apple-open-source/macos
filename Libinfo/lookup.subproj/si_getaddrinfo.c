@@ -1117,7 +1117,7 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int nu
 		{
 			continue;
 		}
-		si_list_t *temp_list = si_addrinfo_list(si, flags, socktype, proto, NULL, &a6, port, (int)ifindex, NULL, NULL);
+		si_list_t *temp_list = si_addrinfo_list(si, flags, socktype, proto, NULL, &a6, port, 0, NULL, NULL);
 		if (NULL == temp_list)
 		{
 			continue;
@@ -1145,7 +1145,7 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int nu
 	if (((AF_UNSPEC == family) && ((flags & AI_ADDRCONFIG) == 0)) ||
 		((AF_INET6 == family) && ((flags & AI_ALL) != 0) && ((flags & AI_V4MAPPED) != 0)))
 	{
-		si_list_t *list4 = si_addrinfo_list(si, flags, socktype, proto, &a4, NULL, port, (int)ifindex, NULL, NULL);
+		si_list_t *list4 = si_addrinfo_list(si, flags, socktype, proto, &a4, NULL, port, 0, NULL, NULL);
 		if (NULL != list4)
 		{
 			out_list = si_list_concat(out_list, list4);

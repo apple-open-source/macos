@@ -1,4 +1,5 @@
 perf/perf.launchtime.ksh
+perf/perf.fbt_probes.ksh
 begin/tst.begin.d
 begin/tst.multibegin.d
 end/tst.end.d

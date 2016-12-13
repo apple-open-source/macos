@@ -404,6 +404,10 @@ class IOPCIDiagnosticsClient : public IOUserClient
     IOPCIBridge * owner;
 
 public:
+    virtual bool initWithTask(task_t owningTask,
+							  void * securityID,
+							  UInt32 type,
+							  OSDictionary * properties);
     virtual IOReturn    clientClose(void);
     virtual IOService * getService(void);
     virtual IOReturn    setProperties(OSObject * properties);

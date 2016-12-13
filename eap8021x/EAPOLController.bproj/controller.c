@@ -57,6 +57,7 @@
 #include <CoreFoundation/CFRunLoop.h>
 #if TARGET_OS_EMBEDDED
 #include <CoreTelephony/CTServerConnectionPriv.h>
+#include <MobileWiFi/MobileWiFi.h>
 #endif
 #include <SystemConfiguration/SCDPlugin.h>
 #include <TargetConditionals.h>
@@ -152,6 +153,7 @@ is_console_user(uid_t check_uid)
 }
 
 static CTServerConnectionRef	S_ct_server_conn = NULL;
+static Boolean			S_wifi_power_state;
 
 #else /* TARGET_OS_EMBEDDED */
 
@@ -1746,6 +1748,25 @@ sim_status_changed(CTServerConnectionRef connection,
 }
 
 static void
+handle_wifi_switch_toggle(WiFiDeviceClientRef device, void *refcon)
+{
+    Boolean current_power_state = WiFiDeviceClientGetPower(device);
+
+    /* increment the geration ID in SC prefs so eapclient would know
+     * that wifi power was toggled from ON to OFF and it should not
+     * use the SIM specific stored info.
+     * So turning WiFi power off is similar to ejecting SIM as both actions
+     * lead to tearing down the 802.1X connection and incrementing the
+     * generation ID.
+     */
+    if (S_wifi_power_state == 1 && current_power_state == 0) {
+	EAPLOG_FL(LOG_INFO, "Wi-Fi power is turned off");
+	EAPOLSIMGenerationIncrement();
+    }
+    S_wifi_power_state = current_power_state;
+}
+
+static void
 register_sim_removal(void)
 {
     CTError 			cterr;
@@ -1769,6 +1790,79 @@ register_sim_removal(void)
 	S_ct_server_conn = NULL;
     }
     _CTServerConnectionAddToRunLoop(S_ct_server_conn, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    return;
+}
+
+static WiFiManagerClientRef
+get_wifi_manager_client(void)
+{
+    static WiFiManagerClientRef	client = NULL;
+
+    if (client == NULL) {
+	client = WiFiManagerClientCreate(kCFAllocatorDefault,
+					 kWiFiClientTypeNormal);
+    }
+    if (client == NULL) {
+	EAPLOG_FL(LOG_ERR, "Failed to create a WiFiManager client");
+    }
+    return (client);
+}
+
+static void
+handle_wifi_device_attach(WiFiManagerClientRef manager,
+			  WiFiDeviceClientRef device,
+			  __unused void * refcon)
+{
+    static boolean_t device_attached;
+
+    if (device_attached) {
+	/* this won't happen because more than one Wi-Fi device won't attach */
+	return;
+    }
+    device_attached = TRUE;
+    EAPLOG_FL(LOG_DEBUG, "Wi-Fi device attached.");
+    S_wifi_power_state = WiFiDeviceClientGetPower(device);
+    WiFiDeviceClientRegisterPowerCallback(device, handle_wifi_switch_toggle, NULL);
+    return;
+}
+
+static void
+register_wifi_toggle(void)
+{
+    WiFiManagerClientRef manager;
+    int i;
+    CFIndex count;
+
+    manager = get_wifi_manager_client();
+    if (manager == NULL) {
+	return;
+    }
+
+    CFArrayRef wifi_devices = WiFiManagerClientCopyDevices(manager);
+    if (wifi_devices == NULL) {
+	goto wait_for_device;
+    }
+    count = CFArrayGetCount(wifi_devices);
+    if (count <= 0) {
+	goto wait_for_device;
+    }
+    for (i = 0; i < count; i++) {
+	WiFiDeviceClientRef wifi_device = (WiFiDeviceClientRef)CFArrayGetValueAtIndex(wifi_devices, i);
+	if (wifi_device) {
+	    S_wifi_power_state = WiFiDeviceClientGetPower(wifi_device);
+	    WiFiDeviceClientRegisterPowerCallback(wifi_device, handle_wifi_switch_toggle, NULL);
+	    WiFiManagerClientScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+	    break;
+	}
+    }
+    return;
+
+wait_for_device:
+    WiFiManagerClientRegisterDeviceAttachmentCallback(manager,
+						      handle_wifi_device_attach,
+						      NULL);
+    WiFiManagerClientScheduleWithRunLoop(manager, CFRunLoopGetCurrent(),
+					 kCFRunLoopDefaultMode);
     return;
 }
 
@@ -2569,6 +2663,7 @@ start(const char *bundleName, const char *bundleDir)
     S_store = dynamic_store_create();
 #if TARGET_OS_EMBEDDED
     register_sim_removal();
+    register_wifi_toggle();
 #endif
     return;
 }

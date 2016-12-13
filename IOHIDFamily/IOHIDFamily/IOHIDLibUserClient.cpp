@@ -295,7 +295,11 @@ ErrorExit:
 
 void IOHIDLibUserClient::stop(IOService *provider)
 {
-    
+  
+    if (fNub) {
+      setStateForQueues(kHIDQueueStateClear);
+    }
+  
     close();
     
     if ( fResourceNotification ) {
@@ -329,7 +333,17 @@ void IOHIDLibUserClient::resourceNotificationGated()
         // We should force success on seize
         if ( kIOHIDOptionsTypeSeizeDevice & fCachedOptionBits )
             break;
-        
+
+        ret = kIOReturnError;
+        OSObject* entitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessPrivilegedEntitlement);
+        if (entitlement) {
+            ret = (entitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
+            entitlement->release();
+        }
+        if (ret == kIOReturnSuccess) {
+            break;
+        }
+      
 #if !TARGET_OS_EMBEDDED
         OSObject * obj;
         OSData * data;
@@ -380,15 +394,6 @@ void IOHIDLibUserClient::resourceNotificationGated()
         }
 
 #if !TARGET_OS_EMBEDDED
-        OSObject* entitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessPrivilegedEntitlement);
-        if (entitlement) {
-            ret = (entitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
-            entitlement->release();
-        }
-        if (ret == kIOReturnSuccess) {
-            break;
-        }
-
        if ( fNubIsKeyboard ) {
           IOUCProcessToken token;
           token.token = fClient;
@@ -563,11 +568,13 @@ IOReturn IOHIDLibUserClient::close()
     if (!fClientOpened) {
         return kIOReturnSuccess;
     }
+
     if (fNub) {
         fNub->close(this, fCachedOptionBits);
     }
+
     setValid(false);
-    
+   
     fCachedOptionBits = 0;
 
     fClientOpened = false;
@@ -578,7 +585,6 @@ IOReturn IOHIDLibUserClient::close()
 bool
 IOHIDLibUserClient::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {
-
     close ();
     
     return super::didTerminate(provider, options, defer);

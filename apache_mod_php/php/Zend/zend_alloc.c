@@ -2578,6 +2578,15 @@ static inline size_t safe_address(size_t nmemb, size_t size, size_t offset)
 #endif
 
 
+ZEND_API void *_safe_emalloc_string(size_t nmemb, size_t size, size_t offset ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC)
+{
+	size_t str_size = safe_address(nmemb, size, offset);
+	if (UNEXPECTED(str_size > INT_MAX)) {
+		zend_error_noreturn(E_ERROR, "String allocation overflow, max size is %d", INT_MAX);
+	}
+	return emalloc_rel(str_size);
+}
+
 ZEND_API void *_safe_emalloc(size_t nmemb, size_t size, size_t offset ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC)
 {
 	return emalloc_rel(safe_address(nmemb, size, offset));
@@ -2726,9 +2735,9 @@ static void alloc_globals_ctor(zend_alloc_globals *alloc_globals TSRMLS_DC)
 		alloc_globals->mm_heap = malloc(sizeof(struct _zend_mm_heap));
 		memset(alloc_globals->mm_heap, 0, sizeof(struct _zend_mm_heap));
 		alloc_globals->mm_heap->use_zend_alloc = 0;
-		alloc_globals->mm_heap->_malloc = malloc;
+		alloc_globals->mm_heap->_malloc = __zend_malloc;
 		alloc_globals->mm_heap->_free = free;
-		alloc_globals->mm_heap->_realloc = realloc;
+		alloc_globals->mm_heap->_realloc = __zend_realloc;
 	} else {
 		alloc_globals->mm_heap = zend_mm_startup();
 	}

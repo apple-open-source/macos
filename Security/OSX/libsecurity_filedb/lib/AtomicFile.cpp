@@ -158,7 +158,7 @@ AtomicFile::create(mode_t mode)
 		// Now that we have created the lock and the new db file create a tempfile
 		// object.
 		RefPointer<AtomicTempFile> temp(new AtomicTempFile(*this, lock, mode));
-		secnotice("atomicfile", "%p created %s", this, path);
+		secinfo("atomicfile", "%p created %s", this, path);
 		return temp;
 	}
 	catch (...)
@@ -202,7 +202,7 @@ AtomicFile::mode() const
 	if (::stat(path, &st) == -1)
 	{
 		int error = errno;
-		secnotice("atomicfile", "stat %s: %s", path, strerror(error));
+		secinfo("atomicfile", "stat %s: %s", path, strerror(error));
 		UnixError::throwMe(error);
 	}
 	return st.st_mode;
@@ -397,7 +397,7 @@ AtomicBufferedFile::~AtomicBufferedFile()
 
 	if (mBuffer)
 	{
-		secnotice("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
+		secinfo("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
 		unloadBuffer();
 	}
 }
@@ -419,7 +419,7 @@ AtomicBufferedFile::open()
     if (mFileRef == -1)
     {
         int error = errno;
-		secnotice("atomicfile", "open %s: %s", path, strerror(error));
+		secinfo("atomicfile", "open %s: %s", path, strerror(error));
 
         // Do the obvious error code translations here.
 		// @@@ Consider moving these up a level.
@@ -440,7 +440,7 @@ AtomicBufferedFile::open()
 	else
 	{
 		int error = errno;
-		secnotice("atomicfile", "lseek(%s, END): %s", path, strerror(error));
+		secinfo("atomicfile", "lseek(%s, END): %s", path, strerror(error));
 		AtomicFile::rclose(mFileRef);
 		mFileRef = -1;
 		UnixError::throwMe(error);
@@ -471,7 +471,7 @@ AtomicBufferedFile::loadBuffer()
     mBuffer = new uint8[mLength];
     if(lseek(mFileRef, 0, SEEK_SET) < 0) {
         int error = errno;
-        secnotice("atomicfile", "lseek(%s, BEGINNING): %s", mPath.c_str(), strerror(error));
+        secinfo("atomicfile", "lseek(%s, BEGINNING): %s", mPath.c_str(), strerror(error));
         UnixError::throwMe(error);
     }
     ssize_t pos = 0;
@@ -485,7 +485,7 @@ AtomicBufferedFile::loadBuffer()
             if (errno != EINTR)
             {
                 int error = errno;
-                secnotice("atomicfile", "read(%s, %zd): %s", mPath.c_str(), bytesToRead, strerror(error));
+                secinfo("atomicfile", "read(%s, %zd): %s", mPath.c_str(), bytesToRead, strerror(error));
                 if (mFileRef >= 0) {
                     AtomicFile::rclose(mFileRef);
                     mFileRef = -1;
@@ -514,20 +514,20 @@ AtomicBufferedFile::read(off_t inOffset, off_t inLength, off_t &outLength)
 {
 	if (mFileRef < 0)
 	{
-		secnotice("atomicfile", "read %s: file yet not opened, opening", mPath.c_str());
+		secinfo("atomicfile", "read %s: file yet not opened, opening", mPath.c_str());
 		open();
 	}
 
 	off_t bytesLeft = inLength;
 	if (mBuffer)
 	{
-		secnotice("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
+		secinfo("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
 		unloadBuffer();
 	}
 
 	loadBuffer();
 	
-	secnotice("atomicfile", "%p allocated %s buffer %p size %qd", this, mPath.c_str(), mBuffer, bytesLeft);
+	secinfo("atomicfile", "%p allocated %s buffer %p size %qd", this, mPath.c_str(), mBuffer, bytesLeft);
 	
 	off_t maxEnd = inOffset + inLength;
 	if (maxEnd > mLength)
@@ -625,7 +625,7 @@ AtomicTempFile::create(mode_t mode)
     if (mFileRef == -1)
     {
         int error = errno;
-		secnotice("atomicfile", "open %s: %s", path, strerror(error));
+		secnotice("atomicfile", "create %s: %s", path, strerror(error));
 
         // Do the obvious error code translations here.
 		// @@@ Consider moving these up a level.
@@ -752,7 +752,7 @@ AtomicTempFile::fsync()
 			UnixError::throwMe(error);
 		}
 
-		secnotice("atomicfile", "%p fsynced %s", this, mPath.c_str());
+		secinfo("atomicfile", "%p fsynced %s", this, mPath.c_str());
 	}
 }
 
@@ -1112,7 +1112,7 @@ NetworkFileLocker::lock(mode_t mode)
 		else
 			doSyslog = true;
 
-		secnotice("atomicfile", "Locking %s", path);          /* in order to cater for clock skew: get */
+		secinfo("atomicfile", "Locking %s", path);          /* in order to cater for clock skew: get */
 		if (!xcreat(path, mode, t))    /* time t from the filesystem */
 		{
 			/* lock acquired, hurray! */

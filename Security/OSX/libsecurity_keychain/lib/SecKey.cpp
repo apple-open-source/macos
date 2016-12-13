@@ -54,6 +54,7 @@ static OSStatus
 SecCDSAKeyInit(SecKeyRef key, const uint8_t *keyData, CFIndex keyDataLength, SecKeyEncoding encoding) {
     key->key = const_cast<KeyItem *>(reinterpret_cast<const KeyItem *>(keyData));
     key->key->initializeWithSecKeyRef(key);
+    key->credentialType = kSecCredentialTypeDefault;
     return errSecSuccess;
 }
 
@@ -526,7 +527,7 @@ static SecKeyRef SecCDSAKeyCopyPublicKey(SecKeyRef privateKey) {
 
 static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
                                             CSSM_ALGORITHMS &baseAlgorithm, CSSM_ALGORITHMS &secondaryAlgorithm,
-                                            CSSM_ALGORITHMS &paddingAlgorithm) {
+                                            CSSM_ALGORITHMS &paddingAlgorithm, CFIndex &inputSizeLimit) {
     KeyItem *keyItem = key->key;
     CSSM_KEYCLASS keyClass = keyItem->key()->header().keyClass();
     baseAlgorithm = keyItem->key()->header().algorithm();
@@ -537,27 +538,35 @@ static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType o
                 if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureRaw)) {
                     secondaryAlgorithm = CSSM_ALGID_NONE;
                     paddingAlgorithm = CSSM_PADDING_NONE;
+                    inputSizeLimit = 0;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw)) {
                     secondaryAlgorithm = CSSM_ALGID_NONE;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = -11;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1)) {
                     secondaryAlgorithm = CSSM_ALGID_SHA1;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = 20;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224)) {
                     secondaryAlgorithm = CSSM_ALGID_SHA224;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = 224 / 8;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256)) {
                     secondaryAlgorithm = CSSM_ALGID_SHA256;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = 256 / 8;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384)) {
                     secondaryAlgorithm = CSSM_ALGID_SHA384;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = 384 / 8;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512)) {
                     secondaryAlgorithm = CSSM_ALGID_SHA512;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = 512 / 8;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5)) {
                     secondaryAlgorithm = CSSM_ALGID_MD5;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = 16;
                 } else {
                     return NULL;
                 }
@@ -566,9 +575,11 @@ static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType o
                 if (CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRaw)) {
                     secondaryAlgorithm = CSSM_ALGID_NONE;
                     paddingAlgorithm = CSSM_PADDING_NONE;
+                    inputSizeLimit = 0;
                 } else if (CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionPKCS1)) {
                     secondaryAlgorithm = CSSM_ALGID_NONE;
                     paddingAlgorithm = CSSM_PADDING_PKCS1;
+                    inputSizeLimit = operation == kSecKeyOperationTypeEncrypt ? -11 : 0;
                 } else {
                     return NULL;
                 }
@@ -629,21 +640,29 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
                                                CFArrayRef allAlgorithms, SecKeyOperationMode mode,
                                                CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     BEGIN_SECKEYAPI(CFTypeRef, kCFNull)
+    CFIndex inputSizeLimit = 0;
     CSSM_ALGORITHMS baseAlgorithm, secondaryAlgorithm, paddingAlgorithm;
-    KeyItem *keyItem = SecCDSAKeyPrepareParameters(key, operation, algorithm, baseAlgorithm, secondaryAlgorithm, paddingAlgorithm);
+    KeyItem *keyItem = SecCDSAKeyPrepareParameters(key, operation, algorithm, baseAlgorithm, secondaryAlgorithm, paddingAlgorithm, inputSizeLimit);
     if (keyItem == NULL) {
         // Operation/algorithm/key combination is not supported.
         return kCFNull;
     } else if (mode == kSecKeyOperationModeCheckIfSupported) {
         // Operation is supported and caller wants to just know that.
         return kCFBooleanTrue;
+    } else if (baseAlgorithm == CSSM_ALGID_RSA) {
+        if (inputSizeLimit <= 0) {
+            inputSizeLimit += SecCDSAKeyGetBlockSize(key);
+        }
+        if (CFDataGetLength((CFDataRef)in1) > inputSizeLimit) {
+            MacOSError::throwMe(errSecParam);
+        }
     }
 
     switch (operation) {
         case kSecKeyOperationTypeSign: {
             CssmClient::Sign signContext(keyItem->csp(), baseAlgorithm, secondaryAlgorithm);
             signContext.key(keyItem->key());
-            signContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_SIGN, kSecCredentialTypeDefault));
+            signContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_SIGN, key->credentialType));
             signContext.add(CSSM_ATTRIBUTE_PADDING, paddingAlgorithm);
             CFRef<CFDataRef> input = SecCDSAKeyCopyPaddedPlaintext(key, CFRef<CFDataRef>::check(in1, errSecParam), algorithm);
             CssmAutoData signature(signContext.allocator());
@@ -654,7 +673,7 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
         case kSecKeyOperationTypeVerify: {
             CssmClient::Verify verifyContext(keyItem->csp(), baseAlgorithm, secondaryAlgorithm);
             verifyContext.key(keyItem->key());
-            verifyContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ANY, kSecCredentialTypeDefault));
+            verifyContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ANY, key->credentialType));
             verifyContext.add(CSSM_ATTRIBUTE_PADDING, paddingAlgorithm);
             CFRef<CFDataRef> input = SecCDSAKeyCopyPaddedPlaintext(key, CFRef<CFDataRef>::check(in1, errSecParam), algorithm);
             verifyContext.verify(CssmData(CFDataRef(input)), CssmData(CFRef<CFDataRef>::check(in2, errSecParam)));
@@ -665,7 +684,7 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
             CssmClient::Encrypt encryptContext(keyItem->csp(), baseAlgorithm);
             encryptContext.key(keyItem->key());
             encryptContext.padding(paddingAlgorithm);
-            encryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ENCRYPT, kSecCredentialTypeDefault));
+            encryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ENCRYPT, key->credentialType));
             CFRef<CFDataRef> input = SecCDSAKeyCopyPaddedPlaintext(key, CFRef<CFDataRef>::check(in1, errSecParam), algorithm);
             CssmAutoData output(encryptContext.allocator()), remainingData(encryptContext.allocator());
             size_t length = encryptContext.encrypt(CssmData(CFDataRef(input)), output.get(), remainingData.get());
@@ -679,7 +698,7 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
             CssmClient::Decrypt decryptContext(keyItem->csp(), baseAlgorithm);
             decryptContext.key(keyItem->key());
             decryptContext.padding(paddingAlgorithm);
-            decryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_DECRYPT, kSecCredentialTypeDefault));
+            decryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_DECRYPT, key->credentialType));
             CssmAutoData output(decryptContext.allocator()), remainingData(decryptContext.allocator());
             size_t length = decryptContext.decrypt(CssmData(CFRef<CFDataRef>::check(in1, errSecParam)),
                                                    output.get(), remainingData.get());
@@ -730,11 +749,24 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
     END_SECKEYAPI
 }
 
-static Boolean SecCDSAIsEqual(SecKeyRef key1, SecKeyRef key2) {
+static Boolean SecCDSAKeyIsEqual(SecKeyRef key1, SecKeyRef key2) {
     CFErrorRef *error;
     BEGIN_SECKEYAPI(Boolean, false)
 
     result = key1->key->equal(*key2->key);
+
+    END_SECKEYAPI
+}
+
+static Boolean SecCDSAKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
+    BEGIN_SECKEYAPI(Boolean, false)
+
+    if (CFEqual(name, kSecUseAuthenticationUI)) {
+        key->credentialType = CFEqual(value, kSecUseAuthenticationUIAllow) ? kSecCredentialTypeDefault : kSecCredentialTypeNoUI;
+        result = true;
+    } else {
+        result = SecError(errSecUnimplemented, error, CFSTR("Unsupported parameter '%@' for SecKeyCDSASetParameter"), name);
+    }
 
     END_SECKEYAPI
 }
@@ -752,7 +784,8 @@ const SecKeyDescriptor kSecCDSAKeyDescriptor = {
     .copyExternalRepresentation = SecCDSAKeyCopyExternalRepresentation,
     .copyPublicKey = SecCDSAKeyCopyPublicKey,
     .copyOperationResult = SecCDSAKeyCopyOperationResult,
-    .isEqual = SecCDSAIsEqual,
+    .isEqual = SecCDSAKeyIsEqual,
+    .setParameter = SecCDSAKeySetParameter,
 };
 
 namespace Security {

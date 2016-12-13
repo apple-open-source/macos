@@ -205,6 +205,7 @@ void cache_disk_names(void);
 #define P_DISKIO_NOCACHE  (DKIO_NOCACHE << 2)
 #define P_DISKIO_TIER_MASK  (DKIO_TIER_MASK << 2)
 #define P_DISKIO_TIER_SHIFT (DKIO_TIER_SHIFT + 2)
+#define P_DISKIO_TIER_UPGRADE (DKIO_TIER_UPGRADE << 2)
 
 #define P_DISKIO	(FSDBG_CODE(DBG_DKRW, 0))
 #define P_DISKIO_DONE	(P_DISKIO | (DKIO_DONE << 2))
@@ -3518,6 +3519,10 @@ diskio_print(struct diskio *dio)
 			buf[len++] = 'T';
 			if (tier > 0 && tier < 10)
 				buf[len++] = '0' + tier;
+
+			if (type & P_DISKIO_TIER_UPGRADE) {
+				buf[len++] = 'U';
+			}
 		}
 
 		if (type & P_DISKIO_PASSIVE)

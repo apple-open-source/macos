@@ -991,7 +991,7 @@ dtrace='
 
 ### Run DTrace
 #if [ $opt_command -eq 1 ]; then
-#	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=exec -n "$dtrace" \
+#	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=postinit -n "$dtrace" \
 #	    -c "$command" >&2
 #else
 #	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" >&2
@@ -1001,7 +1001,7 @@ dtrace='
 # Redirect the output to stderr so that it doesn't mingle with
 # data going to the target's stdout
 if [ $opt_command -eq 1 ]; then
-	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=exec -n "$dtrace" \
+	/usr/sbin/dtrace -x dynvarsize=$buf -x evaltime=preinit -Z -n "$dtrace" \
 	    -c "$command" >&2
 else
 	/usr/sbin/dtrace -x dynvarsize=$buf -n "$dtrace" >&2

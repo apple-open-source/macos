@@ -1504,7 +1504,6 @@ IOReturn IOPMConnectionCreate(
 
     kern_result = io_pm_connection_create(
                                     pm_server,
-                                    mach_task_self(),
                                     arg_name_str,
                                     interests,
                                     &new_connection_id,

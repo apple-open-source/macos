@@ -892,6 +892,7 @@ SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, con
 	}
 	catch (CommonError &e)
 	{
+        secnotice("KCLogin", "SecKeychainLogin failed: %d, password was%s supplied", (int)e.osStatus(), password?"":" not");
 		if (e.osStatus() == CSSMERR_DL_OPERATION_AUTH_DENIED)
 		{
 			return errSecAuthFailed;
@@ -901,7 +902,12 @@ SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, con
 			return e.osStatus();
 		}
 	}
-	
+
+    catch (...) {
+        __secapiresult=errSecInternalComponent;
+    }
+    secnotice("KCLogin", "SecKeychainLogin result: %d, password was%s supplied", (int)__secapiresult, password?"":" not");
+
     END_SECAPI
 }
 
@@ -1443,7 +1449,7 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 		AuthorizationRef authorizationRef;
 		result = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &authorizationRef);
 		if (result != errAuthorizationSuccess) {
-			secinfo("SecKeychain", "failed to create authorization");
+			secnotice("SecKeychain", "failed to create authorization");
 			return result;
 		}
 
@@ -1455,17 +1461,19 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 		UInt32 pathLength = PATH_MAX;
 		result = SecKeychainGetPath(userKeychain, &pathLength, pathName);
 		if (result != errSecSuccess) {
-			secinfo("SecKeychain", "Failed to get kc path: %d", (int) result);
+			secnotice("SecKeychain", "failed to create authorization");
 			return result;
 		}
 
 		Boolean checkPwd = TRUE;
+		Boolean ignoreSession = TRUE;
 		AuthorizationItem envItems[] = {
 			{AGENT_HINT_KEYCHAIN_PATH, pathLength, pathName, 0},
-			{AGENT_HINT_KEYCHAIN_CHECK, sizeof(checkPwd), &checkPwd}
+			{AGENT_HINT_KEYCHAIN_CHECK, sizeof(checkPwd), &checkPwd},
+			{AGENT_HINT_IGNORE_SESSION, sizeof(ignoreSession), &ignoreSession}
 		};
 
-		AuthorizationEnvironment environment  = {2, envItems};
+		AuthorizationEnvironment environment  = {3, envItems};
 		AuthorizationFlags flags = kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights;
 		result = AuthorizationCopyRights(authorizationRef, &myRights, &environment, flags, &authorizedRights);
 		if (authorizedRights)
@@ -1483,7 +1491,7 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 		}
 		AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
 		if (result != errAuthorizationSuccess) {
-			secinfo("SecKeychain", "did not get authorization to pair the card");
+			secnotice("SecKeychain", "did not get authorization to pair the card");
 			return result;
 		}
 	} else {
@@ -1491,7 +1499,7 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 	}
 
 	if (!pwd) {
-		secinfo("SecKeychain", "did not get kcpass");
+		secnotice("SecKeychain", "did not get kcpass");
 		return errSecInternalComponent;
 	}
 

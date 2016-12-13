@@ -189,7 +189,10 @@ static bool             gUseKeyswitch = true;
 { \
     if (!evStateChanging && displayManager) { \
         IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, event, __LINE__, 0, 0); \
-        if (!DISPLAY_IS_ENABLED) kprintf("IOHIDSystem tickle when screen off for event %d at line %d\n", (int)event, __LINE__); \
+        if (!DISPLAY_IS_ENABLED) { \
+            kprintf("IOHIDSystem tickle when screen off for event %d at line %d\n", (int)event, __LINE__); \
+            HIDLogInfo("IOHIDSystem tickle when screen off for event %d", (int)event); \
+        } \
         displayManager->activityTickle(IOHID_DEBUG_CODE(event)); \
     } \
     updateHidActivity(); \

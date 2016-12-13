@@ -95,7 +95,7 @@ openpam_load_module(const char *path)
  * XXX highly thread-unsafe
  */
 
-static void
+void
 openpam_release_module(pam_module_t *module)
 {
 	if (module == NULL)

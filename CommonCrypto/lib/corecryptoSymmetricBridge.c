@@ -29,16 +29,18 @@ static void *noMode(void) { return NULL; }
 
 // RC4 as a mode trick ...
 
-static void rc4ModeInit(const struct ccmode_ofb * __unused ofb, ccofb_ctx *ctx,
-             unsigned long key_len, const void *key,
-             const void * __unused iv)
+static int rc4ModeInit(const struct ccmode_ofb * __unused ofb, ccofb_ctx *ctx,
+                       unsigned long key_len, const void *key,
+                       const void * __unused iv)
 {
     ccrc4_eay.init((ccrc4_ctx *)ctx, key_len, key);
+    return 0;
 }
 
-static void rc4crypt(ccofb_ctx *ctx, unsigned long nbytes, const void *in, void *out)
+static int rc4crypt(ccofb_ctx *ctx, unsigned long nbytes, const void *in, void *out)
 {
     ccrc4_eay.crypt((ccrc4_ctx *) ctx, nbytes, in, out);
+    return 0;
 }
 
 typedef struct eay_rc4_key_st
@@ -389,8 +391,7 @@ static void ccgcm_mode_crypt(const corecryptoMode modeObj, const void *in, void 
 
 static int ccgcm_setiv(const corecryptoMode modeObj, const void *iv, uint32_t len, modeCtx ctx)
 {
-    modeObj.gcm->set_iv(ctx.gcm, len, iv);
-    return 0;
+    return ccgcm_set_iv_legacy(modeObj.gcm, ctx.gcm, len, iv);
 }
 
 

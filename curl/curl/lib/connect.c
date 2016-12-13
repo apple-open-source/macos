@@ -72,6 +72,7 @@
 #include "warnless.h"
 #include "conncache.h"
 #include "multihandle.h"
+#include "system_win32.h"
 
 /* The last 3 #include files should be in this order */
 #include "curl_printf.h"
@@ -103,7 +104,7 @@ struct tcp_keepalive {
 #endif
 
 static void
-tcpkeepalive(struct SessionHandle *data,
+tcpkeepalive(struct Curl_easy *data,
              curl_socket_t sockfd)
 {
   int optval = data->set.tcp_keepalive?1:0;
@@ -178,7 +179,7 @@ singleipconnect(struct connectdata *conn,
  *
  * @unittest: 1303
  */
-long Curl_timeleft(struct SessionHandle *data,
+long Curl_timeleft(struct Curl_easy *data,
                    struct timeval *nowp,
                    bool duringconnect)
 {
@@ -238,7 +239,7 @@ long Curl_timeleft(struct SessionHandle *data,
 static CURLcode bindlocal(struct connectdata *conn,
                           curl_socket_t sockfd, int af, unsigned int scope)
 {
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
 
   struct Curl_sockaddr_storage sa;
   struct sockaddr *sock = (struct sockaddr *)&sa;  /* bind to this address */
@@ -662,7 +663,7 @@ void Curl_updateconninfo(struct connectdata *conn, curl_socket_t sockfd)
   curl_socklen_t len;
   struct Curl_sockaddr_storage ssrem;
   struct Curl_sockaddr_storage ssloc;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
 
   if(conn->socktype == SOCK_DGRAM)
     /* there's no connection! */
@@ -719,7 +720,7 @@ CURLcode Curl_is_connected(struct connectdata *conn,
                            int sockindex,
                            bool *connected)
 {
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   CURLcode result = CURLE_OK;
   long allow;
   int error = 0;
@@ -761,7 +762,7 @@ CURLcode Curl_is_connected(struct connectdata *conn,
 #endif
 
     /* check socket for connect */
-    rc = Curl_socket_ready(CURL_SOCKET_BAD, conn->tempsock[i], 0);
+    rc = SOCKET_WRITABLE(conn->tempsock[i], 0);
 
     if(rc == 0) { /* no connection yet */
       error = 0;
@@ -870,7 +871,7 @@ void Curl_tcpnodelay(struct connectdata *conn, curl_socket_t sockfd)
 {
 #if defined(TCP_NODELAY)
 #if !defined(CURL_DISABLE_VERBOSE_STRINGS)
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
 #endif
   curl_socklen_t onoff = (curl_socklen_t) 1;
   int level = IPPROTO_TCP;
@@ -912,7 +913,7 @@ void Curl_tcpnodelay(struct connectdata *conn, curl_socket_t sockfd)
 static void nosigpipe(struct connectdata *conn,
                       curl_socket_t sockfd)
 {
-  struct SessionHandle *data= conn->data;
+  struct Curl_easy *data= conn->data;
   int onoff = 1;
   if(setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, (void *)&onoff,
                 sizeof(onoff)) < 0)
@@ -945,43 +946,15 @@ void Curl_sndbufset(curl_socket_t sockfd)
   int val = CURL_MAX_WRITE_SIZE + 32;
   int curval = 0;
   int curlen = sizeof(curval);
-  DWORD majorVersion = 6;
 
   static int detectOsState = DETECT_OS_NONE;
 
   if(detectOsState == DETECT_OS_NONE) {
-#if !defined(_WIN32_WINNT) || !defined(_WIN32_WINNT_WIN2K) || \
-    (_WIN32_WINNT < _WIN32_WINNT_WIN2K)
-    OSVERSIONINFO osver;
-
-    memset(&osver, 0, sizeof(osver));
-    osver.dwOSVersionInfoSize = sizeof(osver);
-
-    detectOsState = DETECT_OS_PREVISTA;
-    if(GetVersionEx(&osver)) {
-      if(osver.dwMajorVersion >= majorVersion)
-        detectOsState = DETECT_OS_VISTA_OR_LATER;
-    }
-#else
-    ULONGLONG cm;
-    OSVERSIONINFOEX osver;
-
-    memset(&osver, 0, sizeof(osver));
-    osver.dwOSVersionInfoSize = sizeof(osver);
-    osver.dwMajorVersion = majorVersion;
-
-    cm = VerSetConditionMask(0, VER_MAJORVERSION, VER_GREATER_EQUAL);
-    cm = VerSetConditionMask(cm, VER_MINORVERSION, VER_GREATER_EQUAL);
-    cm = VerSetConditionMask(cm, VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
-    cm = VerSetConditionMask(cm, VER_SERVICEPACKMINOR, VER_GREATER_EQUAL);
-
-    if(VerifyVersionInfo(&osver, (VER_MAJORVERSION | VER_MINORVERSION |
-                                  VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR),
-                         cm))
+    if(Curl_verify_windows_version(6, 0, PLATFORM_WINNT,
+                                   VERSION_GREATER_THAN_EQUAL))
       detectOsState = DETECT_OS_VISTA_OR_LATER;
     else
       detectOsState = DETECT_OS_PREVISTA;
-#endif
   }
 
   if(detectOsState == DETECT_OS_VISTA_OR_LATER)
@@ -1012,7 +985,7 @@ static CURLcode singleipconnect(struct connectdata *conn,
   int rc = -1;
   int error = 0;
   bool isconnected = FALSE;
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   curl_socket_t sockfd;
   CURLcode result;
   char ipaddress[MAX_IPADR_LEN];
@@ -1111,7 +1084,10 @@ static CURLcode singleipconnect(struct connectdata *conn,
                     CONNECT_RESUME_ON_READ_WRITE | CONNECT_DATA_IDEMPOTENT,
                     NULL, 0, NULL, NULL);
 #elif defined(MSG_FASTOPEN) /* Linux */
-      rc = 0; /* Do nothing */
+      if(conn->given->flags & PROTOPT_SSL)
+        rc = connect(sockfd, &addr.sa_addr, addr.addrlen);
+      else
+        rc = 0; /* Do nothing */
 #endif
     }
     else {
@@ -1173,7 +1149,7 @@ static CURLcode singleipconnect(struct connectdata *conn,
 CURLcode Curl_connecthost(struct connectdata *conn,  /* context */
                           const struct Curl_dns_entry *remotehost)
 {
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct timeval before = Curl_tvnow();
   CURLcode result = CURLE_COULDNT_CONNECT;
 
@@ -1232,11 +1208,11 @@ static int conn_is_conn(struct connectdata *conn, void *param)
 
 /*
  * Used to extract socket and connectdata struct for the most recent
- * transfer on the given SessionHandle.
+ * transfer on the given Curl_easy.
  *
  * The returned socket will be CURL_SOCKET_BAD in case of failure!
  */
-curl_socket_t Curl_getconnectinfo(struct SessionHandle *data,
+curl_socket_t Curl_getconnectinfo(struct Curl_easy *data,
                                   struct connectdata **connp)
 {
   curl_socket_t sockfd;
@@ -1336,7 +1312,7 @@ CURLcode Curl_socket(struct connectdata *conn,
                      struct Curl_sockaddr_ex *addr,
                      curl_socket_t *sockfd)
 {
-  struct SessionHandle *data = conn->data;
+  struct Curl_easy *data = conn->data;
   struct Curl_sockaddr_ex dummy;
 
   if(!addr)
@@ -1392,25 +1368,26 @@ CURLcode Curl_socket(struct connectdata *conn,
 
 }
 
-#ifdef CURLDEBUG
 /*
- * Curl_conncontrol() is used to set the conn->bits.close bit on or off. It
- * MUST be called with the connclose() or connkeep() macros with a stated
- * reason. The reason is only shown in debug builds but helps to figure out
- * decision paths when connections are or aren't re-used as expected.
+ * Curl_conncontrol() marks streams or connection for closure.
  */
-void Curl_conncontrol(struct connectdata *conn, bool closeit,
-                      const char *reason)
-{
-#if defined(CURL_DISABLE_VERBOSE_STRINGS)
-  (void) reason;
+void Curl_conncontrol(struct connectdata *conn,
+                      int ctrl /* see defines in header */
+#ifdef DEBUGBUILD
+                      , const char *reason
 #endif
-  if(closeit != conn->bits.close) {
-    infof(conn->data, "Marked for [%s]: %s\n", closeit?"closure":"keep alive",
-          reason);
-
+  )
+{
+  /* close if a connection, or a stream that isn't multiplexed */
+  bool closeit = (ctrl == CONNCTRL_CONNECTION) ||
+    ((ctrl == CONNCTRL_STREAM) && !(conn->handler->flags & PROTOPT_STREAM));
+  if((ctrl == CONNCTRL_STREAM) &&
+     (conn->handler->flags & PROTOPT_STREAM))
+    DEBUGF(infof(conn->data, "Kill stream: %s\n", reason));
+  else if(closeit != conn->bits.close) {
+    DEBUGF(infof(conn->data, "Marked for [%s]: %s\n",
+                 closeit?"closure":"keep alive", reason));
     conn->bits.close = closeit; /* the only place in the source code that
                                    should assign this bit */
   }
 }
-#endif

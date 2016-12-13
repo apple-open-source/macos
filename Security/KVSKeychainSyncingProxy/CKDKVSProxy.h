@@ -139,7 +139,8 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 - (NSMutableDictionary *)copyValues:(NSSet *)keysOfInterest;
 
 - (void) doAfterFlush: (dispatch_block_t) block;
-- (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration))) callout;
+- (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration,
+                               dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration, NSError* error))) callout;
 - (void) sendKeysCallout: (NSSet *(^)(NSSet* pending, NSError **error)) handleKeys;
 
 - (void)recordWriteToKVS:(NSDictionary *)values;

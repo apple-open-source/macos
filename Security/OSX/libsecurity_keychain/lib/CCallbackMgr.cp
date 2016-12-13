@@ -320,6 +320,7 @@ void CCallbackMgr::consume (SecurityServer::NotificationDomain domain, SecurityS
             StLock<Mutex>_(*globals().storageManager.getStorageManagerMutex());
 			DLDbIdentifier dbid = NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary(dictionary);
 			thisKeychain = globals().storageManager.keychain(dbid);
+            globals().storageManager.tickleKeychain(thisKeychain);
 		}
 
 		const NameValuePair* item = dictionary.FindByName(ITEM_KEY);

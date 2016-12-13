@@ -67,6 +67,7 @@ struct __OpaqueSecDbConnection {
     SecDbTransactionSource source;
     bool isCorrupted;
     int maybeCorruptedCode;
+    bool hasIOFailure;
     CFErrorRef corruptionError;
     sqlite3 *handle;
     // Pending deletions and additions for the current transaction
@@ -373,6 +374,8 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
         CFRelease(msg);
     }
 
+    dbconn->hasIOFailure |= (SQLITE_IOERR == code);
+
     /* If it's already corrupted, don't try to recover */
     if (dbconn->isCorrupted) {
         CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
@@ -384,7 +387,7 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
         return false;
     }
 
-    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code) || (SQLITE_IOERR == code) || (SQLITE_CANTOPEN == code);
+    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code) || (SQLITE_CANTOPEN == code);
     if (dbconn->isCorrupted) {
         /* Run integrity check and only make dbconn->isCorrupted true and
            run the corruption handler if the integrity check conclusively fails. */
@@ -891,6 +894,7 @@ SecDbConnectionCreate(SecDbRef db, bool readOnly, CFErrorRef *error)
     dbconn->source = NULL;
     dbconn->isCorrupted = false;
     dbconn->maybeCorruptedCode = 0;
+    dbconn->hasIOFailure = false;
     dbconn->corruptionError = NULL;
     dbconn->handle = NULL;
     dbconn->changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -925,7 +929,7 @@ SecDbConnectionRef SecDbConnectionAquire(SecDbRef db, bool readOnly, CFErrorRef 
                 secerror("Unable to create database: %@", localError);
                 if (localError && CFEqual(CFErrorGetDomain(localError), kSecDbErrorDomain)) {
                     int code = (int)CFErrorGetCode(localError);
-                    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code) || (SQLITE_IOERR == code) || (SQLITE_CANTOPEN == code);
+                    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code) || (SQLITE_CANTOPEN == code);
                 }
                 // If the open failure isn't due to corruption, propagte the error.
                 ok = dbconn->isCorrupted;
@@ -1001,13 +1005,19 @@ void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
     SecDbRef db = dbconn->db;
     secinfo("dbconn", "release %@", dbconn);
     dispatch_sync(db->queue, ^{
-        CFIndex count = CFArrayGetCount(db->connections);
-        // Add back possible writable dbconn to the pool.
         bool readOnly = SecDbConnectionIsReadOnly(dbconn);
-        CFArrayInsertValueAtIndex(db->connections, readOnly ? count : 0, dbconn);
-        // Remove the last (probably read-only) dbconn from the pool.
-        if (count >= kSecDbMaxIdleHandles) {
-            CFArrayRemoveValueAtIndex(db->connections, count);
+        if (dbconn->hasIOFailure) {
+            // Something wrong on the file layer (e.g. revoked file descriptor for networked home)
+            // so we don't trust our existing connections anymore.
+            CFArrayRemoveAllValues(db->connections);
+        } else {
+            CFIndex count = CFArrayGetCount(db->connections);
+            // Add back possible writable dbconn to the pool.
+            CFArrayInsertValueAtIndex(db->connections, readOnly ? count : 0, dbconn);
+            // Remove the last (probably read-only) dbconn from the pool.
+            if (count >= kSecDbMaxIdleHandles) {
+                CFArrayRemoveValueAtIndex(db->connections, count);
+            }
         }
         // Signal after we have put the connection back in the pool of connections
         dispatch_semaphore_signal(readOnly ? db->read_semaphore : db->write_semaphore);
@@ -1315,7 +1325,7 @@ bool SecDbWithSQL(SecDbConnectionRef dbconn, CFStringRef sql, CFErrorRef *error,
 /* SecDbForEach returns true if all SQLITE_ROW returns of sqlite3_step() return true from the row block.
  If the row block returns false and doesn't set an error (to indicate it has reached a limit),
  this entire function returns false. In that case no error will be set. */
-bool SecDbForEach(sqlite3_stmt *stmt, CFErrorRef *error, bool(^row)(int row_index)) {
+bool SecDbForEach(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *error, bool(^row)(int row_index)) {
     bool result = false;
     for (int row_ix = 0;;++row_ix) {
         int s3e = sqlite3_step(stmt);
@@ -1334,6 +1344,7 @@ bool SecDbForEach(sqlite3_stmt *stmt, CFErrorRef *error, bool(^row)(int row_inde
             if (s3e == SQLITE_DONE) {
                 result = true;
             } else {
+                dbconn->hasIOFailure |= (s3e == SQLITE_IOERR);
                 SecDbErrorWithStmt(s3e, stmt, error, CFSTR("step[%d]"), row_ix);
             }
             break;

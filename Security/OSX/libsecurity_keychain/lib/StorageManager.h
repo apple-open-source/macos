@@ -113,7 +113,7 @@ public:
 	void setSearchList(SecPreferencesDomain domain, const KeychainList &keychainList);
 
     void rename(Keychain keychain, const char* newName);
-    void renameUnique(Keychain keychain, CFStringRef newName, bool appendDbSuffix);
+    void renameUnique(Keychain keychain, CFStringRef oldName, CFStringRef newName, bool appendDbSuffix);
 
 	// Iff keychainOrArray is NULL return the default KeychainList in keychainList otherwise
 	// if keychainOrArray is a CFArrayRef containing SecKeychainRef's convernt it to KeychainList,
@@ -147,6 +147,8 @@ public:
 	void defaultKeychain(const Keychain &keychain);
 
 	Keychain loginKeychain();
+    DLDbIdentifier loginKeychainDLDbIdentifer();
+
 	void loginKeychain(Keychain keychain);
 	
 	Keychain defaultKeychain(SecPreferencesDomain domain);
@@ -183,6 +185,9 @@ public:
     //
     //  Otherwise, leave it alone.
     static DLDbIdentifier mungeDLDbIdentifier(const DLDbIdentifier& dLDbIdentifier, bool isReset);
+
+    // Change the DLDbIdentifier to always use the pattern ending with "-db".
+    static DLDbIdentifier forceMungeDLDbIDentifier(const DLDbIdentifier& dLDbIdentifier);
 
     // Due to compatibility requirements, we need the DLDbListCFPref lists to
     // never see a ".keychain-db" filename. Call this function to give them what

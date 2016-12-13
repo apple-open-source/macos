@@ -61,7 +61,10 @@ CCDHCreate(CCDHParameters dhParameter)
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     CC_NONULLPARMRETNULL(dhParameter);
     if (dhParameter == kCCDHRFC2409Group2) {
-        return NULL;
+        stockParm = CC_XMALLOC(sizeof(CCDHParmSetstruct));
+        stockParm->gp = ccdh_gp_rfc2409group02();
+        stockParm->malloced = true;
+        CCDHParm = stockParm;
     } else if (dhParameter == kCCDHRFC3526Group5) {
         stockParm = CC_XMALLOC(sizeof(CCDHParmSetstruct));
         stockParm->gp = ccdh_gp_rfc3526group05();
@@ -97,6 +100,7 @@ CCDHRelease(CCDHRef ref)
     if(keyref->ctx._full) 
         CC_XFREE(keyref->ctx._full, ccdh_full_ctx_size(ccdh_ccn_size(keyref->parms->gp)));
     keyref->ctx._full = NULL;
+    CC_XFREE(keyref->parms, sizeof(CCDHParmSetstruct));
     keyref->parms = NULL;
     CC_XFREE(keyref, sizeof(CCDHstruct));
 }

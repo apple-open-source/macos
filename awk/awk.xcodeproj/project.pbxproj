@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		727082250FD476D400B533D9 /* awkgram.y in Sources */ = {isa = PBXBuildFile; fileRef = 7270820F0FD476D400B533D9 /* awkgram.y */; };
 		727082260FD476D400B533D9 /* b.c in Sources */ = {isa = PBXBuildFile; fileRef = 727082100FD476D400B533D9 /* b.c */; };
 		727082270FD476D400B533D9 /* lex.c in Sources */ = {isa = PBXBuildFile; fileRef = 727082130FD476D400B533D9 /* lex.c */; };
 		727082280FD476D400B533D9 /* lib.c in Sources */ = {isa = PBXBuildFile; fileRef = 727082140FD476D400B533D9 /* lib.c */; };
@@ -16,6 +15,7 @@
 		7270822E0FD476D400B533D9 /* proctab.c in Sources */ = {isa = PBXBuildFile; fileRef = 7270821B0FD476D400B533D9 /* proctab.c */; };
 		7270822F0FD476D400B533D9 /* run.c in Sources */ = {isa = PBXBuildFile; fileRef = 7270821E0FD476D400B533D9 /* run.c */; };
 		727082300FD476D400B533D9 /* tran.c in Sources */ = {isa = PBXBuildFile; fileRef = 7270821F0FD476D400B533D9 /* tran.c */; };
+		FDB673DB1D65078300CD71B9 /* ytab.c in Sources */ = {isa = PBXBuildFile; fileRef = 727082210FD476D400B533D9 /* ytab.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -117,9 +117,15 @@
 /* Begin PBXProject section */
 		727081F00FD4748300B533D9 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 727081F30FD4748300B533D9 /* Build configuration list for PBXProject "awk" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 727081EE0FD4748300B533D9;
 			productRefGroup = 727082030FD476AA00B533D9 /* Products */;
 			projectDirPath = "";
@@ -152,7 +158,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				727082250FD476D400B533D9 /* awkgram.y in Sources */,
 				727082260FD476D400B533D9 /* b.c in Sources */,
 				727082270FD476D400B533D9 /* lex.c in Sources */,
 				727082280FD476D400B533D9 /* lib.c in Sources */,
@@ -161,6 +166,7 @@
 				7270822E0FD476D400B533D9 /* proctab.c in Sources */,
 				7270822F0FD476D400B533D9 /* run.c in Sources */,
 				727082300FD476D400B533D9 /* tran.c in Sources */,
+				FDB673DB1D65078300CD71B9 /* ytab.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -559,6 +559,7 @@ service_kb_unlock(service_context_t * context, const void * secret, int secret_l
     rc = aks_unlock_bag(session_handle, secret, secret_len);
 
 done:
+    syslog(LOG_NOTICE, "aks_unlock_bag result: (%ld)", (long)rc);
     return rc;
 }
 

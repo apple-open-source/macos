@@ -45,6 +45,17 @@
 
 #define USE_SLEEP_RATHER_THAN_ABORT 0
 
+/*
+	MAX_LITE_MALLOCS
+ 
+	If msl lite is turned on due to a memory resource exception use this value as the maximum
+	number of allocations allowed before msl lite is turned off. This prevents msl lite from being
+	enabled indefinitely if the process never reaches 100% of its jetsam limit.
+	See rdar://problem/25950426 for a discussion of how this number was determined.
+ */
+
+#define MAX_LITE_MALLOCS 100000000
+
 typedef void(malloc_logger_t)(uint32_t type,
 		uintptr_t arg1,
 		uintptr_t arg2,
@@ -1973,6 +1984,9 @@ malloc_memory_event_handler(unsigned long event)
 		malloc_printf("malloc_memory_event_handler: approaching memory limit. Starting stack-logging.\n");
 		if (turn_on_stack_logging(stack_logging_mode_lite)) {
 			warn_mode_entered = true;
+			
+			// set the maximum allocation threshold
+			max_lite_mallocs = MAX_LITE_MALLOCS;
 		}
 	}
 #endif

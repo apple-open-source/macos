@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2012, 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -163,10 +163,17 @@ void WebPage::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandid
 void WebPage::requestActiveNowPlayingSessionInfo()
 {
     bool hasActiveSession = false;
-    if (auto* sharedManager = WebCore::PlatformMediaSessionManager::sharedManagerIfExists())
+    String title = emptyString();
+    double duration = NAN;
+    double elapsedTime = NAN;
+    if (auto* sharedManager = WebCore::PlatformMediaSessionManager::sharedManagerIfExists()) {
         hasActiveSession = sharedManager->hasActiveNowPlayingSession();
+        title = sharedManager->lastUpdatedNowPlayingTitle();
+        duration = sharedManager->lastUpdatedNowPlayingDuration();
+        elapsedTime = sharedManager->lastUpdatedNowPlayingElapsedTime();
+    }
 
-    send(Messages::WebPageProxy::HandleActiveNowPlayingSessionInfoResponse(hasActiveSession));
+    send(Messages::WebPageProxy::HandleActiveNowPlayingSessionInfoResponse(hasActiveSession, title, duration, elapsedTime));
 }
 
 NSObject *WebPage::accessibilityObjectForMainFramePlugin()
@@ -319,6 +326,8 @@ void WebPage::sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdenti
 void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& replacementEditingRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, bool registerUndoGroup)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
+
+    Ref<Frame> protector(frame);
 
     if (replacementEditingRange.location != notFound) {
         RefPtr<Range> replacementRange = rangeFromEditingRange(frame, replacementEditingRange);

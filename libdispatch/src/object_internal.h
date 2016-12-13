@@ -253,6 +253,9 @@ DISPATCH_ENUM(dispatch_wakeup_flags, uint32_t,
 	// preserved (used to solve a race with _dispatch_queue_drain_try_unlock())
 	DISPATCH_WAKEUP_WAS_OVERRIDDEN          = 0x00000010,
 
+	// This wakeup is caused by a handoff from a slow waiter.
+	DISPATCH_WAKEUP_WAITER_HANDOFF          = 0x00000020,
+
 #define _DISPATCH_WAKEUP_OVERRIDE_BITS \
 		((dispatch_wakeup_flags_t)(DISPATCH_WAKEUP_OVERRIDING | \
 		DISPATCH_WAKEUP_WAS_OVERRIDDEN))

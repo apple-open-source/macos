@@ -24,6 +24,7 @@
 
 #include "IOHIDEventOverrideDriver.h"
 #include "IOHIDUsageTables.h"
+#include "IOHIDEvent.h"
 
 //===========================================================================
 // IOHIDEventOverrideDriver class

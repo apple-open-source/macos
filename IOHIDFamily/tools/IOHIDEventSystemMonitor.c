@@ -896,18 +896,19 @@ static void printHelp()
 {
     printf("\n");
     printf("hidEventSystemMonitor usage:\n\n");
-    printf("\t-up <usage page>\t: Device usage page\n");
-    printf("\t-u <usage>\t: Device usage\n");
-    printf("\t-b <1 | 0>\t: 1=built-in 0=not built-in\n");
+    printf("\t-up <usage page>\t\t: Device usage page\n");
+    printf("\t-u <usage>\t\t\t: Device usage\n");
+    printf("\t-b <1 | 0>\t\t\t: 1=built-in 0=not built-in\n");
     printf("\t-m <event type mask ...>\t: monitor all events contained in mask\n");
     printf("\t-e <event type number ...>\t: monitor all events of the passed type\n");
     printf("\t-nm <event type mask>\t\t: monitor all events except those contained in mask\n");
     printf("\t-ne <event type number>\t\t: monitor all events except those of the passed type\n");
     printf("\t-d <event type number>\t\t: dispatch event of the passed type\n");
     printf("\t-dm <event type number>\t\t: dispatch events of the passed mask\n");
-    printf("\t-k <string>\t\t: Key to be used with -bp or -np options for setting properties\n");
-    printf("\t-bp <0/1>\t\t:Boolean to use with -k option\n");
-    printf("\t-np <number>\t\t: Numeric value, use with -k option\n");
+    printf("\t-do \t\t\t\t: exit after dispatching events with -d, -dm\n");
+    printf("\t-k <string>\t\t\t: Key to be used with -bp or -np options for setting properties\n");
+    printf("\t-bp <0/1>\t\t\t: Boolean to use with -k option\n");
+    printf("\t-np <number>\t\t\t: Numeric value, use with -k option\n");
 #if !TARGET_OS_EMBEDDED
     printf("\t-nxtype <NX event type number> monitor all NX events with type\n");
     printf("\t-nxusage <NX event usage number> monitor all NX events with usage\n");
@@ -923,7 +924,7 @@ static void printHelp()
     printf("\n");
     printf("\t-lc\t\t\t\t: List clients\n");
     printf("\t-ls\t\t\t\t: List services\n");
-    printf("\t-S <interval>: Set sample interval\n");
+    printf("\t-S <interval>\t\t\t: Set sample interval\n");
     printf("\t-V\t\t\t\t: Version\n");
     printf("\n\tAvailable Event Types:\n");
     
@@ -1015,9 +1016,6 @@ int main (int argc __unused, const char * argv[] __unused)
                 registrationType = kEventRegistrationTypeUsagePage;
             }
             else if ( !strcmp("-u", arg ) ) {
-                registrationType = kEventRegistrationTypeUsage;
-            }
-            else if ( !strcmp("-d", arg ) ) {
                 registrationType = kEventRegistrationTypeUsage;
             }
             else if ( !strcmp("-b", arg) ) {

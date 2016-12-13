@@ -266,7 +266,7 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
     OSSafeReleaseNULL(object);
     
     if ( queueSize ) {
-        _queue = IOHIDEventServiceQueue::withCapacity(queueSize);
+        _queue = IOHIDEventServiceQueue::withCapacity(queueSize, getRegistryEntryID());
         require(_queue, exit);
     }
   
@@ -485,6 +485,13 @@ void IOHIDEventServiceUserClient::eventServiceCallback(
     if (!_queue || _state != kUserClientStateOpen) {
         return;
     }
+
+#if 0
+    if (event && (event->getLatency(kMillisecondScale) > 500)) {
+        IOLog("HID dispatch 0x%llx[%d]- high latency %llums", getRegistryEntryID(), (int)event->getType(), event->getLatency(kMillisecondScale));
+    }
+#endif
+    
     _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::enqueueEventGated), event);
   
 }

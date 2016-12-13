@@ -2409,7 +2409,7 @@ void TimeZoneTest::TestGetWindowsID(void) {
         {"America/Indianapolis",    "US Eastern Standard Time"},            // CLDR canonical name
         {"America/Indiana/Indianapolis",    "US Eastern Standard Time"},    // tzdb canonical name
         {"Asia/Khandyga",           "Yakutsk Standard Time"},
-        {"Australia/Eucla",         ""}, // No Windows ID mapping
+        {"Australia/Eucla",         "Aus Central W. Standard Time"}, // Now has Windows ID mapping
         {"Bogus",                   ""},
         {0,                         0},
     };

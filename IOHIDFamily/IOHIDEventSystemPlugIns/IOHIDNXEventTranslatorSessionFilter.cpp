@@ -746,7 +746,9 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
             if (policy == kIOHIDEventPowerPolicyWakeSystem || policy == kIOHIDEventPowerPolicyMaintainSystem) {
 
                 HIDLogDebug ("IOPMAssertionDeclareUserActivity sender:0x%llx event type: %d", senderID, (int)eventType);
-                IOReturn status = IOPMAssertionDeclareUserActivity(CFSTR(kIOHIDEventSystemServerName ".queue.tickle"),
+                CFStringRefWrap activityString (std::string(kIOHIDEventSystemServerName) + std::string(".queue.tickle.") +
+                                                std::to_string(senderID) +  std::string(".") + std::to_string(eventType));
+                IOReturn status = IOPMAssertionDeclareUserActivity(activityString.Reference(),
                                                                    kIOPMUserActiveLocal,
                                                                    &_AssertionID);
                 if (status) {

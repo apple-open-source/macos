@@ -38,6 +38,10 @@
 #include <securityd/asynchttp.h>
 #include <stdlib.h>
 
+#define MAX_CA_ISSUERS 3
+#define CA_ISSUERS_REQUEST_THRESHOLD 10
+
+
 /* CA Issuer lookup code. */
 
 typedef struct SecCAIssuerRequest *SecCAIssuerRequestRef;
@@ -57,7 +61,14 @@ static void SecCAIssuerRequestRelease(SecCAIssuerRequestRef request) {
 }
 
 static bool SecCAIssuerRequestIssue(SecCAIssuerRequestRef request) {
-    while (request->issuerIX < CFArrayGetCount(request->issuers)) {
+    CFIndex count = CFArrayGetCount(request->issuers);
+    if (count >= CA_ISSUERS_REQUEST_THRESHOLD) {
+        secnotice("caissuer", "too many caIssuer entries (%ld)", (long)count);
+        request->callback(request->context, NULL);
+        SecCAIssuerRequestRelease(request);
+        return true;
+    }
+    while (request->issuerIX < count && request->issuerIX < MAX_CA_ISSUERS) {
         CFURLRef issuer = CFArrayGetValueAtIndex(request->issuers,
                                                  request->issuerIX++);
         CFStringRef scheme = CFURLCopyScheme(issuer);

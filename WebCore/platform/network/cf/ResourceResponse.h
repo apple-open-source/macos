@@ -91,6 +91,11 @@ public:
     WEBCORE_EXPORT NSURLResponse *nsURLResponse() const;
 #endif
 
+#if USE(QUICK_LOOK)
+    bool isQuickLook() const { return m_isQuickLook; }
+    void setIsQuickLook(bool isQuickLook) { m_isQuickLook = isQuickLook; }
+#endif
+
 private:
     friend class ResourceResponseBase;
 
@@ -107,6 +112,10 @@ private:
     static bool platformCompare(const ResourceResponse& a, const ResourceResponse& b);
 
     unsigned m_initLevel : 3;
+
+#if USE(QUICK_LOOK)
+    bool m_isQuickLook { false };
+#endif
 
 #if USE(CFNETWORK)
     mutable RetainPtr<CFURLResponseRef> m_cfResponse;

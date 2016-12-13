@@ -128,7 +128,9 @@ static inline CCCryptorStatus ccSetupCryptor(CCCryptor *ref, CCAlgorithm cipher,
     ref->mode = mode;
     CCOperation op = direction;
     if(ref->mode == kCCModeXTS || ref->mode == kCCModeECB || ref->mode == kCCModeCBC) op = kCCBoth;
-
+    ref->ctx[kCCEncrypt].data = NULL;
+    ref->ctx[kCCDecrypt].data = NULL;
+    
     // printf("Cryptor setup - cipher %d mode %d direction %d padding %d\n", cipher, mode, direction, padding);
     switch(op) {
         case kCCEncrypt:
@@ -298,11 +300,7 @@ static inline void ccClearCryptor(CCCryptor *ref) {
             }
             break;
     }
-    ref->cipher = 0;
-    ref->mode = 0;
-    ref->op = 0;
-    ref->bufferPos = 0;
-    ref->bytesProcessed = 0;
+    cc_clear(CCCRYPTOR_SIZE, ref);
 }
 
 static inline void returnLengthIfPossible(size_t length, size_t *returnPtr) {
@@ -515,7 +513,7 @@ out:
     if(retval) {
         *cryptorRef = NULL;
         if(cryptor) {
-            CC_XZEROMEM(cryptor, DEFAULT_CRYPTOR_MALLOC);
+            ccClearCryptor(cryptor);
             CC_XFREE(cryptor, DEFAULT_CRYPTOR_MALLOC);
         }
     } else {
@@ -540,7 +538,6 @@ CCCryptorStatus CCCryptorRelease(
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     if(cryptor) {
         ccClearCryptor(cryptor);
-        cc_clear(CCCRYPTOR_SIZE, cryptor);
         CC_XFREE(cryptor, DEFAULT_CRYPTOR_MALLOC);
     }
 	return kCCSuccess;
@@ -919,7 +916,8 @@ CCCryptorStatus CCCryptorAddParameter(
     case kCCParameterIV:
         // GCM version
         if(cryptor->mode == kCCModeGCM) {
-            ccgcm_set_iv(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
+            int rc = ccgcm_set_iv_legacy(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
+            if (rc) return kCCParamError;
         } else if(cryptor->mode == kCCModeCCM) {
             ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
             ccm->nonce_size = dataSize;

@@ -25,8 +25,8 @@
 #ifndef IOHIDUtility_h
 #define IOHIDUtility_h
 
+#include <IOKit/IOTypes.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
-#include <IOKit/hid/AppleHIDUsageTables.h>
 
 enum {
     kKeyMaskCtrl             = 0x0001,
@@ -57,16 +57,20 @@ struct Key {
     uint32_t usage () const {return ((uint32_t*)&_value)[0];}
     uint32_t usagePage () const {return((uint32_t*)&_value)[1];}
     bool isValid () const {return _value != 0;}
-    bool isModifier () const {
-      bool result = false;
-      if ((usagePage() == kHIDPage_KeyboardOrKeypad) &&
-          (((usage() >= kHIDUsage_KeyboardLeftControl) && (usage() <= kHIDUsage_KeyboardRightGUI)) || (usage() == kHIDUsage_KeyboardCapsLock))) {
-          result = true;
-      } else if ((usagePage() == kHIDPage_AppleVendorTopCase) && (usage() == kHIDUsage_AV_TopCase_KeyboardFn)) {
-          result = true;
-      }
-      return result;
+    bool isModifier () const;
+    bool isTopRow () const {
+        bool result = false;
+        if ((usagePage() == kHIDPage_KeyboardOrKeypad) &&
+            (((usage() >= kHIDUsage_Keyboard1) && (usage() <= kHIDUsage_Keyboard0)) ||
+              (usage() == kHIDUsage_KeyboardHyphen) ||
+              (usage() == kHIDUsage_KeyboardEqualSign) ||
+              (usage() == kHIDUsage_KeyboardGraveAccentAndTilde) ||
+              (usage() == kHIDUsage_KeyboardDeleteOrBackspace))) {
+            result = true;
+        }
+        return result;
     }
+
 };
 
 struct KeyAttribute {

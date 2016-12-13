@@ -192,6 +192,7 @@ static const char * forceParent[] = {
     "en_IN",   "en_GB",
     "en_IO",   "en_GB",
     "en_JE",   "en_GB",
+    "en_JM",   "en_GB",
     "en_MO",   "en_GB",
     "en_MT",   "en_GB",
     "en_MV",   "en_GB",  // for Maldives
@@ -403,6 +404,7 @@ static const char * appleParentMap[][2] = {
     { "en_IS",      "en_150"  },    // Apple locale addition
     { "en_IT",      "en_150"  },    // Apple locale addition
     { "en_JE",      "en_GB"   },
+    { "en_JM",      "en_GB"   },
     { "en_LT",      "en_150"  },    // Apple locale addition
     { "en_LU",      "en_150"  },    // Apple locale addition
     { "en_LV",      "en_150"  },    // Apple locale addition

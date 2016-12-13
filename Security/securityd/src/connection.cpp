@@ -56,7 +56,7 @@ Connection::Connection(Process &proc, Port rPort)
 	// bump the send-rights count on the reply port so we keep the right after replying
 	mClientPort.modRefs(MACH_PORT_RIGHT_SEND, +1);
 	
-    secnotice("SS", "New client connection %p: %d %d", this, rPort.port(), proc.uid());
+    secinfo("SS", "New client connection %p: %d %d", this, rPort.port(), proc.uid());
 }
 
 
@@ -66,7 +66,7 @@ Connection::Connection(Process &proc, Port rPort)
 //
 Connection::~Connection()
 {
-    secnotice("SS", "releasing client connection %p", this);
+    secinfo("SS", "releasing client connection %p", this);
 	assert(!agentWait);
 }
 
@@ -76,7 +76,7 @@ Connection::~Connection()
 //
 void Connection::guestRef(SecGuestRef newGuest, SecCSFlags flags)
 {
-	secnotice("SS", "Connection %p switches to guest 0x%x", this, newGuest);
+	secinfo("SS", "Connection %p switches to guest 0x%x", this, newGuest);
 	mGuestRef = newGuest;
 }
 
@@ -91,7 +91,7 @@ void Connection::terminate()
 	assert(state == idle);
 	mClientPort.modRefs(MACH_PORT_RIGHT_SEND, -1);	// discard surplus send right
 	assert(mClientPort.getRefs(MACH_PORT_RIGHT_SEND) == 1);	// one left for final reply
-	secnotice("SS", "Connection %p terminated", this);
+	secinfo("SS", "Connection %p terminated", this);
 }
 
 
@@ -107,11 +107,11 @@ void Connection::abort(bool keepReplyPort)
         mClientPort.destroy();		// dead as a doornail already
 	switch (state) {
 	case idle:
-		secnotice("SS", "Connection %p aborted", this);
+		secinfo("SS", "Connection %p aborted", this);
 		break;
 	case busy:
 		state = dying;				// shoot me soon, please
-		secnotice("SS", "Connection %p abort deferred (busy)", this);
+		secinfo("SS", "Connection %p abort deferred (busy)", this);
 		break;
 	default:
 		assert(false);				// impossible (we hope)
@@ -137,7 +137,7 @@ void Connection::beginWork(audit_token_t &auditToken)
 		mOverrideReturn = CSSM_OK;	// clear override
 		break;
 	case busy:
-		secnotice("SS", "Attempt to re-enter connection %p(port %d)", this, mClientPort.port());
+		secinfo("SS", "Attempt to re-enter connection %p(port %d)", this, mClientPort.port());
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);	//@@@ some state-error code instead?
 	default:
 		assert(false);
@@ -169,7 +169,7 @@ void Connection::endWork(CSSM_RETURN &rcode)
 		state = idle;
 		return;
 	case dying:
-		secnotice("SS", "Connection %p abort resuming", this);
+		secinfo("SS", "Connection %p abort resuming", this);
 		return;
 	default:
 		assert(false);

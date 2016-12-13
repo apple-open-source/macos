@@ -162,7 +162,6 @@ static bool SecPolicyCheckCertQualifiedCertStatements(SecCertificateRef __unused
     return true;
 }
 
-#if 0
 /* We have a wildcard reference identifier that looks like "*." followed by 2 or
    more labels. Use CFNetwork's function for determining if those labels comprise
    a top-level domain. We need to dlopen since CFNetwork is a client of ours. */
@@ -176,7 +175,7 @@ static bool SecDNSIsTLD(CFStringRef reference) {
     dispatch_once(&onceToken, ^{
         void *framework = dlopen("/System/Library/Frameworks/CFNetwork.framework/CFNetwork", RTLD_LAZY);
         if (framework) {
-            CFNIsDomainTopLevelFunctionPtr = dlsym(framework, "_CFHostIsDomainTopLevel");
+            CFNIsDomainTopLevelFunctionPtr = dlsym(framework, "_CFHostIsDomainTopLevelForCertificatePolicy");
         }
     });
 
@@ -195,7 +194,6 @@ out:
     CFReleaseNull(presentedDomain);
     return result;
 }
-#endif
 
 /* Compare hostname, to a server name obtained from the server's cert
  Obtained from the SubjectAltName or the CommonName entry in the Subject.
@@ -258,11 +256,9 @@ static bool SecDNSMatch(CFStringRef reference, CFStringRef presented) {
 
             /* must not occur before single-label TLD */
             require_quiet(count > 2 && ix != count - 2, noMatch);
-#if 0
-            // <rdar://26563617>, check removed due to <rdar://26552669>
+
             /* must not occur before a multi-label gTLD */
             require_quiet(!SecDNSIsTLD(presented), noMatch);
-#endif
         } else {
             /* partial-label wildcards are disallowed */
             CFRange partialRange = CFStringFind(plabel, CFSTR("*"), 0);
