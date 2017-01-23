@@ -1,3 +1,43 @@
+2017-01-05  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r210372.
+
+    2017-01-05  Chris Dumez  <cdumez@apple.com>
+
+            Turn preferLowPowerWebGLRendering setting on by default
+            https://bugs.webkit.org/show_bug.cgi?id=166737
+            <rdar://problem/29870033>
+
+            Reviewed by Dean Jackson.
+
+            Temporarily turn preferLowPowerWebGLRendering setting on by default until
+            we deal better with WebGL content in background tabs.
+
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]):
+
+2017-01-04  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r210273.
+
+    2017-01-04  Tim Horton  <timothy_horton@apple.com>
+
+            Provide a setting for clients to always prefer low-power WebGL
+            https://bugs.webkit.org/show_bug.cgi?id=166675
+            <rdar://problem/29834093>
+
+            Reviewed by Dan Bernstein.
+
+            * WebView/WebPreferenceKeysPrivate.h:
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]):
+            (-[WebPreferences preferLowPowerWebGLRendering]):
+            (-[WebPreferences setPreferLowPowerWebGLRendering:]):
+            * WebView/WebPreferencesPrivate.h:
+            * WebView/WebView.mm:
+            (-[WebView _preferencesChanged:]):
+            Expose a new private preferLowPowerWebGLRendering WebKit1 preference.
+
 2016-10-31  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r206802. rdar://problem/28409525

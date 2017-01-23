@@ -1160,6 +1160,7 @@ IOReturn IOAudioEngineUserClient::registerNotification(mach_port_t port, UInt32 
                 notificationMessage = (IOAudioNotificationMessage *)IOMallocAligned(sizeof(IOAudioNotificationMessage), sizeof (IOAudioNotificationMessage *));
                 
                 if (notificationMessage) {
+                    bzero( notificationMessage, sizeof(IOAudioNotificationMessage) );
                     notificationMessage->messageHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
                     notificationMessage->messageHeader.msgh_size = sizeof(IOAudioNotificationMessage);
                     notificationMessage->messageHeader.msgh_local_port = MACH_PORT_NULL;

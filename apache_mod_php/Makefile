@@ -98,7 +98,7 @@ AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  \
 			MacOSX_build.patch \
 			iconv.patch pear.patch phar.patch \
-			libressl.patch
+			libressl.patch dyld.patch
 AEP_ConfigDir	= $(ETCDIR)
 AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1

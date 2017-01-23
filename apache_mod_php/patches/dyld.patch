@@ -1,0 +1,13 @@
+diff -ur a/configure b/configure
+--- a/configure	2016-06-21 19:12:02.000000000 -0700
++++ b/configure	2016-07-08 14:29:10.000000000 -0700
+@@ -5973,7 +5973,7 @@
+    SHLIB_DL_SUFFIX_NAME=sl
+    ;;
+  *darwin*)
+-   SHLIB_SUFFIX_NAME=dylib
++   SHLIB_SUFFIX_NAME=tbd
+    SHLIB_DL_SUFFIX_NAME=so
+    ;;
+  esac
+

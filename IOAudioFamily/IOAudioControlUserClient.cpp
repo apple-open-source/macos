@@ -217,7 +217,8 @@ IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,
                 return kIOReturnNoMemory;
             }
         }
-    
+		
+        bzero( notificationMessage, sizeof(IOAudioNotificationMessage) );
         notificationMessage->messageHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
         notificationMessage->messageHeader.msgh_size = sizeof(IOAudioNotificationMessage);
         notificationMessage->messageHeader.msgh_remote_port = port;

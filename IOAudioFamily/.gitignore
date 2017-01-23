@@ -1,0 +1,72 @@
+# Audio Engineering - Audio SW 0056/7103
+# Git ignore file
+# Last updated: 09/05/2012
+# Updated by: Mike Mckenna
+
+[core]
+    excludesfile = ~/.gitignore
+
+# Mac OS X Finder
+.DS_Store
+
+
+# Sparkle distribution Private Key (Don't check me in!)
+dsa_priv.pem
+
+
+# XCode (and ancestors) per-user config (very noisy, and not relevant)
+*.mode1
+*.mode1v3
+*.mode2v3
+*.perspective
+*.perspectivev3
+*.pbxuser
+
+# Xcode 4 and later
+AppleHDA.xcodeproj/project.xcworkspace/
+AppleHDA.xcodeproj/xcuserdata/
+project.xcworkspace/
+xcuserdata/
+*.xcscheme
+*.xcworkspacesdata
+*.xcuserstate
+
+
+# Generated files
+VersionX-revision.h
+*.o
+*.pyc
+*.hi
+
+# Generated files for AppleHDA
+LayoutSizes.h
+HDAUtility/HDA_Utility_version.h
+
+# Build products
+build/
+*.[oa]
+
+
+# Other source repository archive directories (protects when importing)
+.hg
+.svn
+CVS
+.cvs
+.cvswrappers
+.cvs*
+
+
+# Automatic backup files
+*~.nib
+*.swp
+*~
+*(Autosaved).rtfd/
+Backup[ ]of[ ]*.pages/
+Backup[ ]of[ ]*.key/
+Backup[ ]of[ ]*.numbers/
+
+
+# Python modules
+MANIFEST
+dist/
+build/

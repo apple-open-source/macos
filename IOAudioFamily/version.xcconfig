@@ -6,7 +6,7 @@
 //  Copyright 2000-2016 Apple Inc. All rights reserved.
 //
 
-AE_CONCISE_VERSION = 205.11
+AE_CONCISE_VERSION = 205.12
 
 MODULE_VERSION = ${AE_CONCISE_VERSION}
 
