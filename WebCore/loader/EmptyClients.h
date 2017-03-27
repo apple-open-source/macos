@@ -33,6 +33,7 @@
 #include "DeviceMotionClient.h"
 #include "DeviceOrientationClient.h"
 #include "DiagnosticLoggingClient.h"
+#include "DocumentFragment.h"
 #include "DragClient.h"
 #include "EditorClient.h"
 #include "FloatRect.h"
@@ -295,7 +296,7 @@ public:
     void dispatchDidReceiveIcon() override { }
     void dispatchDidStartProvisionalLoad() override { }
     void dispatchDidReceiveTitle(const StringWithDirection&) override { }
-    void dispatchDidCommitLoad(Optional<HasInsecureContent>) override { }
+    void dispatchDidCommitLoad(std::optional<HasInsecureContent>) override { }
     void dispatchDidFailProvisionalLoad(const ResourceError&) override { }
     void dispatchDidFailLoad(const ResourceError&) override { }
     void dispatchDidFinishDocumentLoad() override { }
@@ -390,7 +391,7 @@ public:
     void recreatePlugin(Widget*) override;
     PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const URL&, const Vector<String>&, const Vector<String>&) override;
 
-    ObjectContentType objectContentType(const URL&, const String&) override { return ObjectContentType(); }
+    ObjectContentType objectContentType(const URL&, const String&) override { return ObjectContentType::None; }
     String overrideMediaType() const override { return String(); }
 
     void redirectDataToPlugin(Widget*) override { }
@@ -402,7 +403,7 @@ public:
     RemoteAXObjectRef accessibilityRemoteObject() override { return nullptr; }
     NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long, NSCachedURLResponse* response) const override { return response; }
 #endif
-#if PLATFORM(WIN) && USE(CFNETWORK)
+#if PLATFORM(WIN) && USE(CFURLCONNECTION)
     // FIXME: Windows should use willCacheResponse - <https://bugs.webkit.org/show_bug.cgi?id=57257>.
     bool shouldCacheResponse(DocumentLoader*, unsigned long, const ResourceResponse&, const unsigned char*, unsigned long long) override { return true; }
 #endif
@@ -467,6 +468,7 @@ public:
     void didChangeSelectionAndUpdateLayout() override { }
     void updateEditorStateAfterLayoutIfEditabilityChanged() override { }
     void discardedComposition(Frame*) override { }
+    void canceledComposition() override { }
     void didEndEditing() override { }
     void willWriteSelectionToPasteboard(Range*) override { }
     void didWriteSelectionToPasteboard() override { }
@@ -505,17 +507,16 @@ public:
     NSArray* readDataFromPasteboard(NSString*, int) override { return nullptr; }
     bool hasRichlyEditableSelection() override { return false; }
     int getPasteboardItemsCount() override { return 0; }
-    DocumentFragment* documentFragmentFromDelegate(int) override { return nullptr; }
+    RefPtr<DocumentFragment> documentFragmentFromDelegate(int) override { return nullptr; }
     bool performsTwoStepPaste(DocumentFragment*) override { return false; }
     int pasteboardChangeCount() override { return 0; }
 #endif
 
 #if PLATFORM(COCOA)
-    NSString* userVisibleString(NSURL*) override { return nullptr; }
-    DocumentFragment* documentFragmentFromAttributedString(NSAttributedString*, Vector<RefPtr<ArchiveResource>>&) override { return nullptr; };
+    NSString *userVisibleString(NSURL *) override { return nullptr; }
     void setInsertionPasteboard(const String&) override { };
-    NSURL *canonicalizeURL(NSURL*) override { return nullptr; }
-    NSURL *canonicalizeURLString(NSString*) override { return nullptr; }
+    NSURL *canonicalizeURL(NSURL *) override { return nullptr; }
+    NSURL *canonicalizeURLString(NSString *) override { return nullptr; }
 #endif
 
 #if USE(APPKIT)
@@ -588,9 +589,9 @@ class EmptyDragClient : public DragClient {
 public:
     EmptyDragClient() { }
     virtual ~EmptyDragClient() {}
-    void willPerformDragDestinationAction(DragDestinationAction, DragData&) override { }
+    void willPerformDragDestinationAction(DragDestinationAction, const DragData&) override { }
     void willPerformDragSourceAction(DragSourceAction, const IntPoint&, DataTransfer&) override { }
-    DragDestinationAction actionMaskForDrag(DragData&) override { return DragDestinationActionNone; }
+    DragDestinationAction actionMaskForDrag(const DragData&) override { return DragDestinationActionNone; }
     DragSourceAction dragSourceActionMaskForPoint(const IntPoint&) override { return DragSourceActionNone; }
     void startDrag(DragImageRef, const IntPoint&, const IntPoint&, DataTransfer&, Frame&, bool) override { }
     void dragControllerDestroyed() override { }

@@ -26,6 +26,8 @@
 #include "config.h"
 #include "TileController.h"
 
+#if USE(CG)
+
 #include "IntRect.h"
 #include "Logging.h"
 #include "PlatformCALayer.h"
@@ -51,12 +53,12 @@ static const auto tileSizeUpdateDelay = std::chrono::milliseconds { 500 };
 
 String TileController::tileGridContainerLayerName()
 {
-    return ASCIILiteral("TileGrid Container Layer");
+    return ASCIILiteral("TileGrid container");
 }
 
 String TileController::zoomedOutTileGridContainerLayerName()
 {
-    return ASCIILiteral("Zoomed Out TileGrid Container Layer");
+    return ASCIILiteral("Zoomed-out TileGrid container");
 }
 
 TileController::TileController(PlatformCALayer* rootPlatformLayer)
@@ -188,6 +190,15 @@ void TileController::setVisibleRect(const FloatRect& rect)
     updateTileCoverageMap();
 }
 
+void TileController::setLayoutViewportRect(std::optional<FloatRect> rect)
+{
+    if (rect == m_layoutViewportRect)
+        return;
+
+    m_layoutViewportRect = rect;
+    updateTileCoverageMap();
+}
+
 void TileController::setCoverageRect(const FloatRect& rect)
 {
     ASSERT(owningGraphicsLayer()->isCommittingChanges());
@@ -298,6 +309,11 @@ void TileController::setTileDebugBorderColor(Color borderColor)
     tileGrid().updateTileLayerProperties();
 }
 
+void TileController::setTileSizeUpdateDelayDisabledForTesting(bool value)
+{
+    m_isTileSizeUpdateDelayDisabledForTesting = value;
+}
+
 IntRect TileController::boundsForSize(const FloatSize& size) const
 {
     IntPoint boundsOriginIncludingMargin(-leftMarginWidth(), -topMarginHeight());
@@ -370,13 +386,13 @@ void TileController::adjustTileCoverageRect(FloatRect& coverageRect, const Float
     double horizontalMargin = kDefaultTileSize / contentsScale;
     double verticalMargin = kDefaultTileSize / contentsScale;
 
-    double currentTime = monotonicallyIncreasingTime();
-    double timeDelta = currentTime - m_velocity.lastUpdateTime;
+    MonotonicTime currentTime = MonotonicTime::now();
+    Seconds timeDelta = currentTime - m_velocity.lastUpdateTime;
 
     FloatRect futureRect = visibleRect;
     futureRect.setLocation(FloatPoint(
-        futureRect.location().x() + timeDelta * m_velocity.horizontalVelocity,
-        futureRect.location().y() + timeDelta * m_velocity.verticalVelocity));
+        futureRect.location().x() + timeDelta.value() * m_velocity.horizontalVelocity,
+        futureRect.location().y() + timeDelta.value() * m_velocity.verticalVelocity));
 
     if (m_velocity.horizontalVelocity) {
         futureRect.setWidth(futureRect.width() + horizontalMargin);
@@ -440,7 +456,7 @@ void TileController::adjustTileCoverageRect(FloatRect& coverageRect, const Float
     FloatRect coverageBounds = boundsForSize(newSize);
     
     FloatRect coverage = expandRectWithinRect(visibleRect, coverageSize, coverageBounds);
-    LOG_WITH_STREAM(Scrolling, stream << "TileController::computeTileCoverageRect newSize=" << newSize << " mode " << m_tileCoverage << " expanded to " << coverageSize << " bounds with margin " << coverageBounds << " coverage " << coverage);
+    LOG_WITH_STREAM(Tiling, stream << "TileController::computeTileCoverageRect newSize=" << newSize << " mode " << m_tileCoverage << " expanded to " << coverageSize << " bounds with margin " << coverageBounds << " coverage " << coverage);
     coverageRect.unite(coverage);
 #endif
 }
@@ -476,7 +492,10 @@ void TileController::didEndLiveResize()
 
 void TileController::notePendingTileSizeChange()
 {
-    m_tileSizeChangeTimer.restart();
+    if (m_isTileSizeUpdateDelayDisabledForTesting)
+        tileSizeChangeTimerFired();
+    else
+        m_tileSizeChangeTimer.restart();
 }
 
 void TileController::tileSizeChangeTimerFired()
@@ -691,9 +710,13 @@ RefPtr<PlatformCALayer> TileController::createTileLayer(const IntRect& tileRect,
     layer->setBorderWidth(m_tileDebugBorderWidth);
     layer->setEdgeAntialiasingMask(0);
     layer->setOpaque(m_tilesAreOpaque);
-#ifndef NDEBUG
-    layer->setName("Tile");
-#endif
+
+    StringBuilder nameBuilder;
+    nameBuilder.append("tile at ");
+    nameBuilder.appendNumber(tileRect.location().x());
+    nameBuilder.append(',');
+    nameBuilder.appendNumber(tileRect.location().y());
+    layer->setName(nameBuilder.toString());
 
     float temporaryScaleFactor = owningGraphicsLayer()->platformCALayerContentsScaleMultiplierForNewTiles(m_tileCacheLayer);
     m_hasTilesWithTemporaryScaleFactor |= temporaryScaleFactor != 1;
@@ -735,3 +758,5 @@ void TileController::removeUnparentedTilesNow()
 #endif
 
 } // namespace WebCore
+
+#endif

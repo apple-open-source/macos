@@ -281,7 +281,12 @@ string BundleDiskRep::metaPath(const char *name)
 	
 CFDataRef BundleDiskRep::metaData(const char *name)
 {
-	return cfLoadFile(CFTempURL(metaPath(name)));
+    if (CFRef<CFURLRef> url = makeCFURL(metaPath(name))) {
+        return cfLoadFile(url);
+    } else {
+        secnotice("bundlediskrep", "no metapath for %s", name);
+        return NULL;
+    }
 }
 
 CFDataRef BundleDiskRep::metaData(CodeDirectory::SpecialSlot slot)
@@ -449,7 +454,8 @@ string BundleDiskRep::format()
 
 CFArrayRef BundleDiskRep::modifiedFiles()
 {
-	CFMutableArrayRef files = CFArrayCreateMutableCopy(NULL, 0, mExecRep->modifiedFiles());
+    CFRef<CFArrayRef> execFiles = mExecRep->modifiedFiles();
+    CFRef<CFMutableArrayRef> files = CFArrayCreateMutableCopy(NULL, 0, execFiles);
 	checkModifiedFile(files, cdCodeDirectorySlot);
 	checkModifiedFile(files, cdSignatureSlot);
 	checkModifiedFile(files, cdResourceDirSlot);
@@ -458,7 +464,7 @@ CFArrayRef BundleDiskRep::modifiedFiles()
 	checkModifiedFile(files, cdRepSpecificSlot);
 	for (CodeDirectory::Slot slot = cdAlternateCodeDirectorySlots; slot < cdAlternateCodeDirectoryLimit; ++slot)
 		checkModifiedFile(files, slot);
-	return files;
+	return files.yield();
 }
 
 void BundleDiskRep::checkModifiedFile(CFMutableArrayRef files, CodeDirectory::SpecialSlot slot)

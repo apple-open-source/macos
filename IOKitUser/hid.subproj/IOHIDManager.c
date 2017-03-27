@@ -183,12 +183,15 @@ void __IOHIDManagerRelease( CFTypeRef object )
         
     // Destroy the notification
     if (manager->notifyPort) {
-        CFRunLoopSourceInvalidate(IONotificationPortGetRunLoopSource(manager->notifyPort));
-        if (manager->runLoop)
-            CFRunLoopRemoveSource(manager->runLoop, 
-                                  IONotificationPortGetRunLoopSource(manager->notifyPort), 
-                                  manager->runLoopMode);
-        IONotificationPortDestroy(manager->notifyPort);
+        CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(manager->notifyPort);
+        if (source) {
+            CFRunLoopSourceInvalidate(source);
+            if (manager->runLoop)
+                CFRunLoopRemoveSource(manager->runLoop,
+                                      source,
+                                      manager->runLoopMode);
+            IONotificationPortDestroy(manager->notifyPort);
+        }
         manager->notifyPort = NULL;
     }
     
@@ -247,11 +250,15 @@ void __IOHIDManagerSetDeviceMatching(
     if (!manager->notifyPort) {
         manager->notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
         
-        if (manager->runLoop) 
-            CFRunLoopAddSource(
-                        manager->runLoop, 
-                        IONotificationPortGetRunLoopSource(manager->notifyPort), 
-                        manager->runLoopMode);
+        if (manager->runLoop)  {
+            CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(manager->notifyPort);
+            if (source) {
+                CFRunLoopAddSource(
+                            manager->runLoop,
+                            source,
+                            manager->runLoopMode);
+            }
+        }
     }
 
     matchingDict = IOServiceMatching(kIOHIDDeviceKey);
@@ -918,11 +925,15 @@ void IOHIDManagerScheduleWithRunLoop(
 
     if ( manager->runLoop ) {
         // Schedule the notifyPort
-        if (manager->notifyPort)
-            CFRunLoopAddSource(
-                        manager->runLoop, 
-                        IONotificationPortGetRunLoopSource(manager->notifyPort), 
-                        manager->runLoopMode);
+        if (manager->notifyPort) {
+            CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(manager->notifyPort);
+            if (source) {
+                CFRunLoopAddSource(
+                            manager->runLoop,
+                            source,
+                            manager->runLoopMode);
+            }
+        }
 
         // schedule the initial enumeration routine
         if ( manager->initEnumRunLoopSource ) {

@@ -25,6 +25,7 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecKeychainPriv.h>
 #include <security_utilities/threading.h>
+#include <utilities/SecCFRelease.h>
 #include "SecBridge.h"
 
 static CFStringRef copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName);
@@ -98,6 +99,7 @@ cssmErrorString(CSSM_RETURN error)
 			if (result == NULL)
 				result = copyErrorMessageFromBundle(error,CFSTR("SecDebugErrorMessages"));
 			err = cfString(result, true);
+            CFReleaseSafe(result);
 		}
 		
 		if (err.empty())

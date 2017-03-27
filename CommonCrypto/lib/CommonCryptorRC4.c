@@ -24,8 +24,8 @@
 #include "ccGlobals.h"
 #include "ccMemory.h"
 #include "ccdebug.h"
-#include "CommonCryptor.h"
-#include "CommonCryptorSPI.h"
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonCryptorSPI.h>
 #include "CommonCryptorPriv.h"
 #include <corecrypto/ccrc4.h>
 
@@ -43,7 +43,7 @@ typedef struct current_rc4_key_st
 
 void CC_RC4_set_key(void *ctx, int len, const unsigned char *data)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ASSERT(sizeof(RC4_KEY) == ccrc4_eay.size);
     ccrc4_eay.init(ctx, len, data);
 }
@@ -51,6 +51,6 @@ void CC_RC4_set_key(void *ctx, int len, const unsigned char *data)
 void CC_RC4(void *ctx, unsigned long len, const unsigned char *indata,
             unsigned char *outdata)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccrc4_eay.crypt(ctx, len, indata, outdata);
 }

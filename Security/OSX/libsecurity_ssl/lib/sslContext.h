@@ -36,9 +36,7 @@
 #include <tls_stream_parser.h>
 #include <tls_cache.h>
 
-#ifdef USE_CDSA_CRYPTO
-#include <Security/cssmtype.h>
-#else
+
 #if TARGET_OS_IPHONE
 #include <Security/SecDH.h>
 #include <Security/SecKeyInternal.h>
@@ -47,7 +45,6 @@
 // typedef struct OpaqueSecDHContext *SecDHContext;
 #endif
 #include <corecrypto/ccec.h>
-#endif
 
 #include <CoreFoundation/CFRuntime.h>
 #include <AssertMacros.h>

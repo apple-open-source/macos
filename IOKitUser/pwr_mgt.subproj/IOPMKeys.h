@@ -92,6 +92,12 @@
 #define kIOPMPowerEventAppNameKey                       "scheduledby"
 
 /*!
+ @define kIOPMPowerEventAppPIDKey
+ @abstract Key for the PID the App that scheduled the power event. Value is a CFNumber integer.
+ */
+#define kIOPMPowerEventAppPIDKey                       "appPID"
+
+/*!
     @define kIOPMPowerEventTypeKey 
     @abstract Key for the type of power event. Value is a CFStringRef, with the c-string value of one of the "kIOPMAuto" strings.
 */

@@ -37,6 +37,7 @@
 #import "WebHostedNetscapePluginView.h"
 #import "WebKitSystemInterface.h"
 #import <JavaScriptCore/IdentifierInlines.h>
+#import <WebCore/CommonVM.h>
 #import <WebCore/Frame.h>
 #import <WebCore/IdentifierRep.h>
 #import <WebCore/ScriptController.h>
@@ -230,10 +231,7 @@ void NetscapePluginHostProxy::beginModal()
     ASSERT(!m_placeholderWindow);
     ASSERT(!m_activationObserver);
     
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    m_placeholderWindow = adoptNS([[WebPlaceholderModalWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES]);
-#pragma clang diagnostic pop
+    m_placeholderWindow = adoptNS([[WebPlaceholderModalWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:YES]);
 
     m_activationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationWillBecomeActiveNotification object:NSApp queue:nil
                                                                          usingBlock:^(NSNotification *){ applicationDidBecomeActive(); }];
@@ -630,7 +628,7 @@ static Identifier identifierFromIdentifierRep(IdentifierRep* identifier)
     ASSERT(identifier->isString());
   
     const char* str = identifier->string();    
-    return Identifier::fromString(&JSDOMWindow::commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str)));
+    return Identifier::fromString(&commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str)));
 }
 
 kern_return_t WKPCInvoke(mach_port_t clientPort, uint32_t pluginID, uint32_t requestID, uint32_t objectID, uint64_t serverIdentifier,

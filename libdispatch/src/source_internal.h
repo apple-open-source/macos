@@ -87,18 +87,15 @@ enum {
 #define DISPATCH_TIMER_QOS_COUNT (DISPATCH_TIMER_QOS_BACKGROUND + 1)
 #define DISPATCH_TIMER_QOS(tidx) (((uintptr_t)(tidx) >> 1) & 0x3ul)
 
-#define DISPATCH_TIMER_KIND_WALL 0u
-#define DISPATCH_TIMER_KIND_MACH 1u
-#define DISPATCH_TIMER_KIND_COUNT (DISPATCH_TIMER_KIND_MACH + 1)
-#define DISPATCH_TIMER_KIND(tidx) ((uintptr_t)(tidx) & 0x1ul)
+#define DISPATCH_TIMER_CLOCK(tidx) ((dispatch_clock_t)((uintptr_t)(tidx) & 1))
 
-#define DISPATCH_TIMER_INDEX(kind, qos) ((qos) << 1 | (kind))
+#define DISPATCH_TIMER_INDEX(clock, qos) ((qos) << 1 | (clock))
 #define DISPATCH_TIMER_INDEX_DISARM \
 		DISPATCH_TIMER_INDEX(0, DISPATCH_TIMER_QOS_COUNT)
 #define DISPATCH_TIMER_INDEX_COUNT (DISPATCH_TIMER_INDEX_DISARM + 1)
 #define DISPATCH_TIMER_IDENT(flags) ({ unsigned long f = (flags); \
 		DISPATCH_TIMER_INDEX(f & DISPATCH_TIMER_WALL_CLOCK ? \
-		DISPATCH_TIMER_KIND_WALL : DISPATCH_TIMER_KIND_MACH, \
+		DISPATCH_CLOCK_WALL : DISPATCH_CLOCK_MACH, \
 		f & DISPATCH_TIMER_STRICT ? DISPATCH_TIMER_QOS_CRITICAL : \
 		f & DISPATCH_TIMER_BACKGROUND ? DISPATCH_TIMER_QOS_BACKGROUND : \
 		DISPATCH_TIMER_QOS_NORMAL); })
@@ -120,7 +117,7 @@ struct dispatch_source_type_s {
 	_dispatch_kevent_qos_s ke;
 	uint64_t mask;
 	void (*init)(dispatch_source_t ds, dispatch_source_type_t type,
-			uintptr_t handle, unsigned long mask, dispatch_queue_t q);
+			uintptr_t handle, unsigned long mask);
 };
 
 struct dispatch_timer_source_s {

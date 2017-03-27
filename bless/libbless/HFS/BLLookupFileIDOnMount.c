@@ -38,6 +38,7 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/attr.h>
+#include <System/sys/fsgetpath.h>
 
 #include "bless.h"
 #include "bless_private.h"
@@ -54,6 +55,7 @@ struct cataloginforeturn {
   uint32_t length;
   struct cataloginfo c;
 };
+
 
 static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char *out);
 
@@ -99,6 +101,27 @@ int BLLookupFileIDOnMount(BLContextPtr context, const char *mount, uint32_t file
 
     return 0;
 }
+
+
+
+
+int BLLookupFileIDOnMount64(BLContextPtr context, const char *mountpoint, uint64_t fileID, char *out, int bufsize)
+{
+    int err;
+    
+    struct statfs   sfs;
+    
+    if (statfs(mountpoint, &sfs) < 0) {
+        return errno;
+    }
+    
+    err = fsgetpath(out, bufsize, &sfs.f_fsid, fileID);
+    if (err < 0) return errno;
+    
+    return 0;
+}
+
+
 
 static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char *out) {
 

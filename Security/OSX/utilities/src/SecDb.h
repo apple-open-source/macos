@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,7 @@ typedef CFOptionFlags SecDbTransactionPhase;
 enum SecDbTransactionSource {
     kSecDbSOSTransaction,        // A remotely initated transaction.
     kSecDbAPITransaction,        // A user initated transaction.
+    kSecDbInvalidTransaction,    // An invalid transaction source (used for initialization)
 };
 typedef CFOptionFlags SecDbTransactionSource;
 
@@ -94,6 +95,9 @@ typedef void (^SecDBNotifyBlock)(SecDbConnectionRef dbconn, SecDbTransactionPhas
 
 CFTypeID SecDbGetTypeID(void);
 
+// Database creation
+SecDbRef SecDbCreateWithOptions(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, bool useWAL, bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error));
+
 SecDbRef SecDbCreate(CFStringRef dbName, bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error));
 
 void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase);
@@ -101,7 +105,7 @@ void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase);
 // Read only connections go to the end of the queue, writeable
 // connections go to the start of the queue.  Use SecDbPerformRead() and SecDbPerformWrite() if you
 // can to avoid leaks.
-SecDbConnectionRef SecDbConnectionAquire(SecDbRef db, bool readOnly, CFErrorRef *error);
+SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error);
 void SecDbConnectionRelease(SecDbConnectionRef dbconn);
 
 // Perform a database read operation,

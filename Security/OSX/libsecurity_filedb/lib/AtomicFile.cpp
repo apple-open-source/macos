@@ -90,7 +90,7 @@ AtomicFile::~AtomicFile()
 {
 }
 
-// Aquire the write lock and remove the file.
+// Acquire the write lock and remove the file.
 void
 AtomicFile::performDelete()
 {
@@ -109,7 +109,7 @@ AtomicFile::performDelete()
 	::unlink(mLockFilePath.c_str());
 }
 
-// Aquire the write lock and rename the file (and bump the version and stuff).
+// Acquire the write lock and rename the file (and bump the version and stuff).
 void
 AtomicFile::rename(const std::string &inNewPath)
 {
@@ -392,7 +392,7 @@ AtomicBufferedFile::~AtomicBufferedFile()
 	  	// In release mode, the assert() is compiled out so rv may be unused.
 	        __unused int rv = AtomicFile::rclose(mFileRef);
 		assert(rv == 0);
-		secnotice("atomicfile", "%p closed %s", this, mPath.c_str());
+		secinfo("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
 
 	if (mBuffer)
@@ -459,6 +459,7 @@ AtomicBufferedFile::unloadBuffer()
 {
     if(mBuffer) {
         delete [] mBuffer;
+        mBuffer = NULL;
     }
 }
 
@@ -468,7 +469,7 @@ void
 AtomicBufferedFile::loadBuffer()
 {
     // make a buffer big enough to hold the entire file
-    mBuffer = new uint8[mLength];
+    mBuffer = new uint8[(size_t) mLength];
     if(lseek(mFileRef, 0, SEEK_SET) < 0) {
         int error = errno;
         secinfo("atomicfile", "lseek(%s, BEGINNING): %s", mPath.c_str(), strerror(error));
@@ -486,10 +487,8 @@ AtomicBufferedFile::loadBuffer()
             {
                 int error = errno;
                 secinfo("atomicfile", "read(%s, %zd): %s", mPath.c_str(), bytesToRead, strerror(error));
-                if (mFileRef >= 0) {
-                    AtomicFile::rclose(mFileRef);
-                    mFileRef = -1;
-                }
+                AtomicFile::rclose(mFileRef);
+                mFileRef = -1;
                 UnixError::throwMe(error);
             }
         }
@@ -558,7 +557,7 @@ AtomicBufferedFile::close()
 			UnixError::throwMe(error);
 		}
 
-		secnotice("atomicfile", "%p closed %s", this, mPath.c_str());
+		secinfo("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
 }
 
@@ -774,7 +773,7 @@ AtomicTempFile::close()
 			UnixError::throwMe(error);
 		}
 
-		secnotice("atomicfile", "%p closed %s", this, mPath.c_str());
+		secinfo("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
 }
 

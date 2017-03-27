@@ -26,6 +26,7 @@
 #define _SECCFERROR_H_
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <utilities/SecCFRelease.h>
 
 //
 // Leaf error creation from other systems
@@ -112,6 +113,69 @@ static inline bool asSetOptional(CFTypeRef cfType, CFSetRef *set, CFErrorRef *er
 // MARK: Required value type casting
 //
 
+//
+// MARK: Required value type casting
+//
+
+static inline CFArrayRef copyIfArray(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFArrayGetTypeID())
+        return (CFArrayRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not an array"), cfType);
+    return NULL;
+}
+
+static inline CFBooleanRef copyIfBoolean(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFBooleanGetTypeID())
+        return (CFBooleanRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not an boolean"), cfType);
+    return NULL;
+}
+
+static inline CFDataRef copyIfData(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFDataGetTypeID())
+        return (CFDataRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not a data"), cfType);
+    return NULL;
+}
+
+static inline CFDateRef copyIfDate(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFDateGetTypeID())
+        return (CFDateRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not a date"), cfType);
+    return NULL;
+}
+
+static inline CFDictionaryRef copyIfDictionary(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFDictionaryGetTypeID())
+        return (CFDictionaryRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not a dictionary"), cfType);
+    return NULL;
+}
+
+static inline CFSetRef copyIfSet(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFSetGetTypeID())
+        return (CFSetRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not a set"), cfType);
+    return NULL;
+}
+
+static inline CFStringRef copyIfString(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFStringGetTypeID())
+        return (CFStringRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not a string"), cfType);
+    return NULL;
+}
+
+static inline CFUUIDRef copyIfUUID(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFUUIDGetTypeID())
+        return (CFUUIDRef)CFRetainSafe(cfType);
+    SecError(-50, error, CFSTR("object %@ is not a UUID"), cfType);
+    return NULL;
+}
+
+//
+// MARK: Analyzer confusing asXxx casting
+//
 static inline CFArrayRef asArray(CFTypeRef cfType, CFErrorRef *error) {
     if (cfType && CFGetTypeID(cfType) == CFArrayGetTypeID())
         return (CFArrayRef)cfType;
@@ -158,6 +222,13 @@ static inline CFStringRef asString(CFTypeRef cfType, CFErrorRef *error) {
     if (cfType && CFGetTypeID(cfType) == CFStringGetTypeID())
         return (CFStringRef)cfType;
     SecError(-50, error, CFSTR("object %@ is not a string"), cfType);
+    return NULL;
+}
+
+static inline CFUUIDRef asUUID(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFUUIDGetTypeID())
+        return (CFUUIDRef)cfType;
+    SecError(-50, error, CFSTR("object %@ is not a UUID"), cfType);
     return NULL;
 }
 

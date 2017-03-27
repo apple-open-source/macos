@@ -49,9 +49,7 @@ void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_
     
     
     /* set custom keychain dir, reset db */
-    CFStringPerformWithCString(tmp_dir, ^(const char *tmp_dir_string) {
-        SetCustomHomeURL(tmp_dir_string);
-    });
+    SetCustomHomeURLString(tmp_dir);
 
     SecKeychainDbReset(do_in_reset);
 

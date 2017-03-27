@@ -1,9 +1,0 @@
-#! /bin/csh -f
-#
-# run vfyCacCert on all (known good) certs in certs/.
-#
-set CERTDIR=certs
-foreach i ($CERTDIR/*.c*)
-  echo $i
-  vfyCacCert $i || exit(1)
-end

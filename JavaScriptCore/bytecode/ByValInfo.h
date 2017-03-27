@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ByValInfo_h
-#define ByValInfo_h
+#pragma once
 
 #include "ClassInfo.h"
 #include "CodeLocation.h"
@@ -34,6 +33,8 @@
 #include "Structure.h"
 
 namespace JSC {
+
+class Symbol;
 
 #if ENABLE(JIT)
 
@@ -234,6 +235,7 @@ struct ByValInfo {
     unsigned slowPathCount;
     RefPtr<JITStubRoutine> stubRoutine;
     Identifier cachedId;
+    WriteBarrier<Symbol> cachedSymbol;
     StructureStubInfo* stubInfo;
     bool tookSlowPath : 1;
     bool seen : 1;
@@ -253,6 +255,3 @@ typedef HashMap<int, void*> ByValInfoMap;
 #endif // ENABLE(JIT)
 
 } // namespace JSC
-
-#endif // ByValInfo_h
-

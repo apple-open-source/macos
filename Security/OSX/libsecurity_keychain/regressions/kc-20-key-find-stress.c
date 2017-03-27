@@ -48,7 +48,7 @@ static void tests() {
         dispatch_group_async(g, release_queue, ^() {
             SecKeychainItemRef blockItem = NULL;
 
-            CFMutableDictionaryRef query = makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
+            CFMutableDictionaryRef query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
             CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne);
 
             ok_status(SecItemCopyMatching(query, (CFTypeRef*) &blockItem), "%s: SecItemCopyMatching(%d)", testName, i);

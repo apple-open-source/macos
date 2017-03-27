@@ -41,7 +41,7 @@ using Authorization::AuthItemSet;
 using Authorization::AuthValueVector;
 using Security::OSXCode;
 
-const uint64_t kMaximumAuthorizationTries = 10000;
+#define kMaximumAuthorizationTries (10000)
 
 //
 // base for classes talking to com.apple.security.agent and com.apple.security.authhost 

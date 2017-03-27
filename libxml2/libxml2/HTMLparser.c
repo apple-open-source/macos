@@ -2536,9 +2536,6 @@ htmlParseNameComplex(xmlParserCtxtPtr ctxt) {
 	}
     }
 
-    if (BASE_PTR > CUR_PTR - len)
-	return(NULL);
-
     return(xmlDictLookup(ctxt->dict, ctxt->input->cur - len, len));
 }
 

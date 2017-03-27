@@ -21,8 +21,7 @@
  *
  */
 
-#ifndef RenderMenuList_h
-#define RenderMenuList_h
+#pragma once
 
 #include "LayoutRect.h"
 #include "PopupMenu.h"
@@ -113,7 +112,7 @@ private:
     bool multiple() const override;
     FontSelector* fontSelector() const override;
     HostWindow* hostWindow() const override;
-    PassRefPtr<Scrollbar> createScrollbar(ScrollableArea&, ScrollbarOrientation, ScrollbarControlSize) override;
+    Ref<Scrollbar> createScrollbar(ScrollableArea&, ScrollbarOrientation, ScrollbarControlSize) override;
 
     bool hasLineIfEmpty() const override { return true; }
 
@@ -123,8 +122,8 @@ private:
     {
         return RenderBlock::baselinePosition(baseline, firstLine, direction, position);
     }
-    Optional<int> firstLineBaseline() const override { return RenderBlock::firstLineBaseline(); }
-    Optional<int> inlineBlockBaseline(LineDirectionMode direction) const override { return RenderBlock::inlineBlockBaseline(direction); }
+    std::optional<int> firstLineBaseline() const override { return RenderBlock::firstLineBaseline(); }
+    std::optional<int> inlineBlockBaseline(LineDirectionMode direction) const override { return RenderBlock::inlineBlockBaseline(direction); }
 
     void getItemBackgroundColor(unsigned listIndex, Color&, bool& itemHasCustomBackgroundColor) const;
 
@@ -157,5 +156,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderMenuList, isMenuList())
-
-#endif

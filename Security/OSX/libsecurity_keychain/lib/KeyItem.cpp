@@ -149,7 +149,7 @@ KeyItem::KeyItem(KeyItem &keyItem) :
 }
 
 KeyItem::KeyItem(const CssmClient::Key &key) :
-    ItemImpl(key->keyClass() + CSSM_DL_DB_RECORD_PUBLIC_KEY, (OSType)0, (UInt32)0, (const void*)NULL),
+    ItemImpl((SecItemClass) (key->keyClass() + CSSM_DL_DB_RECORD_PUBLIC_KEY), (OSType)0, (UInt32)0, (const void*)NULL),
 	mKey(key),
 	algid(NULL),
 	mPubKeyHash(Allocator::standard())

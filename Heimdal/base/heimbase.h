@@ -275,7 +275,7 @@ typedef struct heim_sema_t *heim_sema_t;
 
 heim_sema_t	heim_sema_create(long count);
 void		heim_sema_signal(heim_sema_t);
-void		heim_sema_wait(heim_sema_t, time_t t);
+long		heim_sema_wait(heim_sema_t, time_t t);
 
 
 #endif /* HEIM_BASE_H */

@@ -1,8 +1,0 @@
-_secdebug_internal
-_secdebugfunc_internal
-#ifdef TARGET_OS_OSX
-_weak_os_log_impl
-_weak_os_log_create
-_weak_os_log_type_enabled
-_logObjForScope
-#endif

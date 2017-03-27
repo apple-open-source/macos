@@ -76,8 +76,8 @@
  */
 
 #include <stdio.h>
-#include <openssl/err.h>
-#include <openssl/dh.h>
+#include <openssl/opensslerr.h>
+#include <openssl/dh_legacy.h>
 
 /* BEGIN ERROR CODES */
 #ifndef NO_ERR

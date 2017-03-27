@@ -154,13 +154,32 @@ DiskRep::Writer *FileDiskRep::writer()
 void FileDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 {
 	try {
-		fd().setAttr(attrName(CodeDirectory::canonicalSlotName(slot)),
-			CFDataGetBytePtr(data), CFDataGetLength(data));
+        std::string name = attrName(CodeDirectory::canonicalSlotName(slot));
+		fd().setAttr(name, CFDataGetBytePtr(data), CFDataGetLength(data));
+        mWrittenAttributes.insert(name);
 	} catch (const UnixError &error) {
 		if (error.error == ERANGE)
 			MacOSError::throwMe(errSecCSCMSTooLarge);
 		throw;
 	}
+}
+    
+
+void FileDiskRep::Writer::flush()
+{
+    size_t size = fd().listAttr(NULL, 0);
+    std::vector<char> buffer(size);
+    char *s = &buffer[0];
+    char *end = &buffer[size];
+    fd().listAttr(s, size);
+    while (s < end) {
+        std::string name = s;
+        s += strlen(s) + 1;     // skip to next
+        if (name.compare(0, 13, "com.apple.cs.") == 0)  // one of ours
+            if (mWrittenAttributes.find(name) == mWrittenAttributes.end()) {    // not written by this signing operation
+                fd().removeAttr(name);
+        }
+    }
 }
 
 

@@ -111,7 +111,7 @@ private:
     void dispatchDidReceiveIcon() override;
     void dispatchDidStartProvisionalLoad() override;
     void dispatchDidReceiveTitle(const WebCore::StringWithDirection&) override;
-    void dispatchDidCommitLoad(Optional<WebCore::HasInsecureContent>) override;
+    void dispatchDidCommitLoad(std::optional<WebCore::HasInsecureContent>) override;
     void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&) override;
     void dispatchDidFailLoad(const WebCore::ResourceError&) override;
     void dispatchDidFinishDocumentLoad() override;
@@ -162,7 +162,9 @@ private:
     WebCore::ResourceError blockedByContentBlockerError(const WebCore::ResourceRequest&) override;
     WebCore::ResourceError cannotShowURLError(const WebCore::ResourceRequest&) override;
     WebCore::ResourceError interruptedForPolicyChangeError(const WebCore::ResourceRequest&) override;
+#if ENABLE(CONTENT_FILTERING)
     WebCore::ResourceError blockedByContentFilterError(const WebCore::ResourceRequest&) override;
+#endif
 
     WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&) override;
     WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&) override;

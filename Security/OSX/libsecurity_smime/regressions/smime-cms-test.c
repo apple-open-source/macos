@@ -484,6 +484,7 @@ static void tests(void)
        "SecCMSCertificatesOnlyMessageCopyCertificates");
     is(CFArrayGetCount(certs), 1, "certificate count is 1");
     CFReleaseNull(message);
+    CFReleaseNull(certs);
 
     // Premade message containing one certificate blob
     message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
@@ -492,7 +493,7 @@ static void tests(void)
        "SecCMSCertificatesOnlyMessageCopyCertificates");
     is(CFArrayGetCount(certs), 1, "certificate count is 1");
     CFReleaseNull(message);
-
+    CFReleaseNull(certs);
 
     SecCertificateRef another_cert = NULL;
     CFMutableArrayRef input_certs = NULL;
@@ -504,6 +505,9 @@ static void tests(void)
     ok(certs = SecCMSCertificatesOnlyMessageCopyCertificates(message),
        "SecCMSCertificatesOnlyMessageCopyCertificates");
     is(CFArrayGetCount(certs), 1, "certificate count is 1");
+    CFReleaseNull(certs);
+    CFReleaseNull(message);
+    CFReleaseNull(another_cert);
 
     // Process two raw certificates and make it a message
     input_certs = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks);

@@ -291,6 +291,7 @@ CSSM_RETURN TPCrlInfo::parseExtensions(
                                                "CE_CDNT_NameRelativeToCrlIssuer not implemented\n");
                                     break;
                                 }
+#if 0
                                 /* relativeName is a RDN sequence */
                                 CSSM_X509_RDN_PTR idpName = idp->distPointName->dpn.rdn;
                                 CSSM_X509_RDN_PTR certName = dp->distPointName->dpn.rdn;
@@ -311,6 +312,7 @@ CSSM_RETURN TPCrlInfo::parseExtensions(
                                     /* All the pairs matched. */
                                     found = CSSM_TRUE;
                                 }
+#endif
                             }
                             case CE_CDNT_FullName: {
                                 /* fullName is a GeneralNames sequence */

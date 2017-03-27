@@ -33,7 +33,7 @@ class HTMLButtonElement final : public HTMLFormControlElement {
 public:
     static Ref<HTMLButtonElement> create(const QualifiedName&, Document&, HTMLFormElement*);
 
-    void setType(const AtomicString&);
+    WEBCORE_EXPORT void setType(const AtomicString&);
     
     const AtomicString& value() const;
 
@@ -55,7 +55,7 @@ private:
 
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     bool isPresentationAttribute(const QualifiedName&) const final;
-    void defaultEventHandler(Event*) final;
+    void defaultEventHandler(Event&) final;
 
     bool appendFormData(FormDataList&, bool) final;
 

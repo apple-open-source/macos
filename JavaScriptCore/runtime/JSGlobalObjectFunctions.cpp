@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2012, 2016 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2009, 2012, 2016 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *
@@ -26,6 +26,8 @@
 #include "JSGlobalObjectFunctions.h"
 
 #include "CallFrame.h"
+#include "EvalExecutable.h"
+#include "IndirectEvalExecutable.h"
 #include "Interpreter.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
@@ -56,13 +58,16 @@ namespace JSC {
 static const char* const ObjectProtoCalledOnNullOrUndefinedError = "Object.prototype.__proto__ called on null or undefined";
 
 template<typename CallbackWhenNoException>
-static ALWAYS_INLINE typename std::result_of<CallbackWhenNoException(JSString::SafeView&)>::type toSafeView(ExecState* exec, JSValue value, CallbackWhenNoException callback)
+static ALWAYS_INLINE typename std::result_of<CallbackWhenNoException(StringView)>::type toStringView(ExecState* exec, JSValue value, CallbackWhenNoException callback)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     JSString* string = value.toStringOrNull(exec);
     if (UNLIKELY(!string))
         return { };
-    JSString::SafeView view = string->view(exec);
-    return callback(view);
+    auto viewWithString = string->viewWithUnderlyingString(*exec);
+    RETURN_IF_EXCEPTION(scope, { });
+    return callback(viewWithString.view);
 }
 
 template<unsigned charactersCount>
@@ -78,11 +83,14 @@ static Bitmap<256> makeCharacterBitmap(const char (&characters)[charactersCount]
 template<typename CharacterType>
 static JSValue encode(ExecState* exec, const Bitmap<256>& doNotEscape, const CharacterType* characters, unsigned length)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     // 18.2.6.1.1 Runtime Semantics: Encode ( string, unescapedSet )
     // https://tc39.github.io/ecma262/#sec-encode
 
-    auto throwException = [exec] {
-        return exec->vm().throwException(exec, createURIError(exec, ASCIILiteral("String contained an illegal UTF-16 sequence.")));
+    auto throwException = [&scope, exec] {
+        return JSC::throwException(exec, scope, createURIError(exec, ASCIILiteral("String contained an illegal UTF-16 sequence.")));
     };
 
     StringBuilder builder;
@@ -154,7 +162,7 @@ static JSValue encode(ExecState* exec, const Bitmap<256>& doNotEscape, const Cha
 
 static JSValue encode(ExecState* exec, const Bitmap<256>& doNotEscape)
 {
-    return toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+    return toStringView(exec, exec->argument(0), [&] (StringView view) {
         if (view.is8Bit())
             return encode(exec, doNotEscape, view.characters8(), view.length());
         return encode(exec, doNotEscape, view.characters16(), view.length());
@@ -165,6 +173,9 @@ template <typename CharType>
 ALWAYS_INLINE
 static JSValue decode(ExecState* exec, const CharType* characters, int length, const Bitmap<256>& doNotUnescape, bool strict)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     JSStringBuilder builder;
     int k = 0;
     UChar u = 0;
@@ -205,7 +216,7 @@ static JSValue decode(ExecState* exec, const CharType* characters, int length, c
             }
             if (charLen == 0) {
                 if (strict)
-                    return exec->vm().throwException(exec, createURIError(exec, ASCIILiteral("URI error")));
+                    return throwException(exec, scope, createURIError(exec, ASCIILiteral("URI error")));
                 // The only case where we don't use "strict" mode is the "unescape" function.
                 // For that, it's good to support the wonky "%u" syntax for compatibility with WinIE.
                 if (k <= length - 6 && p[1] == 'u'
@@ -229,7 +240,7 @@ static JSValue decode(ExecState* exec, const CharType* characters, int length, c
 
 static JSValue decode(ExecState* exec, const Bitmap<256>& doNotUnescape, bool strict)
 {
-    return toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+    return toStringView(exec, exec->argument(0), [&] (StringView view) {
         if (view.is8Bit())
             return decode(exec, view.characters8(), view.length(), doNotUnescape, strict);
         return decode(exec, view.characters16(), view.length(), doNotUnescape, strict);
@@ -261,11 +272,11 @@ static int parseDigit(unsigned short c, int radix)
 {
     int digit = -1;
 
-    if (c >= '0' && c <= '9')
+    if (isASCIIDigit(c))
         digit = c - '0';
-    else if (c >= 'A' && c <= 'Z')
+    else if (isASCIIUpper(c))
         digit = c - 'A' + 10;
-    else if (c >= 'a' && c <= 'z')
+    else if (isASCIILower(c))
         digit = c - 'a' + 10;
 
     if (digit >= radix)
@@ -642,19 +653,21 @@ static double parseFloat(StringView s)
 
 EncodedJSValue JSC_HOST_CALL globalFuncEval(ExecState* exec)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     JSValue x = exec->argument(0);
     if (!x.isString())
         return JSValue::encode(x);
 
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();
     if (!globalObject->evalEnabled()) {
-        exec->vm().throwException(exec, createEvalError(exec, globalObject->evalDisabledErrorMessage()));
+        throwException(exec, scope, createEvalError(exec, globalObject->evalDisabledErrorMessage()));
         return JSValue::encode(jsUndefined());
     }
 
-    String s = x.toString(exec)->value(exec);
-    if (exec->hadException())
-        return JSValue::encode(jsUndefined());
+    String s = asString(x)->value(exec);
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     if (s.is8Bit()) {
         LiteralParser<LChar> preparser(exec, s.characters8(), s.length(), NonStrictJSON);
@@ -666,9 +679,8 @@ EncodedJSValue JSC_HOST_CALL globalFuncEval(ExecState* exec)
             return JSValue::encode(parsedObject);        
     }
 
-    JSGlobalObject* calleeGlobalObject = exec->callee()->globalObject();
-    VariableEnvironment emptyTDZVariables; // Indirect eval does not have access to the lexical scope.
-    EvalExecutable* eval = EvalExecutable::create(exec, makeSource(s), false, DerivedContextType::None, false, EvalContextType::None, &emptyTDZVariables);
+    JSGlobalObject* calleeGlobalObject = exec->jsCallee()->globalObject();
+    EvalExecutable* eval = IndirectEvalExecutable::create(exec, makeSource(s), false, DerivedContextType::None, false, EvalContextType::None);
     if (!eval)
         return JSValue::encode(jsUndefined());
 
@@ -698,14 +710,15 @@ EncodedJSValue JSC_HOST_CALL globalFuncParseInt(ExecState* exec)
     }
 
     // If ToString throws, we shouldn't call ToInt32.
-    return toSafeView(exec, value, [&] (JSString::SafeView& view) {
-        return JSValue::encode(jsNumber(parseInt(view.get(), radixValue.toInt32(exec))));
+    return toStringView(exec, value, [&] (StringView view) {
+        return JSValue::encode(jsNumber(parseInt(view, radixValue.toInt32(exec))));
     });
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncParseFloat(ExecState* exec)
 {
-    return JSValue::encode(jsNumber(parseFloat(exec->argument(0).toString(exec)->view(exec).get())));
+    auto viewWithString = exec->argument(0).toString(exec)->viewWithUnderlyingString(*exec);
+    return JSValue::encode(jsNumber(parseFloat(viewWithString.view)));
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncDecodeURI(ExecState* exec)
@@ -756,7 +769,7 @@ EncodedJSValue JSC_HOST_CALL globalFuncEscape(ExecState* exec)
         "*+-./@_"
     );
 
-    return JSValue::encode(toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+    return JSValue::encode(toStringView(exec, exec->argument(0), [&] (StringView view) {
         JSStringBuilder builder;
         if (view.is8Bit()) {
             const LChar* c = view.characters8();
@@ -795,7 +808,7 @@ EncodedJSValue JSC_HOST_CALL globalFuncEscape(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL globalFuncUnescape(ExecState* exec)
 {
-    return JSValue::encode(toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+    return JSValue::encode(toStringView(exec, exec->argument(0), [&] (StringView view) {
         StringBuilder builder;
         int k = 0;
         int len = view.length();
@@ -847,51 +860,26 @@ EncodedJSValue JSC_HOST_CALL globalFuncUnescape(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL globalFuncThrowTypeError(ExecState* exec)
 {
-    return throwVMTypeError(exec);
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    return throwVMTypeError(exec, scope);
 }
     
 EncodedJSValue JSC_HOST_CALL globalFuncThrowTypeErrorArgumentsCalleeAndCaller(ExecState* exec)
 {
-    return throwVMTypeError(exec, "'arguments', 'callee', and 'caller' cannot be accessed in strict mode.");
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    return throwVMTypeError(exec, scope, "'arguments', 'callee', and 'caller' cannot be accessed in this context.");
 }
-
-class GlobalFuncProtoGetterFunctor {
-public:
-    GlobalFuncProtoGetterFunctor(ExecState* exec, JSObject* thisObject)
-        : m_exec(exec)
-        , m_hasSkippedFirstFrame(false)
-        , m_thisObject(thisObject)
-        , m_result(JSValue::encode(jsUndefined()))
-    {
-    }
-
-    EncodedJSValue result() { return m_result; }
-
-    StackVisitor::Status operator()(StackVisitor& visitor) const
-    {
-        if (!m_hasSkippedFirstFrame) {
-            m_hasSkippedFirstFrame = true;
-            return StackVisitor::Continue;
-        }
-
-        if (m_thisObject->allowsAccessFrom(visitor->callFrame()))
-            m_result = JSValue::encode(m_thisObject->getPrototype(m_exec->vm(), m_exec));
-
-        return StackVisitor::Done;
-    }
-
-private:
-    ExecState* m_exec;
-    mutable bool m_hasSkippedFirstFrame;
-    JSObject* m_thisObject;
-    mutable EncodedJSValue m_result;
-};
 
 EncodedJSValue JSC_HOST_CALL globalFuncProtoGetter(ExecState* exec)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     JSValue thisValue = exec->thisValue().toThis(exec, StrictMode);
     if (thisValue.isUndefinedOrNull())
-        return throwVMTypeError(exec, ASCIILiteral(ObjectProtoCalledOnNullOrUndefinedError));
+        return throwVMTypeError(exec, scope, ASCIILiteral(ObjectProtoCalledOnNullOrUndefinedError));
 
     JSObject* thisObject = jsDynamicCast<JSObject*>(thisValue);
     if (!thisObject) {
@@ -901,54 +889,17 @@ EncodedJSValue JSC_HOST_CALL globalFuncProtoGetter(ExecState* exec)
         return JSValue::encode(prototype);
     }
 
-    GlobalFuncProtoGetterFunctor functor(exec, thisObject);
-    // This can throw but it's just unneeded extra work to check for it. The return
-    // value from this function is only used as the return value from a host call.
-    // Therefore, the return value is only used if there wasn't an exception.
-    exec->iterate(functor);
-    return functor.result();
-}
-
-class GlobalFuncProtoSetterFunctor {
-public:
-    GlobalFuncProtoSetterFunctor(JSObject* thisObject)
-        : m_hasSkippedFirstFrame(false)
-        , m_allowsAccess(false)
-        , m_thisObject(thisObject)
-    {
-    }
-
-    bool allowsAccess() const { return m_allowsAccess; }
-
-    StackVisitor::Status operator()(StackVisitor& visitor) const
-    {
-        if (!m_hasSkippedFirstFrame) {
-            m_hasSkippedFirstFrame = true;
-            return StackVisitor::Continue;
-        }
-
-        m_allowsAccess = m_thisObject->allowsAccessFrom(visitor->callFrame());
-        return StackVisitor::Done;
-    }
-
-private:
-    mutable bool m_hasSkippedFirstFrame;
-    mutable bool m_allowsAccess;
-    JSObject* m_thisObject;
-};
-
-bool checkProtoSetterAccessAllowed(ExecState* exec, JSObject* object)
-{
-    GlobalFuncProtoSetterFunctor functor(object);
-    exec->iterate(functor);
-    return functor.allowsAccess();
+    return JSValue::encode(thisObject->getPrototype(vm, exec));
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncProtoSetter(ExecState* exec)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     JSValue thisValue = exec->thisValue().toThis(exec, StrictMode);
     if (thisValue.isUndefinedOrNull())
-        return throwVMTypeError(exec, ASCIILiteral(ObjectProtoCalledOnNullOrUndefinedError));
+        return throwVMTypeError(exec, scope, ASCIILiteral(ObjectProtoCalledOnNullOrUndefinedError));
 
     JSValue value = exec->argument(0);
 
@@ -958,14 +909,10 @@ EncodedJSValue JSC_HOST_CALL globalFuncProtoSetter(ExecState* exec)
     if (!thisObject)
         return JSValue::encode(jsUndefined());
 
-    if (!checkProtoSetterAccessAllowed(exec, thisObject))
-        return JSValue::encode(jsUndefined());
-
     // Setting __proto__ to a non-object, non-null value is silently ignored to match Mozilla.
     if (!value.isObject() && !value.isNull())
         return JSValue::encode(jsUndefined());
 
-    VM& vm = exec->vm();
     bool shouldThrowIfCantSet = true;
     thisObject->setPrototype(vm, exec, value, shouldThrowIfCantSet);
     return JSValue::encode(jsUndefined());

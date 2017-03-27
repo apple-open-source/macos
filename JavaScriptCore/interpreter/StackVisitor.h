@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef StackVisitor_h
-#define StackVisitor_h
+#pragma once
 
 #include "VMEntryRecord.h"
 #include <functional>
@@ -38,11 +37,11 @@ struct InlineCallFrame;
 
 class CodeBlock;
 class ExecState;
+class JSCell;
 class JSFunction;
-class JSObject;
-class JSScope;
 class ClonedArguments;
 class Register;
+class RegisterAtOffsetList;
 
 typedef ExecState CallFrame;
 
@@ -55,14 +54,15 @@ public:
             Eval,
             Function,
             Module,
-            Native
+            Native,
+            Wasm
         };
 
         size_t index() const { return m_index; }
         size_t argumentCountIncludingThis() const { return m_argumentCountIncludingThis; }
         bool callerIsVMEntryFrame() const { return m_callerIsVMEntryFrame; }
         CallFrame* callerFrame() const { return m_callerFrame; }
-        JSObject* callee() const { return m_callee; }
+        JSCell* callee() const { return m_callee; }
         CodeBlock* codeBlock() const { return m_codeBlock; }
         unsigned bytecodeOffset() const { return m_bytecodeOffset; }
         InlineCallFrame* inlineCallFrame() const {
@@ -73,8 +73,9 @@ public:
 #endif
         }
 
-        bool isJSFrame() const { return !!codeBlock(); }
+        bool isNativeFrame() const { return !codeBlock() && !isWasmFrame(); }
         bool isInlinedFrame() const { return !!inlineCallFrame(); }
+        bool isWasmFrame() const;
 
         JS_EXPORT_PRIVATE String functionName() const;
         JS_EXPORT_PRIVATE String sourceURL() const;
@@ -83,7 +84,10 @@ public:
         intptr_t sourceID();
 
         CodeType codeType() const;
+        bool hasLineAndColumnInfo() const;
         JS_EXPORT_PRIVATE void computeLineAndColumn(unsigned& line, unsigned& column) const;
+
+        RegisterAtOffsetList* calleeSaveRegisters();
 
         ClonedArguments* createArguments();
         VMEntryFrame* vmEntryFrame() const { return m_VMEntryFrame; }
@@ -99,19 +103,20 @@ public:
         void retrieveExpressionInfo(int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column) const;
         void setToEnd();
 
-        size_t m_index;
-        size_t m_argumentCountIncludingThis;
-        VMEntryFrame* m_VMEntryFrame;
-        VMEntryFrame* m_CallerVMEntryFrame;
-        CallFrame* m_callerFrame;
-        JSObject* m_callee;
-        CodeBlock* m_codeBlock;
-        unsigned m_bytecodeOffset;
-        bool m_callerIsVMEntryFrame;
 #if ENABLE(DFG_JIT)
         InlineCallFrame* m_inlineCallFrame;
 #endif
         CallFrame* m_callFrame;
+        VMEntryFrame* m_VMEntryFrame;
+        VMEntryFrame* m_CallerVMEntryFrame;
+        CallFrame* m_callerFrame;
+        JSCell* m_callee;
+        CodeBlock* m_codeBlock;
+        size_t m_index;
+        size_t m_argumentCountIncludingThis;
+        unsigned m_bytecodeOffset;
+        bool m_callerIsVMEntryFrame : 1;
+        bool m_isWasmFrame : 1;
 
         friend class StackVisitor;
     };
@@ -181,6 +186,3 @@ private:
 };
 
 } // namespace JSC
-
-#endif // StackVisitor_h
-

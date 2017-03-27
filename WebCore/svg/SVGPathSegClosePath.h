@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGPathSegClosePath_h
-#define SVGPathSegClosePath_h
+#pragma once
 
 #include "SVGPathSegWithContext.h"
 
@@ -38,10 +37,8 @@ private:
     {
     }
 
-    unsigned short pathSegType() const override { return PATHSEG_CLOSEPATH; }
-    String pathSegTypeAsLetter() const override { return "Z"; }
+    unsigned short pathSegType() const final { return PATHSEG_CLOSEPATH; }
+    String pathSegTypeAsLetter() const final { return "Z"; }
 };
 
 } // namespace WebCore
-
-#endif

@@ -37,12 +37,14 @@
 
 #import "CKDStore.h"
 #import "CKDAccount.h"
+#import "CKDLockMonitor.h"
+#import "XPCNotificationDispatcher.h"
 
 #define XPROXYSCOPE "proxy"
 
 typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 
-@interface UbiqitousKVSProxy : NSObject
+@interface UbiqitousKVSProxy : NSObject<XPCNotificationListener, CKDLockListener>
 {
     id currentiCloudToken;
     int callbackMethod;
@@ -50,14 +52,14 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 
 @property (readonly) NSObject<CKDStore>* store;
 @property (readonly) NSObject<CKDAccount>* account;
+@property (readonly) NSObject<CKDLockMonitor>* lockMonitor;
 
+@property (readonly) NSURL* persistenceURL;
 
 @property (retain, nonatomic) NSMutableSet *alwaysKeys;
 @property (retain, nonatomic) NSMutableSet *firstUnlockKeys;
 @property (retain, nonatomic) NSMutableSet *unlockedKeys;
 
-@property (atomic) bool unlockedSinceBoot;
-@property (atomic) bool isLocked;
 @property (atomic) bool seenKVSStoreChange;
 
 
@@ -65,9 +67,13 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 @property (retain, nonatomic) NSMutableSet *shadowPendingKeys;
 
 @property (retain, nonatomic) NSString *dsid;
+@property (retain, nonatomic) NSString *accountUUID;
 
-@property (atomic) bool syncWithPeersPending;
-@property (atomic) bool shadowSyncWithPeersPending;
+@property (retain, nonatomic) NSMutableSet<NSString*>* pendingSyncPeerIDs;
+@property (retain, nonatomic) NSMutableSet<NSString*>* shadowPendingSyncPeerIDs;
+
+@property (retain, nonatomic) NSMutableSet<NSString*>* pendingSyncBackupPeerIDs;
+@property (retain, nonatomic) NSMutableSet<NSString*>* shadowPendingSyncBackupPeerIDs;
 
 @property (atomic) bool ensurePeerRegistration;
 @property (atomic) bool shadowEnsurePeerRegistration;
@@ -76,13 +82,6 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 
 @property (retain, nonatomic) NSMutableArray<FreshnessResponseBlock> *freshnessCompletions;
 @property (atomic) dispatch_time_t nextFreshnessTime;
-
-@property (atomic) dispatch_source_t syncTimer;
-@property (atomic) bool syncTimerScheduled;
-
-@property (atomic) dispatch_time_t deadline;
-@property (atomic) dispatch_time_t lastSyncTime;
-
 
 @property (atomic) dispatch_queue_t calloutQueue;
 
@@ -95,11 +94,18 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 @property (copy, atomic) dispatch_block_t shadowFlushBlock;
 
 
-+ (UbiqitousKVSProxy *) sharedKVSProxy;
 - (NSString *)description;
-- (id)init NS_UNAVAILABLE;
-- (id)initWithAccount:(NSObject<CKDAccount>*) account
-                store:(NSObject<CKDStore>*) store NS_DESIGNATED_INITIALIZER;
+- (instancetype)init NS_UNAVAILABLE;
+
++ (instancetype)withAccount:(NSObject<CKDAccount>*) account
+                      store:(NSObject<CKDStore>*) store
+                lockMonitor:(NSObject<CKDLockMonitor>*) lockMonitor
+                persistence:(NSURL*) localPersistence;
+
+- (instancetype)initWithAccount:(NSObject<CKDAccount>*) account
+                          store:(NSObject<CKDStore>*) store
+                    lockMonitor:(NSObject<CKDLockMonitor>*) lockMonitor
+                    persistence:(NSURL*) localPersistence NS_DESIGNATED_INITIALIZER;
 
 // Requests:
 
@@ -115,11 +121,11 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 - (void)storeKeysChanged: (NSSet<NSString*>*) changedKeys initial: (bool) initial;
 - (void)storeAccountChanged;
 
-- (void)streamEvent:(xpc_object_t)notification;
-
-- (void)processAllItems;
-- (void)requestSyncWithAllPeers;
 - (void)requestEnsurePeerRegistration;
+
+- (void)requestSyncWithPeerIDs: (NSArray<NSString*>*) peerIDs backupPeerIDs: (NSArray<NSString*>*) backupPeerIDs;
+- (BOOL)hasSyncPendingFor: (NSString*) peerID;
+- (BOOL)hasPendingKey: (NSString*) keyName;
 
 - (void)registerAtTimeKeys:(NSDictionary*)keyparms;
 
@@ -133,14 +139,13 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 
 - (void)processPendingKeysForCurrentLockState;
 
-- (void)registerKeys: (NSDictionary*)keys;
+- (void)registerKeys: (NSDictionary*)keys forAccount: (NSString*) accountUUID;
 
 - (void)processKeyChangedEvent:(NSDictionary *)keysChangedInCloud;
 - (NSMutableDictionary *)copyValues:(NSSet *)keysOfInterest;
 
 - (void) doAfterFlush: (dispatch_block_t) block;
-- (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration,
-                               dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration, NSError* error))) callout;
+- (void) calloutWith: (void(^)(NSSet *pending, NSSet* pendingSyncIDs, NSSet* pendingBackupSyncIDs, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, NSSet *handledSyncs, bool handledEnsurePeerRegistration, NSError* error))) callout;
 - (void) sendKeysCallout: (NSSet *(^)(NSSet* pending, NSError **error)) handleKeys;
 
 - (void)recordWriteToKVS:(NSDictionary *)values;

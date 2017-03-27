@@ -69,12 +69,16 @@ CFGiblisWithCompareFor(SOSCoder)
 static CFStringRef SOSCoderCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     SOSCoderRef coder = (SOSCoderRef)cf;
     if(coder){
-        CFStringRef desc = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Coder %@ %@ %s%s>"),
-                                                    coder->sessRef,
-                                                    coder->hashOfLastReceived,
-                                                    coder->waitingForDataPacket ? "W" : "w",
-                                                    coder->lastReceivedWasOld ? "O" : "o"
-                                                    );
+        __block CFStringRef desc = NULL;
+        CFDataPerformWithHexString(coder->hashOfLastReceived, ^(CFStringRef dataString) {
+            desc = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Coder %@ %@ %s%s>"),
+                                            coder->sessRef,
+                                            dataString,
+                                            coder->waitingForDataPacket ? "W" : "w",
+                                            coder->lastReceivedWasOld ? "O" : "o"
+                                            );
+
+        });
         return desc;
     }
     else
@@ -117,7 +121,7 @@ static const char *SOSCoderString(SOSCoderStatus coderStatus) {
 }
 */
 
-static CFMutableDataRef sessSerialized(SOSCoderRef coder, CFErrorRef *error) {
+static CFMutableDataRef sessSerializedCreate(SOSCoderRef coder, CFErrorRef *error) {
     CFMutableDataRef otr_state = NULL;
         
     if(!coder || !coder->sessRef) {
@@ -152,7 +156,7 @@ static uint8_t* der_encode_optional_data(CFDataRef data, CFErrorRef *error, cons
 
 static size_t SOSCoderGetDEREncodedSize(SOSCoderRef coder, CFErrorRef *error) {
     size_t encoded_size = 0;
-    CFMutableDataRef otr_state = sessSerialized(coder, error);
+    CFMutableDataRef otr_state = sessSerializedCreate(coder, error);
 
     if (otr_state) {
         size_t data_size = der_sizeof_data(otr_state, error);
@@ -172,7 +176,7 @@ static size_t SOSCoderGetDEREncodedSize(SOSCoderRef coder, CFErrorRef *error) {
 static uint8_t* SOSCoderEncodeToDER(SOSCoderRef coder, CFErrorRef* error, const uint8_t* der, uint8_t* der_end) {
     if(!der_end) return NULL;
     uint8_t* result = NULL;
-    CFMutableDataRef otr_state = sessSerialized(coder, error);
+    CFMutableDataRef otr_state = sessSerializedCreate(coder, error);
     
     if(otr_state) {
         result = ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,

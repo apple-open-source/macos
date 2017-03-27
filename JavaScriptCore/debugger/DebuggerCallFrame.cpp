@@ -159,7 +159,7 @@ DebuggerScope* DebuggerCallFrame::scope()
             scope = m_shadowChickenFrame.scope;
         else if (codeBlock && codeBlock->scopeRegister().isValid())
             scope = m_validMachineFrame->scope(codeBlock->scopeRegister().offset());
-        else if (JSCallee* callee = jsDynamicCast<JSCallee*>(m_validMachineFrame->callee()))
+        else if (JSCallee* callee = jsDynamicCast<JSCallee*>(m_validMachineFrame->jsCallee()))
             scope = callee->scope();
         else
             scope = m_validMachineFrame->lexicalGlobalObject()->globalLexicalEnvironment();
@@ -178,7 +178,7 @@ DebuggerCallFrame::Type DebuggerCallFrame::type() const
     if (isTailDeleted())
         return FunctionType;
 
-    if (jsDynamicCast<JSFunction*>(m_validMachineFrame->callee()))
+    if (jsDynamicCast<JSFunction*>(m_validMachineFrame->jsCallee()))
         return FunctionType;
 
     return ProgramType;
@@ -217,7 +217,9 @@ JSValue DebuggerCallFrame::evaluateWithScopeExtension(const String& script, JSOb
     if (!callFrame)
         return jsUndefined();
 
-    JSLockHolder lock(callFrame);
+    VM& vm = callFrame->vm();
+    JSLockHolder lock(vm);
+    auto catchScope = DECLARE_CATCH_SCOPE(vm);
 
     CodeBlock* codeBlock = nullptr;
     if (isTailDeleted())
@@ -228,7 +230,6 @@ JSValue DebuggerCallFrame::evaluateWithScopeExtension(const String& script, JSOb
         return jsUndefined();
     
     DebuggerEvalEnabler evalEnabler(callFrame);
-    VM& vm = callFrame->vm();
 
     EvalContextType evalContextType;
     
@@ -240,12 +241,12 @@ JSValue DebuggerCallFrame::evaluateWithScopeExtension(const String& script, JSOb
         evalContextType = EvalContextType::None;
 
     VariableEnvironment variablesUnderTDZ;
-    JSScope::collectVariablesUnderTDZ(scope()->jsScope(), variablesUnderTDZ);
+    JSScope::collectClosureVariablesUnderTDZ(scope()->jsScope(), variablesUnderTDZ);
 
-    EvalExecutable* eval = EvalExecutable::create(callFrame, makeSource(script), codeBlock->isStrictMode(), codeBlock->unlinkedCodeBlock()->derivedContextType(), codeBlock->unlinkedCodeBlock()->isArrowFunction(), evalContextType, &variablesUnderTDZ);
-    if (vm.exception()) {
-        exception = vm.exception();
-        vm.clearException();
+    EvalExecutable* eval = DirectEvalExecutable::create(callFrame, makeSource(script), codeBlock->isStrictMode(), codeBlock->unlinkedCodeBlock()->derivedContextType(), codeBlock->unlinkedCodeBlock()->isArrowFunction(), evalContextType, &variablesUnderTDZ);
+    if (UNLIKELY(catchScope.exception())) {
+        exception = catchScope.exception();
+        catchScope.clearException();
         return jsUndefined();
     }
 
@@ -257,9 +258,9 @@ JSValue DebuggerCallFrame::evaluateWithScopeExtension(const String& script, JSOb
 
     JSValue thisValue = this->thisValue();
     JSValue result = vm.interpreter->execute(eval, callFrame, thisValue, scope()->jsScope());
-    if (vm.exception()) {
-        exception = vm.exception();
-        vm.clearException();
+    if (UNLIKELY(catchScope.exception())) {
+        exception = catchScope.exception();
+        catchScope.clearException();
     }
 
     if (scopeExtensionObject)
@@ -289,7 +290,7 @@ TextPosition DebuggerCallFrame::currentPosition()
 
     if (isTailDeleted()) {
         CodeBlock* codeBlock = m_shadowChickenFrame.codeBlock;
-        if (Optional<unsigned> bytecodeOffset = codeBlock->bytecodeOffsetFromCallSiteIndex(m_shadowChickenFrame.callSiteIndex)) {
+        if (std::optional<unsigned> bytecodeOffset = codeBlock->bytecodeOffsetFromCallSiteIndex(m_shadowChickenFrame.callSiteIndex)) {
             return TextPosition(OrdinalNumber::fromOneBasedInt(codeBlock->lineNumberForBytecodeOffset(*bytecodeOffset)),
                 OrdinalNumber::fromOneBasedInt(codeBlock->columnNumberForBytecodeOffset(*bytecodeOffset)));
         }

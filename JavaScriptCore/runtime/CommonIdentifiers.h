@@ -18,8 +18,7 @@
  *
  */
 
-#ifndef CommonIdentifiers_h
-#define CommonIdentifiers_h
+#pragma once
 
 #include "Identifier.h"
 #include <wtf/Noncopyable.h>
@@ -27,6 +26,8 @@
 // MarkedArgumentBuffer of property names, passed to a macro so we can do set them up various
 // ways without repeating the list.
 #define JSC_COMMON_IDENTIFIERS_EACH_PROPERTY_NAME(macro) \
+    macro(Animation) \
+    macro(AnimationEffectReadOnly) \
     macro(AnimationTimeline) \
     macro(Array) \
     macro(ArrayBuffer) \
@@ -35,10 +36,10 @@
     macro(BYTES_PER_ELEMENT) \
     macro(Boolean) \
     macro(Collator) \
+    macro(CustomElementRegistry) \
     macro(Date) \
     macro(DateTimeFormat) \
     macro(DocumentTimeline) \
-    macro(DOMIterator) \
     macro(Error) \
     macro(EvalError) \
     macro(Function) \
@@ -61,13 +62,26 @@
     macro(IDBTransaction) \
     macro(IDBVersionChangeEvent) \
     macro(Infinity) \
+    macro(InputEvent) \
+    macro(IntersectionObserver) \
+    macro(IntersectionObserverEntry) \
     macro(Intl) \
     macro(JSON) \
     macro(Loader) \
     macro(Map)\
     macro(MapIterator)\
     macro(Math) \
+    macro(MediaEncryptedEvent) \
+    macro(MediaKeyMessageEvent) \
+    macro(MediaKeySession) \
+    macro(MediaKeyStatusMap) \
+    macro(MediaKeySystemAccess) \
+    macro(MediaKeys) \
+    macro(MediaStreamEvent) \
+    macro(ModernMediaControls) \
     macro(NaN) \
+    macro(NavigatorMediaDevices) \
+    macro(NavigatorUserMedia) \
     macro(Number) \
     macro(NumberFormat) \
     macro(Object) \
@@ -82,9 +96,19 @@
     macro(RegExp) \
     macro(Response) \
     macro(Request) \
+    macro(RTCDTMFToneChangeEvent) \
+    macro(RTCIceCandidate) \
+    macro(RTCPeerConnection) \
+    macro(RTCRtpReceiver) \
+    macro(RTCRtpSender) \
+    macro(RTCRtpTransceiver) \
+    macro(RTCSessionDescription) \
+    macro(RTCTrackEvent) \
     macro(Set)\
     macro(SetIterator)\
     macro(ShadowRoot) \
+    macro(SharedArrayBuffer) \
+    macro(StaticRange) \
     macro(String) \
     macro(Symbol) \
     macro(SyntaxError) \
@@ -133,6 +157,7 @@
     macro(constructor) \
     macro(count) \
     macro(counters) \
+    macro(customElements) \
     macro(day) \
     macro(defineProperty) \
     macro(description) \
@@ -182,6 +207,7 @@
     macro(isWatchpoint) \
     macro(jettisonReason) \
     macro(join) \
+    macro(KeyframeEffect) \
     macro(lastIndex) \
     macro(length) \
     macro(line) \
@@ -251,6 +277,7 @@
     macro(value) \
     macro(valueOf) \
     macro(webkit) \
+    macro(collectMatchingElementsInFlatTree) \
     macro(webkitIDBCursor) \
     macro(webkitIDBDatabase) \
     macro(webkitIDBFactory) \
@@ -266,6 +293,8 @@
     macro(year)
 
 #define JSC_COMMON_IDENTIFIERS_EACH_KEYWORD(macro) \
+    macro(async) \
+    macro(await) \
     macro(break) \
     macro(case) \
     macro(catch) \
@@ -375,5 +404,3 @@ namespace JSC {
     };
 
 } // namespace JSC
-
-#endif // CommonIdentifiers_h

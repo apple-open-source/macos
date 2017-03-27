@@ -95,12 +95,7 @@ SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *a
 extern int
 SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray, SECOidTag algtag);
 
-#if USE_CDSA_CRYPTO
-extern CSSM_CC_HANDLE
-#else
-extern void *
-#endif
-SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
+extern void *SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
 
 /*
  * XXX I would *really* like to not have to do this, but the current
@@ -133,9 +128,6 @@ SecCmsContentGetContentInfo(void *msg, SECOidTag type);
  @param encrypt_key_cb callback function for getting bulk key for encryptedData content.
  @param encrypt_key_cb_arg first argument passed to encrypt_key_cb when it is
  called.
- @param detached_digestalgs digest algorithms in detached_digests
- @param detached_digests digests from detached content (one for every element
-                                                        in detached_digestalgs).
  */
 extern void
 SecCmsMessageSetEncodingParams(SecCmsMessageRef cmsg,

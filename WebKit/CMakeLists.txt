@@ -17,13 +17,9 @@ set(WebKit_SOURCES
 )
 
 set(WebKit_INCLUDE_DIRECTORIES
-    Storage
-    WebCoreSupport
-
     "${CMAKE_BINARY_DIR}"
-    "${CMAKE_SOURCE_DIR}/Source"
-    "${DERIVED_SOURCES_DIR}"
-    "${DERIVED_SOURCES_DIR}/ForwardingHeaders"
+    "${WEBKIT_DIR}/Storage"
+    "${WEBKIT_DIR}/WebCoreSupport"
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders/JavaScriptCore"
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebCore"
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders/WebKitLegacy"
@@ -49,7 +45,7 @@ endif ()
 WEBKIT_FRAMEWORK(WebKit)
 
 add_dependencies(WebKit WebCore)
-if (WIN32)
+if (TARGET WebKitGUID)
     add_dependencies(WebKit WebKitGUID)
 endif ()
 

@@ -24,12 +24,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef YarrPattern_h
-#define YarrPattern_h
+#pragma once
 
 #include "RegExpKey.h"
 #include <wtf/CheckedArithmetic.h>
-#include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -110,7 +108,8 @@ struct PatternTerm {
         } anchors;
     };
     QuantifierType quantityType;
-    Checked<unsigned> quantityCount;
+    Checked<unsigned> quantityMinCount;
+    Checked<unsigned> quantityMaxCount;
     unsigned inputPosition;
     unsigned frameLocation;
 
@@ -121,7 +120,7 @@ struct PatternTerm {
     {
         patternCharacter = ch;
         quantityType = QuantifierFixedCount;
-        quantityCount = 1;
+        quantityMinCount = quantityMaxCount = 1;
     }
 
     PatternTerm(CharacterClass* charClass, bool invert)
@@ -131,7 +130,7 @@ struct PatternTerm {
     {
         characterClass = charClass;
         quantityType = QuantifierFixedCount;
-        quantityCount = 1;
+        quantityMinCount = quantityMaxCount = 1;
     }
 
     PatternTerm(Type type, unsigned subpatternId, PatternDisjunction* disjunction, bool capture = false, bool invert = false)
@@ -144,7 +143,7 @@ struct PatternTerm {
         parentheses.isCopy = false;
         parentheses.isTerminal = false;
         quantityType = QuantifierFixedCount;
-        quantityCount = 1;
+        quantityMinCount = quantityMaxCount = 1;
     }
     
     PatternTerm(Type type, bool invert = false)
@@ -153,7 +152,7 @@ struct PatternTerm {
         , m_invert(invert)
     {
         quantityType = QuantifierFixedCount;
-        quantityCount = 1;
+        quantityMinCount = quantityMaxCount = 1;
     }
 
     PatternTerm(unsigned spatternId)
@@ -163,7 +162,7 @@ struct PatternTerm {
     {
         backReferenceSubpatternId = spatternId;
         quantityType = QuantifierFixedCount;
-        quantityCount = 1;
+        quantityMinCount = quantityMaxCount = 1;
     }
 
     PatternTerm(bool bolAnchor, bool eolAnchor)
@@ -174,7 +173,7 @@ struct PatternTerm {
         anchors.bolAnchor = bolAnchor;
         anchors.eolAnchor = eolAnchor;
         quantityType = QuantifierFixedCount;
-        quantityCount = 1;
+        quantityMinCount = quantityMaxCount = 1;
     }
     
     static PatternTerm ForwardReference()
@@ -209,7 +208,18 @@ struct PatternTerm {
     
     void quantify(unsigned count, QuantifierType type)
     {
-        quantityCount = count;
+        quantityMinCount = 0;
+        quantityMaxCount = count;
+        quantityType = type;
+    }
+
+    void quantify(unsigned minCount, unsigned maxCount, QuantifierType type)
+    {
+        // Currently only Parentheses can specify a non-zero min with a different max.
+        ASSERT(this->type == TypeParenthesesSubpattern || !minCount || minCount == maxCount);
+        ASSERT(minCount <= maxCount);
+        quantityMinCount = minCount;
+        quantityMaxCount = maxCount;
         quantityType = type;
     }
 };
@@ -306,6 +316,28 @@ struct TermChain {
 struct YarrPattern {
     JS_EXPORT_PRIVATE YarrPattern(const String& pattern, RegExpFlags, const char** error, void* stackLimit = nullptr);
 
+    enum ErrorCode {
+        NoError,
+        PatternTooLarge,
+        QuantifierOutOfOrder,
+        QuantifierWithoutAtom,
+        QuantifierTooLarge,
+        MissingParentheses,
+        ParenthesesUnmatched,
+        ParenthesesTypeInvalid,
+        CharacterClassUnmatched,
+        CharacterClassOutOfOrder,
+        EscapeUnterminated,
+        InvalidUnicodeEscape,
+        InvalidIdentityEscape,
+        TooManyDisjunctions,
+        OffsetTooLarge,
+        InvalidRegularExpressionFlags,
+        NumberOfErrorCodes
+    };
+    
+    JS_EXPORT_PRIVATE static const char* errorMessage(ErrorCode);
+
     void reset()
     {
         m_numSubpatterns = 0;
@@ -314,6 +346,7 @@ struct YarrPattern {
         m_containsBackreferences = false;
         m_containsBOL = false;
         m_containsUnsignedLengthPattern = false;
+        m_hasCopiedParenSubexpressions = false;
 
         newlineCached = 0;
         digitsCached = 0;
@@ -419,7 +452,8 @@ struct YarrPattern {
 
     bool m_containsBackreferences : 1;
     bool m_containsBOL : 1;
-    bool m_containsUnsignedLengthPattern : 1; 
+    bool m_containsUnsignedLengthPattern : 1;
+    bool m_hasCopiedParenSubexpressions : 1;
     RegExpFlags m_flags;
     unsigned m_numSubpatterns;
     unsigned m_maxBackReference;
@@ -442,5 +476,3 @@ private:
 };
 
 } } // namespace JSC::Yarr
-
-#endif // YarrPattern_h

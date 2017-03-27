@@ -81,13 +81,6 @@ typedef struct SecCertificateExtension {
     DERItem extnValue;
 } SecCertificateExtension;
 
-#if 0
-typedef struct KnownExtension {
-    bool critical;
-    DERItem extnValue;
-} KnownExtension;
-#endif
-
 enum {
     kSecSelfSignedUnknown = 0,
     kSecSelfSignedFalse,
@@ -115,37 +108,14 @@ struct __SecCertificate {
     DERItem             _issuerUniqueID;    /* bit string, optional */
     DERItem             _subjectUniqueID;   /* bit string, optional */
 
-#if 0
-    /* Known extensions if the certificate contains them,
-       extnValue.length will be > 0. */
-    KnownExtension      _authorityKeyID;
-
-    /* This extension is used to uniquely identify a certificate from among
-       several that have the same subject name. If the extension is not
-       present, its value is calculated by performing a SHA-1 hash of the
-       certificate's DER encoded subjectPublicKeyInfo, as recommended by
-       PKIX. */
-    KnownExtension      _subjectKeyID;
-    KnownExtension      _keyUsage;
-    KnownExtension      _extendedKeyUsage;
-    KnownExtension      _basicConstraints;
-    KnownExtension      _netscapeCertType;
-    KnownExtension      _subjectAltName;
-    KnownExtension      _qualCertStatements;
-
-#endif
     bool                _foundUnknownCriticalExtension;
 
     /* Well known certificate extensions. */
     SecCEBasicConstraints       _basicConstraints;
     SecCEPolicyConstraints      _policyConstraints;
-    CFDictionaryRef             _policyMappings;
+    SecCEPolicyMappings         _policyMappings;
     SecCECertificatePolicies    _certificatePolicies;
-
-    /* If InhibitAnyPolicy extension is not present or invalid UINT32_MAX,
-       value of the SkipCerts field of the InhibitAnyPolicy extension
-       otherwise. */
-    uint32_t _inhibitAnyPolicySkipCerts;
+    SecCEInhibitAnyPolicy       _inhibitAnyPolicySkipCerts;
 
     /* If KeyUsage extension is not present this is 0, otherwise it's
        the value of the extension. */
@@ -245,13 +215,13 @@ typedef void (*SecCertificateExtensionParser)(SecCertificateRef certificate,
 static CFDictionaryRef sExtensionParsers;
 
 /* Forward declarations of static functions. */
-static CFStringRef SecCertificateDescribe(CFTypeRef cf);
+static CFStringRef SecCertificateCopyDescription(CFTypeRef cf);
 static void SecCertificateDestroy(CFTypeRef cf);
 static bool derDateGetAbsoluteTime(const DERItem *dateChoice,
     CFAbsoluteTime *absTime) __attribute__((__nonnull__));
 
 /* Static functions. */
-static CF_RETURNS_RETAINED CFStringRef SecCertificateDescribe(CFTypeRef cf) {
+static CFStringRef SecCertificateCopyDescription(CFTypeRef cf) {
     SecCertificateRef certificate = (SecCertificateRef)cf;
     CFStringRef subject = SecCertificateCopySubjectSummary(certificate);
     CFStringRef issuer = SecCertificateCopyIssuerSummary(certificate);
@@ -266,7 +236,9 @@ static void SecCertificateDestroy(CFTypeRef cf) {
     SecCertificateRef certificate = (SecCertificateRef)cf;
     if (certificate->_certificatePolicies.policies)
         free(certificate->_certificatePolicies.policies);
-    CFReleaseSafe(certificate->_policyMappings);
+    if (certificate->_policyMappings.mappings) {
+        free(certificate->_policyMappings.mappings);
+    }
     CFReleaseSafe(certificate->_crlDistributionPoints);
     CFReleaseSafe(certificate->_ocspResponders);
     CFReleaseSafe(certificate->_caIssuers);
@@ -772,13 +744,13 @@ static DERReturn parseGeneralSubtrees(DERItem *derSubtrees, CFArrayRef *generalS
         CFArrayAppendValue(gs, generalName);
         CFReleaseNull(generalName);
     }
+    require_quiet(drtn == DR_EndOfSequence, badDER);
 
     // since generalSubtrees is a pointer to an instance variable,
     // make sure we release the existing array before assignment.
     CFReleaseSafe(*generalSubtrees);
     *generalSubtrees = gs;
 
-    require_quiet(drtn == DR_EndOfSequence, badDER);
     return DR_Success;
 
 badDER:
@@ -920,7 +892,8 @@ static void SecCEPCertificatePolicies(SecCertificateRef certificate,
     require_quiet(drtn == DR_EndOfSequence, badDER);
     policies = (SecCEPolicyInformation *)malloc(sizeof(SecCEPolicyInformation)
                                                 * (policy_count > 0 ? policy_count : 1));
-    DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
+    drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
+    require_noerr_quiet(drtn, badDER);
     DERSize policy_ix = 0;
     while ((policy_ix < (policy_count > 0 ? policy_count : 1)) &&
            (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
@@ -952,7 +925,7 @@ badDER:
         issuerDomainPolicy      CertPolicyId,
         subjectDomainPolicy     CertPolicyId }
 */
-#if 0
+#define MAX_POLICY_MAPPINGS 8192
 static void SecCEPPolicyMappings(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
@@ -964,15 +937,20 @@ static void SecCEPPolicyMappings(SecCertificateRef certificate,
     require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo pmContent;
     DERSize mapping_count = 0;
-    while ((drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
+    while ((mapping_count < MAX_POLICY_MAPPINGS) &&
+           (drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
         require_quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         mapping_count++;
     }
+    require_quiet(drtn == DR_EndOfSequence, badDER);
     mappings = (SecCEPolicyMapping *)malloc(sizeof(SecCEPolicyMapping)
-        * mapping_count);
-    DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
+                                            * (mapping_count > 0 ? mapping_count : 1));
+    drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
+    require_noerr_quiet(drtn, badDER);
     DERSize mapping_ix = 0;
-    while ((drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
+    while ((mapping_ix < (mapping_count > 0 ? mapping_count : 1)) &&
+           (drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
+        require_quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERPolicyMapping pm;
         drtn = DERParseSequenceContent(&pmContent.content,
             DERNumPolicyMappingItemSpecs,
@@ -982,70 +960,18 @@ static void SecCEPPolicyMappings(SecCertificateRef certificate,
         mappings[mapping_ix].issuerDomainPolicy = pm.issuerDomainPolicy;
         mappings[mapping_ix++].subjectDomainPolicy = pm.subjectDomainPolicy;
     }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
     certificate->_policyMappings.present = true;
     certificate->_policyMappings.critical = extn->critical;
     certificate->_policyMappings.numMappings = mapping_count;
     certificate->_policyMappings.mappings = mappings;
 	return;
 badDER:
-    if (mappings)
+    if (mappings) {
         free(mappings);
-    CFReleaseSafe(mappings);
+    }
     certificate->_policyMappings.present = false;
 	secwarning("Invalid CertificatePolicies Extension");
 }
-#else
-static void SecCEPPolicyMappings(SecCertificateRef certificate,
-	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
-    DERTag tag;
-    DERSequence pmSeq;
-    CFMutableDictionaryRef mappings = NULL;
-    CFDataRef idp = NULL, sdp = NULL;
-    DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
-    DERDecodedInfo pmContent;
-    require_quiet(mappings = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks),
-        badDER);
-    while ((drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
-        require_quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
-        DERPolicyMapping pm;
-        drtn = DERParseSequenceContent(&pmContent.content,
-            DERNumPolicyMappingItemSpecs,
-            DERPolicyMappingItemSpecs,
-            &pm, sizeof(pm));
-        require_noerr_quiet(drtn, badDER);
-        require_quiet(idp = CFDataCreate(kCFAllocatorDefault,
-            pm.issuerDomainPolicy.data, pm.issuerDomainPolicy.length), badDER);
-        require_quiet(sdp = CFDataCreate(kCFAllocatorDefault,
-            pm.subjectDomainPolicy.data, pm.subjectDomainPolicy.length), badDER);
-        CFMutableArrayRef sdps =
-            (CFMutableArrayRef)CFDictionaryGetValue(mappings, idp);
-        if (sdps) {
-            CFArrayAppendValue(sdps, sdp);
-        } else {
-            require_quiet(sdps = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-                &kCFTypeArrayCallBacks), badDER);
-            CFDictionarySetValue(mappings, idp, sdps);
-            CFRelease(sdps);
-        }
-        CFReleaseNull(idp);
-        CFReleaseNull(sdp);
-    }
-    require_quiet(drtn == DR_EndOfSequence, badDER);
-    certificate->_policyMappings = mappings;
-	return;
-badDER:
-    CFReleaseSafe(idp);
-    CFReleaseSafe(sdp);
-    CFReleaseSafe(mappings);
-    certificate->_policyMappings = NULL;
-	secwarning("Invalid CertificatePolicies Extension");
-}
-#endif
 
 /*
 AuthorityKeyIdentifier ::= SEQUENCE {
@@ -1129,12 +1055,18 @@ static void SecCEPExtendedKeyUsage(SecCertificateRef certificate,
 static void SecCEPInhibitAnyPolicy(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+    DERDecodedInfo iapContent;
+    require_noerr_quiet(DERDecodeItem(&extn->extnValue, &iapContent), badDER);
+    require_quiet(iapContent.tag == ASN1_INTEGER, badDER);
     require_noerr_quiet(DERParseInteger(
-        &extn->extnValue,
-        &certificate->_inhibitAnyPolicySkipCerts), badDER);
+        &iapContent.content,
+        &certificate->_inhibitAnyPolicySkipCerts.skipCerts), badDER);
+
+    certificate->_inhibitAnyPolicySkipCerts.present = true;
+    certificate->_inhibitAnyPolicySkipCerts.critical = extn->critical;
     return;
 badDER:
-    certificate->_inhibitAnyPolicySkipCerts = UINT32_MAX;
+    certificate->_inhibitAnyPolicySkipCerts.present = false;
 	secwarning("Invalid InhibitAnyPolicy Extension");
 }
 
@@ -1355,7 +1287,7 @@ static void SecCertificateInitializeExtensionParsers(void) {
                                            &SecDERItemKeyCallBacks, NULL);
 }
 
-CFGiblisWithFunctions(SecCertificate, NULL, NULL, SecCertificateDestroy, SecCertificateEqual, SecCertificateHash, NULL, SecCertificateDescribe, NULL, NULL, ^{
+CFGiblisWithFunctions(SecCertificate, NULL, NULL, SecCertificateDestroy, SecCertificateEqual, SecCertificateHash, NULL, SecCertificateCopyDescription, NULL, NULL, ^{
     SecCertificateInitializeExtensionParsers();
 })
 
@@ -1634,6 +1566,10 @@ static bool SecCertificateParse(SecCertificateRef certificate)
         require_quiet(decoded.tag == ASN1_INTEGER, badCert);
         require_quiet(decoded.content.length == 1, badCert);
         certificate->_version = decoded.content.data[0];
+        if (certificate->_version > 2) {
+            secwarning("Invalid certificate version (%d), must be 0..2",
+                certificate->_version);
+        }
         require_quiet(certificate->_version > 0, badCert);
         require_quiet(certificate->_version < 3, badCert);
     } else {
@@ -1645,14 +1581,18 @@ static bool SecCertificateParse(SecCertificateRef certificate)
 	certificate->_serialNum = tbsCert.serialNum;
 	certificate->_serialNumber = CFDataCreate(allocator,
 		tbsCert.serialNum.data, tbsCert.serialNum.length);
+    /* RFC5280 4.1.2.2 limits serial number values to 20 octets.
+       %%% At some point, this should be treated as a hard error.*/
+    if (tbsCert.serialNum.length < 1 || tbsCert.serialNum.length > 20) {
+        secwarning("Invalid serial number length (%ld), must be 1..20",
+            tbsCert.serialNum.length);
+    }
 
 	/* sequence we're given: decode the tbsCerts TBS Signature Algorithm. */
 	drtn = DERParseSequenceContent(&tbsCert.tbsSigAlg,
 		DERNumAlgorithmIdItemSpecs, DERAlgorithmIdItemSpecs,
 		&certificate->_tbsSigAlg, sizeof(certificate->_tbsSigAlg));
 	require_noerr_quiet(drtn, badCert);
-	require_quiet(DEROidCompare(&certificate->_sigAlg.oid,
-                         &certificate->_tbsSigAlg.oid), badCert);
 
 	/* The issuer is in the tbsCert.issuer - it's a sequence without the tag
        and length fields. */
@@ -2105,19 +2045,6 @@ static CFStringRef copyIPAddressContentDescription(CFAllocatorRef allocator,
 	return value;
 }
 
-#if 0
-static CFStringRef copyFullOidDescription(CFAllocatorRef allocator,
-    const DERItem *oid) {
-    CFStringRef decimal = SecDERItemCopyOIDDecimalRepresentation(allocator, oid);
-    CFStringRef name = copyLocalizedOidDescription(allocator, oid);
-    CFStringRef oid_string = CFStringCreateWithFormat(allocator, NULL,
-        CFSTR("%@ (%@)"), name, decimal);
-    CFRelease(name);
-    CFRelease(decimal);
-    return oid_string;
-}
-#endif
-
 void appendProperty(CFMutableArrayRef properties, CFStringRef propertyType,
     CFStringRef label, CFStringRef localizedLabel, CFTypeRef value) {
     CFDictionaryRef property;
@@ -2179,51 +2106,59 @@ static inline int parseDecimalPair(const DERByte **p) {
     return 10 * (cp[0] - '0') + cp[1] - '0';
 }
 
-/* Decode a choice of UTCTime or GeneralizedTime to a CFAbsoluteTime. Return
-   true if the date was valid and properly decoded, also return the result in
-   absTime.  Return false otherwise. */
-CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
-    size_t length) {
-	if (bytes == NULL)
-        return NULL_TIME;
-	if (length == 0)
-		return NULL_TIME;
+/* Decode a choice of UTCTime or GeneralizedTime to a CFAbsoluteTime.
+   Return a CFErrorRef in the error parameter if decoding fails.
+   Note that this is needed to distinguish an error condition from a
+   valid time which specifies 2001-01-01 00:00:00 (i.e. a value of 0).
+*/
+static CFAbsoluteTime SecAbsoluteTimeFromDateContentWithError(DERTag tag,
+	const uint8_t *bytes,
+	size_t length,
+	CFErrorRef *error) {
+	if (error) {
+		*error = NULL;
+	}
+	if (NULL == bytes || 0 == length) {
+		goto decodeErr;
+	}
 
 	bool isUtcLength = false;
 	bool isLocalized = false;
 	bool noSeconds = false;
-  	switch (length) {
-		case UTC_TIME_NOSEC_ZULU_LEN:		/* YYMMDDhhmmZ */
+	switch (length) {
+		case UTC_TIME_NOSEC_ZULU_LEN:       /* YYMMDDhhmmZ */
 			isUtcLength = true;
 			noSeconds = true;
-  			break;
- 		case UTC_TIME_ZULU_LEN:				/* YYMMDDhhmmssZ */
+			break;
+		case UTC_TIME_ZULU_LEN:             /* YYMMDDhhmmssZ */
 			isUtcLength = true;
-  			break;
-  		case GENERALIZED_TIME_ZULU_LEN:		/* YYYYMMDDhhmmssZ */
-  			break;
-		case UTC_TIME_LOCALIZED_LEN:		/* YYMMDDhhmmssThhmm (where T=[+,-]) */
+			break;
+		case GENERALIZED_TIME_ZULU_LEN:     /* YYYYMMDDhhmmssZ */
+			break;
+		case UTC_TIME_LOCALIZED_LEN:        /* YYMMDDhhmmssThhmm (where T=[+,-]) */
 			isUtcLength = true;
 			/*DROPTHROUGH*/
 		case GENERALIZED_TIME_LOCALIZED_LEN:/* YYYYMMDDhhmmssThhmm (where T=[+,-]) */
 			isLocalized = true;
 			break;
-  		default:							/* unknown format */
-            return NULL_TIME;
-  	}
+		default:                            /* unknown format */
+			goto decodeErr;
+	}
 
 	/* Make sure the der tag fits the thing inside it. */
 	if (tag == ASN1_UTC_TIME) {
-		if (!isUtcLength)
-            return NULL_TIME;
+		if (!isUtcLength) {
+			goto decodeErr;
+		}
 	} else if (tag == ASN1_GENERALIZED_TIME) {
-		if (isUtcLength)
-            return NULL_TIME;
+		if (isUtcLength) {
+			goto decodeErr;
+		}
 	} else {
-		return NULL_TIME;
+		goto decodeErr;
 	}
 
-    const DERByte *cp = bytes;
+	const DERByte *cp = bytes;
 	/* Check that all characters are digits, except if localized the timezone
 	   indicator or if not localized the 'Z' at the end.  */
 	DERSize ix;
@@ -2234,12 +2169,12 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
 				(!isLocalized && ix == length - 1 && cp[ix] == 'Z')) {
 				continue;
 			}
-			return NULL_TIME;
+			goto decodeErr;
 		}
 	}
 
 	/* Parse the date and time fields. */
-    int year, month, day, hour, minute, second;
+	int year, month, day, hour, minute, second;
 	if (isUtcLength) {
 		year = parseDecimalPair(&cp);
 		if (year < 50) {
@@ -2253,7 +2188,7 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
 			year += 1900;
 		}
 	} else {
-        year = 100 * parseDecimalPair(&cp) + parseDecimalPair(&cp);
+		year = 100 * parseDecimalPair(&cp) + parseDecimalPair(&cp);
 	}
 	month = parseDecimalPair(&cp);
 	day = parseDecimalPair(&cp);
@@ -2287,7 +2222,7 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
         || (month == 2 && day > mdays[month] - mdays[month - 1] + is_leap_year)
         || (month != 2 && day > mdays[month] - mdays[month - 1])) {
         /* Invalid date. */
-        return NULL_TIME;
+        goto decodeErr;
     }
 
     int dy = year - 2001;
@@ -2301,15 +2236,30 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
         day += is_leap_year;
 
     CFAbsoluteTime absTime = (CFAbsoluteTime)((day * 24.0 + hour) * 60.0 + minute) * 60.0 + second;
-	return absTime - timeZoneOffset;
+    return absTime - timeZoneOffset;
+
+decodeErr:
+    if (error) {
+        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificate, NULL);
+    }
+    return NULL_TIME;
+}
+
+CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
+    size_t length) {
+    return SecAbsoluteTimeFromDateContentWithError(tag, bytes, length, NULL);
 }
 
 __attribute__((__nonnull__)) static bool derDateContentGetAbsoluteTime(DERTag tag, const DERItem *date,
     CFAbsoluteTime *pabsTime)  {
-    CFAbsoluteTime absTime = SecAbsoluteTimeFromDateContent(tag, date->data,
-        date->length);
-    if (absTime == NULL_TIME)
+    CFErrorRef error = NULL;
+    CFAbsoluteTime absTime = SecAbsoluteTimeFromDateContentWithError(tag, date->data,
+        date->length, &error);
+    if (error) {
+        secwarning("Invalid date specification in certificate (see RFC5280 4.1.2.5)");
+        CFRelease(error);
         return false;
+    }
 
     *pabsTime = absTime;
     return true;
@@ -2396,6 +2346,20 @@ static void appendDateProperty(CFMutableArrayRef properties,
     CFRelease(date);
 }
 
+static void appendValidityPeriodProperty(CFMutableArrayRef parent, CFStringRef label,
+                                         SecCertificateRef certificate) {
+    CFAllocatorRef allocator = CFGetAllocator(parent);
+    CFMutableArrayRef properties = CFArrayCreateMutable(allocator, 0, &kCFTypeArrayCallBacks);
+
+    appendDateProperty(properties, SEC_NOT_VALID_BEFORE_KEY,
+                       certificate->_notBefore);
+    appendDateProperty(properties, SEC_NOT_VALID_AFTER_KEY,
+                       certificate->_notAfter);
+
+    appendProperty(parent, kSecPropertyTypeSection, label, NULL, properties);
+    CFReleaseNull(properties);
+}
+
 static void appendIPAddressContentProperty(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *ip) {
 	CFStringRef value =
@@ -2463,6 +2427,75 @@ static void appendAlgorithmProperty(CFMutableArrayRef properties,
     }
     appendProperty(properties, kSecPropertyTypeSection, label, NULL, alg_props);
     CFRelease(alg_props);
+}
+
+static void appendPublicKeyProperty(CFMutableArrayRef parent, CFStringRef label,
+                                    SecCertificateRef certificate) {
+    CFAllocatorRef allocator = CFGetAllocator(parent);
+    CFMutableArrayRef properties = CFArrayCreateMutable(allocator, 0, &kCFTypeArrayCallBacks);
+
+    /* Public key algorithm. */
+    appendAlgorithmProperty(properties, SEC_PUBLIC_KEY_ALG_KEY,
+                            &certificate->_algId);
+
+    /* Public Key Size */
+#if TARGET_OS_IPHONE
+    SecKeyRef publicKey = SecCertificateCopyPublicKey(certificate);
+#else
+    SecKeyRef publicKey = SecCertificateCopyPublicKey_ios(certificate);
+#endif
+    if (publicKey) {
+        size_t sizeInBytes = SecKeyGetBlockSize(publicKey);
+        CFStringRef sizeInBitsString = CFStringCreateWithFormat(allocator, NULL,
+                                                                CFSTR("%ld"), (sizeInBytes*8));
+        if (sizeInBitsString) {
+            appendProperty(properties, kSecPropertyTypeString, SEC_PUBLIC_KEY_SIZE_KEY,
+                           NULL, sizeInBitsString);
+        }
+        CFReleaseNull(sizeInBitsString);
+    }
+    CFReleaseNull(publicKey);
+
+    /* Consider breaking down an RSA public key into modulus and
+     exponent? */
+    appendDataProperty(properties, SEC_PUBLIC_KEY_DATA_KEY, NULL,
+                       &certificate->_pubKeyDER);
+
+    appendProperty(parent, kSecPropertyTypeSection, label, NULL, properties);
+    CFReleaseNull(properties);
+}
+
+static void appendSignatureProperty(CFMutableArrayRef parent, CFStringRef label,
+                                    SecCertificateRef certificate) {
+    CFAllocatorRef allocator = CFGetAllocator(parent);
+    CFMutableArrayRef properties = CFArrayCreateMutable(allocator, 0, &kCFTypeArrayCallBacks);
+
+    appendAlgorithmProperty(properties, SEC_SIGNATURE_ALGORITHM_KEY,
+                            &certificate->_tbsSigAlg);
+
+    appendDataProperty(properties, SEC_SIGNATURE_DATA_KEY, NULL,
+                       &certificate->_signature);
+
+    appendProperty(parent, kSecPropertyTypeSection, label, NULL, properties);
+    CFReleaseNull(properties);
+}
+
+static void appendFingerprintsProperty(CFMutableArrayRef parent, CFStringRef label, SecCertificateRef certificate) {
+    CFAllocatorRef allocator = CFGetAllocator(parent);
+    CFMutableArrayRef properties = CFArrayCreateMutable(allocator, 0, &kCFTypeArrayCallBacks);
+
+    CFDataRef sha256Fingerprint = SecCertificateCopySHA256Digest(certificate);
+    if (sha256Fingerprint) {
+        appendProperty(properties, kSecPropertyTypeData, SEC_SHA2_FINGERPRINT_KEY,
+                       NULL, sha256Fingerprint);
+    }
+    CFReleaseNull(sha256Fingerprint);
+
+    appendProperty(properties, kSecPropertyTypeData, SEC_SHA1_FINGERPRINT_KEY,
+                   NULL, SecCertificateGetSHA1Digest(certificate));
+
+    appendProperty(parent, kSecPropertyTypeSection, label, NULL, properties);
+    CFReleaseNull(properties);
 }
 
 static CFStringRef copyHexDescription(CFAllocatorRef allocator,
@@ -2759,6 +2792,20 @@ static void appendBooleanProperty(CFMutableArrayRef properties,
     }
 }
 
+static void appendSerialNumberProperty(CFMutableArrayRef parent, CFStringRef label,
+                                       DERItem *serialNum) {
+    CFAllocatorRef allocator = CFGetAllocator(parent);
+    CFMutableArrayRef properties = CFArrayCreateMutable(allocator, 0, &kCFTypeArrayCallBacks);
+
+    if (serialNum->length) {
+        appendIntegerProperty(properties, SEC_SERIAL_NUMBER_KEY,
+                              serialNum);
+        appendProperty(parent, kSecPropertyTypeSection, label, NULL, properties);
+    }
+
+    CFReleaseNull(properties);
+}
+
 static void appendBitStringContentNames(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *bitStringContent,
     const CFStringRef *names, CFIndex namesCount) {
@@ -2817,78 +2864,6 @@ badDER:
     appendInvalidProperty(properties, label, bitString);
 }
 
-#if 0
-typedef uint16_t SecKeyUsage;
-
-#define kSecKeyUsageDigitalSignature    0x8000
-#define kSecKeyUsageNonRepudiation      0x4000
-#define kSecKeyUsageKeyEncipherment     0x2000
-#define kSecKeyUsageDataEncipherment    0x1000
-#define kSecKeyUsageKeyAgreement        0x0800
-#define kSecKeyUsageKeyCertSign         0x0400
-#define kSecKeyUsageCRLSign             0x0200
-#define kSecKeyUsageEncipherOnly        0x0100
-#define kSecKeyUsageDecipherOnly        0x0080
-
-/*
-      KeyUsage ::= BIT STRING {
-           digitalSignature        (0),
-           nonRepudiation          (1),
-           keyEncipherment         (2),
-           dataEncipherment        (3),
-           keyAgreement            (4),
-           keyCertSign             (5),
-           cRLSign                 (6),
-           encipherOnly            (7),
-           decipherOnly            (8) }
- */
-static void appendKeyUsage(CFMutableArrayRef properties,
-    const DERItem *extnValue) {
-    if ((extnValue->length != 4 && extnValue->length != 5)  ||
-        extnValue->data[0] !=  ASN1_BIT_STRING ||
-        extnValue->data[1] < 2 || extnValue->data[1] > 3 ||
-        extnValue->data[2] > 7) {
-        appendInvalidProperty(properties, CFSTR("KeyUsage Extension"),
-            extnValue);
-    } else {
-        CFMutableStringRef string =
-            CFStringCreateMutable(CFGetAllocator(properties), 0);
-        SecKeyUsage usage = (extnValue->data[3] << 8);
-        if (extnValue->length == 5)
-            usage += extnValue->data[4];
-        secdebug("keyusage", "keyusage: %04X", usage);
-        static const CFStringRef usageNames[] = {
-            CFSTR("Digital Signature"),
-            CFSTR("Non-Repudiation"),
-            CFSTR("Key Encipherment"),
-            CFSTR("Data Encipherment"),
-            CFSTR("Key Agreement"),
-            CFSTR("Cert Sign"),
-            CFSTR("CRL Sign"),
-            CFSTR("Encipher"),
-            CFSTR("Decipher"),
-        };
-        bool didOne = false;
-        SecKeyUsage mask = kSecKeyUsageDigitalSignature;
-        CFIndex ix, bits = (extnValue->data[1] - 1) * 8 - extnValue->data[2];
-        for (ix = 0; ix < bits; ++ix) {
-            if (usage & mask) {
-                if (didOne) {
-                    CFStringAppend(string, CFSTR(", "));
-                } else {
-                    didOne = true;
-                }
-                /* @@@ Localize usageNames[ix]. */
-                CFStringAppend(string, usageNames[ix]);
-            }
-            mask >>= 1;
-        }
-        appendProperty(properties, kSecPropertyTypeString, CFSTR("Usage"),
-            string);
-        CFRelease(string);
-    }
-}
-#else
 static void appendKeyUsage(CFMutableArrayRef properties,
     const DERItem *extnValue) {
     static const CFStringRef usageNames[] = {
@@ -2905,7 +2880,6 @@ static void appendKeyUsage(CFMutableArrayRef properties,
     appendBitStringNames(properties, SEC_USAGE_KEY, extnValue,
         usageNames, array_size(usageNames));
 }
-#endif
 
 static void appendPrivateKeyUsagePeriod(CFMutableArrayRef properties,
     const DERItem *extnValue) {
@@ -3174,6 +3148,7 @@ static void appendNameConstraints(CFMutableArrayRef properties,
                 CFRelease(base);
             }
         }
+        require_quiet(drtn == DR_EndOfSequence, badDER);
     }
     if (nc.excludedSubtrees.length) {
         DERSequence gsSeq;
@@ -3202,6 +3177,7 @@ static void appendNameConstraints(CFMutableArrayRef properties,
                 CFRelease(base);
             }
         }
+        require_quiet(drtn == DR_EndOfSequence, badDER);
     }
 
     return;
@@ -3305,26 +3281,25 @@ static void appendIntegerSequenceContent(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *intSequenceContent) {
     CFAllocatorRef allocator = CFGetAllocator(properties);
 	DERSequence intSeq;
+    CFStringRef fmt = NULL, value = NULL, intDesc = NULL, v = NULL;
 	DERReturn drtn = DERDecodeSeqContentInit(intSequenceContent, &intSeq);
 	require_noerr_quiet(drtn, badDER);
 	DERDecodedInfo intContent;
-	CFStringRef value = NULL;
-    CFStringRef fmt = SecCopyCertString(SEC_STRING_LIST_KEY);
+    fmt = SecCopyCertString(SEC_STRING_LIST_KEY);
 	while ((drtn = DERDecodeSeqNext(&intSeq, &intContent)) == DR_Success) {
 		require_quiet(intContent.tag == ASN1_INTEGER, badDER);
-		CFStringRef intDesc = copyIntegerContentDescription(
+		intDesc = copyIntegerContentDescription(
 			allocator, &intContent.content);
 		if (value) {
-            CFStringRef v;
             v = CFStringCreateWithFormat(allocator, NULL, fmt, value, intDesc);
-            CFRelease(value);
+            CFReleaseNull(value);
             value = v;
-            CFRelease(intDesc);
+            CFReleaseNull(intDesc);
 		} else {
 			value = intDesc;
 		}
 	}
-    CFRelease(fmt);
+    CFReleaseNull(fmt);
 	require_quiet(drtn == DR_EndOfSequence, badDER);
 	if (value) {
 		appendProperty(properties, kSecPropertyTypeString, label, NULL, value);
@@ -3333,6 +3308,9 @@ static void appendIntegerSequenceContent(CFMutableArrayRef properties,
 	}
 	/* DROPTHOUGH if !value. */
 badDER:
+    CFReleaseNull(fmt);
+    CFReleaseNull(intDesc);
+    CFReleaseNull(v);
 	appendInvalidProperty(properties, label, intSequenceContent);
 }
 
@@ -3603,34 +3581,6 @@ static void appendNetscapeCertType(CFMutableArrayRef properties,
         certTypes, array_size(certTypes));
 }
 
-#if 0
-static void appendEntrustVersInfo(CFMutableArrayRef properties,
-    const DERItem *extnValue) {
-}
-
-/*
- * The list of Qualified Cert Statement statementIds we understand, even though
- * we don't actually do anything with them; if these are found in a Qualified
- * Cert Statement that's critical, we can truthfully say "yes we understand this".
- */
-static const CSSM_OID_PTR knownQualifiedCertStatements[] =
-{
-    /* id-qcs := { id-pkix 11 } */
-	(const CSSM_OID_PTR)&CSSMOID_OID_QCS_SYNTAX_V1, /* id-qcs 1 */
-	(const CSSM_OID_PTR)&CSSMOID_OID_QCS_SYNTAX_V2, /* id-qcs 2 */
-	(const CSSM_OID_PTR)&CSSMOID_ETSI_QCS_QC_COMPLIANCE,
-	(const CSSM_OID_PTR)&CSSMOID_ETSI_QCS_QC_LIMIT_VALUE,
-	(const CSSM_OID_PTR)&CSSMOID_ETSI_QCS_QC_RETENTION,
-	(const CSSM_OID_PTR)&CSSMOID_ETSI_QCS_QC_SSCD
-};
-#define NUM_KNOWN_QUAL_CERT_STATEMENTS (sizeof(knownQualifiedCertStatements) / sizeof(CSSM_OID_PTR))
-*/
-static void appendQCCertStatements(CFMutableArrayRef properties,
-    const DERItem *extnValue) {
-}
-
-#endif
-
 static bool appendPrintableDERSequence(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *sequence) {
     DERTag tag;
@@ -3695,7 +3645,6 @@ static void appendExtension(CFMutableArrayRef parent,
     appendBoolProperty(properties, SEC_CRITICAL_KEY, extn->critical);
     require_quiet(extnID, xit);
 
-#if 1
 	bool handled = true;
 	/* Extensions that we know how to handle ourselves... */
 	if (extnID->length == oidSubjectKeyIdentifier.length &&
@@ -3782,51 +3731,6 @@ static void appendExtension(CFMutableArrayRef parent,
 			appendUnparsedProperty(properties, SEC_DATA_KEY, NULL, extnValue);
 		}
 	}
-#else
-	/* Extensions that we know how to handle ourselves... */
-	if (DEROidCompare(extnID, &oidSubjectKeyIdentifier)) {
-		appendSubjectKeyIdentifier(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidKeyUsage)) {
-		appendKeyUsage(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidPrivateKeyUsagePeriod)) {
-		appendPrivateKeyUsagePeriod(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidSubjectAltName)) {
-		appendGeneralNames(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidIssuerAltName)) {
-		appendGeneralNames(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidBasicConstraints)) {
-		appendBasicConstraints(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidNameConstraints)) {
-		appendNameConstraints(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidCrlDistributionPoints)) {
-		appendCrlDistributionPoints(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidCertificatePolicies)) {
-		appendCertificatePolicies(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidAuthorityKeyIdentifier)) {
-		appendAuthorityKeyIdentifier(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidPolicyConstraints)) {
-		appendPolicyConstraints(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidExtendedKeyUsage)) {
-		appendExtendedKeyUsage(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidAuthorityInfoAccess)) {
-		appendInfoAccess(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidSubjectInfoAccess)) {
-		appendInfoAccess(properties, extnValue);
-	} else if (DEROidCompare(extnID, &oidNetscapeCertType)) {
-		appendNetscapeCertType(properties, extnValue);
-#if 0
-	} else if (DEROidCompare(extnID, &oidEntrustVersInfo)) {
-		appendEntrustVersInfo(properties, extnValue);
-#endif
-	} else
-	/* Try to parse and display printable string(s). */
-    if (appendPrintableDERSequence(properties, SEC_DATA_KEY, extnValue)) {
-        /* Nothing to do here appendPrintableDERSequence did the work. */
-    } else {
-        /* Couldn't parse extension; dump the raw unparsed data as hex. */
-        appendUnparsedProperty(properties, SEC_DATA_KEY, NULL, extnValue);
-    }
-#endif
     label = SecDERItemCopyOIDDecimalRepresentation(allocator, extnID);
     localizedLabel = copyLocalizedOidDescription(allocator, extnID);
     appendProperty(parent, kSecPropertyTypeSection, label, localizedLabel, properties);
@@ -4026,12 +3930,6 @@ CFMutableArrayRef SecCertificateCopySummaryProperties(
             NULL, NULL, ssummary);
         CFRelease(ssummary);
     }
-#if 0
-    CFStringRef isummary = SEC_ISSUER_SUMMARY_KEY;
-    appendProperty(summary, kSecPropertyTypeString,
-        SEC_ISSUED_BY_KEY, isummary);
-    CFRelease(isummary);
-#endif
 
     /* Let see if this certificate is currently valid. */
     CFStringRef label;
@@ -4090,39 +3988,12 @@ CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {
             SEC_SUBJECT_NAME_KEY, NULL, subject_plist);
 		CFRelease(subject_plist);
 
-#if 0
-        /* Put Normalized subject in for testing. */
-		if (certificate->_normalizedSubject) {
-			DERItem nsubject = {
-				(DERByte *)CFDataGetBytePtr(certificate->_normalizedSubject),
-				CFDataGetLength(certificate->_normalizedSubject)
-			};
-			CFArrayRef nsubject_plist = createPropertiesForX501NameContent(allocator,
-					&nsubject);
-			appendProperty(properties, kSecPropertyTypeSection,
-				CFSTR("Normalized Subject Name"), nsubject_plist);
-			CFRelease(nsubject_plist);
-		}
-#endif
-
 		/* Next we put the Issuer Name in the property list. */
 		CFArrayRef issuer_plist = createPropertiesForX501NameContent(allocator,
 			&certificate->_issuer);
         appendProperty(properties, kSecPropertyTypeSection,
             SEC_ISSUER_NAME_KEY, NULL, issuer_plist);
 		CFRelease(issuer_plist);
-
-#if 0
-        /* Certificate version/type. */
-        bool isRoot = false;
-        CFStringRef fmt = SecCopyCertString(SEC_X509_VERSION_KEY);
-        CFStringRef typeString = CFStringCreateWithFormat(allocator, NULL,
-            fmt, certificate->_version + 1, isRoot ? "root " : "");
-        CFRelease(fmt);
-        appendProperty(properties, kSecPropertyTypeString,
-            SEC_CERTIFICATE_TYPE_KEY, typeString);
-        CFRelease(typeString);
-#endif
 
 		/* Version */
         CFStringRef fmt = SecCopyCertString(SEC_CERT_VERSION_VALUE_KEY);
@@ -4134,25 +4005,10 @@ CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {
         CFRelease(versionString);
 
 		/* Serial Number */
-        if (certificate->_serialNum.length) {
-            appendIntegerProperty(properties, SEC_SERIAL_NUMBER_KEY,
-                &certificate->_serialNum);
-        }
-
-        /* Signature algorithm. */
-#if 0
-        appendAlgorithmProperty(properties, SEC_SIGNATURE_ALGORITHM_KEY,
-            &certificate->_sigAlg);
-#endif
-        appendAlgorithmProperty(properties, SEC_SIGNATURE_ALGORITHM_KEY,
-            &certificate->_tbsSigAlg);
-
+        appendSerialNumberProperty(properties, SEC_SERIAL_NUMBER_KEY, &certificate->_serialNum);
 
         /* Validity dates. */
-        appendDateProperty(properties, SEC_NOT_VALID_BEFORE_KEY,
-            certificate->_notBefore);
-        appendDateProperty(properties, SEC_NOT_VALID_AFTER_KEY,
-            certificate->_notAfter);
+        appendValidityPeriodProperty(properties, SEC_VALIDITY_PERIOD_KEY, certificate);
 
         if (certificate->_subjectUniqueID.length) {
             appendDataProperty(properties, SEC_SUBJECT_UNIQUE_ID_KEY, NULL,
@@ -4163,26 +4019,17 @@ CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {
                 &certificate->_issuerUniqueID);
         }
 
-        /* Public key algorithm. */
-        appendAlgorithmProperty(properties, SEC_PUBLIC_KEY_ALG_KEY,
-            &certificate->_algId);
-
-        /* Consider breaking down an RSA public key into modulus and
-           exponent? */
-        appendDataProperty(properties, SEC_PULIC_KEY_DATA_KEY, NULL,
-            &certificate->_pubKeyDER);
-		/* TODO: Add Key Size. */
-		/* TODO: Add Key Usage. */
-
-        appendDataProperty(properties, SEC_SIGNATURE_KEY, NULL,
-            &certificate->_signature);
+        appendPublicKeyProperty(properties, SEC_PUBLIC_KEY_KEY, certificate);
 
         CFIndex ix;
         for (ix = 0; ix < certificate->_extensionCount; ++ix) {
             appendExtension(properties, &certificate->_extensions[ix]);
         }
 
-		/* TODO: Certificate/Key Fingerprints. */
+        /* Signature */
+        appendSignatureProperty(properties, SEC_SIGNATURE_KEY, certificate);
+
+        appendFingerprintsProperty(properties, SEC_FINGERPRINTS_KEY, certificate);
 
 		certificate->_properties = properties;
 	}
@@ -4191,7 +4038,7 @@ CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {
 	return certificate->_properties;
 }
 
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 /* On OS X, the SecCertificateCopySerialNumber API takes two arguments. */
 CFDataRef SecCertificateCopySerialNumber(
 	SecCertificateRef certificate,
@@ -4238,8 +4085,17 @@ OSStatus SecCertificateIsSignedBy(SecCertificateRef certificate,
     algId.parameters.Length = certificate->_tbsSigAlg.params.length;
     algId.parameters.Data = certificate->_tbsSigAlg.params.data;
 
+    /* RFC5280 4.1.1.2, 4.1.2.3 requires the actual signature algorithm
+       must match the specified algorithm in the TBSCertificate. */
+	bool sigAlgMatch = DEROidCompare(&certificate->_sigAlg.oid,
+                         &certificate->_tbsSigAlg.oid);
+    if (!sigAlgMatch) {
+        secwarning("Signature algorithm mismatch in certificate (see RFC5280 4.1.1.2)");
+    }
+
     CFErrorRef error = NULL;
-    if (!SecVerifySignatureWithPublicKey(issuerKey, &algId,
+    if (!sigAlgMatch ||
+        !SecVerifySignatureWithPublicKey(issuerKey, &algId,
         certificate->_tbs.data, certificate->_tbs.length,
         certificate->_signature.data, certificate->_signature.length, &error))
     {
@@ -4252,180 +4108,6 @@ OSStatus SecCertificateIsSignedBy(SecCertificateRef certificate,
 
     return errSecSuccess;
 }
-
-#if 0
-static OSStatus SecCertificateIsIssuedBy(SecCertificateRef certificate,
-	SecCertificateRef issuer, bool signatureCheckOnly) {
-    if (!signatureCheckOnly) {
-        /* It turns out we don't actually need to use normalized subject and
-           issuer according to rfc2459.  */
-
-        /* If present we should check issuerID against the issuer subjectID. */
-
-        /* If we have an AuthorityKeyIdentifier extension that has a keyIdentifier
-           then we should look for a SubjectKeyIdentifier in the issuer
-           certificate.
-           If we have a authorityCertSerialNumber we can use that for chaining.
-           If we have a authorityCertIssuer we can use that? (or not)  */
-
-        /* Verify that this cert was issued by issuer. Do so by chaining
-           either issuerID to subjectID or normalized issuer to normalized
-           subject. */
-        CFDataRef normalizedIssuer =
-            SecCertificateGetNormalizedIssuerContent(certificate);
-        CFDataRef normalizedIssuerSubject =
-            SecCertificateGetNormalizedSubjectContent(issuer);
-        if (normalizedIssuer && normalizedIssuerSubject &&
-            !CFEqual(normalizedIssuer, normalizedIssuerSubject))
-            return errSecIssuerMismatch;
-    }
-
-	/* Next verify that this cert was signed by issuer. */
-	SecKeyRef issuerKey = SecCertificateGetPublicKey(issuer);
-
-	/* Get the encodedDigestInfo from the digest of the subject's TBSCert */
-	/* FIXME: We sould cache this (or at least the digest) until we find
-	   a suitable issuer. */
-	uint8_t signedData[DER_SHA1_DIGEST_INFO_LEN];
-	CFIndex signedDataLength;
-	CertVerifyReturn crtn;
-	if (DEROidCompare(&certificate->_tbsSigAlg.oid, &oidSha1Rsa)) {
-		signedDataLength = DER_SHA1_DIGEST_INFO_LEN;
-		crtn = sha1DigestInfo(&certificate->_tbs, signedData);
-	} else if(DEROidCompare(&certificate->_tbsSigAlg.oid, &oidMd5Rsa)) {
-		signedDataLength = DER_MD_DIGEST_INFO_LEN;
-		crtn = mdDigestInfo(WD_MD5, &certificate->_tbs, signedData);
-	} else if(DEROidCompare(&certificate->_tbsSigAlg.oid, &oidMd2Rsa)) {
-		signedDataLength = DER_MD_DIGEST_INFO_LEN;
-		crtn = mdDigestInfo(WD_MD2, &certificate->_tbs, signedData);
-	} else {
-		secdebug("verify", "unsupported algorithm");
-		return errSecUnsupportedAlgorithm;
-	}
-	if (crtn) {
-		secdebug("verify", "*DigestInfo returned: %d", crtn);
-        /* FIXME: Do proper error code translation. */
-		return errSecUnsupportedAlgorithm;
-	}
-
-	OSStatus status = SecKeyRawVerify(issuerKey, kSecPaddingPKCS1,
-		signedData, signedDataLength,
-		certificate->_signature.data, certificate->_signature.length);
-	if (status) {
-		secdebug("verify", "signature verify failed: %d", status);
-		return errSecNotSigner;
-	}
-
-    return errSecSuccess;
-}
-
-static OSStatus _SecCertificateSetParent(SecCertificateRef certificate,
-	SecCertificateRef issuer, bool signatureCheckOnly) {
-	check(issuer);
-    if (certificate->_parent) {
-		/* Setting a certificates issuer twice is only allowed if the new
-		   issuer is equal to the current one. */
-        return issuer && CFEqual(certificate->_parent, issuer);
-    }
-
-#if 0
-    OSStatus status = SecCertificateIsIssuedBy(certificate, issuer,
-        signatureCheckOnly);
-#else
-	OSStatus status = errSecSuccess;
-#endif
-    if (!status) {
-        if (CFEqual(certificate, issuer)) {
-            /* We don't retain ourselves cause that would be bad mojo,
-               however we do record that we are properly self signed. */
-            certificate->_isSelfSigned = kSecSelfSignedTrue;
-            secdebug("cert", "set self as parent");
-            return errSecSuccess;
-        }
-
-        CFRetain(issuer);
-        certificate->_parent = issuer;
-        certificate->_isSelfSigned = kSecSelfSignedFalse;
-    }
-
-    return status;
-}
-
-/* Return true iff we were able to set our own parent from one of the
-   certificates in other_certificates, return false otherwise.   If
-   signatureCheckOnly is true, we can skip the subject == issuer or
-   authorityKeyIdentifier tests. */
-static bool SecCertificateSetParentFrom(SecCertificateRef certificate,
-    CFArrayRef other_certificates, bool signatureCheckOnly) {
-    CFIndex count = CFArrayGetCount(other_certificates);
-    CFIndex ix;
-    for (ix = 0; ix < count; ++ix) {
-        SecCertificateRef candidate = (SecCertificateRef)
-            CFArrayGetValueAtIndex(other_certificates, ix);
-        if (_SecCertificateSetParent(certificate, candidate,
-            signatureCheckOnly))
-            return true;
-    }
-    return false;
-}
-
-/* Lookup the parent of certificate in the keychain and set it. */
-static bool SecCertificateFindParent(SecCertificateRef certificate) {
-    /* FIXME: Search for things other than just subject of our issuer if we
-       have a subjectID or authorityKeyIdentifier. */
-    CFDataRef normalizedIssuer =
-        SecCertificateGetNormalizedIssuerContent(certificate);
-    const void *keys[] = {
-        kSecClass,
-        kSecReturnRef,
-        kSecMatchLimit,
-        kSecAttrSubject
-    },
-    *values[] = {
-        kSecClassCertificate,
-        kCFBooleanTrue,
-        kSecMatchLimitAll,
-        normalizedIssuer
-    };
-    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 4,
-        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFTypeRef results;
-    OSStatus status = SecItemCopyMatching(query, &results);
-    CFRelease(query);
-    if (status) {
-        secdebug("cert", "SecCertificateFindParent: SecItemCopyMatching: %d",
-            status);
-        return false;
-    }
-    CFArrayRef certs = (CFArrayRef)results;
-    /* Since we already know the certificates we are providing as candidates
-       have been checked for subject matching, we can ask
-       SecCertificateSetParentFrom to skip everything except the signature
-       checks. */
-    bool result = SecCertificateSetParentFrom(certificate, certs, true);
-    CFRelease(certs);
-    return result;
-}
-
-OSStatus SecCertificateCompleteChain(SecCertificateRef certificate,
-	CFArrayRef other_certificates) {
-    for (;;) {
-        if (certificate->_parent == NULL) {
-            Boolean isSelfSigned = false;
-            OSStatus status = SecCertificateIsSelfSigned(certificate, &isSelfSigned);
-            if (!status && isSelfSigned)
-                return errSecSuccess;
-            if (!other_certificates ||
-                !SecCertificateSetParentFrom(certificate, other_certificates,
-                    false)) {
-                if (!SecCertificateFindParent(certificate))
-                    return errSecIssuerNotFound;
-            }
-        }
-        certificate = certificate->_parent;
-    }
-}
-#endif
 
 const DERItem * SecCertificateGetSubjectAltName(SecCertificateRef certificate) {
     if (!certificate->_subjectAltName) {
@@ -4674,6 +4356,14 @@ CFArrayRef SecCertificateCopyRFC822Names(SecCertificateRef certificate) {
 	return rfc822Names;
 }
 
+OSStatus SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef * __nonnull CF_RETURNS_RETAINED emailAddresses) {
+    if (!certificate || !emailAddresses) {
+        return errSecParam;
+    }
+    *emailAddresses = SecCertificateCopyRFC822Names(certificate);
+    return errSecSuccess;
+}
+
 static OSStatus appendCommonNamesFromX501Name(void *context,
     const DERItem *type, const DERItem *value, CFIndex rdnIX) {
 	CFMutableArrayRef commonNames = (CFMutableArrayRef)context;
@@ -4701,6 +4391,24 @@ CFArrayRef SecCertificateCopyCommonNames(SecCertificateRef certificate) {
 		commonNames = NULL;
 	}
 	return commonNames;
+}
+
+OSStatus SecCertificateCopyCommonName(SecCertificateRef certificate, CFStringRef *commonName)
+{
+    if (!certificate) {
+        return errSecParam;
+    }
+    CFArrayRef commonNames = SecCertificateCopyCommonNames(certificate);
+    if (!commonNames) {
+        return errSecInternal;
+    }
+
+    if (commonName) {
+        CFIndex count = CFArrayGetCount(commonNames);
+        *commonName = CFRetainSafe(CFArrayGetValueAtIndex(commonNames, count-1));
+    }
+    CFReleaseSafe(commonNames);
+    return errSecSuccess;
 }
 
 static OSStatus appendOrganizationFromX501Name(void *context,
@@ -4761,6 +4469,35 @@ CFArrayRef SecCertificateCopyOrganizationalUnit(SecCertificateRef certificate) {
 	return organizationalUnit;
 }
 
+static OSStatus appendCountryFromX501Name(void *context,
+                                                     const DERItem *type, const DERItem *value, CFIndex rdnIX) {
+    CFMutableArrayRef countries = (CFMutableArrayRef)context;
+    if (DEROidCompare(type, &oidCountryName)) {
+        CFStringRef string = copyDERThingDescription(kCFAllocatorDefault,
+                                                     value, true);
+        if (string) {
+            CFArrayAppendValue(countries, string);
+            CFRelease(string);
+        } else {
+            return errSecInvalidCertificate;
+        }
+    }
+    return errSecSuccess;
+}
+
+CFArrayRef SecCertificateCopyCountry(SecCertificateRef certificate) {
+    CFMutableArrayRef countries = CFArrayCreateMutable(kCFAllocatorDefault,
+                                                                0, &kCFTypeArrayCallBacks);
+    OSStatus status;
+    status = parseX501NameContent(&certificate->_subject, countries,
+                                  appendCountryFromX501Name);
+    if (status || CFArrayGetCount(countries) == 0) {
+        CFRelease(countries);
+        countries = NULL;
+    }
+    return countries;
+}
+
 const SecCEBasicConstraints *
 SecCertificateGetBasicConstraints(SecCertificateRef certificate) {
 	if (certificate->_basicConstraints.present)
@@ -4785,9 +4522,13 @@ SecCertificateGetPolicyConstraints(SecCertificateRef certificate) {
 		return NULL;
 }
 
-CFDictionaryRef
+const SecCEPolicyMappings *
 SecCertificateGetPolicyMappings(SecCertificateRef certificate) {
-    return certificate->_policyMappings;
+    if (certificate->_policyMappings.present) {
+        return &certificate->_policyMappings;
+    } else {
+        return NULL;
+    }
 }
 
 const SecCECertificatePolicies *
@@ -4798,9 +4539,13 @@ SecCertificateGetCertificatePolicies(SecCertificateRef certificate) {
 		return NULL;
 }
 
-uint32_t
+const SecCEInhibitAnyPolicy *
 SecCertificateGetInhibitAnyPolicySkipCerts(SecCertificateRef certificate) {
-    return certificate->_inhibitAnyPolicySkipCerts;
+    if (certificate->_inhibitAnyPolicySkipCerts.present) {
+        return &certificate->_inhibitAnyPolicySkipCerts;
+    } else {
+        return NULL;
+    }
 }
 
 static OSStatus appendNTPrincipalNamesFromGeneralNames(void *context,
@@ -5003,6 +4748,28 @@ CFDataRef SecCertificateCopySubjectSequence(
     return SecDERItemCopySequence(&certificate->_subject);
 }
 
+CFDataRef SecCertificateCopyNormalizedIssuerSequence(SecCertificateRef certificate) {
+    if (!certificate || !certificate->_normalizedIssuer) {
+        return NULL;
+    }
+    DERItem tmpItem;
+    tmpItem.data = (void *)CFDataGetBytePtr(certificate->_normalizedIssuer);
+    tmpItem.length = CFDataGetLength(certificate->_normalizedIssuer);
+
+    return SecDERItemCopySequence(&tmpItem);
+}
+
+CFDataRef SecCertificateCopyNormalizedSubjectSequence(SecCertificateRef certificate) {
+    if (!certificate || !certificate->_normalizedSubject) {
+        return NULL;
+    }
+    DERItem tmpItem;
+    tmpItem.data = (void *)CFDataGetBytePtr(certificate->_normalizedSubject);
+    tmpItem.length = CFDataGetLength(certificate->_normalizedSubject);
+
+    return SecDERItemCopySequence(&tmpItem);
+}
+
 const DERAlgorithmId *SecCertificateGetPublicKeyAlgorithm(
 	SecCertificateRef certificate) {
 	return &certificate->_algId;
@@ -5012,13 +4779,13 @@ const DERItem *SecCertificateGetPublicKeyData(SecCertificateRef certificate) {
 	return &certificate->_pubKeyDER;
 }
 
-#if SECTRUST_OSX
+#if TARGET_OS_OSX
 /* There is already a SecCertificateCopyPublicKey with different args on OS X,
    so we will refer to this one internally as SecCertificateCopyPublicKey_ios.
  */
-SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate)
+__nullable SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate)
 #else
-SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
+__nullable SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
 #endif
 {
     if (certificate->_pubKey == NULL) {
@@ -5048,7 +4815,7 @@ SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
 bool SecCertificateIsWeakKey(SecCertificateRef certificate) {
     bool weak = true;
     SecKeyRef pubKey = NULL;
-#if SECTRUST_OSX
+#if TARGET_OS_OSX
     require_quiet(pubKey = SecCertificateCopyPublicKey_ios(certificate), out);
 #else
     require_quiet(pubKey = SecCertificateCopyPublicKey(certificate) ,out);
@@ -5087,7 +4854,7 @@ bool SecCertificateIsAtLeastMinKeySize(SecCertificateRef certificate,
                                        CFDictionaryRef keySizes) {
     bool goodSize = false;
     SecKeyRef pubKey = NULL;
-#if SECTRUST_OSX
+#if TARGET_OS_OSX
     require_quiet(pubKey = SecCertificateCopyPublicKey_ios(certificate), out);
 #else
     require_quiet(pubKey = SecCertificateCopyPublicKey(certificate) ,out);
@@ -5328,7 +5095,7 @@ static bool _SecCertificateIsSelfSigned(SecCertificateRef certificate) {
         certificate->_isSelfSigned = kSecSelfSignedFalse;
         SecKeyRef publicKey = NULL;
         require(certificate && (CFGetTypeID(certificate) == SecCertificateGetTypeID()), out);
-#if SECTRUST_OSX
+#if TARGET_OS_OSX
         require(publicKey = SecCertificateCopyPublicKey_ios(certificate), out);
 #else
         require(publicKey = SecCertificateCopyPublicKey(certificate), out);

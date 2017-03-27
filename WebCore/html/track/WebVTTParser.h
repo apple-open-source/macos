@@ -30,8 +30,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebVTTParser_h
-#define WebVTTParser_h
+#pragma once
 
 #if ENABLE(VIDEO_TRACK)
 
@@ -134,7 +133,7 @@ public:
 
     // Input data to the parser to parse.
     void parseBytes(const char*, unsigned);
-    void parseFileHeader(const String&);
+    void parseFileHeader(String&&);
     void parseCueData(const ISOWebVTTCue&);
     void flush();
     void fileFinished();
@@ -184,5 +183,4 @@ private:
 
 } // namespace WebCore
 
-#endif
-#endif
+#endif // ENABLE(VIDEO_TRACK)

@@ -158,6 +158,8 @@ static int yylex(void);
 %type	<l_node>	probe_specifier_list
 %type	<l_node>	probe_specifier
 %type	<l_node>	statement_list
+%type	<l_node>	statement_list_impl
+%type	<l_node>	statement_or_block
 %type	<l_node>	statement
 %type	<l_node>	declaration
 %type	<l_node>	init_declarator_list
@@ -320,9 +322,11 @@ probe_definition:
 				    "or actions following probe description\n");
 			}
 			$$ = dt_node_clause($1, NULL, NULL);
+			yybegin(YYS_CLAUSE);
 		}
 	|	probe_specifiers '{' statement_list '}' {
 			$$ = dt_node_clause($1, NULL, $3);
+			yybegin(YYS_CLAUSE);
 		}
 	|	probe_specifiers DT_TOK_DIV expression DT_TOK_EPRED {
 			dnerror($3, D_SYNTAX, "expected actions { } following "
@@ -331,6 +335,7 @@ probe_definition:
 	|	probe_specifiers DT_TOK_DIV expression DT_TOK_EPRED
 		    '{' statement_list '}' {
 			$$ = dt_node_clause($1, $3, $6);
+			yybegin(YYS_CLAUSE);
 		}
 	;
 
@@ -350,12 +355,30 @@ probe_specifier:
 	|	DT_TOK_INT   { $$ = dt_node_pdesc_by_id($1); }
 	;
 
-statement_list:	statement { $$ = $1; }
-	|	statement_list ';' statement { $$ = LINK($1, $3); }
+statement_list_impl: /* empty */ { $$ = NULL; }
+	|	statement_list_impl statement { $$ = LINK($1, $2); }
 	;
 
-statement:	/* empty */ { $$ = NULL; }
-	|	expression { $$ = dt_node_statement($1); }
+statement_list:
+		statement_list_impl { $$ = $1; }
+	|	statement_list_impl expression {
+			$$ = LINK($1, dt_node_statement($2));
+		}
+	;
+
+statement_or_block:
+		statement
+	|	'{' statement_list '}' { $$ = $2; }
+
+statement:	';' { $$ = NULL; }
+	|	expression ';' { $$ = dt_node_statement($1); }
+	|	DT_KEY_IF DT_TOK_LPAR expression DT_TOK_RPAR statement_or_block {
+			$$ = dt_node_if($3, $5, NULL);
+		}
+	|	DT_KEY_IF DT_TOK_LPAR expression DT_TOK_RPAR
+		statement_or_block DT_KEY_ELSE statement_or_block {
+			$$ = dt_node_if($3, $5, $7);
+		}
 	;
 
 argument_expression_list:

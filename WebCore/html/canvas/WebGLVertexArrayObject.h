@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebGLVertexArrayObject_h
-#define WebGLVertexArrayObject_h
+#pragma once
 
 #if ENABLE(WEBGL2)
 
@@ -32,25 +31,20 @@
 #include "WebGLContextObject.h"
 #include "WebGLVertexArrayObjectBase.h"
 
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
-
 namespace WebCore {
 
 class WebGL2RenderingContext;
 
 class WebGLVertexArrayObject final : public WebGLVertexArrayObjectBase {
 public:
-    static Ref<WebGLVertexArrayObject> create(WebGLRenderingContextBase*, VAOType);
+    static Ref<WebGLVertexArrayObject> create(WebGLRenderingContextBase&, VAOType);
     virtual ~WebGLVertexArrayObject();
 private:
-    WebGLVertexArrayObject(WebGLRenderingContextBase*, VAOType);
+    WebGLVertexArrayObject(WebGLRenderingContextBase&, VAOType);
     bool isTransformFeedback() const { return true; }
     void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 };
 
 } // namespace WebCore
 
-#endif // WEBGL2
-
-#endif // WebGLVertexArrayObject_h
+#endif // ENABLE(WEBGL2)

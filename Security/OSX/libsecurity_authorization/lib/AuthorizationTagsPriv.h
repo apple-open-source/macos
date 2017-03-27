@@ -293,6 +293,7 @@
 #define AGENT_HINT_LOGIN_KC_USER_HAS_OTHER_KCS_STR "loginKCCreate:moreThanOneKeychainExists"
 
 #define AGENT_HINT_IGNORE_SESSION "ignore-session-state"
+#define AGENT_HINT_NO_UI_EXPECTED "no-ui-expected"
 
 /* Keychain synchronization */
 // iDisk keychain blob metainfo dictionary; follows "defaults" naming

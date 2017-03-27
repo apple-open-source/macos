@@ -78,10 +78,10 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
-#include <openssl/dsa.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/dsa_legacy.h>
 #include <openssl/rand.h>
-#include <openssl/asn1.h>
+#include <openssl/asn1_legacy.h>
 //#include <openssl/asn1_mac.h>
 
 int DSA_do_verify(const unsigned char *dgst, int dgst_len, DSA_SIG *sig,

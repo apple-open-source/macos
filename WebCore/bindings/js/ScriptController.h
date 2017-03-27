@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2008, 2016 Apple Inc. All rights reserved.
+ *  Copyright (C) 2008-2016 Apple Inc. All rights reserved.
  *  Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
@@ -19,8 +19,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef ScriptController_h
-#define ScriptController_h
+#pragma once
 
 #include "FrameLoaderTypes.h"
 #include "JSDOMWindowShell.h"
@@ -43,8 +42,10 @@ class ScriptValue;
 }
 
 namespace JSC {
-class JSGlobalObject;
 class ExecState;
+class JSGlobalObject;
+class JSInternalPromise;
+class JSModuleRecord;
 
 namespace Bindings {
 class Instance;
@@ -54,11 +55,12 @@ class RootObject;
 
 namespace WebCore {
 
+class CachedModuleScript;
 class Frame;
 class HTMLDocument;
 class HTMLPlugInElement;
-class ScriptSourceCode;
 class SecurityOrigin;
+class ScriptSourceCode;
 class Widget;
 
 typedef HashMap<void*, RefPtr<JSC::Bindings::RootObject>> RootObjectMap;
@@ -115,6 +117,17 @@ public:
     JSC::JSValue evaluate(const ScriptSourceCode&, ExceptionDetails* = nullptr);
     JSC::JSValue evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld&, ExceptionDetails* = nullptr);
 
+    void loadModuleScriptInWorld(CachedModuleScript&, const String& moduleName, DOMWrapperWorld&, Element&);
+    void loadModuleScript(CachedModuleScript&, const String& moduleName, Element&);
+    void loadModuleScriptInWorld(CachedModuleScript&, const ScriptSourceCode&, DOMWrapperWorld&, Element&);
+    void loadModuleScript(CachedModuleScript&, const ScriptSourceCode&, Element&);
+
+    JSC::JSValue linkAndEvaluateModuleScriptInWorld(CachedModuleScript& , DOMWrapperWorld&, Element&);
+    JSC::JSValue linkAndEvaluateModuleScript(CachedModuleScript&, Element&);
+
+    JSC::JSValue evaluateModule(const URL&, JSC::JSModuleRecord&, DOMWrapperWorld&);
+    JSC::JSValue evaluateModule(const URL&, JSC::JSModuleRecord&);
+
     WTF::TextPosition eventHandlerPosition() const;
 
     void enableEval();
@@ -135,8 +148,11 @@ public:
 
     const String* sourceURL() const { return m_sourceURL; } // 0 if we are not evaluating any script
 
-    void clearWindowShellsNotMatchingDOMWindow(DOMWindow* newDOMWindow, bool goingIntoPageCache);
-    void setDOMWindowForWindowShell(DOMWindow* newDOMWindow);
+    const JSC::PrivateName& moduleLoaderAlreadyReportedErrorSymbol() const { return m_moduleLoaderAlreadyReportedErrorSymbol; }
+    const JSC::PrivateName& moduleLoaderFetchingIsCanceledSymbol() const { return m_moduleLoaderFetchingIsCanceledSymbol; }
+
+    void clearWindowShellsNotMatchingDOMWindow(DOMWindow*, bool goingIntoPageCache);
+    void setDOMWindowForWindowShell(DOMWindow*);
     void updateDocument();
 
     void namedItemAdded(HTMLDocument*, const AtomicString&) { }
@@ -148,7 +164,7 @@ public:
     void updatePlatformScriptObjects();
 
     RefPtr<JSC::Bindings::Instance>  createScriptInstanceForWidget(Widget*);
-    JSC::Bindings::RootObject* bindingRootObject();
+    WEBCORE_EXPORT JSC::Bindings::RootObject* bindingRootObject();
     JSC::Bindings::RootObject* cacheableBindingRootObject();
 
     WEBCORE_EXPORT RefPtr<JSC::Bindings::RootObject> createRootObject(void* nativeHandle);
@@ -163,12 +179,12 @@ public:
     WEBCORE_EXPORT JSC::JSObject* jsObjectForPluginElement(HTMLPlugInElement*);
     
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    NPObject* createScriptObjectForPluginElement(HTMLPlugInElement*);
     WEBCORE_EXPORT NPObject* windowScriptNPObject();
 #endif
 
 private:
     WEBCORE_EXPORT JSDOMWindowShell* initScript(DOMWrapperWorld&);
+    void setupModuleScriptHandlers(CachedModuleScript&, JSC::JSInternalPromise&, DOMWrapperWorld&);
 
     void disconnectPlatformScriptObjects();
 
@@ -177,6 +193,8 @@ private:
     const String* m_sourceURL;
 
     bool m_paused;
+    JSC::PrivateName m_moduleLoaderAlreadyReportedErrorSymbol;
+    JSC::PrivateName m_moduleLoaderFetchingIsCanceledSymbol;
 
     // The root object used for objects bound outside the context of a plugin, such
     // as NPAPI plugins. The plugins using these objects prevent a page from being cached so they
@@ -195,5 +213,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ScriptController_h

@@ -18,54 +18,54 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGAnimatedPropertyTearOff_h
-#define SVGAnimatedPropertyTearOff_h
+#pragma once
 
 #include "SVGAnimatedProperty.h"
 #include "SVGPropertyTearOff.h"
 
 namespace WebCore {
 
-template<typename PropertyType>
+template<typename T>
 class SVGAnimatedPropertyTearOff final : public SVGAnimatedProperty {
 public:
-    typedef SVGPropertyTearOff<PropertyType> PropertyTearOff;
-    typedef PropertyType ContentType;
+    using PropertyTearOff = T;
+    using PropertyType = typename PropertyTearOff::PropertyType;
+    using ContentType = PropertyType;
 
-    RefPtr<PropertyTearOff> baseVal()
+    static Ref<SVGAnimatedPropertyTearOff<PropertyTearOff>> create(SVGElement* contextElement, const QualifiedName& attributeName, AnimatedPropertyType animatedPropertyType, PropertyType& property)
+    {
+        ASSERT(contextElement);
+        return adoptRef(*new SVGAnimatedPropertyTearOff<PropertyTearOff>(contextElement, attributeName, animatedPropertyType, property));
+    }
+
+    Ref<PropertyTearOff> baseVal()
     {
         if (m_baseVal)
-            return m_baseVal;
+            return *m_baseVal;
 
-        auto property = PropertyTearOff::create(this, BaseValRole, m_property);
+        auto property = PropertyTearOff::create(*this, BaseValRole, m_property);
         m_baseVal = property.ptr();
-        return WTFMove(property);
+        return property;
     }
 
-    RefPtr<PropertyTearOff> animVal()
+    Ref<PropertyTearOff> animVal()
     {
         if (m_animVal)
-            return m_animVal;
+            return *m_animVal;
 
-        auto property = PropertyTearOff::create(this, AnimValRole, m_property);
+        auto property = PropertyTearOff::create(*this, AnimValRole, m_property);
         m_animVal = property.ptr();
-        return WTFMove(property);
+        return property;
     }
 
-    bool isAnimating() const override { return m_animatedProperty; }
+    bool isAnimating() const final { return m_animatedProperty; }
 
-    void propertyWillBeDeleted(const SVGProperty& property) override
+    void propertyWillBeDeleted(const SVGProperty& property) final
     {
         if (&property == m_baseVal)
             m_baseVal = nullptr;
         else if (&property == m_animVal)
             m_animVal = nullptr;
-    }
-
-    static Ref<SVGAnimatedPropertyTearOff<PropertyType>> create(SVGElement* contextElement, const QualifiedName& attributeName, AnimatedPropertyType animatedPropertyType, PropertyType& property)
-    {
-        ASSERT(contextElement);
-        return adoptRef(*new SVGAnimatedPropertyTearOff<PropertyType>(contextElement, attributeName, animatedPropertyType, property));
     }
 
     PropertyType& currentAnimatedValue()
@@ -121,5 +121,3 @@ private:
 };
 
 }
-
-#endif // SVGAnimatedPropertyTearOff_h

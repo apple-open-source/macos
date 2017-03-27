@@ -1,0 +1,9 @@
+Debug
+Release
+*.opt
+*.ncb
+*.plg
+*.00?
+.#*
+nmakehlp.exe
+nmakehlp.obj

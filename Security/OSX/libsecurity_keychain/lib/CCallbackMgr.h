@@ -99,6 +99,8 @@ private:
     static void tellClient(CFRunLoopTimerRef timer, void* ctx);
     static void cfrunLoopActive(CFRunLoopTimerRef timer, void* info);
 
+    bool initialized() { return mInitialized; }
+
 	list<CallbackInfo> 		mEventCallbacks;
 };
 

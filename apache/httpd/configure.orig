@@ -3024,8 +3024,6 @@ HTTPD_MMN=`$abs_srcdir/build/get-version.sh mmn $abs_srcdir/include/ap_mmn.h MOD
 
 
 
-
-
 # Check whether --enable-layout was given.
 if test "${enable_layout+set}" = set; then :
   enableval=$enable_layout;
@@ -7886,6 +7884,124 @@ if test "${enable_maintainer_mode+set}" = set; then :
 
 
   if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -std=c89" >&5
+$as_echo_n "checking whether gcc accepts -std=c89... " >&6; }
+if ${ac_cv_gcc__std_c89+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -std=c89"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__std_c89=yes
+else
+  ac_cv_gcc__std_c89=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__std_c89" >&5
+$as_echo "$ac_cv_gcc__std_c89" >&6; }
+    if test "$ac_cv_gcc__std_c89" = "yes" ; then
+
+  if test "x$CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-std=c89\""
+    CFLAGS="-std=c89"
+  else
+    apr_addto_bugger="-std=c89"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
+        CFLAGS="$CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Werror" >&5
+$as_echo_n "checking whether gcc accepts -Werror... " >&6; }
+if ${ac_cv_gcc__Werror+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+      save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Werror"
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_gcc__Werror=yes
+else
+  ac_cv_gcc__Werror=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      CFLAGS="$save_CFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Werror" >&5
+$as_echo "$ac_cv_gcc__Werror" >&6; }
+    if test "$ac_cv_gcc__Werror" = "yes" ; then
+
+  if test "x$CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Werror\""
+    CFLAGS="-Werror"
+  else
+    apr_addto_bugger="-Werror"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
+        CFLAGS="$CFLAGS $i"
+      fi
+    done
+  fi
+
+    fi
+  fi
+
+
+
+
+  if test "$GCC" = "yes"; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wdeclaration-after-statement" >&5
 $as_echo_n "checking whether gcc accepts -Wdeclaration-after-statement... " >&6; }
 if ${ac_cv_gcc__Wdeclaration_after_statement+:} false; then :
@@ -7896,7 +8012,14 @@ else
       CFLAGS="$CFLAGS -Wdeclaration-after-statement"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Wdeclaration_after_statement=yes
@@ -7938,58 +8061,6 @@ $as_echo "$ac_cv_gcc__Wdeclaration_after_statement" >&6; }
 
 
   if test "$GCC" = "yes"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Werror=declaration-after-statement" >&5
-$as_echo_n "checking whether gcc accepts -Werror=declaration-after-statement... " >&6; }
-if ${ac_cv_gcc__Werror_declaration_after_statement+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-
-      save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Werror=declaration-after-statement"
-      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-int foo() { return 0; }
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-  ac_cv_gcc__Werror_declaration_after_statement=yes
-else
-  ac_cv_gcc__Werror_declaration_after_statement=no
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-      CFLAGS="$save_CFLAGS"
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Werror_declaration_after_statement" >&5
-$as_echo "$ac_cv_gcc__Werror_declaration_after_statement" >&6; }
-    if test "$ac_cv_gcc__Werror_declaration_after_statement" = "yes" ; then
-
-  if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Werror=declaration-after-statement\""
-    CFLAGS="-Werror=declaration-after-statement"
-  else
-    apr_addto_bugger="-Werror=declaration-after-statement"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $CFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CFLAGS"
-        CFLAGS="$CFLAGS $i"
-      fi
-    done
-  fi
-
-    fi
-  fi
-
-
-
-
-  if test "$GCC" = "yes"; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wformat" >&5
 $as_echo_n "checking whether gcc accepts -Wformat... " >&6; }
 if ${ac_cv_gcc__Wformat+:} false; then :
@@ -8000,7 +8071,14 @@ else
       CFLAGS="$CFLAGS -Wformat"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Wformat=yes
@@ -8052,7 +8130,14 @@ else
       CFLAGS="$CFLAGS -Wformat-security"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Wformat_security=yes
@@ -8094,36 +8179,43 @@ $as_echo "$ac_cv_gcc__Wformat_security" >&6; }
 
 
   if test "$GCC" = "yes"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Werror=format-security" >&5
-$as_echo_n "checking whether gcc accepts -Werror=format-security... " >&6; }
-if ${ac_cv_gcc__Werror_format_security+:} false; then :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gcc accepts -Wunused" >&5
+$as_echo_n "checking whether gcc accepts -Wunused... " >&6; }
+if ${ac_cv_gcc__Wunused+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
       save_CFLAGS="$CFLAGS"
-      CFLAGS="$CFLAGS -Werror=format-security"
+      CFLAGS="$CFLAGS -Wunused"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
-  ac_cv_gcc__Werror_format_security=yes
+  ac_cv_gcc__Wunused=yes
 else
-  ac_cv_gcc__Werror_format_security=no
+  ac_cv_gcc__Wunused=no
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
       CFLAGS="$save_CFLAGS"
 
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Werror_format_security" >&5
-$as_echo "$ac_cv_gcc__Werror_format_security" >&6; }
-    if test "$ac_cv_gcc__Werror_format_security" = "yes" ; then
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_gcc__Wunused" >&5
+$as_echo "$ac_cv_gcc__Wunused" >&6; }
+    if test "$ac_cv_gcc__Wunused" = "yes" ; then
 
   if test "x$CFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Werror=format-security\""
-    CFLAGS="-Werror=format-security"
+    test "x$silent" != "xyes" && echo "  setting CFLAGS to \"-Wunused\""
+    CFLAGS="-Wunused"
   else
-    apr_addto_bugger="-Werror=format-security"
+    apr_addto_bugger="-Wunused"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $CFLAGS; do
@@ -8240,7 +8332,14 @@ else
       CFLAGS="$CFLAGS -Wdeclaration-after-statement"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Wdeclaration_after_statement=yes
@@ -8292,7 +8391,14 @@ else
       CFLAGS="$CFLAGS -Werror=declaration-after-statement"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Werror_declaration_after_statement=yes
@@ -8344,7 +8450,14 @@ else
       CFLAGS="$CFLAGS -Wformat"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Wformat=yes
@@ -8396,7 +8509,14 @@ else
       CFLAGS="$CFLAGS -Wformat-security"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Wformat_security=yes
@@ -8448,7 +8568,14 @@ else
       CFLAGS="$CFLAGS -Werror=format-security"
       cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-int foo() { return 0; }
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   ac_cv_gcc__Werror_format_security=yes
@@ -22991,7 +23118,7 @@ $as_echo_n "checking whether to enable mod_proxy_fdpass... " >&6; }
 if test "${enable_proxy_fdpass+set}" = set; then :
   enableval=$enable_proxy_fdpass; force_proxy_fdpass=$enableval
 else
-  enable_proxy_fdpass=maybe-all
+  enable_proxy_fdpass=most
 fi
 
     _apmod_extra_msg=""
@@ -23096,7 +23223,7 @@ $as_echo "$enable_proxy_fdpass$_apmod_extra_msg" >&6; }
       sharedobjs=yes
       shared=yes
       DSO_MODULES="$DSO_MODULES proxy_fdpass"
-      if test "" = "yes" ; then
+      if test "most" = "yes" ; then
         ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},proxy_fdpass"
       fi
       ;;
@@ -27955,7 +28082,7 @@ esac
   > $modpath_current/modules.mk
 
 
-http2_objs="mod_http2.lo h2_alt_svc.lo h2_bucket_beam.lo h2_bucket_eoc.lo h2_bucket_eos.lo h2_config.lo h2_conn.lo h2_conn_io.lo h2_ctx.lo h2_filter.lo h2_from_h1.lo h2_h2.lo h2_mplx.lo h2_ngn_shed.lo h2_push.lo h2_request.lo h2_response.lo h2_session.lo h2_stream.lo h2_switch.lo h2_task.lo h2_util.lo h2_worker.lo h2_workers.lo "
+http2_objs="mod_http2.lo h2_alt_svc.lo h2_bucket_beam.lo h2_bucket_eoc.lo h2_bucket_eos.lo h2_config.lo h2_conn.lo h2_conn_io.lo h2_ctx.lo h2_filter.lo h2_from_h1.lo h2_h2.lo h2_headers.lo h2_mplx.lo h2_ngn_shed.lo h2_push.lo h2_request.lo h2_session.lo h2_stream.lo h2_switch.lo h2_task.lo h2_util.lo h2_worker.lo h2_workers.lo "
 
 
 
@@ -29076,6 +29203,37 @@ _ACEOF
 fi
 done
 
+      for ac_func in nghttp2_session_callbacks_set_on_invalid_header_callback
+do :
+  ac_fn_c_check_func "$LINENO" "nghttp2_session_callbacks_set_on_invalid_header_callback" "ac_cv_func_nghttp2_session_callbacks_set_on_invalid_header_callback"
+if test "x$ac_cv_func_nghttp2_session_callbacks_set_on_invalid_header_callback" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_NGHTTP2_SESSION_CALLBACKS_SET_ON_INVALID_HEADER_CALLBACK 1
+_ACEOF
+
+  if test "x$MOD_CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CPPFLAGS to \""-DH2_NG2_INVALID_HEADER_CB"\""
+    MOD_CPPFLAGS=""-DH2_NG2_INVALID_HEADER_CB""
+  else
+    apr_addto_bugger=""-DH2_NG2_INVALID_HEADER_CB""
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CPPFLAGS"
+        MOD_CPPFLAGS="$MOD_CPPFLAGS $i"
+      fi
+    done
+  fi
+
+fi
+done
+
     else
       { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: nghttp2 version is too old" >&5
 $as_echo "$as_me: WARNING: nghttp2 version is too old" >&2;}
@@ -29750,6 +29908,37 @@ _ACEOF
     MOD_CPPFLAGS=""-DH2_NG2_CHANGE_PRIO""
   else
     apr_addto_bugger=""-DH2_NG2_CHANGE_PRIO""
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CPPFLAGS"
+        MOD_CPPFLAGS="$MOD_CPPFLAGS $i"
+      fi
+    done
+  fi
+
+fi
+done
+
+      for ac_func in nghttp2_session_callbacks_set_on_invalid_header_callback
+do :
+  ac_fn_c_check_func "$LINENO" "nghttp2_session_callbacks_set_on_invalid_header_callback" "ac_cv_func_nghttp2_session_callbacks_set_on_invalid_header_callback"
+if test "x$ac_cv_func_nghttp2_session_callbacks_set_on_invalid_header_callback" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_NGHTTP2_SESSION_CALLBACKS_SET_ON_INVALID_HEADER_CALLBACK 1
+_ACEOF
+
+  if test "x$MOD_CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CPPFLAGS to \""-DH2_NG2_INVALID_HEADER_CB"\""
+    MOD_CPPFLAGS=""-DH2_NG2_INVALID_HEADER_CB""
+  else
+    apr_addto_bugger=""-DH2_NG2_INVALID_HEADER_CB""
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $MOD_CPPFLAGS; do
@@ -35690,6 +35879,13 @@ $as_echo "$as_me: Restore user-defined environment settings..." >&6;}
 { $as_echo "$as_me:${as_lineno-$LINENO}: " >&5
 $as_echo "$as_me: " >&6;}
 
+APACHE_CONF_SEL_CC=${CC}
+APACHE_CONF_SEL_CFLAGS=${CFLAGS}
+APACHE_CONF_SEL_LDFLAGS=${LDFLAGS}
+APACHE_CONF_SEL_LIBS=${LIBS}
+APACHE_CONF_SEL_CPPFLAGS=${CPPFLAGS}
+APACHE_CONF_SEL_CPP=${CPP}
+
 
 set X $apr_ste_save_CPPFLAGS
 if test ${#} -eq 1; then
@@ -36193,7 +36389,7 @@ esac
 
 test -d docs/conf||$mkdir_p docs/conf
 
-ac_config_files="$ac_config_files $APACHE_OUTPUT_FILES docs/conf/httpd.conf docs/conf/extra/httpd-autoindex.conf docs/conf/extra/httpd-dav.conf docs/conf/extra/httpd-default.conf docs/conf/extra/httpd-info.conf docs/conf/extra/httpd-languages.conf docs/conf/extra/httpd-manual.conf docs/conf/extra/httpd-mpm.conf docs/conf/extra/httpd-multilang-errordoc.conf docs/conf/extra/httpd-ssl.conf docs/conf/extra/httpd-userdir.conf docs/conf/extra/httpd-vhosts.conf docs/conf/extra/proxy-html.conf include/ap_config_layout.h support/apxs support/apachectl support/dbmmanage support/envvars-std support/log_server_status support/logresolve.pl support/phf_abuse_log.cgi support/split-logfile build/rules.mk build/pkg/pkginfo build/config_vars.sh"
+ac_config_files="$ac_config_files docs/conf/httpd.conf docs/conf/extra/httpd-autoindex.conf docs/conf/extra/httpd-dav.conf docs/conf/extra/httpd-default.conf docs/conf/extra/httpd-info.conf docs/conf/extra/httpd-languages.conf docs/conf/extra/httpd-manual.conf docs/conf/extra/httpd-mpm.conf docs/conf/extra/httpd-multilang-errordoc.conf docs/conf/extra/httpd-ssl.conf docs/conf/extra/httpd-userdir.conf docs/conf/extra/httpd-vhosts.conf docs/conf/extra/proxy-html.conf include/ap_config_layout.h support/apxs support/apachectl support/dbmmanage support/envvars-std support/log_server_status support/logresolve.pl support/phf_abuse_log.cgi support/split-logfile build/rules.mk build/pkg/pkginfo build/config_vars.sh"
 
 ac_config_commands="$ac_config_commands default"
 
@@ -36887,9 +37083,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 # INIT-COMMANDS
 #
 
-
   $SHELL $srcdir/build/fastgen.sh $srcdir $ac_cv_mkdir_p $BSD_MAKEFILE $APACHE_FAST_OUTPUT_FILES
-
 
 
 _ACEOF
@@ -36901,7 +37095,6 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "include/ap_config_auto.h") CONFIG_HEADERS="$CONFIG_HEADERS include/ap_config_auto.h" ;;
-    "$APACHE_OUTPUT_FILES") CONFIG_FILES="$CONFIG_FILES $APACHE_OUTPUT_FILES" ;;
     "docs/conf/httpd.conf") CONFIG_FILES="$CONFIG_FILES docs/conf/httpd.conf" ;;
     "docs/conf/extra/httpd-autoindex.conf") CONFIG_FILES="$CONFIG_FILES docs/conf/extra/httpd-autoindex.conf" ;;
     "docs/conf/extra/httpd-dav.conf") CONFIG_FILES="$CONFIG_FILES docs/conf/extra/httpd-dav.conf" ;;
@@ -37517,3 +37710,25 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: summary of build options:
+
+    Server Version: ${HTTPD_VERSION}
+    Install prefix: ${prefix}
+    C compiler:     ${APACHE_CONF_SEL_CC}
+    CFLAGS:         ${APACHE_CONF_SEL_CFLAGS}
+    LDFLAGS:        ${APACHE_CONF_SEL_LDFLAGS}
+    LIBS:           ${APACHE_CONF_SEL_LIBS}
+    CPPFLAGS:       ${APACHE_CONF_SEL_CPPFLAGS}
+    C preprocessor: ${APACHE_CONF_SEL_CPP}
+" >&5
+$as_echo "$as_me: summary of build options:
+
+    Server Version: ${HTTPD_VERSION}
+    Install prefix: ${prefix}
+    C compiler:     ${APACHE_CONF_SEL_CC}
+    CFLAGS:         ${APACHE_CONF_SEL_CFLAGS}
+    LDFLAGS:        ${APACHE_CONF_SEL_LDFLAGS}
+    LIBS:           ${APACHE_CONF_SEL_LIBS}
+    CPPFLAGS:       ${APACHE_CONF_SEL_CPPFLAGS}
+    C preprocessor: ${APACHE_CONF_SEL_CPP}
+" >&6;}

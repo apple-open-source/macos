@@ -14,7 +14,6 @@
 #endif
 #include <IOKit/hidsystem/event_status_driver.h>
 #include <mach/mach_time.h>
-#include <chrono>
 #include <queue>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
@@ -29,7 +28,7 @@
 #define kIOHIDDisplayWakeAbortThresholdMS           (50)
 
 struct LogEntry {
-    std::chrono::time_point<std::chrono::steady_clock> time;
+    struct timeval          time;
     IOHIDEventSenderID      serviceID;
     IOHIDEventPolicyValue   policy;
     IOHIDEventType          eventType;
@@ -84,17 +83,10 @@ private:
     CFMutableSetRefWrap             _reportModifiers;
     CFMutableSetRefWrap             _updateModifiers;
     IOHIDServiceRef                 _dfr;
-  
-  
-    //typedef  std::chrono::steady_clock clock_type_;
-    typedef  std::chrono::steady_clock clock;
-    typedef  std::chrono::time_point<std::chrono::steady_clock> time_point;
-    #define  duration_cast_ms std::chrono::duration_cast<std::chrono::milliseconds>
-    #define  duration_cast_us std::chrono::duration_cast<std::chrono::microseconds>
     
-    time_point _powerStateChangeTime;
-    time_point _displayStateChangeTime;
-    uint64_t   _maxDisplayTickleDuration;
+    uint64_t    _powerStateChangeTime;
+    uint64_t    _displayStateChangeTime;
+    uint64_t    _maxDisplayTickleDuration;
   
     std::queue<LogEntry> _displayLog;
     
@@ -139,9 +131,7 @@ private:
     boolean_t resetStickyKeys(IOHIDEventRef event);
  
     void serialize (CFMutableDictionaryRef dict) const;
-    static std::string timePointToTimeString (time_point pt);
-  
-  
+    static CFStringRef timePointToTimeString (struct timeval *tv);
   
 private:
     IOHIDNXEventTranslatorSessionFilter();

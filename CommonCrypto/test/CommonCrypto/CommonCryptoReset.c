@@ -14,7 +14,7 @@
 #include "CCCryptorTestFuncs.h"
 #include "testbyteBuffer.h"
 #include "testmore.h"
-#include "ccMemory.h"
+#include "../../lib/ccMemory.h"
 
 
 

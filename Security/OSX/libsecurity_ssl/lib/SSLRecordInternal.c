@@ -282,7 +282,7 @@ static int
 SSLSetInternalRecordLayerProtocolVersion(SSLRecordContextRef ref, SSLProtocolVersion negVersion)
 {
     struct SSLRecordInternalContext *ctx = ref;
-    return tls_record_set_protocol_version(ctx->filter, negVersion);
+    return tls_record_set_protocol_version(ctx->filter, (tls_protocol_version) negVersion);
 }
 
 static int
@@ -323,10 +323,8 @@ SSLRecordSetOption(SSLRecordContextRef ref, SSLRecordOption option, bool value)
     switch (option) {
         case kSSLRecordOptionSendOneByteRecord:
             return tls_record_set_record_splitting(ctx->filter, value);
-            break;
         default:
             return 0;
-            break;
     }
 }
 

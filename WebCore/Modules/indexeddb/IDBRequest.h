@@ -28,6 +28,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "EventTarget.h"
+#include "ExceptionOr.h"
 #include "IDBActiveDOMObject.h"
 #include "IDBError.h"
 #include "IDBResourceIdentifier.h"
@@ -39,10 +40,12 @@ namespace WebCore {
 class DOMError;
 class Event;
 class IDBCursor;
+class IDBDatabase;
 class IDBIndex;
 class IDBKeyData;
 class IDBObjectStore;
 class IDBResultData;
+class IDBTransaction;
 class IDBValue;
 class ScopeGuard;
 class ThreadSafeDataBuffer;
@@ -56,8 +59,9 @@ class IDBRequest : public EventTargetWithInlineData, public IDBActiveDOMObject, 
 public:
     static Ref<IDBRequest> create(ScriptExecutionContext&, IDBObjectStore&, IDBTransaction&);
     static Ref<IDBRequest> create(ScriptExecutionContext&, IDBCursor&, IDBTransaction&);
-    static Ref<IDBRequest> createCount(ScriptExecutionContext&, IDBIndex&, IDBTransaction&);
-    static Ref<IDBRequest> createGet(ScriptExecutionContext&, IDBIndex&, IndexedDB::IndexRecordType, IDBTransaction&);
+    static Ref<IDBRequest> create(ScriptExecutionContext&, IDBIndex&, IDBTransaction&);
+    static Ref<IDBRequest> createObjectStoreGet(ScriptExecutionContext&, IDBObjectStore&, IndexedDB::ObjectStoreRecordType, IDBTransaction&);
+    static Ref<IDBRequest> createIndexGet(ScriptExecutionContext&, IDBIndex&, IndexedDB::IndexRecordType, IDBTransaction&);
 
     const IDBResourceIdentifier& resourceIdentifier() const { return m_resourceIdentifier; }
 
@@ -66,8 +70,7 @@ public:
     IDBCursor* cursorResult() const { return m_cursorResult.get(); }
     IDBDatabase* databaseResult() const { return m_databaseResult.get(); }
     JSC::JSValue scriptResult() const { return m_scriptResult.get(); }
-    unsigned short errorCode(ExceptionCode&) const;
-    RefPtr<DOMError> error(ExceptionCodeWithMessage&) const;
+    ExceptionOr<DOMError*> error() const;
     IDBObjectStore* objectStoreSource() const { return m_objectStoreSource.get(); }
     IDBIndex* indexSource() const { return m_indexSource.get(); }
     IDBCursor* cursorSource() const { return m_cursorSource.get(); }
@@ -78,6 +81,7 @@ public:
 
     uint64_t sourceObjectStoreIdentifier() const;
     uint64_t sourceIndexIdentifier() const;
+    IndexedDB::ObjectStoreRecordType requestedObjectStoreRecordType() const;
     IndexedDB::IndexRecordType requestedIndexRecordType() const;
 
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
@@ -85,9 +89,11 @@ public:
     using RefCounted::ref;
     using RefCounted::deref;
 
-    void requestCompleted(const IDBResultData&);
+    void completeRequestAndDispatchEvent(const IDBResultData&);
 
     void setResult(const IDBKeyData&);
+    void setResult(const Vector<IDBKeyData>&);
+    void setResult(const Vector<IDBValue>&);
     void setResult(uint64_t);
     void setResultToStructuredClone(const IDBValue&);
     void setResultToUndefined();
@@ -128,6 +134,7 @@ private:
     IDBRequest(ScriptExecutionContext&, IDBObjectStore&, IDBTransaction&);
     IDBRequest(ScriptExecutionContext&, IDBCursor&, IDBTransaction&);
     IDBRequest(ScriptExecutionContext&, IDBIndex&, IDBTransaction&);
+    IDBRequest(ScriptExecutionContext&, IDBObjectStore&, IndexedDB::ObjectStoreRecordType, IDBTransaction&);
     IDBRequest(ScriptExecutionContext&, IDBIndex&, IndexedDB::IndexRecordType, IDBTransaction&);
 
     void clearResult();
@@ -164,7 +171,8 @@ private:
     RefPtr<IDBCursor> m_cursorSource;
 
     bool m_hasPendingActivity { true };
-    IndexedDB::IndexRecordType m_requestedIndexRecordType;
+    IndexedDB::ObjectStoreRecordType m_requestedObjectStoreRecordType { IndexedDB::ObjectStoreRecordType::ValueOnly };
+    IndexedDB::IndexRecordType m_requestedIndexRecordType { IndexedDB::IndexRecordType::Key };
 
     RefPtr<IDBCursor> m_pendingCursor;
 

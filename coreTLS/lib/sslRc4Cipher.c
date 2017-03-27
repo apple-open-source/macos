@@ -63,7 +63,7 @@ static int RC4Init(
 	 */
 
     /* FIXME: this should not be needed as long as CCSymFinish is called */
-	if(ctx) {
+	if (ctx) {
         sslFree(ctx);
         ctx = NULL;
 	}
@@ -72,7 +72,7 @@ static int RC4Init(
 
     ctx = sslMalloc(offsetof(struct SymCipherContext, key) + rc4->size);
 
-    if(ctx==NULL) {
+    if (ctx==NULL) {
         sslErrorLog("RC4Init: Can't allocate context\n");
         return errSSLRecordInternal;
     }
@@ -98,7 +98,7 @@ static int RC4Crypt(
 static int RC4Finish(
 	SymCipherContext cipherCtx)
 {
-	if(cipherCtx) {
+	if (cipherCtx) {
         ccrc4_ctx_clear(cipherCtx->rc4->size, cipherCtx->key);
         sslFree(cipherCtx);
 	}

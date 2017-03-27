@@ -45,6 +45,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* /////////////////////////////////////////////////////////////////////////////
  * Constants and definitions
@@ -438,7 +439,7 @@ size_t SecBase64Encode2( void const *src
             lineLen = 76;
             break;
         default:
-            assert(!"Bad line length flag specified to SecBase64Encode2()");
+            assert(false); // "Bad line length flag specified to SecBase64Encode2()"
         case    kSecB64_F_LINE_LEN_INFINITE:
             lineLen = 0;
             break;

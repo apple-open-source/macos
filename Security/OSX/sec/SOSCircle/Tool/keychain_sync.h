@@ -63,7 +63,7 @@ SECURITY_COMMAND(
 	"    -p     retrieve IDS device id\n"
 	"    -x     ping all devices in an IDS account\n"
 	"    -w     check IDS availability\n"
-	"    -z     retrieve IDS id through IDSKeychainSyncingProxy\n"
+	"    -z     retrieve IDS id through KeychainSyncingOverIDSProxy\n"
 	"\n"
 	"Password\n"
 	"    -P     [label:]password  set password (optionally for a given label) for sync\n"

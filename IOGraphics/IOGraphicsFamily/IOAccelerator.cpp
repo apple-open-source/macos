@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2017 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,137 +29,317 @@
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 #include <IOKit/IOUserClient.h>
 
-
 OSDefineMetaClassAndStructors(IOAccelerator, IOService)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static IOLock *         gLock;
-static queue_head_t     gGlobalList;
-static UInt32           gTotalCount;
-static SInt32           gTweak;
+// 'static' helpers for IOAccelerator and IOAccelerationUserClient
+namespace {
+// kUnusedID must be memset-able, that is the uint8_t cast is repeated 4 times
+const uint32_t kUnusedID = 0x80808080; // can't ever be returned from createID
+const int kInitTableSize = 32 * sizeof(uint32_t);
 
-struct IOAccelIDRecord
+// Range checked lookup of a uint32_t within a data
+inline uint32_t *getID(OSData *data, int index)
 {
-    IOAccelID           id;
-    SInt32              retain;
-    queue_chain_t       task_link;
-    queue_chain_t       glob_link;
+    const uint32_t *uP = static_cast<const uint32_t*>(
+            data->getBytesNoCopy(index * sizeof(*uP), sizeof(*uP)));
+    return const_cast<uint32_t*>(uP);
+}
+
+bool growData(uint32_t value, uint32_t fill, OSData *data)
+{
+    const int index = data->getLength() / sizeof(value);
+    bool ret = data->appendByte(fill, data->getCapacityIncrement());
+    if (ret) {
+        uint32_t *uP = getID(data, index);
+        *uP = value;
+    }
+    return ret;
+}
+
+// RAII lock helper, auto unlocks at end of scope
+struct MutexLock {
+    MutexLock(IOLock *lock) : fLock(lock) { IOLockLock(fLock); }
+    ~MutexLock() { IOLockUnlock(fLock); }
+private:
+    IOLock * const fLock;
 };
 
-enum { kTweakBits = 0x1f };     // sizeof(IOAccelIDRecord) == 24
-
-class IOAccelerationUserClient : public IOUserClient
-{
-    /*
-     * Declare the metaclass information that is used for runtime
-     * typechecking of IOKit objects.
-     */
-
-    OSDeclareDefaultStructors( IOAccelerationUserClient );
-
+// Primary data structure to track IDs both those with specified IDs and those
+// that are just allocated with the lower free id.
+class IDState {
 private:
-    task_t              fTask;
-    queue_head_t        fTaskList;
+    IOLock *fLock;
 
-    static void initialize();
+    // Stores requested ID retain counts from -4096 <= id <= 4095 (zzid <= 8191)
+    OSData *fSpecifiedIDsData;
+
+    // Stores allocated ID retain counts, add 4096 to user id, max of 68 * 1024
+    OSData *fRetainIDsData;
+
+    static const uint32_t kMaxID = 64 * 1024;  // arbitary maximum of ID
+    static const uint32_t kMaxRequestedZigZag = 8191;     // int2zz(-4096)
+    static const uint32_t kAllocatedIDBase = 4096;
+    static const uint32_t kTaskOwned = (1 << (8*sizeof(kTaskOwned) - 1));
+    static const uint32_t kNullRef = 0;
+
+    // Returned from locateID, which decodes userland IDs
+    struct IDDataDecode {
+        uint32_t *fUP;
+        OSData *fIDsData;
+        uint32_t fArrayInd;
+    };
+
+    // As the requested IOAccelID can be negative we have to be careful with
+    // the underlying array of retain counts. Assuming that small ids are more
+    // common then larger then zigzag encoding efficiently maps small absolute
+    // ids into small unsigned ids, which we use to index into retain array.
+    //
+    // Zigzag encoding, 0 -1 1 -2 2 -3 3 => 0 1 2 3 4 5 6
+    // see http://neurocline.github.io/dev/2015/09/17/zig-zag-encoding.html
+    // Encoding, shift up number by one and xor with sign-extended sign bit.
+    // TODO(gvdl): C++11 use constexpr and rewrite kMaxRequestedZigZag above.
+    inline uint32_t int2zz(int32_t x)  { return (x << 1) ^ (x >> 31); }
+
+    inline IOReturn reserveRequested(uint32_t taskOwned, IOAccelID id,
+                                     IOAccelID *idOutP)
+    {
+        const uint32_t oneRef = 1 | taskOwned;
+        uint32_t zzid = int2zz(id);
+
+        MutexLock locked(fLock);
+
+        if (zzid > kMaxRequestedZigZag)
+            return kIOReturnExclusiveAccess;
+        uint32_t *uP = getID(fSpecifiedIDsData, zzid);
+        if (uP) {
+            if (*uP)
+                return kIOReturnExclusiveAccess;
+            *uP = oneRef;
+            *idOutP = id;
+            return kIOReturnSuccess;
+        }
+        if (growData(oneRef, kNullRef, fSpecifiedIDsData)) {
+            *idOutP = id;
+            return kIOReturnSuccess;
+        }
+        else
+            return kIOReturnNoMemory;
+    }
+
+    inline IOReturn allocID(uint32_t taskOwned, IOAccelID *idOutP)
+    {
+        const uint32_t oneRef = 1 | taskOwned;
+
+        MutexLock locked(fLock);
+
+        // Look for an unused entry
+        int i;
+        for (i = 0; uint32_t *uP = getID(fRetainIDsData, i); ++i)
+            if (!*uP) {
+                *uP = oneRef;
+                *idOutP = i + kAllocatedIDBase;
+                return kIOReturnSuccess;
+            }
+        // No unused entries found
+        if (i >= kMaxID)  // Check to a table that is too large
+            return kIOReturnNoResources;
+        // Append a new reference
+        bool res = growData(oneRef, kNullRef, fRetainIDsData);
+        assert(*getID(fRetainIDsData, i) == oneRef);
+        if (res) {
+            *idOutP = i + kAllocatedIDBase;
+            return kIOReturnSuccess;
+        }
+        else
+            return kIOReturnNoMemory;
+    }
+
+    IDDataDecode locateID(IOAccelID id)
+    {
+        IDDataDecode ret = {
+            .fIDsData = fRetainIDsData,
+            .fArrayInd = id - kAllocatedIDBase,
+        };
+        if (id < kAllocatedIDBase) {
+            ret.fIDsData = fSpecifiedIDsData;
+            ret.fArrayInd = int2zz(id);
+        }
+        ret.fUP = getID(ret.fIDsData, ret.fArrayInd);
+        return ret;
+    }
 
 public:
-    /* IOService overrides */
-    virtual bool start( IOService * provider );
-    virtual void stop( IOService * provider );
+    IDState() : fLock(IOLockAlloc()),
+                fSpecifiedIDsData(OSData::withCapacity(kInitTableSize)),
+                fRetainIDsData(OSData::withCapacity(kInitTableSize))
+    {
+        if (!fLock || !fSpecifiedIDsData || !fRetainIDsData) return;
+        if (!fSpecifiedIDsData->appendByte(kNullRef, kInitTableSize)) return;
+        // Must be last field to be initialised used by isValid() below.
+        if (!fRetainIDsData->appendByte(kNullRef, kInitTableSize)) return;
+    }
+    bool isValid() { return getID(fRetainIDsData, 0); }
 
-    /* IOUserClient overrides */
-    virtual bool initWithTask( task_t owningTask, void * securityID,
-                                                UInt32 type,  OSDictionary * properties );
-    virtual IOReturn clientClose( void );
+    // Destructor only runs once when the IOGraphicsFamily unloads.
+    ~IDState()
+    {   // TODO(gvdl): What happens to entries in use?
+        OSSafeReleaseNULL(fSpecifiedIDsData);
+        OSSafeReleaseNULL(fRetainIDsData);
+        if (fLock) {
+            IOLockFree(fLock);
+            fLock = NULL;
+        }
+    }
 
-    virtual IOExternalMethod * getTargetAndMethodForIndex(
-                                            IOService ** targetP, UInt32 index );
+    IOLock *lock() const { return fLock; }
 
+    IOReturn createID(const bool taskOwned, const IOOptionBits options,
+                      const IOAccelID requestedID, IOAccelID *idOutP)
+    {
+        const uint32_t taskOwnedMask = (taskOwned) ? kTaskOwned : 0;
+        IOReturn ret;
+        if (kIOAccelSpecificID & options)
+            ret = reserveRequested(taskOwnedMask, requestedID, idOutP);
+        else
+            ret = allocID(taskOwnedMask, idOutP);
+        return ret;
+    }
 
-    IOReturn extCreate(IOOptionBits options,
-                        IOAccelID requestedID, IOAccelID * idOut);
-    IOReturn extDestroy(IOOptionBits options, IOAccelID id);
+    // Must be locked
+    IOReturn validID(int32_t id)
+    {
+        const IDDataDecode d = locateID(id);
+        if (d.fUP && *d.fUP & ~kTaskOwned)  // in range and retained
+            return kIOReturnSuccess;
+        else
+            return kIOReturnBadMessageID;
+    }
 
-};
+    // Must be locked and id must have been validated
+    void retainID(int32_t id)
+    {
+        assert(validID(id));
+        const IDDataDecode d = locateID(id);
+        const auto value = *d.fUP;
+        if ((value + 1) & ~kTaskOwned)
+            *d.fUP = value + 1;
+        else
+            *d.fUP = (value & kTaskOwned) | (-1U >> 1);  // Saturated
+    }
 
-#define super IOUserClient
-OSDefineMetaClassAndStructorsWithInit(IOAccelerationUserClient, IOUserClient, 
-                                        IOAccelerationUserClient::initialize());
+    // Must be locked and the id must have been validated
+    void releaseID(bool taskOwned, int32_t id)
+    {
+        assert(validID(id));
+        const IDDataDecode d = locateID(id);
+        const auto idOwned = *d.fUP & kTaskOwned;
+        const auto value = *d.fUP & ~kTaskOwned;
+
+        if (!taskOwned && idOwned && value == 1)
+            panic("IOAccelerator::releaseID still task owned");
+        assert(value);
+        if (value) {
+            // If taskOwned, then remove the flag and reference, otherwise
+            // maintian the previous value.
+            *d.fUP = (value - 1) | (taskOwned ? 0 : idOwned);
+        }
+    }
+};  // end class IDState
+
+IDState sIDState;  // Global variable, inited at load time
+};  // end anonymous namespace
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-void IOAccelerationUserClient::initialize()
+// Check fundamental assumption of data arrays
+OSCompileAssert(sizeof(kUnusedID) == sizeof(IOAccelID));
+
+class IOAccelerationUserClient : public IOUserClient
 {
-    if (!gLock)
-    {
-        gLock = IOLockAlloc();
-        queue_init(&gGlobalList);
-    }
+    OSDeclareDefaultStructors(IOAccelerationUserClient);
+    using super = IOUserClient;
+
+private:
+    OSData *fIDListData;  // list of allocated ids for this task
+
+    IOReturn extCreate(IOOptionBits options,
+                       IOAccelID requestedID, IOAccelID *idOutP);
+    IOReturn extDestroy(IOOptionBits options, IOAccelID id);
+
+public:
+    // OSObject overrides
+    virtual void free();
+
+    // IOService overrides
+    virtual bool start(IOService *provider);
+    virtual void stop(IOService *provider);
+
+    // IOUserClient overrides
+    virtual bool initWithTask(task_t, void*, uint32_t,  OSDictionary*);
+    virtual IOReturn clientClose();
+
+    virtual IOExternalMethod *
+        getTargetAndMethodForIndex(IOService **targetP, uint32_t index);
+};
+OSDefineMetaClassAndStructors(IOAccelerationUserClient, IOUserClient);
+
+bool IOAccelerationUserClient::
+initWithTask(task_t owningTask, void *securityID, UInt32 type,
+             OSDictionary *properties)
+{
+    if (properties)
+        properties->setObject(
+                kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+    bool ret = super::initWithTask(owningTask, securityID, type, properties);
+    if (ret)
+        ret = sIDState.isValid();
+    return ret;
 }
 
-bool IOAccelerationUserClient::initWithTask( task_t owningTask, void * securityID,
-                                             UInt32 type,  OSDictionary * properties )
+bool IOAccelerationUserClient::start(IOService *provider)
 {
-   
-    if ( properties != NULL )
-            properties->setObject ( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue );
-   
-    fTask = owningTask;
-    queue_init(&fTaskList);
-
-    return( super::initWithTask( owningTask, securityID, type, properties ));
-}
-
-bool IOAccelerationUserClient::start( IOService * provider )
-{
-    if( !super::start( provider ))
-        return( false );
-
-    return (true);
-}
-
-IOReturn IOAccelerationUserClient::clientClose( void )
-{
-    if( !isInactive())
-        terminate();
-
-    return( kIOReturnSuccess );
-}
-
-void IOAccelerationUserClient::stop( IOService * provider )
-{
-    IOAccelIDRecord * record;
-
-    IOLockLock(gLock);
-
-    while (!queue_empty( &fTaskList ))
-    {
-        queue_remove_first( &fTaskList,
-                            record,
-                            IOAccelIDRecord *,
-                            task_link );
-
-        if (--record->retain)
-            record->task_link.next = 0;
+    bool ret = super::start(provider);
+    if (ret) {
+        fIDListData = OSData::withCapacity(kInitTableSize);
+        if (fIDListData)
+            ret = fIDListData->appendByte(kUnusedID,
+                                          fIDListData->getCapacity());
         else
-        {
-            queue_remove(&gGlobalList,
-                            record,
-                            IOAccelIDRecord *,
-                            glob_link);
-            gTotalCount--;
-            IODelete(record, IOAccelIDRecord, 1);
-        }
+            ret = false;
     }
-    IOLockUnlock(gLock);
-
-    super::stop( provider );
+    return ret;
 }
 
-IOExternalMethod * IOAccelerationUserClient::getTargetAndMethodForIndex(
-    IOService ** targetP, UInt32 index )
+void IOAccelerationUserClient::free()
+{
+    OSSafeReleaseNULL(fIDListData);
+    super::free();
+}
+
+IOReturn IOAccelerationUserClient::clientClose()
+{
+    if (!isInactive())
+        terminate();
+    return kIOReturnSuccess;
+}
+
+void IOAccelerationUserClient::stop(IOService *provider)
+{
+    MutexLock locked(sIDState.lock());
+
+    for (int i = 0; uint32_t *uP = getID(fIDListData, i); ++i)
+        if (*uP != kUnusedID) {
+            sIDState.releaseID(/* taskOwned */ true, *uP);
+            *uP = kUnusedID;
+        }
+    super::stop(provider);
+}
+
+// Uses archaic 32bit user client interfaces
+IOExternalMethod *IOAccelerationUserClient::
+getTargetAndMethodForIndex(IOService **targetP, uint32_t index)
 {
     static const IOExternalMethod methodTemplate[] =
     {
@@ -170,201 +350,86 @@ IOExternalMethod * IOAccelerationUserClient::getTargetAndMethodForIndex(
     };
 
     if (index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
-        return (NULL);
+        return NULL;
 
     *targetP = this;
+    return const_cast<IOExternalMethod *>(&methodTemplate[index]);
+}
 
-    return ((IOExternalMethod *)(methodTemplate + index));
+namespace {
+IOReturn trackID(const IOAccelID id, OSData *idsData)
+{
+    for (int i = 0; uint32_t *uP = getID(idsData, i); ++i)
+        if (*uP == kUnusedID) {
+            *uP = id;
+            return kIOReturnSuccess;
+        }
+    // No free entries in table, grow the table a bit
+    if (growData(id, kUnusedID, idsData))
+        return kIOReturnSuccess;
+    else
+        return kIOReturnNoMemory;
+}
+};  // namespace
+
+IOReturn IOAccelerationUserClient::
+extCreate(IOOptionBits options, IOAccelID requestedID, IOAccelID *idOutP)
+{
+    IOReturn ret = sIDState.createID(/* taskOwned */ true,
+                                     options, requestedID, idOutP);
+    if (kIOReturnSuccess == ret) {
+        MutexLock locked(sIDState.lock());
+
+        ret = trackID(*idOutP, fIDListData);
+        if (ret)
+            sIDState.releaseID(/* taskOwned */ true, *idOutP);
+    }
+    return ret;
+}
+
+IOReturn IOAccelerationUserClient::
+extDestroy(IOOptionBits /* options */, const IOAccelID id)
+{
+    MutexLock locked(sIDState.lock());
+    IOReturn ret = sIDState.validID(id);
+    if (ret) return kIOReturnBadMessageID;
+
+    for (int i = 0; uint32_t *uP = getID(fIDListData, i); ++i)
+        if (id == *uP) {
+            // we allocated this id and it is valid
+            sIDState.releaseID(/* taskOwned */ true, id);
+            *uP = kUnusedID;
+            return kIOReturnSuccess;
+        }
+    return kIOReturnBadMessageID;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static 
-IOReturn _CreateID(queue_head_t * taskList, IOOptionBits options,
-                    IOAccelID requestedID, IOAccelID * idOut)
+IOReturn
+IOAccelerator::createAccelID(IOOptionBits options, IOAccelID *idOutP)
 {
-    IOReturn          err;
-    Boolean           found;
-    IOAccelIDRecord * record;
-    IOAccelIDRecord * dup;
-
-    record = IONew(IOAccelIDRecord, 1);
-    record->retain = 1;
-
-    IOLockLock(gLock);
-
-    gTotalCount++;
-
-    do
-    {
-        if (kIOAccelSpecificID & options)
-        {
-            if ((requestedID > 4095) || (requestedID < -4096))
-            {
-                err = kIOReturnExclusiveAccess;
-                break;
-            }
-    
-            found = false;
-            queue_iterate(&gGlobalList,
-                            dup,
-                            IOAccelIDRecord *,
-                            glob_link)
-            {
-                found = (dup->id == requestedID);
-                if (found)
-                    break;
-            }
-    
-            if (found)
-            {
-                err = kIOReturnExclusiveAccess;
-                break;
-            }
-    
-            record->id = requestedID;
-        }
-        else
-        {
-            record->id = ((IOAccelID) (intptr_t) record) ^ (kTweakBits & gTweak++);
-        }
-
-        if (taskList)
-        {
-            queue_enter(taskList, record,
-                            IOAccelIDRecord *, task_link);
-        }
-        else
-            record->task_link.next = 0;
-
-        queue_enter(&gGlobalList, record,
-                        IOAccelIDRecord *, glob_link);
-
-        *idOut = record->id;
-        err = kIOReturnSuccess;
-    }
-    while (false);
-
-    if (kIOReturnSuccess != err)
-        gTotalCount--;
-
-    IOLockUnlock(gLock);
-
-    if (kIOReturnSuccess != err)
-    {
-        IODelete(record, IOAccelIDRecord, 1);
-    }
-    return (err);
-}
-
-IOReturn IOAccelerationUserClient::extCreate(IOOptionBits options,
-                                                IOAccelID requestedID, IOAccelID * idOut)
-{
-    return (_CreateID(&fTaskList, options, requestedID, idOut));
-}
-
-IOReturn IOAccelerationUserClient::extDestroy(IOOptionBits options, IOAccelID id)
-{
-    IOAccelIDRecord * record;
-    bool found = false;
-    IOLockLock(gLock);
-
-    queue_iterate(&fTaskList,
-                    record,
-                    IOAccelIDRecord *,
-                    task_link)
-    {
-        found = (record->id == id);
-        if (found)
-        {
-            queue_remove(&fTaskList,
-                            record,
-                            IOAccelIDRecord *,
-                            task_link);
-            if (--record->retain)
-                record->task_link.next = 0;
-            else
-            {
-                queue_remove(&gGlobalList,
-                                record,
-                                IOAccelIDRecord *,
-                                glob_link);
-                gTotalCount--;
-                IODelete(record, IOAccelIDRecord, 1);
-            }
-            break;
-        }
-    }
-
-    IOLockUnlock(gLock);
-
-    return (found ? kIOReturnSuccess : kIOReturnBadMessageID);
+    IOReturn ret = sIDState.createID(/* taskOwned */ false,
+                                     options, *idOutP, idOutP);
+    return ret;
 }
 
 IOReturn
-IOAccelerator::createAccelID(IOOptionBits options, IOAccelID * identifier)
+IOAccelerator::retainAccelID(IOOptionBits /* options */, IOAccelID id)
 {
-    return (_CreateID(0, options, *identifier, identifier));
+    MutexLock locked(sIDState.lock());
+    IOReturn ret = sIDState.validID(id);
+    if (!ret)
+        sIDState.retainID(id);
+    return ret;
 }
 
 IOReturn
-IOAccelerator::retainAccelID(IOOptionBits options, IOAccelID id)
+IOAccelerator::releaseAccelID(IOOptionBits /* options */, IOAccelID id)
 {
-    IOAccelIDRecord * record;
-    bool found = false;
-    IOLockLock(gLock);
-
-    queue_iterate(&gGlobalList,
-                    record,
-                    IOAccelIDRecord *,
-                    glob_link)
-    {
-        found = (record->id == id);
-        if (found)
-        {
-            record->retain++;
-            break;
-        }
-    }
-
-    IOLockUnlock(gLock);
-
-    return (found ? kIOReturnSuccess : kIOReturnBadMessageID);
+    MutexLock locked(sIDState.lock());
+    IOReturn ret = sIDState.validID(id);
+    if (!ret)
+        sIDState.releaseID(/* taskOwned */ false, id);
+    return ret;
 }
-
-IOReturn
-IOAccelerator::releaseAccelID(IOOptionBits options, IOAccelID id)
-{
-    IOAccelIDRecord * record;
-    bool found = false;
-    IOLockLock(gLock);
-
-    queue_iterate(&gGlobalList,
-                    record,
-                    IOAccelIDRecord *,
-                    glob_link)
-    {
-        found = (record->id == id);
-        if (found)
-        {
-            if (!--record->retain)
-            {
-                if (record->task_link.next)
-                    panic("IOAccelerator::releaseID task_link");
-
-                queue_remove(&gGlobalList,
-                                record,
-                                IOAccelIDRecord *,
-                                glob_link);
-                gTotalCount--;
-                IODelete(record, IOAccelIDRecord, 1);
-            }
-            break;
-        }
-    }
-
-    IOLockUnlock(gLock);
-
-    return (found ? kIOReturnSuccess : kIOReturnBadMessageID);
-}
-

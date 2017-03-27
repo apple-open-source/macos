@@ -600,8 +600,6 @@ std::string ManifestFileItem::ResourceFileName (char* path)
     {
 		return "";
     }
-    
-    return filePath;
 }
 
 

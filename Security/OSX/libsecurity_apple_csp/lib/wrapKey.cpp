@@ -235,7 +235,7 @@ void AppleCSPSession::WrapKey(
 	/* get the blob to be wrappped */
 	CssmData rawBlob;
 	bool allocdRawBlob = false;
-	CSSM_KEYBLOB_FORMAT rawFormat;
+	CSSM_KEYBLOB_FORMAT rawFormat = CSSM_KEYBLOB_RAW_FORMAT_NONE;
 	
 	/* 
 	 * Outgoing same as incoming unless a partial key is completed during 

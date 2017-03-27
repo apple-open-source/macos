@@ -50,7 +50,8 @@ namespace WebCore {
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, cachedPageCounter, ("CachedPage"));
 
 CachedPage::CachedPage(Page& page)
-    : m_expirationTime(monotonicallyIncreasingTime() + page.settings().backForwardCacheExpirationInterval())
+    : m_page(page)
+    , m_expirationTime(monotonicallyIncreasingTime() + page.settings().backForwardCacheExpirationInterval())
     , m_cachedMainFrame(std::make_unique<CachedFrame>(page.mainFrame()))
 {
 #ifndef NDEBUG
@@ -100,16 +101,10 @@ void CachedPage::restore(Page& page)
 #endif
     }
 
-    if (m_needStyleRecalcForVisitedLinks) {
-        for (Frame* frame = &page.mainFrame(); frame; frame = frame->tree().traverseNext())
-            frame->document()->visitedLinkState().invalidateStyleForAllLinks();
-    }
-
     if (m_needsDeviceOrPageScaleChanged)
         page.mainFrame().deviceOrPageScaleFactorChanged();
 
-    if (m_needsFullStyleRecalc)
-        page.setNeedsRecalcStyleInAllFrames();
+    page.setNeedsRecalcStyleInAllFrames();
 
 #if ENABLE(VIDEO_TRACK)
     if (m_needsCaptionPreferencesChanged)
@@ -129,8 +124,6 @@ void CachedPage::clear()
     ASSERT(m_cachedMainFrame);
     m_cachedMainFrame->clear();
     m_cachedMainFrame = nullptr;
-    m_needStyleRecalcForVisitedLinks = false;
-    m_needsFullStyleRecalc = false;
 #if ENABLE(VIDEO_TRACK)
     m_needsCaptionPreferencesChanged = false;
 #endif

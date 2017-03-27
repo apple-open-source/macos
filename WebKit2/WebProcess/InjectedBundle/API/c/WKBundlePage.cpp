@@ -33,6 +33,7 @@
 #include "APIURLRequest.h"
 #include "InjectedBundleBackForwardList.h"
 #include "InjectedBundleNodeHandle.h"
+#include "InjectedBundlePageEditorClient.h"
 #include "InjectedBundlePageFormClient.h"
 #include "InjectedBundlePageUIClient.h"
 #include "PageBanner.h"
@@ -59,6 +60,7 @@
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PageOverlayController.h>
+#include <WebCore/SecurityOriginData.h>
 #include <WebCore/URL.h>
 #include <WebCore/WheelEventTestTrigger.h>
 #include <wtf/StdLibExtras.h>
@@ -82,7 +84,7 @@ void WKBundlePageSetContextMenuClient(WKBundlePageRef pageRef, WKBundlePageConte
 
 void WKBundlePageSetEditorClient(WKBundlePageRef pageRef, WKBundlePageEditorClientBase* wkClient)
 {
-    toImpl(pageRef)->initializeInjectedBundleEditorClient(wkClient);
+    toImpl(pageRef)->setInjectedBundleEditorClient(wkClient ? std::make_unique<InjectedBundlePageEditorClient>(*wkClient) : std::make_unique<API::InjectedBundle::EditorClient>());
 }
 
 void WKBundlePageSetFormClient(WKBundlePageRef pageRef, WKBundlePageFormClientBase* wkClient)
@@ -686,7 +688,24 @@ WKArrayRef WKBundlePageCopyOriginsWithApplicationCache(WKBundlePageRef page)
     originIdentifiers.reserveInitialCapacity(origins.size());
 
     for (const auto& origin : origins)
-        originIdentifiers.uncheckedAppend(API::String::create(origin->databaseIdentifier()));
+        originIdentifiers.uncheckedAppend(API::String::create(WebCore::SecurityOriginData::fromSecurityOrigin(*origin).databaseIdentifier()));
 
     return toAPI(&API::Array::create(WTFMove(originIdentifiers)).leakRef());
+}
+
+void WKBundlePageSetEventThrottlingBehaviorOverride(WKBundlePageRef page, WKEventThrottlingBehavior* behavior)
+{
+    std::optional<WebCore::EventThrottlingBehavior> behaviorValue;
+    if (behavior) {
+        switch (*behavior) {
+        case kWKEventThrottlingBehaviorResponsive:
+            behaviorValue = WebCore::EventThrottlingBehavior::Responsive;
+            break;
+        case kWKEventThrottlingBehaviorUnresponsive:
+            behaviorValue = WebCore::EventThrottlingBehavior::Unresponsive;
+            break;
+        }
+    }
+
+    toImpl(page)->corePage()->setEventThrottlingBehaviorOverride(behaviorValue);
 }

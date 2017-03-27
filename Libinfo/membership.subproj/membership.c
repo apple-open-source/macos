@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
+#include <unistd.h>
 #include <mach/mach.h>
 #include "membership.h"
 #include "membershipPriv.h"
@@ -142,6 +143,76 @@ _mbr_od_available(void)
 	return false;
 }
 
+static bool
+parse_compatibility_uuid(const uuid_t uu, id_t *result, int *rec_type)
+{
+	id_t tempID;
+
+	if (memcmp(uu, _user_compat_prefix, COMPAT_PREFIX_LEN) == 0) {
+		memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
+		(*result) = ntohl(tempID);
+		if (rec_type != NULL) {
+			(*rec_type) = MBR_REC_TYPE_USER;
+		}
+		return true;
+	} else if (memcmp(uu, _group_compat_prefix, COMPAT_PREFIX_LEN) == 0) {
+		memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
+		(*result) = ntohl(tempID);
+		if (rec_type != NULL) {
+			(*rec_type) = MBR_REC_TYPE_GROUP;
+		}
+		return true;
+	}
+	return false;
+}
+
+static bool
+compatibility_name_for_id(id_t id, int rec_type, char **result)
+{
+	int bufsize;
+
+	if ((bufsize = sysconf(_SC_GETPW_R_SIZE_MAX)) == -1)
+		return false;
+
+	if (rec_type == MBR_REC_TYPE_USER) {
+		char buffer[bufsize];
+		struct passwd pwd, *pwdp = NULL;
+
+		if (getpwuid_r(id, &pwd, buffer, bufsize, &pwdp) != 0 || pwdp == NULL) {
+			return false;
+		}
+		(*result) = strdup(pwd.pw_name);
+		return (*result) != NULL;
+	} else if (rec_type == MBR_REC_TYPE_GROUP) {
+		char buffer[bufsize];
+		struct group grp, *grpp = NULL;
+
+		if (getgrgid_r(id, &grp, buffer, bufsize, &grpp) != 0 || grpp == NULL) {
+			return false;
+		}
+		(*result) = strdup(grp.gr_name);
+		return (*result) != NULL;
+	}
+	return false;
+}
+
+static bool
+compatibility_name_for_uuid(const uuid_t uu, char **result, int *rec_type)
+{
+	int temp_type;
+	id_t id;
+
+	if (parse_compatibility_uuid(uu, &id, &temp_type) &&
+	    compatibility_name_for_id(id, temp_type, result)) {
+		if (rec_type != NULL) {
+			(*rec_type) = temp_type;
+		}
+		return true;
+	} else {
+		return false;
+	}
+}
+
 int
 mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_size, int target_type, void **result, int *rec_type)
 {
@@ -178,31 +249,17 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 		case ID_TYPE_GID:
 		case ID_TYPE_UID:
 		case ID_TYPE_UID_OR_GID:
-			/* shortcut UUIDs using compatibilty prefixes */
+			/* shortcut UUIDs using compatibility prefixes */
 			if (id_type == ID_TYPE_UUID) {
-				const uint8_t *uu = identifier;
-				
+				id_t *tempRes;
+
 				if (identifier_size != sizeof(uuid_t)) return EINVAL;
-				
-				if (memcmp(uu, _user_compat_prefix, COMPAT_PREFIX_LEN) == 0) {
-					id_t *tempRes = malloc(sizeof(*tempRes));
-					if (tempRes == NULL) return ENOMEM;
-					memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
-					(*tempRes) = ntohl(tempID);
+
+				tempRes = malloc(sizeof(*tempRes));
+				if (tempRes == NULL) return ENOMEM;
+
+				if (parse_compatibility_uuid(identifier, tempRes, rec_type)) {
 					(*result) = tempRes;
-					if (rec_type != NULL) {
-						(*rec_type) = MBR_REC_TYPE_USER;
-					}
-					return 0;
-				} else if (memcmp(uu, _group_compat_prefix, COMPAT_PREFIX_LEN) == 0) {
-					id_t *tempRes = malloc(sizeof(*tempRes));
-					if (tempRes == NULL) return ENOMEM;
-					memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
-					(*tempRes) = ntohl(tempID);
-					(*result) = tempRes;
-					if (rec_type != NULL) {
-						(*rec_type) = MBR_REC_TYPE_GROUP;
-					}
 					return 0;
 				}
 			}
@@ -247,8 +304,42 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 					break;
 			}
 			break;
+
+		case ID_TYPE_USERNAME:
+		case ID_TYPE_GROUPNAME:
+		case ID_TYPE_NAME:
+#if !DS_AVAILABLE
+			/* Convert compatibility UUIDs to names in-process. */
+			if (id_type == ID_TYPE_UUID) {
+				if (identifier_size != sizeof(uuid_t)) return EINVAL;
+				if (compatibility_name_for_uuid(identifier, (char **)result, rec_type)) {
+					return 0;
+				}
+			} else if (id_type == ID_TYPE_UID) {
+				if (identifier_size != sizeof(tempID)) return EINVAL;
+
+				tempID = *((id_t *) identifier);
+				if (compatibility_name_for_id(tempID, MBR_REC_TYPE_USER, (char **)result)) {
+					if (rec_type != NULL) {
+						(*rec_type) = MBR_REC_TYPE_USER;
+					}
+					return 0;
+				}
+			} else if (id_type == ID_TYPE_GID) {
+				if (identifier_size != sizeof(tempID)) return EINVAL;
+
+				tempID = *((id_t *) identifier);
+				if (compatibility_name_for_id(tempID, MBR_REC_TYPE_GROUP, (char **)result)) {
+					if (rec_type != NULL) {
+						(*rec_type) = MBR_REC_TYPE_GROUP;
+					}
+					return 0;
+				}
+			}
+#endif
+			break;
 	}
-	
+
 #if DS_AVAILABLE
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return EIO;

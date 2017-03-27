@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2013, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,19 +27,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef Interpreter_h
-#define Interpreter_h
+#pragma once
 
 #include "ArgList.h"
+#include "CatchScope.h"
+#include "FrameTracers.h"
 #include "JSCJSValue.h"
 #include "JSCell.h"
 #include "JSObject.h"
 #include "Opcode.h"
-#include "SourceProvider.h"
 #include "StackAlignment.h"
-
 #include <wtf/HashMap.h>
-#include <wtf/text/StringBuilder.h>
 
 #if !ENABLE(JIT)
 #include "CLoopStack.h"
@@ -50,7 +48,6 @@ namespace JSC {
 
     class CodeBlock;
     class EvalExecutable;
-    class ExecutableBase;
     class FunctionExecutable;
     class VM;
     class JSFunction;
@@ -62,20 +59,23 @@ namespace JSC {
     class ModuleProgramExecutable;
     class Register;
     class JSScope;
+    class StackFrame;
     struct CallFrameClosure;
     struct HandlerInfo;
     struct Instruction;
     struct ProtoCallFrame;
+    struct UnlinkedInstruction;
 
-    enum UnwindStart { UnwindFromCurrentFrame, UnwindFromCallerFrame };
+    enum UnwindStart : uint8_t { UnwindFromCurrentFrame, UnwindFromCallerFrame };
 
-    enum DebugHookID {
+    enum DebugHookType {
         WillExecuteProgram,
         DidExecuteProgram,
         DidEnterCallFrame,
         DidReachBreakpoint,
         WillLeaveCallFrame,
-        WillExecuteStatement
+        WillExecuteStatement,
+        WillExecuteExpression,
     };
 
     enum StackFrameCodeType {
@@ -84,91 +84,6 @@ namespace JSC {
         StackFrameModuleCode,
         StackFrameFunctionCode,
         StackFrameNativeCode
-    };
-
-    struct StackFrame {
-        Strong<JSObject> callee;
-        Strong<CodeBlock> codeBlock;
-        unsigned bytecodeOffset;
-
-        bool isNative() const { return !codeBlock; }
-
-        void computeLineAndColumn(unsigned& line, unsigned& column) const;
-        String functionName(VM&) const;
-        intptr_t sourceID() const;
-        String sourceURL() const;
-        String toString(VM&) const;
-    };
-
-    class SuspendExceptionScope {
-    public:
-        SuspendExceptionScope(VM* vm)
-            : m_vm(vm)
-        {
-            oldException = vm->exception();
-            vm->clearException();
-        }
-        ~SuspendExceptionScope()
-        {
-            m_vm->restorePreviousException(oldException);
-        }
-    private:
-        Exception* oldException;
-        VM* m_vm;
-    };
-    
-    class TopCallFrameSetter {
-    public:
-        TopCallFrameSetter(VM& currentVM, CallFrame* callFrame)
-            : vm(currentVM)
-            , oldCallFrame(currentVM.topCallFrame) 
-        {
-            currentVM.topCallFrame = callFrame;
-        }
-        
-        ~TopCallFrameSetter() 
-        {
-            vm.topCallFrame = oldCallFrame;
-        }
-    private:
-        VM& vm;
-        CallFrame* oldCallFrame;
-    };
-    
-    class NativeCallFrameTracer {
-    public:
-        ALWAYS_INLINE NativeCallFrameTracer(VM* vm, CallFrame* callFrame)
-        {
-            ASSERT(vm);
-            ASSERT(callFrame);
-            ASSERT(reinterpret_cast<void*>(callFrame) < reinterpret_cast<void*>(vm->topVMEntryFrame));
-            vm->topCallFrame = callFrame;
-        }
-    };
-
-    class NativeCallFrameTracerWithRestore {
-    public:
-        ALWAYS_INLINE NativeCallFrameTracerWithRestore(VM* vm, VMEntryFrame* vmEntryFrame, CallFrame* callFrame)
-            : m_vm(vm)
-        {
-            ASSERT(vm);
-            ASSERT(callFrame);
-            m_savedTopVMEntryFrame = vm->topVMEntryFrame;
-            m_savedTopCallFrame = vm->topCallFrame;
-            vm->topVMEntryFrame = vmEntryFrame;
-            vm->topCallFrame = callFrame;
-        }
-
-        ALWAYS_INLINE ~NativeCallFrameTracerWithRestore()
-        {
-            m_vm->topVMEntryFrame = m_savedTopVMEntryFrame;
-            m_vm->topCallFrame = m_savedTopCallFrame;
-        }
-
-    private:
-        VM* m_vm;
-        VMEntryFrame* m_savedTopVMEntryFrame;
-        CallFrame* m_savedTopCallFrame;
     };
 
     class Interpreter {
@@ -208,10 +123,13 @@ namespace JSC {
             return opcode;
 #endif
         }
-        
+
+        OpcodeID getOpcodeID(const Instruction&);
+        OpcodeID getOpcodeID(const UnlinkedInstruction&);
+
         bool isOpcode(Opcode);
 
-        JSValue execute(ProgramExecutable*, CallFrame*, JSObject* thisObj);
+        JSValue executeProgram(const SourceCode&, CallFrame*, JSObject* thisObj);
         JSValue executeCall(CallFrame*, JSObject* function, CallType, const CallData&, JSValue thisValue, const ArgList&);
         JSObject* executeConstruct(CallFrame*, JSObject* function, ConstructType, const ConstructData&, const ArgList&, JSValue newTarget);
         JSValue execute(EvalExecutable*, CallFrame*, JSValue thisValue, JSScope*);
@@ -221,7 +139,7 @@ namespace JSC {
         
         NEVER_INLINE HandlerInfo* unwind(VM&, CallFrame*&, Exception*, UnwindStart);
         void notifyDebuggerOfExceptionToBeThrown(CallFrame*, Exception*);
-        NEVER_INLINE void debug(CallFrame*, DebugHookID);
+        NEVER_INLINE void debug(CallFrame*, DebugHookType);
         static JSString* stackTraceAsString(VM&, const Vector<StackFrame>&);
 
         static EncodedJSValue JSC_HOST_CALL constructWithErrorConstructor(ExecState*);
@@ -236,7 +154,7 @@ namespace JSC {
     private:
         enum ExecutionFlag { Normal, InitializeAndReturn };
 
-        CallFrameClosure prepareForRepeatCall(FunctionExecutable*, CallFrame*, ProtoCallFrame*, JSFunction*, int argumentCountIncludingThis, JSScope*, JSValue*);
+        CallFrameClosure prepareForRepeatCall(FunctionExecutable*, CallFrame*, ProtoCallFrame*, JSFunction*, int argumentCountIncludingThis, JSScope*, const ArgList&);
 
         JSValue execute(CallFrameClosure&);
 
@@ -290,5 +208,3 @@ namespace JSC {
     void setupForwardArgumentsFrameAndSetThis(CallFrame* execCaller, CallFrame* execCallee, JSValue thisValue, uint32_t length);
     
 } // namespace JSC
-
-#endif // Interpreter_h

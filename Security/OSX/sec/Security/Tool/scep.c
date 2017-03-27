@@ -470,6 +470,7 @@ extern int command_scep(int argc, char * const *argv)
                 CFShow(caps_data);
             }
             CFRelease(caps_data);
+            CFRelease(caps_data_string);
         }
     } else {
         caps = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, scep_capabilities, CFSTR(","));
@@ -490,6 +491,7 @@ extern int command_scep(int argc, char * const *argv)
         // but for now to quiet the analyzer we reference them here. see <rdar://problem/15010402> scep.c, command_scep assumes 3des and sha1
         (void) scep_use_3des;
         (void) scep_can_use_sha1;
+        CFRelease(caps);
     }
 
     scep_use_3des = true;

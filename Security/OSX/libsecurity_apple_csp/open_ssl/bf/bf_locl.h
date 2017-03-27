@@ -58,7 +58,7 @@
 
 #ifndef HEADER_BF_LOCL_H
 #define HEADER_BF_LOCL_H
-#include <openssl/opensslconf.h> /* BF_PTR, BF_PTR2 */
+#include <openssl/opensslconf_legacy.h> /* BF_PTR, BF_PTR2 */
 
 #undef c2l
 #define c2l(c,l)	(l =(((BF_LONG))(*((c)++)))    , \

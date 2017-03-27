@@ -53,7 +53,7 @@ struct SecItemDbConnection {
 SecItemDbRef SecItemDbCreate(SecDbRef db);
 SecItemDbRef SecItemDbRegisterClass(SecItemDbRef db, const SecDbClass *class, void(^upgrade)(SecDbItemRef item, uint32_t current_version));
 
-SecItemDbConnectionRef SecItemDbAquireConnection(SecItemDbRef db);
+SecItemDbConnectionRef SecItemDbAcquireConnection(SecItemDbRef db);
 void SecItemDbReleaseConnection(SecItemDbRef db, SecItemDbConnectionRef dbconn);
 
 bool SecItemDbInsert(SecItemDbConnectionRef dbconn, SecDbItemRef item, CFErrorRef *error);

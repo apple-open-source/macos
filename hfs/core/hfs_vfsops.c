@@ -479,6 +479,10 @@ hfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t conte
 		}
 
 	} else /* not an update request */ {
+		if (devvp == NULL) {
+			retval = EINVAL;
+			goto out;
+		}
 		/* Set the mount flag to indicate that we support volfs  */
 		vfs_setflags(mp, (u_int64_t)((unsigned int)MNT_DOVOLFS));
 
@@ -4190,22 +4194,31 @@ err_exit:
  * Creates a UUID from a unique "name" in the HFS UUID Name space.
  * See version 3 UUID.
  */
-static void
-hfs_getvoluuid(struct hfsmount *hfsmp, uuid_t result)
+void
+hfs_getvoluuid(struct hfsmount *hfsmp, uuid_t result_uuid)
 {
-	MD5_CTX  md5c;
-	uint8_t  rawUUID[8];
 
-	((uint32_t *)rawUUID)[0] = hfsmp->vcbFndrInfo[6];
-	((uint32_t *)rawUUID)[1] = hfsmp->vcbFndrInfo[7];
+	if (uuid_is_null(hfsmp->hfs_full_uuid)) {
+		uuid_t result;
 
-	MD5Init( &md5c );
-	MD5Update( &md5c, HFS_UUID_NAMESPACE_ID, sizeof( uuid_t ) );
-	MD5Update( &md5c, rawUUID, sizeof (rawUUID) );
-	MD5Final( result, &md5c );
+		MD5_CTX  md5c;
+		uint8_t  rawUUID[8];
 
-	result[6] = 0x30 | ( result[6] & 0x0F );
-	result[8] = 0x80 | ( result[8] & 0x3F );
+		((uint32_t *)rawUUID)[0] = hfsmp->vcbFndrInfo[6];
+		((uint32_t *)rawUUID)[1] = hfsmp->vcbFndrInfo[7];
+
+		MD5Init( &md5c );
+		MD5Update( &md5c, HFS_UUID_NAMESPACE_ID, sizeof( uuid_t ) );
+		MD5Update( &md5c, rawUUID, sizeof (rawUUID) );
+		MD5Final( result, &md5c );
+
+		result[6] = 0x30 | ( result[6] & 0x0F );
+		result[8] = 0x80 | ( result[8] & 0x3F );
+	
+		uuid_copy(hfsmp->hfs_full_uuid, result);
+	}
+	uuid_copy (result_uuid, hfsmp->hfs_full_uuid);
+
 }
 
 /*

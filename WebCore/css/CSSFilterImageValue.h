@@ -24,8 +24,7 @@
  * SUCH DAMAGE.
  */
 
-#ifndef CSSFilterImageValue_h
-#define CSSFilterImageValue_h
+#pragma once
 
 #include "CSSImageGeneratorValue.h"
 #include "CSSPrimitiveValue.h"
@@ -43,7 +42,7 @@ class RenderElement;
 class Document;
 class StyleResolver;
 
-class CSSFilterImageValue : public CSSImageGeneratorValue {
+class CSSFilterImageValue final : public CSSImageGeneratorValue {
     friend class FilterSubimageObserverProxy;
 public:
     static Ref<CSSFilterImageValue> create(Ref<CSSValue>&& imageValue, Ref<CSSValue>&& filterValue)
@@ -59,7 +58,7 @@ public:
     bool isFixedSize() const { return true; }
     FloatSize fixedSize(const RenderElement*);
 
-    bool isPending();
+    bool isPending() const;
     bool knownToBeOpaque(const RenderElement*) const;
 
     void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&);
@@ -97,7 +96,7 @@ private:
         }
 
         virtual ~FilterSubimageObserverProxy() { }
-        void imageChanged(CachedImage*, const IntRect* = nullptr) override;
+        void imageChanged(CachedImage*, const IntRect* = nullptr) final;
         void setReady(bool ready) { m_ready = ready; }
     private:
         CSSFilterImageValue* m_ownerValue;
@@ -119,5 +118,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSFilterImageValue, isFilterImageValue())
-
-#endif // CSSFilterImageValue_h

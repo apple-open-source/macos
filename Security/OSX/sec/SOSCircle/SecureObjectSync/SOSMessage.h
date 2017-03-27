@@ -61,9 +61,8 @@ typedef uint64_t SOSDigestTypes;
 /* SOSMessage interface. */
 typedef struct __OpaqueSOSMessage *SOSMessageRef;
 
-//#define kSOSMessageMaxObjectsSize (8192)
-#define kSOSMessageMaxObjectsSize (65536)
-#define kSOSBackupMaxFileSize (65536)
+#define kSOSMessageMaxObjectsSize (64000)
+#define kSOSBackupMaxFileSize (64000)
 
 #define kEngineMessageProtocolVersion 2
 

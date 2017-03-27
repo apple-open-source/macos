@@ -439,21 +439,34 @@ static os_log_t logObjForCFScope(CFStringRef scope) {
 }
 
 static bool loggingEnabled = true;
+static pthread_mutex_t loggingMutex = PTHREAD_MUTEX_INITIALIZER;
 
 bool secLogEnabled(void) {
-    return loggingEnabled;
+    bool r = false;
+    pthread_mutex_lock(&loggingMutex);
+    r = loggingEnabled;
+    pthread_mutex_unlock(&loggingMutex);
+    return r;
 }
 void secLogDisable(void) {
+    pthread_mutex_lock(&loggingMutex);
     loggingEnabled = false;
+    pthread_mutex_unlock(&loggingMutex);
 }
 
 void secLogEnable(void) {
+    pthread_mutex_lock(&loggingMutex);
     loggingEnabled = true;
+    pthread_mutex_unlock(&loggingMutex);
 }
 
+os_log_t logObjForScope(const char *scope)
+{
+    return secLogObjForScope(scope);
+}
 
-os_log_t logObjForScope(const char *scope) {
-    if (!loggingEnabled)
+os_log_t secLogObjForScope(const char *scope) {
+    if (!secLogEnabled())
         return OS_LOG_DISABLED;
     CFStringRef cfscope = NULL;
     if(scope) cfscope =  CFStringCreateWithCString(kCFAllocatorDefault, scope, kCFStringEncodingASCII);

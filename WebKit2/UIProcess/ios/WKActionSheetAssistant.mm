@@ -159,7 +159,7 @@ static LSAppLink *appLinkForURL(NSURL *url)
     if (!view || !delegate)
         return CGRectZero;
 
-    return [self _presentationRectForSheetGivenPoint:[delegate positionInformationForActionSheetAssistant:self].point inHostView:view];
+    return [self _presentationRectForSheetGivenPoint:[delegate positionInformationForActionSheetAssistant:self].request.point inHostView:view];
 }
 
 - (CGRect)presentationRectInHostViewForSheet
@@ -172,7 +172,7 @@ static LSAppLink *appLinkForURL(NSURL *url)
     const auto& positionInformation = [delegate positionInformationForActionSheetAssistant:self];
 
     CGRect boundingRect = positionInformation.bounds;
-    CGPoint fromPoint = positionInformation.point;
+    CGPoint fromPoint = positionInformation.request.point;
 
     // FIXME: We must adjust our presentation point to take into account a change in document scale.
 
@@ -211,6 +211,19 @@ static LSAppLink *appLinkForURL(NSURL *url)
 - (BOOL)isShowingSheet
 {
     return _interactionSheet != nil;
+}
+
+- (NSArray *)currentAvailableActionTitles
+{
+    if (!_interactionSheet)
+        return @[];
+    
+    NSMutableArray *array = [NSMutableArray array];
+    
+    for (UIAlertAction *action in _interactionSheet.get().actions)
+        [array addObject:action.title];
+    
+    return array;
 }
 
 - (void)_createSheetWithElementActions:(NSArray *)actions showLinkTitle:(BOOL)showLinkTitle
@@ -280,7 +293,7 @@ static LSAppLink *appLinkForURL(NSURL *url)
     const auto& positionInformation = [delegate positionInformationForActionSheetAssistant:self];
 
     NSURL *targetURL = [NSURL _web_URLWithWTFString:positionInformation.url];
-    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL location:positionInformation.point title:positionInformation.title ID:positionInformation.idAttribute rect:positionInformation.bounds image:positionInformation.image.get()]);
+    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL location:positionInformation.request.point title:positionInformation.title ID:positionInformation.idAttribute rect:positionInformation.bounds image:positionInformation.image.get()]);
     if ([delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()])
         return;
     auto defaultActions = [self defaultActionsForImageSheet:elementInfo.get()];
@@ -367,8 +380,10 @@ static LSAppLink *appLinkForURL(NSURL *url)
     NSURL *targetURL = [NSURL _web_URLWithWTFString:positionInformation.url];
 
     auto defaultActions = adoptNS([[NSMutableArray alloc] init]);
-    if (!positionInformation.url.isEmpty())
+    if (!positionInformation.url.isEmpty()) {
         [self _appendOpenActionsForURL:targetURL actions:defaultActions.get() elementInfo:elementInfo];
+        [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeShare assistant:self]];
+    }
 
 #if HAVE(SAFARI_SERVICES_FRAMEWORK)
     if ([getSSReadingListClass() supportsURL:targetURL])
@@ -396,7 +411,7 @@ static LSAppLink *appLinkForURL(NSURL *url)
     if (!targetURL)
         return;
 
-    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL location:positionInformation.point title:positionInformation.title ID:positionInformation.idAttribute rect:positionInformation.bounds image:positionInformation.image.get()]);
+    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL location:positionInformation.request.point title:positionInformation.title ID:positionInformation.idAttribute rect:positionInformation.bounds image:positionInformation.image.get()]);
     if ([delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()])
         return;
 

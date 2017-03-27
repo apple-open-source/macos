@@ -114,7 +114,6 @@ static CFStringRef __IOHIDPointerEventTranslatorCopyDebugDescription(CFTypeRef c
 IOHIDPointerEventTranslatorRef __IOHIDPointerEventTranslatorCreatePrivate(CFAllocatorRef allocator, CFAllocatorContext * context __unused);
 IOHIDEventRef __IOHIDPointerEventTranslatorCreateMouseMoveEvent (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context, IOHIDEventRef pointerEvent);
 void __IOHIDPointerEventTranslatorInitNxEvent (EVENT_TRANSLATOR_CONTEXT *context, NXEventExt *nxEvent, uint8_t type);
-uint32_t __IOHIDPointerEventTranslatorGetGlobalButtonState (IOHIDPointerEventTranslatorRef translator);
 void __IOHIDPointerEventTranslatorProcessButtonState (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context, IOHIDEventRef pointerEvent);
 void __IOHIDPointerEventTranslatorProcessClickState (IOHIDPointerEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context, IOHIDEventRef pointerEvent, IOHIDEventRef buttonEvent);
 
@@ -544,7 +543,7 @@ void __IOHIDPointerEventTranslatorProcessButtonState (IOHIDPointerEventTranslato
 
   if (context->serviceRecord->buttons != buttons) {
     context->serviceRecord->buttons = buttons;
-    translator->globalButtons =  __IOHIDPointerEventTranslatorGetGlobalButtonState (translator);
+    translator->globalButtons =  IOHIDPointerEventTranslatorGetGlobalButtonState (translator);
   }
 }
 
@@ -995,16 +994,16 @@ static void __ButtonsApplierFunction(const void *key __unused, const void *value
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDPointerEventTranslatorGetGlobalButtonState
+// IOHIDPointerEventTranslatorGetGlobalButtonState
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-uint32_t __IOHIDPointerEventTranslatorGetGlobalButtonState (IOHIDPointerEventTranslatorRef translator) {
+uint32_t IOHIDPointerEventTranslatorGetGlobalButtonState (IOHIDPointerEventTranslatorRef translator) {
   uint32_t globalButtons = 0;
   CFDictionaryApplyFunction (translator->serviceRecord, __ButtonsApplierFunction, &globalButtons);
   return globalButtons;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDPointerEventTranslatorGetGlobalButtonState
+// __IOHIDPointerEventTranslatorGetUniqueEventNumber
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 uint32_t __IOHIDPointerEventTranslatorGetUniqueEventNumber (IOHIDPointerEventTranslatorRef translator) {
   while (++translator->eventNumber == 0);

@@ -250,7 +250,7 @@ KeychainSchemaImpl::getAttributeInfoForRecordType(CSSM_DB_RECORDTYPE recordType,
 			capacity *= 2;
 			if (capacity <= i) capacity = i + 1;
 			tagBuf=reinterpret_cast<UInt32 *>(realloc(tagBuf, (capacity*sizeof(UInt32))));
-			formatBuf=reinterpret_cast<UInt32 *>(realloc(tagBuf, (capacity*sizeof(UInt32))));
+			formatBuf=reinterpret_cast<UInt32 *>(realloc(formatBuf, (capacity*sizeof(UInt32))));
 		}
 		tagBuf[i]=rit->first;
 		formatBuf[i++]=rit->second;
@@ -1359,12 +1359,12 @@ KeychainImpl::setBatchMode(Boolean mode, Boolean rollback)
 		}
 
 		// notify that a keychain has changed in too many ways to count
-		KCEventNotifier::PostKeychainEvent(kSecKeychainLeftBatchModeEvent);
+		KCEventNotifier::PostKeychainEvent((SecKeychainEvent) kSecKeychainLeftBatchModeEvent);
 		mEventBuffer->clear();
 	}
 	else
 	{
-		KCEventNotifier::PostKeychainEvent(kSecKeychainEnteredBatchModeEvent);
+		KCEventNotifier::PostKeychainEvent((SecKeychainEvent) kSecKeychainEnteredBatchModeEvent);
 	}
 }
 void
@@ -1915,6 +1915,5 @@ bool KeychainImpl::hasIntegrityProtection() {
         secnotice("integrity", "keychain guid does not support integrity");
         return false;
     }
-    return false;
 }
 

@@ -1,6 +1,5 @@
 framework module Security [extern_c] {
   umbrella header "Security.h"
-  header "SecurityFeatures.h"
 
   export *
   module * { 

@@ -2899,7 +2899,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		/* Lookup record in catalog BTree */
 		err = GetCatalogRecord(GPtr, fileID, isHFSPlus, &catKey, &catRecord, &recordSize);
 		if (err) {
-			plog("%s: Could not get catalog record for fileID %u\n", __FUNCTION__, fileID);
+			if (debug) plog("%s: Could not get catalog record for fileID %u\n", __FUNCTION__, fileID);
 			goto out;
 		}
 
@@ -2935,7 +2935,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		err = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &catKey, kNoHint, 
 								&catRecord, recordSize, &hint);
 		if (err) {
-			plog("%s: Could not replace catalog record for fileID %u\n", __FUNCTION__, fileID);
+			if (debug) plog("%s: Could not replace catalog record for fileID %u\n", __FUNCTION__, fileID);
 			goto out;
 		}
 		didRepair = true;
@@ -2952,7 +2952,8 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		err = SearchBTreeRecord (GPtr->calculatedExtentsFCB, &extentKey, kNoHint, 
 								 &extentKey, &extentRecord, &recordSize, &hint);
 		if (err) {
-			plog("%s: Could not get overflow extents record for fileID %u, fork %u, start block %u\n", __FUNCTION__, fileID, forkType, extentStartBlock);
+			if (debug) plog("%s: Could not get overflow extents record for fileID %u, fork %u, start block %u\n", __FUNCTION__, fileID, forkType,
+                            extentStartBlock);
 			goto out;
 		}
 
@@ -2973,7 +2974,8 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		err = ReplaceBTreeRecord(GPtr->calculatedExtentsFCB, &extentKey, hint,
 								&extentRecord, recordSize, &hint);
 		if (err) {
-			plog("%s: Could not replace overflow extents record for fileID %u, fork %u, start block %u\n", __FUNCTION__, fileID, forkType, extentStartBlock);
+			if (debug) plog("%s: Could not replace overflow extents record for fileID %u, fork %u, start block %u\n", __FUNCTION__, fileID,
+                            forkType, extentStartBlock);
 			goto out;
 		}
 		didRepair = true;
@@ -3599,7 +3601,7 @@ static OSErr GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, C
 	BuildCatalogKey(fileID, NULL, isHFSPlus, &catThreadKey);
 	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, &catThreadKey, kNoHint, catKey, catRecord, recordSize, &hint);
 	if (err) {
-		plog ("%s: No matching catalog thread record found\n", __FUNCTION__);
+		if (debug) plog ("%s: No matching catalog thread record found\n", __FUNCTION__);
 		goto out;
 	}
 
@@ -3625,7 +3627,7 @@ static OSErr GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, C
 	BuildCatalogKey(catRecord->hfsPlusThread.parentID, &catalogName, isHFSPlus, catKey); 
 	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, catKey, kNoHint, catKey, catRecord, recordSize, &hint);
 	if (err) {
-		plog ("%s: No matching catalog record found\n", __FUNCTION__);
+		if (debug) plog ("%s: No matching catalog record found\n", __FUNCTION__);
 		if (cur_debug_level & d_dump_record)
 		{
 			plog ("Searching for key:\n");

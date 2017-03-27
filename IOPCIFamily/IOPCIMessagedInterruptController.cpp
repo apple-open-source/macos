@@ -26,9 +26,10 @@
 
 #include <IOKit/pci/IOPCIPrivate.h>
 #include <IOKit/system.h>
+#include <IOKit/IOLib.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>
-#include <IOKit/IOLib.h>
+#include <IOKit/IOMapper.h>
 
 #define kMSIFreeCountKey    "MSIFree"
 
@@ -45,6 +46,10 @@
 #endif
 
 extern uint32_t gIOPCIFlags;
+
+#if !ACPI_SUPPORT
+#define IOPCISetMSIInterrupt(a,b,c)		kIOReturnUnsupported
+#endif
 
 #undef  super
 #define super IOInterruptController
@@ -338,13 +343,16 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 {
     IOReturn      ret;
     IOPCIDevice * device;
+    OSData      * data;
     uint32_t      vector, firstVector = _vectorBase;
     IORangeScalar rangeStart;
     uint32_t      message[3];
     uint32_t      msiPhysVectors;
     uint16_t      control = 0;
     bool          allocated;
+    uint32_t      msiFlags;
 
+    msiFlags = 0;
     device = OSDynamicCast(IOPCIDevice, entry);
     if (!device) msiCapability = 0;
     msiPhysVectors = 0;
@@ -399,8 +407,16 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 #if !defined(SUPPORT_MULTIPLE_MSI)
         else if (numVectors)
         {
-            // max per function is one
-            numVectors = 1;
+            if ((data = OSDynamicCast(OSData, entry->getProperty(kIOPCIMSIFlagsKey)))
+              && (data->getLength() >= sizeof(uint32_t)))
+            {
+                msiFlags = ((uint32_t *)data->getBytesNoCopy())[0];
+            }
+            if (!(kIOPCIMSIFlagRespect & msiFlags))
+            {
+                // max per function is one
+                numVectors = 1;
+            }
         }
 #endif
     }
@@ -414,13 +430,18 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     }
     if (!allocated) return (kIOReturnNoSpace);
 
-    firstVector = rangeStart;
-    ret = entry->callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey,
-            /* waitForFunction */ false,
-            /* nub             */ entry, 
-            /* options         */ (void *) 0,
-            /* vector          */ (void *) (uintptr_t) (firstVector + _vectorBase),
-            /* message         */ (void *) &message[0]);
+	firstVector = rangeStart;
+
+	if (!device
+	 || (kIOReturnUnsupported == (ret = IOPCISetMSIInterrupt(firstVector + _vectorBase, numVectors, &message[0]))))
+	{
+		ret = entry->callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey,
+				/* waitForFunction */ false,
+				/* nub             */ entry,
+				/* options         */ (void *) 0,
+				/* vector          */ (void *) (uintptr_t) (firstVector + _vectorBase),
+				/* message         */ (void *) &message[0]);
+    }
 
     if (kIOReturnSuccess == ret)
     {
@@ -698,6 +719,7 @@ void IOPCIMessagedInterruptController::deallocateInterrupt(UInt32 vector)
 
 	rangeStart = vector;
     _messagedInterruptsAllocator->deallocate(rangeStart, 1);
+    IOPCISetMSIInterrupt(rangeStart + _vectorBase, 1, NULL);
     setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
 }
 

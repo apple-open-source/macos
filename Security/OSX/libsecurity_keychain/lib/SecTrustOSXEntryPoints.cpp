@@ -37,6 +37,7 @@
 #include <Security/SecImportExport.h>
 #include <security_keychain/SecImportExportPem.h>
 #include <security_utilities/debugging.h>
+#include <Security/SecItemInternal.h>
 
 #include <security_ocspd/ocspdClient.h>
 #include <security_ocspd/ocspdUtils.h>
@@ -46,25 +47,11 @@
 #include <dispatch/dispatch.h>
 #include <AssertMacros.h>
 #include <pthread.h>
+#include <notify.h>
 
 /*
  * MARK: CFRunloop
  */
-
-static OSStatus SecLegacySourceChanged(SecKeychainEvent keychainEvent, SecKeychainCallbackInfo *info, __unused void *context) {
-    if (keychainEvent == kSecAddEvent || keychainEvent == kSecDeleteEvent || keychainEvent == kSecUpdateEvent) {
-        /* We don't need to purge the cache if the item changed wasn't a cert */
-        SecKeychainItemRef item = info->item;
-        if (item && CFGetTypeID(item) != SecCertificateGetTypeID()) {
-            return 0;
-        }
-    }
-    // Purge keychain parent cache
-    SecItemParentCachePurge();
-    // Purge unrestricted roots cache
-    SecTrustSettingsPurgeUserAdminCertsCache();
-    return 0;
-}
 
 static void *SecTrustOSXCFRunloop(__unused void *unused) {
     CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault, (CFTimeInterval) UINT_MAX, 0, 0, 0, ^(__unused CFRunLoopTimerRef _timer) {
@@ -73,12 +60,18 @@ static void *SecTrustOSXCFRunloop(__unused void *unused) {
 
     /* add a timer to force the runloop to stay running */
     CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
-    /* add keychain callback before we initiate a runloop to avoid it exiting due to no sources */
+    /* Register for CertificateTrustNotification */
 
-    SecKeychainEventMask trustdMask = (kSecAddEventMask | kSecDeleteEventMask | kSecUpdateEventMask |
-                                       kSecDefaultChangedEventMask | kSecKeychainListChangedMask |
-                                       kSecTrustSettingsChangedEventMask);
-    SecKeychainAddCallback(SecLegacySourceChanged, trustdMask, NULL);
+    int out_token = 0;
+    notify_register_dispatch(kSecServerCertificateTrustNotification, &out_token,
+                             dispatch_get_main_queue(),
+                             ^(int token __unused) {
+                                 // Purge keychain parent cache
+                                 SecItemParentCachePurge();
+                                 // Purge unrestricted roots cache
+                                 SecTrustSettingsPurgeUserAdminCertsCache();
+
+                             });
 
     try {
         CFRunLoopRun();
@@ -145,7 +138,7 @@ static OSStatus cssmReturnToOSStatus(CSSM_RETURN crtn) {
 }
 
 #define PEM_STRING_X509		"CERTIFICATE"
-static CFDataRef serializedPathToPemSequences(CFArrayRef certs) {
+static CFDataRef CF_RETURNS_RETAINED serializedPathToPemSequences(CFArrayRef certs) {
     CFMutableDataRef result = NULL;
     CFIndex certIX, certCount;
     require_quiet(certs, out);

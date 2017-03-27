@@ -19,15 +19,13 @@
  *
  */
 
-#ifndef RuleSet_h
-#define RuleSet_h
+#pragma once
 
 #include "RuleFeature.h"
 #include "SelectorCompiler.h"
 #include "StyleRule.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
@@ -193,7 +191,6 @@ public:
     unsigned ruleCount() const { return m_ruleCount; }
 
     bool hasShadowPseudoElementRules() const;
-    void copyShadowPseudoElementRulesFrom(const RuleSet&);
 
 private:
     void addChildRules(const Vector<RefPtr<StyleRuleBase>>&, const MediaQueryEvaluator& medium, StyleResolver*, bool hasDocumentSecurityOrigin, bool isInitiatingElementInUserAgentShadowTree, AddRuleFlags);
@@ -231,9 +228,8 @@ inline const RuleSet::RuleDataVector* RuleSet::tagRules(AtomicStringImpl* key, b
 } // namespace WebCore
 
 namespace WTF {
+
 // RuleData is simple enough that initializing to 0 and moving with memcpy will totally work.
 template<> struct VectorTraits<WebCore::RuleData> : SimpleClassVectorTraits { };
 
 } // namespace WTF
-
-#endif // RuleSet_h

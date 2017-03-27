@@ -76,9 +76,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <openssl/buffer.h>
-#include <openssl/bio.h>
-#include <openssl/lhash.h>
+#include <openssl/buffer_legacy.h>
+#include <openssl/bio_legacy.h>
+#include <openssl/lhash_legacy.h>
 #include "cryptlib.h"
 
 int CRYPTO_get_ex_new_index(int idx, STACK_OF(CRYPTO_EX_DATA_FUNCS) **skp, long argl, void *argp,

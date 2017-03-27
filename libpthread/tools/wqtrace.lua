@@ -3,7 +3,7 @@
 trace_codename = function(codename, callback)
 	local debugid = trace.debugid(codename)
 	if debugid ~= 0 then 
-		trace.single(debugid,callback) 
+		trace.single(debugid,callback)
 	else
 		printf("WARNING: Cannot locate debugid for '%s'\n", codename)
 	end
@@ -15,15 +15,15 @@ get_prefix = function(buf)
 	if initial_timestamp == 0 then
 		initial_timestamp = buf.timestamp
 	end
-	local secs = (buf.timestamp - initial_timestamp) / 1000000000
+	local secs = trace.convert_timestamp_to_nanoseconds(buf.timestamp - initial_timestamp) / 1000000000
 
 	local prefix
-	if trace.debugid_is_start(buf.debugid) then 
-		prefix = "→" 
-	elseif trace.debugid_is_end(buf.debugid) then 
-		prefix = "←" 
-	else 
-		prefix = "↔" 
+	if trace.debugid_is_start(buf.debugid) then
+		prefix = "→"
+	elseif trace.debugid_is_end(buf.debugid) then
+		prefix = "←"
+	else
+		prefix = "↔"
 	end
 
 	local proc
@@ -196,12 +196,29 @@ trace_codename("wq_run_nextitem", function(buf)
 	end
 end)
 
+trace.enable_thread_cputime()
+runitem_time_map = {}
+runitem_cputime_map = {}
 trace_codename("wq_runitem", function(buf)
 	local prefix = get_prefix(buf)
 	if trace.debugid_is_start(buf.debugid) then
+		runitem_time_map[buf.threadid] = buf.timestamp;
+		runitem_cputime_map[buf.threadid] = trace.cputime_for_thread(buf.threadid);
+
 		printf("%s\tSTART running item\n", prefix)
+	elseif runitem_time_map[buf.threadid] then
+		local time = buf.timestamp - runitem_time_map[buf.threadid]
+		local cputime = trace.cputime_for_thread(buf.threadid) - runitem_cputime_map[buf.threadid]
+
+		local time_ms = trace.convert_timestamp_to_nanoseconds(time) / 1000000
+		local cputime_ms = trace.convert_timestamp_to_nanoseconds(cputime) / 1000000
+
+		printf("%s\tDONE running item: time = %6.6f ms, cputime = %6.6f ms\n", prefix, time_ms, cputime_ms)
+
+		runitem_time_map[buf.threadid] = 0
+		runitem_cputime_map[buf.threadid] = 0
 	else
-		printf("%s\tDONE running item; thread returned to kernel\n", prefix)
+		printf("%s\tDONE running item\n", prefix)
 	end
 end)
 

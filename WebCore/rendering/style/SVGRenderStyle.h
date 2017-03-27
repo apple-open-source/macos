@@ -21,16 +21,13 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef SVGRenderStyle_h
-#define SVGRenderStyle_h
+#pragma once
 
 #include "CSSValueList.h"
 #include "DataRef.h"
-#include "ExceptionCodePlaceholder.h"
 #include "GraphicsTypes.h"
 #include "Path.h"
 #include "RenderStyleConstants.h"
-#include "SVGPaint.h"
 #include "SVGRenderStyleDefs.h"
 
 namespace WebCore {
@@ -70,18 +67,17 @@ public:
     static LineJoin initialJoinStyle() { return MiterJoin; }
     static EShapeRendering initialShapeRendering() { return SR_AUTO; }
     static ETextAnchor initialTextAnchor() { return TA_START; }
-    static SVGWritingMode initialWritingMode() { return WM_LRTB; }
     static EGlyphOrientation initialGlyphOrientationHorizontal() { return GO_0DEG; }
     static EGlyphOrientation initialGlyphOrientationVertical() { return GO_AUTO; }
     static float initialFillOpacity() { return 1; }
-    static SVGPaint::SVGPaintType initialFillPaintType() { return SVGPaint::SVG_PAINTTYPE_RGBCOLOR; }
+    static SVGPaintType initialFillPaintType() { return SVG_PAINTTYPE_RGBCOLOR; }
     static Color initialFillPaintColor() { return Color::black; }
     static String initialFillPaintUri() { return String(); }
     static float initialStrokeOpacity() { return 1; }
-    static SVGPaint::SVGPaintType initialStrokePaintType() { return SVGPaint::SVG_PAINTTYPE_NONE; }
+    static SVGPaintType initialStrokePaintType() { return SVG_PAINTTYPE_NONE; }
     static Color initialStrokePaintColor() { return Color(); }
     static String initialStrokePaintUri() { return String(); }
-    static Vector<SVGLength> initialStrokeDashArray() { return Vector<SVGLength>(); }
+    static Vector<SVGLengthValue> initialStrokeDashArray() { return { }; }
     static float initialStrokeMiterLimit() { return 4; }
     static float initialStopOpacity() { return 1; }
     static Color initialStopColor() { return Color(0, 0, 0); }
@@ -97,17 +93,17 @@ public:
     static EMaskType initialMaskType() { return MT_LUMINANCE; }
     static PaintOrder initialPaintOrder() { return PaintOrderNormal; }
 
-    static SVGLength initialBaselineShiftValue()
+    static SVGLengthValue initialBaselineShiftValue()
     {
-        SVGLength length;
-        length.newValueSpecifiedUnits(LengthTypeNumber, 0, ASSERT_NO_EXCEPTION);
+        SVGLengthValue length;
+        length.newValueSpecifiedUnits(LengthTypeNumber, 0);
         return length;
     }
 
-    static SVGLength initialKerning()
+    static SVGLengthValue initialKerning()
     {
-        SVGLength length;
-        length.newValueSpecifiedUnits(LengthTypeNumber, 0, ASSERT_NO_EXCEPTION);
+        SVGLengthValue length;
+        length.newValueSpecifiedUnits(LengthTypeNumber, 0);
         return length;
     }
 
@@ -126,7 +122,6 @@ public:
     void setJoinStyle(LineJoin val) { svg_inherited_flags._joinStyle = val; }
     void setShapeRendering(EShapeRendering val) { svg_inherited_flags._shapeRendering = val; }
     void setTextAnchor(ETextAnchor val) { svg_inherited_flags._textAnchor = val; }
-    void setWritingMode(SVGWritingMode val) { svg_inherited_flags._writingMode = val; }
     void setGlyphOrientationHorizontal(EGlyphOrientation val) { svg_inherited_flags._glyphOrientationHorizontal = val; }
     void setGlyphOrientationVertical(EGlyphOrientation val) { svg_inherited_flags._glyphOrientationVertical = val; }
     void setMaskType(EMaskType val) { svg_noninherited_flags.f.maskType = val; }
@@ -173,7 +168,7 @@ public:
             fill.access()->opacity = obj;
     }
 
-    void setFillPaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri, bool applyToRegularStyle = true, bool applyToVisitedLinkStyle = false)
+    void setFillPaint(SVGPaintType type, const Color& color, const String& uri, bool applyToRegularStyle = true, bool applyToVisitedLinkStyle = false)
     {
         if (applyToRegularStyle) {
             if (!(fill->paintType == type))
@@ -199,7 +194,7 @@ public:
             stroke.access()->opacity = obj;
     }
 
-    void setStrokePaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri, bool applyToRegularStyle = true, bool applyToVisitedLinkStyle = false)
+    void setStrokePaint(SVGPaintType type, const Color& color, const String& uri, bool applyToRegularStyle = true, bool applyToVisitedLinkStyle = false)
     {
         if (applyToRegularStyle) {
             if (!(stroke->paintType == type))
@@ -219,7 +214,7 @@ public:
         }
     }
 
-    void setStrokeDashArray(const Vector<SVGLength>& obj)
+    void setStrokeDashArray(const Vector<SVGLengthValue>& obj)
     {
         if (!(stroke->dashArray == obj))
             stroke.access()->dashArray = obj;
@@ -243,7 +238,7 @@ public:
             stroke.access()->dashOffset = obj;
     }
 
-    void setKerning(const SVGLength& obj)
+    void setKerning(const SVGLengthValue& obj)
     {
         if (!(text->kerning == obj))
             text.access()->kerning = obj;
@@ -279,7 +274,7 @@ public:
             misc.access()->lightingColor = obj;
     }
 
-    void setBaselineShiftValue(const SVGLength& obj)
+    void setBaselineShiftValue(const SVGLengthValue& obj)
     {
         if (!(misc->baselineShiftValue == obj))
             misc.access()->baselineShiftValue = obj;
@@ -334,28 +329,27 @@ public:
     LineJoin joinStyle() const { return (LineJoin) svg_inherited_flags._joinStyle; }
     EShapeRendering shapeRendering() const { return (EShapeRendering) svg_inherited_flags._shapeRendering; }
     ETextAnchor textAnchor() const { return (ETextAnchor) svg_inherited_flags._textAnchor; }
-    SVGWritingMode writingMode() const { return (SVGWritingMode) svg_inherited_flags._writingMode; }
     EGlyphOrientation glyphOrientationHorizontal() const { return (EGlyphOrientation) svg_inherited_flags._glyphOrientationHorizontal; }
     EGlyphOrientation glyphOrientationVertical() const { return (EGlyphOrientation) svg_inherited_flags._glyphOrientationVertical; }
     float fillOpacity() const { return fill->opacity; }
-    const SVGPaint::SVGPaintType& fillPaintType() const { return fill->paintType; }
+    const SVGPaintType& fillPaintType() const { return fill->paintType; }
     const Color& fillPaintColor() const { return fill->paintColor; }
     const String& fillPaintUri() const { return fill->paintUri; }    
     float strokeOpacity() const { return stroke->opacity; }
-    const SVGPaint::SVGPaintType& strokePaintType() const { return stroke->paintType; }
+    const SVGPaintType& strokePaintType() const { return stroke->paintType; }
     const Color& strokePaintColor() const { return stroke->paintColor; }
     const String& strokePaintUri() const { return stroke->paintUri; }
-    Vector<SVGLength> strokeDashArray() const { return stroke->dashArray; }
+    Vector<SVGLengthValue> strokeDashArray() const { return stroke->dashArray; }
     float strokeMiterLimit() const { return stroke->miterLimit; }
     const Length& strokeWidth() const { return stroke->width; }
     const Length& strokeDashOffset() const { return stroke->dashOffset; }
-    SVGLength kerning() const { return text->kerning; }
+    SVGLengthValue kerning() const { return text->kerning; }
     float stopOpacity() const { return stops->opacity; }
     const Color& stopColor() const { return stops->color; }
     float floodOpacity() const { return misc->floodOpacity; }
     const Color& floodColor() const { return misc->floodColor; }
     const Color& lightingColor() const { return misc->lightingColor; }
-    SVGLength baselineShiftValue() const { return misc->baselineShiftValue; }
+    SVGLengthValue baselineShiftValue() const { return misc->baselineShiftValue; }
     ShadowData* shadow() const { return shadowSVG->shadow.get(); }
     const Length& cx() const { return layout->cx; }
     const Length& cy() const { return layout->cy; }
@@ -373,10 +367,10 @@ public:
     PaintOrder paintOrder() const { return (PaintOrder) svg_inherited_flags.paintOrder; }
     Vector<PaintType, 3> paintTypesForPaintOrder() const;
 
-    const SVGPaint::SVGPaintType& visitedLinkFillPaintType() const { return fill->visitedLinkPaintType; }
+    const SVGPaintType& visitedLinkFillPaintType() const { return fill->visitedLinkPaintType; }
     const Color& visitedLinkFillPaintColor() const { return fill->visitedLinkPaintColor; }
     const String& visitedLinkFillPaintUri() const { return fill->visitedLinkPaintUri; }
-    const SVGPaint::SVGPaintType& visitedLinkStrokePaintType() const { return stroke->visitedLinkPaintType; }
+    const SVGPaintType& visitedLinkStrokePaintType() const { return stroke->visitedLinkPaintType; }
     const Color& visitedLinkStrokePaintColor() const { return stroke->visitedLinkPaintColor; }
     const String& visitedLinkStrokePaintUri() const { return stroke->visitedLinkPaintUri; }
 
@@ -384,10 +378,9 @@ public:
     bool hasClipper() const { return !clipperResource().isEmpty(); }
     bool hasMasker() const { return !maskerResource().isEmpty(); }
     bool hasMarkers() const { return !markerStartResource().isEmpty() || !markerMidResource().isEmpty() || !markerEndResource().isEmpty(); }
-    bool hasStroke() const { return strokePaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
+    bool hasStroke() const { return strokePaintType() != SVG_PAINTTYPE_NONE; }
     bool hasVisibleStroke() const { return hasStroke() && !strokeWidth().isZero(); }
-    bool hasFill() const { return fillPaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
-    bool isVerticalWritingMode() const { return writingMode() == WM_TBRL || writingMode() == WM_TB; }
+    bool hasFill() const { return fillPaintType() != SVG_PAINTTYPE_NONE; }
     bool isolatesBlending() const { return hasMasker() || shadow(); }
 
 protected:
@@ -404,7 +397,6 @@ protected:
                 && (_textAnchor == other._textAnchor)
                 && (_colorInterpolation == other._colorInterpolation)
                 && (_colorInterpolationFilters == other._colorInterpolationFilters)
-                && (_writingMode == other._writingMode)
                 && (_glyphOrientationHorizontal == other._glyphOrientationHorizontal)
                 && (_glyphOrientationVertical == other._glyphOrientationVertical)
                 && (paintOrder == other.paintOrder);
@@ -424,7 +416,6 @@ protected:
         unsigned _textAnchor : 2; // ETextAnchor
         unsigned _colorInterpolation : 2; // EColorInterpolation
         unsigned _colorInterpolationFilters : 2; // EColorInterpolation
-        unsigned _writingMode : 3; // SVGWritingMode
         unsigned _glyphOrientationHorizontal : 3; // EGlyphOrientation
         unsigned _glyphOrientationVertical : 3; // EGlyphOrientation
         unsigned paintOrder : 3; // PaintOrder
@@ -481,7 +472,6 @@ private:
         svg_inherited_flags._joinStyle = initialJoinStyle();
         svg_inherited_flags._colorInterpolation = initialColorInterpolation();
         svg_inherited_flags._colorInterpolationFilters = initialColorInterpolationFilters();
-        svg_inherited_flags._writingMode = initialWritingMode();
         svg_inherited_flags._glyphOrientationHorizontal = initialGlyphOrientationHorizontal();
         svg_inherited_flags._glyphOrientationVertical = initialGlyphOrientationVertical();
         svg_inherited_flags.paintOrder = initialPaintOrder();
@@ -497,5 +487,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // SVGRenderStyle_h

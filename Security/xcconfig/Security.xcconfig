@@ -6,5 +6,13 @@ APPLE_AKS_LIBRARY[sdk=tvos*] = -L$(SDKROOT)/usr/local/lib -laks -framework Mobil
 
 
 FRAMEWORK_SEARCH_PATHS = $(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks $(DEVELOPER_LIBRARY_DIR)
+HEADER_SEARCH_PATHS = $(PROJECT_DIR)/header_symlinks/ $(PROJECT_DIR) $(PROJECT_DIR)/OSX/libsecurity_keychain/libDER $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/libsecurity_smime $(PROJECT_DIR)/OSX/sec/ProjectHeaders $(PROJECT_DIR)/OSX/sec $(PROJECT_DIR)/OSX/sec/SOSCircle $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX/regressions $(PROJECT_DIR)/OSX/ $(inherited)
+
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR)/header_symlinks/macOS/ $(inherited)
+HEADER_SEARCH_PATHS[sdk=embedded*] = $(PROJECT_DIR)/header_symlinks/iOS/ $(inherited)
+
+ARCHS[sdk=macosx*] = $(ARCHS_STANDARD)
 
 AOSKIT_FRAMEWORK[sdk=macosx*] = -framework AOSAccounts
+
+GCC_PREPROCESSOR_DEFINITIONS = __KEYCHAINCORE__=1 OSSPINLOCK_USE_INLINED=0 $(GCC_PREPROCESSOR_DEFINITIONS)

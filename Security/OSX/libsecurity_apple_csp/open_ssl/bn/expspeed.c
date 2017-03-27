@@ -86,8 +86,8 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
-#include <openssl/crypto.h>
-#include <openssl/err.h>
+#include <openssl/crypto_legacy.h>
+#include <openssl/opensslerr.h>
 
 #if !defined(MSDOS) && (!defined(VMS) || defined(__DECC))
 #define TIMES
@@ -119,8 +119,8 @@
 #include <sys/param.h>
 #endif
 
-#include <openssl/bn.h>
-#include <openssl/x509.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/x509_legacy.h>
 
 /* The following if from times(3) man page.  It may need to be changed */
 #ifndef HZ

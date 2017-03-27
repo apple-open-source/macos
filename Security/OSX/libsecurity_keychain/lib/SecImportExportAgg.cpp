@@ -59,7 +59,7 @@ OSStatus impExpPkcs12Export(
 	OSStatus			ortn = errSecSuccess;
 	CFMutableArrayRef   exportItems;			// SecKeychainItemRefs
 	CFDataRef			tmpData = NULL;
-	CSSM_CSP_HANDLE		cspHand;
+	CSSM_CSP_HANDLE		cspHand = CSSM_INVALID_HANDLE;
 	CSSM_KEY			*passKey = NULL;
 	CFStringRef			phraseStr = NULL;
 
@@ -532,23 +532,20 @@ OSStatus impExpPkcs12Import(
         {
         StorageManager::KeychainList keychains;
         globals().storageManager.optionalSearchList(importKeychain, keychains);
-#if SECTRUST_OSX
+
 		/* Convert unified SecCertificateRef to an ItemImpl instance */
 		itemImplRef = SecCertificateCreateItemImplInstance(certRef);
-#else
-		itemImplRef = (SecCertificateRef)((certRef) ? CFRetain(certRef) : NULL);
-#endif
 		SecPointer<Certificate> cert = Certificate::required(itemImplRef);
 		CFRelease(itemImplRef);
 		itemImplRef = NULL;
 		importedCertRef = cert->findInKeychain(keychains)->handle();
-#if SECTRUST_OSX
+
 		if (importedCertRef) {
 			SecCertificateRef tmpRef = SecCertificateCreateFromItemImplInstance(importedCertRef);
 			CFRelease(importedCertRef);
 			importedCertRef = tmpRef;
 		}
-#endif
+
 		}
 		/* Get digest of this cert's public key */
 		ortn = SecCertificateGetData(importedCertRef, &certData);

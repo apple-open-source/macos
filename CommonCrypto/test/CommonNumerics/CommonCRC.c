@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #include "testmore.h"
 #include "capabilities.h"
 #include "testbyteBuffer.h"

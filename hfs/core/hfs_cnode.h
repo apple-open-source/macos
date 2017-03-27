@@ -468,8 +468,6 @@ extern int hfs_valid_cnode(struct hfsmount *hfsmp, struct vnode *dvp, struct com
 
 extern int hfs_chash_set_childlinkbit(struct hfsmount *hfsmp, cnid_t cnid);
 
-void hfs_cnode_free(struct hfsmount *hfsmp, cnode_t *cp);
-
 /*
  * HFS cnode lock functions.
  *

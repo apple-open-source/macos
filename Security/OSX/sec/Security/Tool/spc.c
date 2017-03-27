@@ -243,7 +243,7 @@ out:
     return url;
 }
 
-static CFURLRef scep_url_operation(CFStringRef base, CFStringRef operation, CFStringRef message)
+static CF_RETURNS_RETAINED CFURLRef scep_url_operation(CFStringRef base, CFStringRef operation, CFStringRef message)
 {
     CFURLRef url = NULL;
     const void *keys[] = { CFSTR("operation"), CFSTR("message") };
@@ -395,7 +395,6 @@ static CF_RETURNS_RETAINED CFDictionaryRef get_encrypted_profile_packet(CFString
     if (error) {
         CFShow(error);
         errx(1, "failed to decode encrypted profile response");
-        CFRelease(error);
     }
     if (CFGetTypeID(result) != CFDictionaryGetTypeID())
     CFReleaseNull(result);
@@ -410,11 +409,16 @@ static SecCertificateRef get_ca_cert(CFStringRef scep_base_url, CFStringRef scep
     CFURLRef url = scep_url_operation(scep_base_url, CFSTR("GetCACert"), scep_ca_name);
     CFHTTPMessageRef request = CFHTTPMessageCreateRequest(kCFAllocatorDefault, 
         CFSTR("GET"), url, kCFHTTPVersion1_1);
+    CFReleaseSafe(url);
     CFHTTPMessageRef result = load_request(request, data, 1);
+    CFReleaseSafe(request);
 
-    if (!result)
+    if (!result) {
+        CFReleaseSafe(data);
         return NULL;
+    }
     CFStringRef contentTypeValue = CFHTTPMessageCopyHeaderFieldValue(result, CFSTR("Content-Type"));
+    CFReleaseSafe(result);
 //    CFHTTPMessageRef response = CFHTTPMessageCreateEmpty(kCFAllocatorDefault, false);
 //    CFHTTPMessageAppendBytes(response, CFDataGetBytePtr(data), CFDataGetLength(data));
 //    CFDataRef bodyValue = CFHTTPMessageCopyBody(response);

@@ -63,13 +63,13 @@ typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
 
 typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
     kSecAccessControlUserPresence           = 1 << 0,                                 // User presence policy using Touch ID or Passcode. Touch ID does not have to be available or enrolled. Item is still accessible by Touch ID even if fingers are added or removed.
-    kSecAccessControlTouchIDAny             CF_ENUM_AVAILABLE(10_12, 9_0) = 1u << 1,   // Constraint: Touch ID (any finger). Touch ID must be available and at least one finger must be enrolled. Item is still accessible by Touch ID even if fingers are added or removed.
-    kSecAccessControlTouchIDCurrentSet      CF_ENUM_AVAILABLE(10_12, 9_0) = 1u << 3,   // Constraint: Touch ID from the set of currently enrolled fingers. Touch ID must be available and at least one finger must be enrolled. When fingers are added or removed, the item is invalidated.
+    kSecAccessControlTouchIDAny             CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 1,   // Constraint: Touch ID (any finger). Touch ID must be available and at least one finger must be enrolled. Item is still accessible by Touch ID even if fingers are added or removed.
+    kSecAccessControlTouchIDCurrentSet      CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 3,   // Constraint: Touch ID from the set of currently enrolled fingers. Touch ID must be available and at least one finger must be enrolled. When fingers are added or removed, the item is invalidated.
     kSecAccessControlDevicePasscode         CF_ENUM_AVAILABLE(10_11, 9_0) = 1u << 4,   // Constraint: Device passcode
-    kSecAccessControlOr                     CF_ENUM_AVAILABLE(10_12, 9_0) = 1u << 14,  // Constraint logic operation: when using more than one constraint, at least one of them must be satisfied.
-    kSecAccessControlAnd                    CF_ENUM_AVAILABLE(10_12, 9_0) = 1u << 15,  // Constraint logic operation: when using more than one constraint, all must be satisfied.
-    kSecAccessControlPrivateKeyUsage        CF_ENUM_AVAILABLE(10_12, 9_0) = 1u << 30,  // Create access control for private key operations (i.e. sign operation)
-    kSecAccessControlApplicationPassword    CF_ENUM_AVAILABLE(10_12, 9_0) = 1u << 31,  // Security: Application provided password for data encryption key generation. This is not a constraint but additional item encryption mechanism.
+    kSecAccessControlOr                     CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 14,  // Constraint logic operation: when using more than one constraint, at least one of them must be satisfied.
+    kSecAccessControlAnd                    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 15,  // Constraint logic operation: when using more than one constraint, all must be satisfied.
+    kSecAccessControlPrivateKeyUsage        CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 30,  // Create access control for private key operations (i.e. sign operation)
+    kSecAccessControlApplicationPassword    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 31,  // Security: Application provided password for data encryption key generation. This is not a constraint but additional item encryption mechanism.
 } __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 #endif

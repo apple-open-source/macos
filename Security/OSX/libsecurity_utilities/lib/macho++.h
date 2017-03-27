@@ -209,7 +209,7 @@ public:
 
 	bool isUniversal() const { return mArchList != NULL; }
 	Architecture bestNativeArch() const;
-	const size_t lengthOfSlice(size_t offset) const;
+    size_t lengthOfSlice(size_t offset) const;
 
 	size_t offset() const { return mBase; }
 	size_t length() const { return mLength; }

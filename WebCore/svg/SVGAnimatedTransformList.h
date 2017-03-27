@@ -17,19 +17,19 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGAnimatedTransformList_h
-#define SVGAnimatedTransformList_h
+#pragma once
 
 #include "SVGAnimatedTransformListPropertyTearOff.h"
 #include "SVGAnimatedTypeAnimator.h"
+#include "SVGTransformList.h"
 
 namespace WebCore {
 
-typedef SVGAnimatedTransformListPropertyTearOff SVGAnimatedTransformList;
+using SVGAnimatedTransformList = SVGAnimatedTransformListPropertyTearOff;
 
 // Helper macros to declare/define a SVGAnimatedTransformList object
 #define DECLARE_ANIMATED_TRANSFORM_LIST(UpperProperty, LowerProperty) \
-DECLARE_ANIMATED_LIST_PROPERTY(SVGAnimatedTransformList, SVGTransformList, UpperProperty, LowerProperty)
+DECLARE_ANIMATED_LIST_PROPERTY(SVGAnimatedTransformList, SVGTransformListValues, UpperProperty, LowerProperty)
 
 #define DEFINE_ANIMATED_TRANSFORM_LIST(OwnerType, DOMAttribute, UpperProperty, LowerProperty) \
 DEFINE_ANIMATED_PROPERTY(AnimatedTransformList, OwnerType, DOMAttribute, DOMAttribute.localName(), UpperProperty, LowerProperty)
@@ -56,5 +56,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif

@@ -81,14 +81,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--host albert.apple.com --port 443 --cipher TLS_RSA_WITH_AES_128_GCM_SHA256"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "--host localhost --port 44330 "
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "--host secureauth.gsa.gov --port 443"
             isEnabled = "NO">
          </CommandLineArgument>

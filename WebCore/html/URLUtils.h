@@ -23,8 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef URLUtils_h
-#define URLUtils_h
+#pragma once
 
 #include "SecurityOrigin.h"
 
@@ -84,7 +83,7 @@ String URLUtils<T>::origin() const
 template <typename T>
 String URLUtils<T>::protocol() const
 {
-    return href().protocol() + ':';
+    return makeString(href().protocol(), ':');
 }
 
 template <typename T>
@@ -126,12 +125,7 @@ void URLUtils<T>::setPassword(const String& pass)
 template <typename T>
 String URLUtils<T>::host() const
 {
-    const URL& url = href();
-    if (url.hostEnd() == url.pathStart())
-        return url.host();
-    if (isDefaultPortForProtocol(url.port(), url.protocol()))
-        return url.host();
-    return url.host() + ':' + String::number(url.port());
+    return href().hostAndPort();
 }
 
 // This function does not allow leading spaces before the port number.
@@ -206,8 +200,8 @@ void URLUtils<T>::setHostname(const String& value)
 template <typename T>
 String URLUtils<T>::port() const
 {
-    if (href().hasPort())
-        return String::number(href().port());
+    if (href().port())
+        return String::number(href().port().value());
 
     return emptyString();
 }
@@ -293,5 +287,3 @@ void URLUtils<T>::setHash(const String& value)
 }
 
 } // namespace WebCore
-
-#endif // URLUtils_h

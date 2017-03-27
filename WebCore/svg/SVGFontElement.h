@@ -19,10 +19,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGFontElement_h
-#define SVGFontElement_h
+#pragma once
 
 #if ENABLE(SVG_FONTS)
+
 #include "SVGAnimatedBoolean.h"
 #include "SVGElement.h"
 #include "SVGExternalResourcesRequired.h"
@@ -50,7 +50,7 @@ public:
 private:
     SVGFontElement(const QualifiedName&, Document&);
 
-    bool rendererIsNeeded(const RenderStyle&) override { return false; }
+    bool rendererIsNeeded(const RenderStyle&) final { return false; }
 
     BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFontElement)
         DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
@@ -60,4 +60,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(SVG_FONTS)
-#endif

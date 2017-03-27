@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ObjectPropertyConditionSet_h
-#define ObjectPropertyConditionSet_h
+#pragma once
 
 #include "ObjectPropertyCondition.h"
 #include <wtf/FastMalloc.h>
@@ -157,6 +156,9 @@ private:
     RefPtr<Data> m_data;
 };
 
+ObjectPropertyCondition generateConditionForSelfEquivalence(
+    VM&, JSCell* owner, JSObject* object, UniquedStringImpl* uid);
+
 ObjectPropertyConditionSet generateConditionsForPropertyMiss(
     VM&, JSCell* owner, ExecState*, Structure* headStructure, UniquedStringImpl* uid);
 ObjectPropertyConditionSet generateConditionsForPropertySetterMiss(
@@ -177,6 +179,3 @@ ObjectPropertyConditionSet generateConditionsForPropertySetterMissConcurrently(
     VM&, JSGlobalObject*, Structure* headStructure, UniquedStringImpl* uid);
 
 } // namespace JSC
-
-#endif // ObjectPropertyConditionSet_h
-

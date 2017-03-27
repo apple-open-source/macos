@@ -26,7 +26,7 @@
 #include "keychain_find.h"
 
 #include "keychain_utilities.h"
-#include "readline.h"
+#include "readline_cssm.h"
 #include "security_tool.h"
 
 #include <stdio.h>
@@ -424,11 +424,11 @@ do_password_item_printing(	SecKeychainItemRef itemRef,
     } else {
         char *password = (char *) passwordData;
         int doHex = 0;
-        for(int i=0; i<passwordLength; i++) if(!isprint(password[i])) doHex = 1;
+        for(uint32_t i=0; i<passwordLength; i++) if(!isprint(password[i])) doHex = 1;
         if(doHex) {
-            for(int i=0; i<passwordLength; i++) printf("%02x", password[i]);
+            for(uint32_t i=0; i<passwordLength; i++) printf("%02x", password[i]);
         } else {
-            for(int i=0; i<passwordLength; i++) putchar(password[i]);
+            for(uint32_t i=0; i<passwordLength; i++) putchar(password[i]);
         }
         putchar('\n');
     }

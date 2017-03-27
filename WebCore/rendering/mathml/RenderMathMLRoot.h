@@ -34,12 +34,13 @@
 
 namespace WebCore {
 
+class MathMLRowElement;
+
 // Render base^(1/index), or sqrt(base) using radical notation.
 class RenderMathMLRoot final : public RenderMathMLRow {
 
 public:
-    RenderMathMLRoot(Element&, RenderStyle&&);
-    void updateFromElement() final;
+    RenderMathMLRoot(MathMLRowElement&, RenderStyle&&);
     void updateStyle();
 
 private:
@@ -55,13 +56,20 @@ private:
     void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0) final;
     void paint(PaintInfo&, const LayoutPoint&) final;
 
+    struct HorizontalParameters {
+        LayoutUnit kernBeforeDegree;
+        LayoutUnit kernAfterDegree;
+    };
+    HorizontalParameters horizontalParameters();
+    struct VerticalParameters {
+        LayoutUnit verticalGap;
+        LayoutUnit ruleThickness;
+        LayoutUnit extraAscender;
+        float degreeBottomRaisePercent;
+    };
+    VerticalParameters verticalParameters();
+
     MathOperator m_radicalOperator;
-    LayoutUnit m_verticalGap;
-    LayoutUnit m_ruleThickness;
-    LayoutUnit m_extraAscender;
-    LayoutUnit m_kernBeforeDegree;
-    LayoutUnit m_kernAfterDegree;
-    float m_degreeBottomRaisePercent;
     LayoutUnit m_radicalOperatorTop;
     LayoutUnit m_baseWidth;
 

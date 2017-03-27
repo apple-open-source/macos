@@ -29,18 +29,10 @@
 #if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoDigest.h"
+#include "ExceptionCode.h"
+#include "ScriptExecutionContext.h"
 
 namespace WebCore {
-
-const char* const CryptoAlgorithmSHA512::s_name = "SHA-512";
-
-CryptoAlgorithmSHA512::CryptoAlgorithmSHA512()
-{
-}
-
-CryptoAlgorithmSHA512::~CryptoAlgorithmSHA512()
-{
-}
 
 Ref<CryptoAlgorithm> CryptoAlgorithmSHA512::create()
 {
@@ -52,17 +44,35 @@ CryptoAlgorithmIdentifier CryptoAlgorithmSHA512::identifier() const
     return s_identifier;
 }
 
-void CryptoAlgorithmSHA512::digest(const CryptoAlgorithmParameters&, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback, ExceptionCode&)
+void CryptoAlgorithmSHA512::digest(Vector<uint8_t>&& message, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
-    std::unique_ptr<CryptoDigest> digest = CryptoDigest::create(CryptoDigest::Algorithm::SHA_512);
+    auto digest = CryptoDigest::create(CryptoDigest::Algorithm::SHA_512);
     if (!digest) {
-        failureCallback();
+        exceptionCallback(OperationError);
         return;
     }
 
-    digest->addBytes(data.first, data.second);
+    context.ref();
+    workQueue.dispatch([digest = WTFMove(digest), message = WTFMove(message), callback = WTFMove(callback), &context]() mutable {
+        digest->addBytes(message.data(), message.size());
+        auto result = digest->computeHash();
+        context.postTask([callback = WTFMove(callback), result = WTFMove(result)](ScriptExecutionContext& context) {
+            callback(result);
+            context.deref();
+        });
+    });
+}
 
+ExceptionOr<void> CryptoAlgorithmSHA512::digest(const CryptoAlgorithmParametersDeprecated&, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback)
+{
+    auto digest = CryptoDigest::create(CryptoDigest::Algorithm::SHA_512);
+    if (!digest) {
+        failureCallback();
+        return { };
+    }
+    digest->addBytes(data.first, data.second);
     callback(digest->computeHash());
+    return { };
 }
 
 }

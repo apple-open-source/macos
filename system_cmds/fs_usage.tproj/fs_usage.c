@@ -43,15 +43,16 @@
 #include <ktrace.h>
 #include <assert.h>
 
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/mman.h>
 #include <sys/disk.h>
-#include <sys/file.h>
 #include <sys/fcntl.h>
+#include <sys/file.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/param.h>
+#include <sys/socket.h>
+#include <sys/syslimits.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #import <mach/clock_types.h>
 #import <mach/mach_time.h>
@@ -3003,6 +3004,8 @@ fd_set_is_network(pid_t pid, unsigned long fd, bool set)
 
 	if (pid < 0)
 		return;
+	if (fd > OPEN_MAX)
+		return;
 
 	pfs = pfs_get(pid);
 
@@ -3013,7 +3016,7 @@ fd_set_is_network(pid_t pid, unsigned long fd, bool set)
 
 		newsize = MAX((fd + CHAR_BIT) / CHAR_BIT, 2 * pfs->setsize);
 		pfs->set = reallocf(pfs->set, newsize);
-		assert(pfs->set);
+		assert(pfs->set != NULL);
 
 		bzero(pfs->set + pfs->setsize, newsize - pfs->setsize);
 		pfs->setsize = newsize;

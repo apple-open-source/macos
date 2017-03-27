@@ -75,10 +75,9 @@ static void destroy(SOSTransportCircleRef transport){
 }
 
 static bool SOSTransportCircleKVSUpdateKVS(SOSTransportCircleRef transport, CFDictionaryRef changes, CFErrorRef *error){
-    CloudKeychainReplyBlock log_error = ^(CFDictionaryRef returnedValues __unused, CFErrorRef error) {
-        if (error) {
-            secerror("Error putting: %@", error);
-            CFReleaseSafe(error);
+    CloudKeychainReplyBlock log_error = ^(CFDictionaryRef returnedValues __unused, CFErrorRef block_error) {
+        if (block_error) {
+            secerror("Error putting: %@", block_error);
         }
     };
     
@@ -326,8 +325,6 @@ fail:
 //register ring key
 bool SOSTransportCircleKVSAppendRingKeyInterest(SOSTransportCircleKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *error){
     
-    CFMutableSetRef ringKeys = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
-
     if(SOSAccountHasPublicKey(SOSTransportCircleGetAccount((SOSTransportCircleRef)transport), NULL)){
         SOSAccountRef account = SOSTransportCircleGetAccount((SOSTransportCircleRef)transport);
         require_quiet(account, fail);
@@ -335,29 +332,14 @@ bool SOSTransportCircleKVSAppendRingKeyInterest(SOSTransportCircleKVSRef transpo
         require_quiet(circle, fail);
 
         // Always interested in backup rings:
-
-        SOSAccountForEachBackupRingName(account, ^(CFStringRef ringName) {
+        SOSAccountForEachRingName(account, ^(CFStringRef ringName) {
             CFStringRef ring_key = SOSRingKeyCreateWithRingName(ringName);
-            CFSetAddValue(ringKeys, ring_key);
+            CFArrayAppendValue(unlockedKeys, ring_key);
             CFReleaseNull(ring_key);
-        });
-
-        SOSAccountForEachRing(account, ^SOSRingRef(CFStringRef name, SOSRingRef ring) {
-            CFStringRef ring_key = SOSRingKeyCreateWithRingName(name);
-            CFSetAddValue(ringKeys, ring_key);
-            CFReleaseNull(ring_key);
-            return NULL;
-        });
-
-        CFSetForEach(ringKeys, ^(const void *value) {
-            CFArrayAppendValue(alwaysKeys, value);
         });
     }
-    CFReleaseSafe(ringKeys);
     return true;
-    
 fail:
-    CFReleaseNull(ringKeys);
     return false;
 }
 

@@ -82,7 +82,7 @@ ScopedArguments* ScopedArguments::createByCopying(ExecState* exec, ScopedArgumen
     return createByCopyingFrom(
         exec->vm(), exec->lexicalGlobalObject()->scopedArgumentsStructure(),
         exec->registers() + CallFrame::argumentOffset(0), exec->argumentCount(),
-        jsCast<JSFunction*>(exec->callee()), table, scope);
+        jsCast<JSFunction*>(exec->jsCallee()), table, scope);
 }
 
 ScopedArguments* ScopedArguments::createByCopyingFrom(VM& vm, Structure* structure, Register* argumentsStart, unsigned totalLength, JSFunction* callee, ScopedArgumentsTable* table, JSLexicalEnvironment* scope)
@@ -103,9 +103,9 @@ void ScopedArguments::visitChildren(JSCell* cell, SlotVisitor& visitor)
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
 
-    visitor.append(&thisObject->m_callee);
-    visitor.append(&thisObject->m_table);
-    visitor.append(&thisObject->m_scope);
+    visitor.append(thisObject->m_callee);
+    visitor.append(thisObject->m_table);
+    visitor.append(thisObject->m_scope);
     
     if (thisObject->m_totalLength > thisObject->m_table->length()) {
         visitor.appendValues(

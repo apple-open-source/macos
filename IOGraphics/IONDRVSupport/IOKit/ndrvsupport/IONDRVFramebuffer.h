@@ -266,6 +266,9 @@ public:
     //// Gamma
 
     virtual IOReturn setGammaTable( UInt32 channelCount, UInt32 dataCount,
+                                   UInt32 dataWidth, void * data, bool syncToVBL );
+
+    virtual IOReturn setGammaTable( UInt32 channelCount, UInt32 dataCount,
                     UInt32 dataWidth, void * data );
 
     //// Display mode timing information

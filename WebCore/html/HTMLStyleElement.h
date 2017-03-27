@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef HTMLStyleElement_h
-#define HTMLStyleElement_h
+#pragma once
 
 #include "HTMLElement.h"
 #include "InlineStyleSheetOwner.h"
@@ -32,31 +31,32 @@ class HTMLStyleElement;
 class StyleSheet;
 
 template<typename T> class EventSender;
-typedef EventSender<HTMLStyleElement> StyleEventSender;
+
+using StyleEventSender = EventSender<HTMLStyleElement>;
 
 class HTMLStyleElement final : public HTMLElement {
 public:
+    static Ref<HTMLStyleElement> create(Document&);
     static Ref<HTMLStyleElement> create(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLStyleElement();
 
     CSSStyleSheet* sheet() const { return m_styleSheetOwner.sheet(); }
 
-    bool disabled() const;
-    void setDisabled(bool);
+    WEBCORE_EXPORT bool disabled() const;
+    WEBCORE_EXPORT void setDisabled(bool);
 
     void dispatchPendingEvent(StyleEventSender*);
     static void dispatchPendingLoadEvents();
 
+    void finishParsingChildren() final;
+
 private:
     HTMLStyleElement(const QualifiedName&, Document&, bool createdByParser);
 
-    // overload from HTMLElement
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     InsertionNotificationRequest insertedInto(ContainerNode&) final;
     void removedFrom(ContainerNode&) final;
     void childrenChanged(const ChildChange&) final;
-
-    void finishParsingChildren() final;
 
     bool isLoading() const { return m_styleSheetOwner.isLoading(); }
     bool sheetLoaded() final { return m_styleSheetOwner.sheetLoaded(*this); }
@@ -66,10 +66,8 @@ private:
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
     InlineStyleSheetOwner m_styleSheetOwner;
-    bool m_firedLoad;
-    bool m_loadedSheet;
+    bool m_firedLoad { false };
+    bool m_loadedSheet { false };
 };
 
 } //namespace
-
-#endif

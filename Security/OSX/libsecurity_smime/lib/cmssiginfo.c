@@ -267,8 +267,10 @@ nss_cmssignerinfo_create(SecCmsMessageRef cmsg, SecCmsSignerIDSelector type, Sec
         if (!subjKeyID)
             goto loser;
         signerinfo->signerIdentifier.id.subjectKeyID = PORT_ArenaNew(poolp, CSSM_DATA);
-        SECITEM_CopyItem(poolp, signerinfo->signerIdentifier.id.subjectKeyID,
-                         subjKeyID);
+        if (SECITEM_CopyItem(poolp, signerinfo->signerIdentifier.id.subjectKeyID,
+                             subjKeyID)) {
+            goto loser;
+        }
         signerinfo->pubKey = SECKEY_CopyPublicKey(pubKey);
         if (!signerinfo->pubKey)
             goto loser;

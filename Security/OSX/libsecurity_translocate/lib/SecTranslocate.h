@@ -49,7 +49,7 @@ __OSX_AVAILABLE(10.12);
 
  @abstract Initialize the SecTranslocate Library as the XPC Server, Disk Arbitration Listener, and Launch Services Notification listener
 
- @param option (currently unused) A dictionary of options that could impact server startup
+ @param options (currently unused) A dictionary of options that could impact server startup
  @param outError On error will be populated with an error object describing the failure (a posix domain error such as EINVAL)
 
  @result True on success False on failure

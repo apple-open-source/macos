@@ -48,6 +48,7 @@
 				1558480607550D470046C2E9 /* PBXTargetDependency */,
 				1558480807550D470046C2E9 /* PBXTargetDependency */,
 				D6DDAC3D147A24BC00A2E902 /* PBXTargetDependency */,
+				72C12CB11D6EA2CA000EE61C /* PBXTargetDependency */,
 				150ECB300D0042DA0065E94D /* PBXTargetDependency */,
 			);
 			name = configd_executables;
@@ -118,6 +119,7 @@
 				158317660CFB80D5006F62B9 /* PBXTargetDependency */,
 				157434210D4A8166002ACA73 /* PBXTargetDependency */,
 				1574341F0D4A815E002ACA73 /* PBXTargetDependency */,
+				7271EA341D7660980055B1AA /* PBXTargetDependency */,
 			);
 			name = "configd_executables-Embedded";
 			productName = configd_executables;
@@ -295,7 +297,6 @@
 		1565D85018B847590097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		1565D85118B847F20097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		156BD6BC07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 156BD6BB07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		1572AA8C1D8235390021E093 /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
 		1572AA8D1D8235940021E093 /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
 		1572AA8E1D8235A40021E093 /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
 		1572AA8F1D82375A0021E093 /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
@@ -537,6 +538,15 @@
 		157A85290D56C91100B6F1A0 /* linkconfig.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53C107528B36004F8947 /* linkconfig.c */; };
 		157A853F0D56C96F00B6F1A0 /* prefsmon.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53C307528B36004F8947 /* prefsmon.c */; };
 		157A88890A470D0F003A4256 /* SCSchemaDefinitionsPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 157A88880A470D0F003A4256 /* SCSchemaDefinitionsPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		1581BCD21E28673600F69B1E /* InterfaceNamerControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */; };
+		1581BCD31E28679A00F69B1E /* InterfaceNamerControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */; };
+		1581BCD41E2867A300F69B1E /* IPMonitorControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */; };
+		1581BCD51E2867A500F69B1E /* IPMonitorControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */; };
+		1581BCD61E2867AF00F69B1E /* IPMonitorControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */; };
+		1581BCD71E2867B200F69B1E /* IPMonitorControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */; };
+		1581BCD81E2867BA00F69B1E /* IPMonitorControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */; };
+		1581BCD91E2867C100F69B1E /* IPMonitorControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */; };
+		1581BCDD1E286E0000F69B1E /* InterfaceNamerControlPrefs.h in Headers */ = {isa = PBXBuildFile; fileRef = 15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */; };
 		158317250CFB80A1006F62B9 /* configd.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB69CF05C0722B0099E85F /* configd.h */; };
 		158317260CFB80A1006F62B9 /* _SCD.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB69D105C0722B0099E85F /* _SCD.h */; };
 		158317270CFB80A1006F62B9 /* configd_server.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB69D305C0722B0099E85F /* configd_server.h */; };
@@ -755,6 +765,7 @@
 		15A5A2610D5B94190087BDA0 /* SCNetworkSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */; };
 		15A5A2630D5B94190087BDA0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		15A6F7C40A4B266D00B907EA /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 15A6F7C20A4B266D00B907EA /* Localizable.strings */; };
+		15A9BDA81D8DEA67007024DB /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
 		15AAA7F4108E310700C2A607 /* VPNTunnelPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F1108E310700C2A607 /* VPNTunnelPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15AAA7F5108E310700C2A607 /* VPNTunnel.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F2108E310700C2A607 /* VPNTunnel.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15AAA7F6108E310700C2A607 /* VPNTunnel.c in Sources */ = {isa = PBXBuildFile; fileRef = 15AAA7F3108E310700C2A607 /* VPNTunnel.c */; };
@@ -884,6 +895,8 @@
 		15E1B05416EBAE3C00E5F06F /* scprefs_observer.c in Sources */ = {isa = PBXBuildFile; fileRef = D61AAEAD1522C99C0066B003 /* scprefs_observer.c */; };
 		15E1B05516EBAE3C00E5F06F /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		15F21618110F823500E89CF7 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15BAA32207F0699A00D9EC95 /* libbsm.dylib */; };
+		15FB1F8A1E27EA8700B4F809 /* InterfaceNamerControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */; };
+		15FB1F8B1E27EA8900B4F809 /* InterfaceNamerControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */; };
 		15FBB54C17D6834C0035D752 /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */; };
 		15FC130B0CCEA59E0013872C /* monitor.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FC130A0CCEA59E0013872C /* monitor.c */; };
 		15FC13180CCF74740013872C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
@@ -903,6 +916,17 @@
 		7214BCE41BEB392300A8F056 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; };
 		72499BA41AC9B7AB0090C49F /* get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* get-network-info */; };
 		72499BA51AC9B7AB0090C49F /* get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* get-network-info */; };
+		72573D291D667372004975AD /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D281D667372004975AD /* main.m */; };
+		72573D2E1D6673B6004975AD /* SCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D2D1D6673B6004975AD /* SCTest.m */; };
+		72573D321D667686004975AD /* SCTestUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D311D667686004975AD /* SCTestUtils.m */; };
+		72573D351D6680AA004975AD /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72573D331D66800C004975AD /* SystemConfiguration.framework */; };
+		72573D3A1D6692BA004975AD /* SCTestOptions.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D391D6692BA004975AD /* SCTestOptions.m */; };
+		72573D3C1D6695B4004975AD /* SCTestDynamicStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3B1D6695B4004975AD /* SCTestDynamicStore.m */; };
+		72573D3E1D669AA6004975AD /* SCTestPreferences.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3D1D669AA6004975AD /* SCTestPreferences.m */; };
+		72573D401D67B2BE004975AD /* SCTestUnitTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3F1D67B2BE004975AD /* SCTestUnitTest.m */; };
+		72573D421D6B798A004975AD /* SCTestConfigAgents.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D411D6B7989004975AD /* SCTestConfigAgents.m */; };
+		72573D441D6BA051004975AD /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
+		72573D451D6BA976004975AD /* libnetwork.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 90507AAF1CE2F55B0067D16B /* libnetwork.dylib */; };
 		725CB7551BF439C6000C05A8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725CB7541BF439C6000C05A8 /* Foundation.framework */; };
 		725CB7561BF439D2000C05A8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725CB7541BF439C6000C05A8 /* Foundation.framework */; };
 		725CB7581BF514F2000C05A8 /* configAgentDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 725CB7571BF51476000C05A8 /* configAgentDefines.h */; };
@@ -911,6 +935,20 @@
 		7264C14614731A1F004FD76D /* CaptiveNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		726DB2F41BEA80E5001B2C6C /* config_agent_info.c in Sources */ = {isa = PBXBuildFile; fileRef = 726DB2F11BEA80E5001B2C6C /* config_agent_info.c */; };
 		726DB2F61BEA80E5001B2C6C /* config_agent_info.h in Headers */ = {isa = PBXBuildFile; fileRef = 726DB2F21BEA80E5001B2C6C /* config_agent_info.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		7271EA1E1D76600B0055B1AA /* SCTestDynamicStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3B1D6695B4004975AD /* SCTestDynamicStore.m */; };
+		7271EA1F1D76600B0055B1AA /* SCTestOptions.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D391D6692BA004975AD /* SCTestOptions.m */; };
+		7271EA201D76600B0055B1AA /* SCTestUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D311D667686004975AD /* SCTestUtils.m */; };
+		7271EA211D76600B0055B1AA /* SCTestUnitTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3F1D67B2BE004975AD /* SCTestUnitTest.m */; };
+		7271EA221D76600B0055B1AA /* SCTestReachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 728E0E951D70229A00E0613A /* SCTestReachability.m */; };
+		7271EA231D76600B0055B1AA /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D281D667372004975AD /* main.m */; };
+		7271EA241D76600B0055B1AA /* SCTestConfigAgents.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D411D6B7989004975AD /* SCTestConfigAgents.m */; };
+		7271EA251D76600B0055B1AA /* SCTestPreferences.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3D1D669AA6004975AD /* SCTestPreferences.m */; };
+		7271EA261D76600B0055B1AA /* SCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D2D1D6673B6004975AD /* SCTest.m */; };
+		7271EA281D76600B0055B1AA /* libnetwork.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 90507AAF1CE2F55B0067D16B /* libnetwork.dylib */; };
+		7271EA291D76600B0055B1AA /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
+		7271EA2A1D76600B0055B1AA /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72573D331D66800C004975AD /* SystemConfiguration.framework */; };
+		7271EA2B1D76600B0055B1AA /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; };
+		7271EA2D1D76600B0055B1AA /* npt_configd.plist in npt_configd.plist */ = {isa = PBXBuildFile; fileRef = 72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */; };
 		727AF25419138699009AB153 /* VPNAppLayerPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = B0A88CA616397A1200A60B3A /* VPNAppLayerPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727AF255191386A0009AB153 /* VPNFlow.h in Headers */ = {isa = PBXBuildFile; fileRef = C4CDB8111631933400819B44 /* VPNFlow.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727AF257191386DA009AB153 /* VPNTunnel.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F2108E310700C2A607 /* VPNTunnel.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -935,10 +973,13 @@
 		7280159E1BE1812B009F4F60 /* proxyAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157F1BE16833009F4F60 /* proxyAgent.h */; };
 		728CEAFF1BEA951A00F13F92 /* config_agent_info.c in Sources */ = {isa = PBXBuildFile; fileRef = 726DB2F11BEA80E5001B2C6C /* config_agent_info.c */; };
 		728CEB001BEA993100F13F92 /* config_agent_info.h in Headers */ = {isa = PBXBuildFile; fileRef = 726DB2F21BEA80E5001B2C6C /* config_agent_info.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		728E0E961D70229A00E0613A /* SCTestReachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 728E0E951D70229A00E0613A /* SCTestReachability.m */; };
+		728E0E971D70348D00E0613A /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; };
 		72B43728113C7BFC00EBF1B6 /* nc.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B43726113C7BFC00EBF1B6 /* nc.h */; };
 		72B43729113C7BFC00EBF1B6 /* nc.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B43727113C7BFC00EBF1B6 /* nc.c */; };
 		72B4372A113C7BFC00EBF1B6 /* nc.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B43726113C7BFC00EBF1B6 /* nc.h */; };
 		72B4372B113C7BFC00EBF1B6 /* nc.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B43727113C7BFC00EBF1B6 /* nc.c */; };
+		72C12CAB1D6E9F45000EE61C /* npt_configd.plist in npt_configd.plist */ = {isa = PBXBuildFile; fileRef = 72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */; };
 		72D3E6611AE6EA3A00DB4C69 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E6601AE6EA3A00DB4C69 /* main.swift */; };
 		72D3E66C1AE6EAF600DB4C69 /* test-objC.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E66B1AE6EAF600DB4C69 /* test-objC.m */; };
 		90507AB01CE2F55B0067D16B /* libnetwork.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 90507AAF1CE2F55B0067D16B /* libnetwork.dylib */; };
@@ -1415,6 +1456,20 @@
 			remoteGlobalIDString = 15DAD63F07591A1A0084A6ED;
 			remoteInfo = SystemConfiguration.framework;
 		};
+		7271EA331D7660980055B1AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7271EA1B1D76600B0055B1AA;
+			remoteInfo = "sctest-Embedded";
+		};
+		72C12CB01D6EA2CA000EE61C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72573D251D667372004975AD;
+			remoteInfo = sctest;
+		};
 		72C4A47F1BE44D19009D570E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
@@ -1555,6 +1610,28 @@
 			files = (
 				15FF5C370CDF776200EEC8AA /* com.apple.SCHelper.plist in CopyFiles */,
 			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		72573D241D667372004975AD /* npt_configd.plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/CoreOS/BATS/npt_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				72C12CAB1D6E9F45000EE61C /* npt_configd.plist in npt_configd.plist */,
+			);
+			name = npt_configd.plist;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7271EA2C1D76600B0055B1AA /* npt_configd.plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/CoreOS/BATS/npt_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				7271EA2D1D76600B0055B1AA /* npt_configd.plist in npt_configd.plist */,
+			);
+			name = npt_configd.plist;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		72D3E65C1AE6EA3900DB4C69 /* CopyFiles */ = {
@@ -1851,6 +1928,8 @@
 		15DC346E0711D49400A3311C /* net_set.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = net_set.h; sourceTree = "<group>"; };
 		15E1B05916EBAE3C00E5F06F /* libIPMonitor_sim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIPMonitor_sim.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E1B06116EBAE7800E5F06F /* IPMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = InterfaceNamerControlPrefs.c; sourceTree = "<group>"; };
+		15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InterfaceNamerControlPrefs.h; sourceTree = "<group>"; };
 		15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = /usr/local/lib/libCrashReporterClient.a; sourceTree = "<absolute>"; };
 		15FBB54E17D7899C0035D752 /* Info-EmbeddedSimulator.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-EmbeddedSimulator.plist"; sourceTree = "<group>"; };
 		15FBB55017D78A780035D752 /* update-mach-services */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "update-mach-services"; sourceTree = "<group>"; };
@@ -1872,11 +1951,27 @@
 		55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCNetworkMigration.c; sourceTree = "<group>"; };
 		720985431C580D9F00966D30 /* network_config_agent_info_priv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = network_config_agent_info_priv.h; path = nwi/network_config_agent_info_priv.h; sourceTree = "<group>"; };
 		72499BA31AC9B7AB0090C49F /* get-network-info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "get-network-info"; sourceTree = SOURCE_ROOT; };
+		72573D261D667372004975AD /* sctest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		72573D281D667372004975AD /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		72573D2D1D6673B6004975AD /* SCTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTest.m; sourceTree = "<group>"; };
+		72573D2F1D6673C6004975AD /* SCTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCTest.h; sourceTree = "<group>"; };
+		72573D301D6675AF004975AD /* SCTestUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCTestUtils.h; sourceTree = "<group>"; };
+		72573D311D667686004975AD /* SCTestUtils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestUtils.m; sourceTree = "<group>"; };
+		72573D331D66800C004975AD /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		72573D361D668B3C004975AD /* genSCTestOptions.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = genSCTestOptions.c; path = sctest/genSCTestOptions.c; sourceTree = SOURCE_ROOT; };
+		72573D381D6692BA004975AD /* SCTestOptions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCTestOptions.h; sourceTree = "<group>"; };
+		72573D391D6692BA004975AD /* SCTestOptions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestOptions.m; sourceTree = "<group>"; };
+		72573D3B1D6695B4004975AD /* SCTestDynamicStore.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestDynamicStore.m; sourceTree = "<group>"; };
+		72573D3D1D669AA6004975AD /* SCTestPreferences.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestPreferences.m; sourceTree = "<group>"; };
+		72573D3F1D67B2BE004975AD /* SCTestUnitTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestUnitTest.m; sourceTree = "<group>"; };
+		72573D411D6B7989004975AD /* SCTestConfigAgents.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestConfigAgents.m; sourceTree = "<group>"; };
+		72573D431D6B9E72004975AD /* sctest-entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "sctest-entitlements.plist"; path = "sctest/sctest-entitlements.plist"; sourceTree = SOURCE_ROOT; };
 		725CB7541BF439C6000C05A8 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		725CB7571BF51476000C05A8 /* configAgentDefines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = configAgentDefines.h; sourceTree = "<group>"; };
 		725E53D51A92D2A5009997E1 /* com.apple.networking.IPMonitor */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.networking.IPMonitor; sourceTree = "<group>"; };
 		726DB2F11BEA80E5001B2C6C /* config_agent_info.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = config_agent_info.c; path = "config-agent-info/config_agent_info.c"; sourceTree = "<group>"; };
 		726DB2F21BEA80E5001B2C6C /* config_agent_info.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config_agent_info.h; path = "config-agent-info/config_agent_info.h"; sourceTree = "<group>"; };
+		7271EA321D76600B0055B1AA /* sctest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		728015751BE16833009F4F60 /* agent-monitor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = "agent-monitor.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 		728015781BE16833009F4F60 /* configAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configAgent.h; sourceTree = "<group>"; };
 		728015791BE16833009F4F60 /* configAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = configAgent.m; sourceTree = "<group>"; };
@@ -1889,8 +1984,10 @@
 		728015931BE1697E009F4F60 /* agent-monitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "agent-monitor.h"; sourceTree = "<group>"; };
 		728015951BE16B6C009F4F60 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/PrivateFrameworks/Network.framework; sourceTree = SDKROOT; };
 		728015961BE16B6C009F4F60 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
+		728E0E951D70229A00E0613A /* SCTestReachability.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestReachability.m; sourceTree = "<group>"; };
 		72B43726113C7BFC00EBF1B6 /* nc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nc.h; sourceTree = "<group>"; };
 		72B43727113C7BFC00EBF1B6 /* nc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nc.c; sourceTree = "<group>"; };
+		72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = npt_configd.plist; sourceTree = "<group>"; };
 		72D3E6591AE6E8A900DB4C69 /* Modules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Modules; path = SystemConfiguration.fproj/Modules; sourceTree = SOURCE_ROOT; };
 		72D3E65E1AE6EA3A00DB4C69 /* SCTest-Swift */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-Swift"; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D3E6601AE6EA3A00DB4C69 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -2105,6 +2202,28 @@
 				15DAD6AE07591A1A0084A6ED /* CoreFoundation.framework in Frameworks */,
 				B03FEFBA16382C0700A1B88F /* libbsm.dylib in Frameworks */,
 				15FBB54C17D6834C0035D752 /* libCrashReporterClient.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72573D231D667372004975AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72573D451D6BA976004975AD /* libnetwork.dylib in Frameworks */,
+				72573D441D6BA051004975AD /* Network.framework in Frameworks */,
+				72573D351D6680AA004975AD /* SystemConfiguration.framework in Frameworks */,
+				728E0E971D70348D00E0613A /* NetworkExtension.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7271EA271D76600B0055B1AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7271EA281D76600B0055B1AA /* libnetwork.dylib in Frameworks */,
+				7271EA291D76600B0055B1AA /* Network.framework in Frameworks */,
+				7271EA2A1D76600B0055B1AA /* SystemConfiguration.framework in Frameworks */,
+				7271EA2B1D76600B0055B1AA /* NetworkExtension.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2395,8 +2514,10 @@
 		159D53C907528B36004F8947 /* common */ = {
 			isa = PBXGroup;
 			children = (
-				F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */,
+				15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */,
+				15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */,
 				F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */,
+				F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */,
 				159D53CA07528B36004F8947 /* cache.c */,
 				159D53CB07528B36004F8947 /* cache.h */,
 				1572AA8B1D8234500021E093 /* plugin_shared.h */,
@@ -2674,6 +2795,7 @@
 				15CB6A6E05C0722B0099E85F /* External Frameworks and Libraries */,
 				72D3E65F1AE6EA3A00DB4C69 /* SCTest-Swift */,
 				72D3E66A1AE6EAF600DB4C69 /* SCTest-ObjC */,
+				72573D271D667372004975AD /* sctest */,
 				15CB690F05C0722B0099E85F /* Products */,
 				90507AAE1CE2F55B0067D16B /* Frameworks */,
 			);
@@ -2722,6 +2844,8 @@
 				155F49931C864F3700E47D08 /* QoSMarking.bundle */,
 				155F499C1C864F4E00E47D08 /* libQoSMarking.a */,
 				155F49A21C864F5400E47D08 /* QoSMarking.bundle */,
+				72573D261D667372004975AD /* sctest */,
+				7271EA321D76600B0055B1AA /* sctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2981,6 +3105,28 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		72573D271D667372004975AD /* sctest */ = {
+			isa = PBXGroup;
+			children = (
+				72573D361D668B3C004975AD /* genSCTestOptions.c */,
+				72573D381D6692BA004975AD /* SCTestOptions.h */,
+				72573D391D6692BA004975AD /* SCTestOptions.m */,
+				72573D301D6675AF004975AD /* SCTestUtils.h */,
+				72573D311D667686004975AD /* SCTestUtils.m */,
+				72573D2F1D6673C6004975AD /* SCTest.h */,
+				72573D281D667372004975AD /* main.m */,
+				72573D2D1D6673B6004975AD /* SCTest.m */,
+				72573D3B1D6695B4004975AD /* SCTestDynamicStore.m */,
+				72573D3D1D669AA6004975AD /* SCTestPreferences.m */,
+				72573D411D6B7989004975AD /* SCTestConfigAgents.m */,
+				728E0E951D70229A00E0613A /* SCTestReachability.m */,
+				72573D3F1D67B2BE004975AD /* SCTestUnitTest.m */,
+				72573D431D6B9E72004975AD /* sctest-entitlements.plist */,
+				72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */,
+			);
+			path = sctest;
+			sourceTree = "<group>";
+		};
 		725E53D41A92D289009997E1 /* Simulator */ = {
 			isa = PBXGroup;
 			children = (
@@ -3035,6 +3181,7 @@
 		90507AAE1CE2F55B0067D16B /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				72573D331D66800C004975AD /* SystemConfiguration.framework */,
 				90507AB11CE2F5720067D16B /* libnetwork.dylib */,
 				90507AAF1CE2F55B0067D16B /* libnetwork.dylib */,
 			);
@@ -3116,6 +3263,8 @@
 				155847520754FDCD0046C2E9 /* net_service.h in Headers */,
 				155847530754FDCD0046C2E9 /* net_set.h in Headers */,
 				72B43728113C7BFC00EBF1B6 /* nc.h in Headers */,
+				1581BCD31E28679A00F69B1E /* InterfaceNamerControlPrefs.h in Headers */,
+				1581BCD51E2867A500F69B1E /* IPMonitorControlPrefs.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3233,6 +3382,7 @@
 				15732ABA16EA511900F3AC4C /* net_service.h in Headers */,
 				15732ABB16EA511900F3AC4C /* net_set.h in Headers */,
 				15732ABC16EA511900F3AC4C /* nc.h in Headers */,
+				1581BCD91E2867C100F69B1E /* IPMonitorControlPrefs.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3272,6 +3422,8 @@
 				157433FD0D4A8137002ACA73 /* net_service.h in Headers */,
 				157433FE0D4A8137002ACA73 /* net_set.h in Headers */,
 				72B4372A113C7BFC00EBF1B6 /* nc.h in Headers */,
+				1581BCDD1E286E0000F69B1E /* InterfaceNamerControlPrefs.h in Headers */,
+				1581BCD71E2867B200F69B1E /* IPMonitorControlPrefs.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3308,6 +3460,7 @@
 				153ACCAC14E322D5005029A5 /* network_information_server.h in Headers */,
 				720A4C0A1C585C7D007436B8 /* configAgent.h in Headers */,
 				1596A7B514EDB73D00798C39 /* libSystemConfiguration_server.h in Headers */,
+				1581BCD61E2867AF00F69B1E /* IPMonitorControlPrefs.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3315,7 +3468,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1572AA8C1D8235390021E093 /* plugin_shared.h in Headers */,
+				15A9BDA81D8DEA67007024DB /* plugin_shared.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3388,6 +3541,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1572AA8F1D82375A0021E093 /* plugin_shared.h in Headers */,
+				1581BCD21E28673600F69B1E /* InterfaceNamerControlPrefs.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3401,6 +3555,7 @@
 				7280159D1BE1812B009F4F60 /* dnsAgent.h in Headers */,
 				7280159E1BE1812B009F4F60 /* proxyAgent.h in Headers */,
 				155D223B0AF13A7300D52ED0 /* dns-configuration.h in Headers */,
+				1581BCD41E2867A300F69B1E /* IPMonitorControlPrefs.h in Headers */,
 				15D48EC00F67061700B4711E /* dnsinfo_create.h in Headers */,
 				725CB7581BF514F2000C05A8 /* configAgentDefines.h in Headers */,
 				E4F211D7137B0AF200BBB915 /* network_state_information_priv.h in Headers */,
@@ -3593,6 +3748,7 @@
 				15E1B04516EBAE3C00E5F06F /* network_state_information_priv.h in Headers */,
 				15E1B04616EBAE3C00E5F06F /* proxy-configuration.h in Headers */,
 				15E1B04816EBAE3C00E5F06F /* network_information_server.h in Headers */,
+				1581BCD81E2867BA00F69B1E /* IPMonitorControlPrefs.h in Headers */,
 				15E1B04916EBAE3C00E5F06F /* libSystemConfiguration_server.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4398,6 +4554,42 @@
 			productReference = 15FD72C90754DA7E001CC321 /* PreferencesMonitor.bundle */;
 			productType = "com.apple.product-type.bundle";
 		};
+		72573D251D667372004975AD /* sctest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72573D2A1D667372004975AD /* Build configuration list for PBXNativeTarget "sctest" */;
+			buildPhases = (
+				72573D221D667372004975AD /* Sources */,
+				72573D231D667372004975AD /* Frameworks */,
+				72573D241D667372004975AD /* npt_configd.plist */,
+				72C12CB21D6FEFBE000EE61C /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sctest;
+			productName = sctest;
+			productReference = 72573D261D667372004975AD /* sctest */;
+			productType = "com.apple.product-type.tool";
+		};
+		7271EA1B1D76600B0055B1AA /* sctest-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7271EA2F1D76600B0055B1AA /* Build configuration list for PBXNativeTarget "sctest-Embedded" */;
+			buildPhases = (
+				7271EA1D1D76600B0055B1AA /* Sources */,
+				7271EA271D76600B0055B1AA /* Frameworks */,
+				7271EA2C1D76600B0055B1AA /* npt_configd.plist */,
+				7271EA2E1D76600B0055B1AA /* Fix plist ownership */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "sctest-Embedded";
+			productName = sctest;
+			productReference = 7271EA321D76600B0055B1AA /* sctest */;
+			productType = "com.apple.product-type.tool";
+		};
 		72D3E65D1AE6EA3900DB4C69 /* SCTest-Swift */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 72D3E6621AE6EA3A00DB4C69 /* Build configuration list for PBXNativeTarget "SCTest-Swift" */;
@@ -4442,6 +4634,10 @@
 			attributes = {
 				LastUpgradeCheck = 0800;
 				TargetAttributes = {
+					72573D251D667372004975AD = {
+						CreatedOnToolsVersion = 8.0;
+						ProvisioningStyle = Automatic;
+					};
 					72D3E65D1AE6EA3900DB4C69 = {
 						CreatedOnToolsVersion = 7.0;
 					};
@@ -4527,6 +4723,8 @@
 				15E83104167F9AF600FD51EC /* EVERYTHING */,
 				72D3E65D1AE6EA3900DB4C69 /* SCTest-Swift */,
 				72D3E6681AE6EAF600DB4C69 /* SCTest-ObjC */,
+				72573D251D667372004975AD /* sctest */,
+				7271EA1B1D76600B0055B1AA /* sctest-Embedded */,
 			);
 		};
 /* End PBXProject section */
@@ -4939,6 +5137,33 @@
 			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n\t${SCRIPT_INPUT_FILE_0} com.apple.configd_sim.plist\nfi";
 			showEnvVarsInLog = 0;
 		};
+		7271EA2E1D76600B0055B1AA /* Fix plist ownership */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Fix plist ownership";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ ${UID} -eq 0 ]; then\n\tchown 0:0 \"${DSTROOT}/AppleInternal/CoreOS/BATS/npt_tests/npt_configd.plist\"\nfi\n\nexit 0";
+		};
+		72C12CB21D6FEFBE000EE61C /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ ${UID} -eq 0 ]; then\n\tchown 0:0 \"${DSTROOT}/AppleInternal/CoreOS/BATS/npt_tests/npt_configd.plist\"\nfi\n\nexit 0";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -4977,6 +5202,7 @@
 				155847600754FDCD0046C2E9 /* net_service.c in Sources */,
 				155847610754FDCD0046C2E9 /* net_set.c in Sources */,
 				72B43729113C7BFC00EBF1B6 /* nc.c in Sources */,
+				15FB1F8B1E27EA8900B4F809 /* InterfaceNamerControlPrefs.c in Sources */,
 				F9B50FF316A4CBB200CA274E /* IPMonitorControlPrefs.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5306,6 +5532,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				159D541607528DF1004F8947 /* ifnamer.c in Sources */,
+				15FB1F8A1E27EA8700B4F809 /* InterfaceNamerControlPrefs.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5318,7 +5545,6 @@
 				15D48EBF0F67061600B4711E /* dnsinfo_create.c in Sources */,
 				1522FCFB0FA7FE4B00B24128 /* dnsinfo_flatfile.c in Sources */,
 				150BEC1814CA24F900237116 /* dnsinfo_server.c in Sources */,
-				F9B7AE6A186211D300C78D18 /* IPMonitorControlServer.c in Sources */,
 				159D541707528E05004F8947 /* ip_plugin.c in Sources */,
 				7280158D1BE16861009F4F60 /* dnsAgent.m in Sources */,
 				E49173E1137C4E4F0000089F /* network_state_information_priv.c in Sources */,
@@ -5332,6 +5558,7 @@
 				7280158C1BE1685D009F4F60 /* controller.m in Sources */,
 				D61AAEAF1522C99C0066B003 /* scprefs_observer.c in Sources */,
 				F9A3781016A4847700C57CDC /* IPMonitorControlPrefs.c in Sources */,
+				F9B7AE6A186211D300C78D18 /* IPMonitorControlServer.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5569,6 +5796,38 @@
 				15E1B05316EBAE3C00E5F06F /* libSystemConfiguration_server.c in Sources */,
 				15E1B05416EBAE3C00E5F06F /* scprefs_observer.c in Sources */,
 				15E1B05516EBAE3C00E5F06F /* IPMonitorControlPrefs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72573D221D667372004975AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72573D3C1D6695B4004975AD /* SCTestDynamicStore.m in Sources */,
+				72573D3A1D6692BA004975AD /* SCTestOptions.m in Sources */,
+				72573D321D667686004975AD /* SCTestUtils.m in Sources */,
+				72573D401D67B2BE004975AD /* SCTestUnitTest.m in Sources */,
+				728E0E961D70229A00E0613A /* SCTestReachability.m in Sources */,
+				72573D291D667372004975AD /* main.m in Sources */,
+				72573D421D6B798A004975AD /* SCTestConfigAgents.m in Sources */,
+				72573D3E1D669AA6004975AD /* SCTestPreferences.m in Sources */,
+				72573D2E1D6673B6004975AD /* SCTest.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7271EA1D1D76600B0055B1AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7271EA1E1D76600B0055B1AA /* SCTestDynamicStore.m in Sources */,
+				7271EA1F1D76600B0055B1AA /* SCTestOptions.m in Sources */,
+				7271EA201D76600B0055B1AA /* SCTestUtils.m in Sources */,
+				7271EA211D76600B0055B1AA /* SCTestUnitTest.m in Sources */,
+				7271EA221D76600B0055B1AA /* SCTestReachability.m in Sources */,
+				7271EA231D76600B0055B1AA /* main.m in Sources */,
+				7271EA241D76600B0055B1AA /* SCTestConfigAgents.m in Sources */,
+				7271EA251D76600B0055B1AA /* SCTestPreferences.m in Sources */,
+				7271EA261D76600B0055B1AA /* SCTest.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5880,6 +6139,16 @@
 			isa = PBXTargetDependency;
 			target = 15DAD63F07591A1A0084A6ED /* SystemConfiguration.framework */;
 			targetProxy = 723050331AE6F29D004AC149 /* PBXContainerItemProxy */;
+		};
+		7271EA341D7660980055B1AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7271EA1B1D76600B0055B1AA /* sctest-Embedded */;
+			targetProxy = 7271EA331D7660980055B1AA /* PBXContainerItemProxy */;
+		};
+		72C12CB11D6EA2CA000EE61C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72573D251D667372004975AD /* sctest */;
+			targetProxy = 72C12CB01D6EA2CA000EE61C /* PBXContainerItemProxy */;
 		};
 		72C4A4801BE44D19009D570E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -7784,6 +8053,74 @@
 			};
 			name = Release;
 		};
+		72573D2B1D667372004975AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/bin;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PLIST_FILE_OUTPUT_FORMAT = "same-as-input";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		72573D2C1D667372004975AD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/bin;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PLIST_FILE_OUTPUT_FORMAT = "same-as-input";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		7271EA301D76600B0055B1AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/bin;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PLIST_FILE_OUTPUT_FORMAT = "same-as-input";
+				PRODUCT_NAME = sctest;
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = iphoneos;
+			};
+			name = Debug;
+		};
+		7271EA311D76600B0055B1AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/bin;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PLIST_FILE_OUTPUT_FORMAT = "same-as-input";
+				PRODUCT_NAME = sctest;
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = iphoneos;
+			};
+			name = Release;
+		};
 		72D3E6631AE6EA3A00DB4C69 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -8477,6 +8814,24 @@
 			buildConfigurations = (
 				15FD13C70D59485000F9409C /* Debug */,
 				15FD13C80D59485000F9409C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72573D2A1D667372004975AD /* Build configuration list for PBXNativeTarget "sctest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72573D2B1D667372004975AD /* Debug */,
+				72573D2C1D667372004975AD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7271EA2F1D76600B0055B1AA /* Build configuration list for PBXNativeTarget "sctest-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7271EA301D76600B0055B1AA /* Debug */,
+				7271EA311D76600B0055B1AA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

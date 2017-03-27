@@ -23,13 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef AssistedNodeInformation_h
-#define AssistedNodeInformation_h
+#pragma once
 
 #include "ArgumentCoders.h"
+#include <WebCore/AutocapitalizeTypes.h>
 #include <WebCore/Autofill.h>
 #include <WebCore/IntRect.h>
-#include <WebCore/WebAutocapitalize.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -82,8 +81,8 @@ struct OptionItem {
     bool disabled { false };
     int parentGroupID { 0 };
 
-    void encode(IPC::ArgumentEncoder&) const;
-    static bool decode(IPC::ArgumentDecoder&, OptionItem&);
+    void encode(IPC::Encoder&) const;
+    static bool decode(IPC::Decoder&, OptionItem&);
 };
 
 struct AssistedNodeInformation {
@@ -91,6 +90,7 @@ struct AssistedNodeInformation {
     WebCore::IntRect selectionRect;
     double minimumScaleFactor { -INFINITY };
     double maximumScaleFactor { INFINITY };
+    double maximumScaleFactorIgnoringAlwaysScalable { INFINITY };
     double nodeFontSize { 0 };
     bool hasNextNode { false };
     bool hasPreviousNode { false };
@@ -99,9 +99,9 @@ struct AssistedNodeInformation {
     bool isMultiSelect { false };
     bool isReadOnly {false };
     bool allowsUserScaling { false };
-    bool allowsUserScalingIgnoringForceAlwaysScaling { false };
+    bool allowsUserScalingIgnoringAlwaysScalable { false };
     bool insideFixedPosition { false };
-    WebAutocapitalizeType autocapitalizeType { WebAutocapitalizeTypeDefault };
+    AutocapitalizeType autocapitalizeType { AutocapitalizeTypeDefault };
     InputType elementType { InputType::None };
     String formAction;
     Vector<OptionItem> selectOptions;
@@ -111,11 +111,9 @@ struct AssistedNodeInformation {
     String title;
     WebCore::AutofillFieldName autofillFieldName { WebCore::AutofillFieldName::None };
 
-    void encode(IPC::ArgumentEncoder&) const;
-    static bool decode(IPC::ArgumentDecoder&, AssistedNodeInformation&);
+    void encode(IPC::Encoder&) const;
+    static bool decode(IPC::Decoder&, AssistedNodeInformation&);
 };
 #endif
 
 }
-
-#endif // InteractionInformationAtPosition_h

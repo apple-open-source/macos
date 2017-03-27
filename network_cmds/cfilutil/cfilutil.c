@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -476,14 +476,19 @@ doit()
 	kv.filter = EVFILT_READ;
 	kv.flags = EV_ADD;
 	if (kevent(kq, &kv, 1, NULL, 0, NULL) == -1)
-		err(1, "kevent(sf)");
+		err(1, "kevent(sf %d)", sf);
 	
-	bzero(&kv, sizeof(struct kevent));
-	kv.ident = fdin;
-	kv.filter = EVFILT_READ;
-	kv.flags = EV_ADD;
-	if (kevent(kq, &kv, 1, NULL, 0, NULL) == -1)
-		err(1, "kevent(sf)");
+	/*
+	 * We can only read from an interactive terminal
+	 */
+	if (isatty(fdin)) {
+		bzero(&kv, sizeof(struct kevent));
+		kv.ident = fdin;
+		kv.filter = EVFILT_READ;
+		kv.flags = EV_ADD;
+		if (kevent(kq, &kv, 1, NULL, 0, NULL) == -1)
+			err(1, "kevent(fdin %d)", fdin);
+	}
 	
 	buffer = malloc(MAX_BUFFER);
 	if (buffer == NULL)

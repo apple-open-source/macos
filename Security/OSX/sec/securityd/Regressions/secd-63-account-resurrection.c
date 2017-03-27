@@ -199,12 +199,7 @@ static void tests(void)
     CFReleaseNull(alice_resurrected);
     CFReleaseNull(frozen_alice);
 
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
+    SOSTestCleanup();
 }
 
 int secd_63_account_resurrection(int argc, char *const *argv)

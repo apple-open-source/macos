@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,6 +68,7 @@ using namespace WebCore;
         _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkFired:)];
         [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
         _displayLink.paused = YES;
+        _displayLink.preferredFramesPerSecond = 60;
     }
     return self;
 }
@@ -81,7 +82,7 @@ using namespace WebCore;
 - (void)displayLinkFired:(CADisplayLink *)sender
 {
     ASSERT(isUIThread());
-    _drawingAreaProxy->didRefreshDisplay(sender.timestamp);
+    _drawingAreaProxy->didRefreshDisplay();
 }
 
 - (void)invalidate
@@ -193,7 +194,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
 
 #if ENABLE(ASYNC_SCROLLING)
     RemoteScrollingCoordinatorProxy::RequestedScrollInfo requestedScrollInfo;
-    m_webPageProxy.scrollingCoordinatorProxy()->updateScrollingTree(scrollingTreeTransaction, requestedScrollInfo);
+    m_webPageProxy.scrollingCoordinatorProxy()->commitScrollingTreeState(scrollingTreeTransaction, requestedScrollInfo);
 #endif
 
     m_webPageProxy.didCommitLayerTree(layerTreeTransaction);
@@ -202,7 +203,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
 #if PLATFORM(IOS)
     if (m_webPageProxy.scrollingCoordinatorProxy()->hasFixedOrSticky()) {
         // If we got a new layer for a fixed or sticky node, its position from the WebProcess is probably stale. We need to re-run the "viewport" changed logic to udpate it with our UI-side state.
-        FloatRect customFixedPositionRect = m_webPageProxy.computeCustomFixedPositionRect(m_webPageProxy.unobscuredContentRect(), m_webPageProxy.displayedContentScale());
+        FloatRect customFixedPositionRect = m_webPageProxy.computeCustomFixedPositionRect(m_webPageProxy.unobscuredContentRect(), m_webPageProxy.unobscuredContentRectRespectingInputViewBounds(), m_webPageProxy.customFixedPositionRect(), m_webPageProxy.displayedContentScale(), WebPageProxy::UnobscuredRectConstraint::Unconstrained, m_webPageProxy.scrollingCoordinatorProxy()->visualViewportEnabled());
         m_webPageProxy.scrollingCoordinatorProxy()->viewportChangedViaDelegatedScrolling(m_webPageProxy.scrollingCoordinatorProxy()->rootScrollingNodeID(), customFixedPositionRect, m_webPageProxy.displayedContentScale());
     }
 #endif
@@ -228,11 +229,11 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
 
 #if PLATFORM(IOS)
     if (std::exchange(m_didUpdateMessageState, NeedsDidUpdate) == MissedCommit)
-        didRefreshDisplay(monotonicallyIncreasingTime());
+        didRefreshDisplay();
     [m_displayLinkHandler schedule];
 #else
     m_didUpdateMessageState = NeedsDidUpdate;
-    didRefreshDisplay(monotonicallyIncreasingTime());
+    didRefreshDisplay();
 #endif
 
     if (auto milestones = layerTreeTransaction.newlyReachedLayoutMilestones())
@@ -257,7 +258,7 @@ void RemoteLayerTreeDrawingAreaProxy::acceleratedAnimationDidEnd(uint64_t layerI
 static const float indicatorInset = 10;
 
 #if PLATFORM(MAC)
-void RemoteLayerTreeDrawingAreaProxy::setViewExposedRect(Optional<WebCore::FloatRect> viewExposedRect)
+void RemoteLayerTreeDrawingAreaProxy::setViewExposedRect(std::optional<WebCore::FloatRect> viewExposedRect)
 {
     DrawingAreaProxy::setViewExposedRect(viewExposedRect);
     updateDebugIndicatorPosition();
@@ -280,7 +281,7 @@ FloatPoint RemoteLayerTreeDrawingAreaProxy::indicatorLocation() const
 
         tiledMapLocation += FloatSize(indicatorInset, indicatorInset);
         float scale = 1 / m_webPageProxy.pageScaleFactor();
-        tiledMapLocation.scale(scale, scale);
+        tiledMapLocation.scale(scale);
 #endif
         return tiledMapLocation;
     }
@@ -349,7 +350,7 @@ void RemoteLayerTreeDrawingAreaProxy::updateDebugIndicator(IntSize contentsSize,
         if (viewExposedRect())
             scaledExposedRect = viewExposedRect().value();
         float scale = 1 / m_webPageProxy.pageScaleFactor();
-        scaledExposedRect.scale(scale, scale);
+        scaledExposedRect.scale(scale);
 #endif
         [m_exposedRectIndicatorLayer setPosition:scaledExposedRect.location()];
         [m_exposedRectIndicatorLayer setBounds:FloatRect(FloatPoint(), scaledExposedRect.size())];
@@ -394,7 +395,7 @@ void RemoteLayerTreeDrawingAreaProxy::initializeDebugIndicator()
     }
 }
 
-void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay(double)
+void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay()
 {
     if (!m_webPageProxy.isValid())
         return;
@@ -418,27 +419,27 @@ void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay(double)
 
     m_lastVisibleTransactionID = m_transactionIDForPendingCACommit;
 
-    m_webPageProxy.didUpdateViewState();
+    m_webPageProxy.didUpdateActivityState();
 }
 
-void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateViewState()
+void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState()
 {
     // We must send the didUpdate message before blocking on the next commit, otherwise
     // we can be guaranteed that the next commit won't come until after the waitForAndDispatchImmediately times out.
     if (m_didUpdateMessageState != DoesNotNeedDidUpdate)
-        didRefreshDisplay(monotonicallyIncreasingTime());
+        didRefreshDisplay();
 
-    static std::chrono::milliseconds viewStateUpdateTimeout = [] {
-        if (id value = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitOverrideViewStateUpdateTimeout"])
-            return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::duration<double>([value doubleValue]));
+    static Seconds activityStateUpdateTimeout = [] {
+        if (id value = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitOverrideActivityStateUpdateTimeout"])
+            return Seconds([value doubleValue]);
 
 #if PLATFORM(IOS)
-        return std::chrono::milliseconds(500);
+        return Seconds::fromMilliseconds(500);
 #else
-        return std::chrono::milliseconds(250);
+        return Seconds::fromMilliseconds(250);
 #endif
     }();
-    m_webPageProxy.process().connection()->waitForAndDispatchImmediately<Messages::RemoteLayerTreeDrawingAreaProxy::CommitLayerTree>(m_webPageProxy.pageID(), viewStateUpdateTimeout, InterruptWaitingIfSyncMessageArrives);
+    m_webPageProxy.process().connection()->waitForAndDispatchImmediately<Messages::RemoteLayerTreeDrawingAreaProxy::CommitLayerTree>(m_webPageProxy.pageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)> callbackFunction)
@@ -462,9 +463,19 @@ void RemoteLayerTreeDrawingAreaProxy::hideContentUntilAnyUpdate()
     m_remoteLayerTreeHost.detachRootLayer();
 }
 
+void RemoteLayerTreeDrawingAreaProxy::prepareForAppSuspension()
+{
+    m_remoteLayerTreeHost.mapAllIOSurfaceBackingStore();
+}
+
 bool RemoteLayerTreeDrawingAreaProxy::hasVisibleContent() const
 {
     return m_remoteLayerTreeHost.rootLayer();
+}
+
+bool RemoteLayerTreeDrawingAreaProxy::isAlwaysOnLoggingAllowed() const
+{
+    return m_webPageProxy.isAlwaysOnLoggingAllowed();
 }
 
 } // namespace WebKit

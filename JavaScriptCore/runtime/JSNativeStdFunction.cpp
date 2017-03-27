@@ -47,7 +47,7 @@ void JSNativeStdFunction::visitChildren(JSCell* cell, SlotVisitor& visitor)
     JSNativeStdFunction* thisObject = jsCast<JSNativeStdFunction*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
-    visitor.append(&thisObject->m_functionCell);
+    visitor.append(thisObject->m_functionCell);
 }
 
 void JSNativeStdFunction::finishCreation(VM& vm, NativeExecutable* executable, int length, const String& name, NativeStdFunctionCell* functionCell)
@@ -59,14 +59,14 @@ void JSNativeStdFunction::finishCreation(VM& vm, NativeExecutable* executable, i
 
 static EncodedJSValue JSC_HOST_CALL runStdFunction(ExecState* state)
 {
-    JSNativeStdFunction* function = jsCast<JSNativeStdFunction*>(state->callee());
+    JSNativeStdFunction* function = jsCast<JSNativeStdFunction*>(state->jsCallee());
     ASSERT(function);
     return function->nativeStdFunctionCell()->function()(state);
 }
 
 JSNativeStdFunction* JSNativeStdFunction::create(VM& vm, JSGlobalObject* globalObject, int length, const String& name, NativeStdFunction&& nativeStdFunction, Intrinsic intrinsic, NativeFunction nativeConstructor)
 {
-    NativeExecutable* executable = vm.getHostFunction(runStdFunction, intrinsic, nativeConstructor, name);
+    NativeExecutable* executable = vm.getHostFunction(runStdFunction, intrinsic, nativeConstructor, nullptr, name);
     NativeStdFunctionCell* functionCell = NativeStdFunctionCell::create(vm, WTFMove(nativeStdFunction));
     Structure* structure = globalObject->nativeStdFunctionStructure();
     JSNativeStdFunction* function = new (NotNull, allocateCell<JSNativeStdFunction>(vm.heap)) JSNativeStdFunction(vm, globalObject, structure);

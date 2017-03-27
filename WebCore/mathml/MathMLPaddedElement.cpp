@@ -25,9 +25,9 @@
  */
 
 #include "config.h"
+#include "MathMLPaddedElement.h"
 
 #if ENABLE(MATHML)
-#include "MathMLPaddedElement.h"
 
 #include "RenderMathMLPadded.h"
 
@@ -36,7 +36,7 @@ namespace WebCore {
 using namespace MathMLNames;
 
 inline MathMLPaddedElement::MathMLPaddedElement(const QualifiedName& tagName, Document& document)
-    : MathMLInlineContainerElement(tagName, document)
+    : MathMLRowElement(tagName, document)
 {
 }
 
@@ -73,15 +73,15 @@ const MathMLElement::Length& MathMLPaddedElement::voffset()
 void MathMLPaddedElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == widthAttr)
-        m_width.dirty = true;
+        m_width = std::nullopt;
     else if (name == heightAttr)
-        m_height.dirty = true;
+        m_height = std::nullopt;
     else if (name == depthAttr)
-        m_depth.dirty = true;
+        m_depth = std::nullopt;
     else if (name == lspaceAttr)
-        m_lspace.dirty = true;
+        m_lspace = std::nullopt;
     else if (name == voffsetAttr)
-        m_voffset.dirty = true;
+        m_voffset = std::nullopt;
 
     MathMLElement::parseAttribute(name, value);
 }

@@ -935,4 +935,7 @@ _krb5_xunlock (
 void
 _krb5_remove_trailing_dot(char *hostname);
 
+krb5_af_flags
+_krb5_get_supported_af(krb5_context context);
+
 #endif /* __krb5_private_h__ */

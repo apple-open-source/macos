@@ -28,6 +28,8 @@
 #ifndef _SECURITY_SECKEYINTERNAL_H_
 #define _SECURITY_SECKEYINTERNAL_H_
 
+#include <Security/SecBase.h>
+
 #include <Security/SecKeyPriv.h>
 #include <corecrypto/ccrng.h>
 

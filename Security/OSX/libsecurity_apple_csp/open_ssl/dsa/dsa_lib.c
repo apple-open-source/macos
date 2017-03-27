@@ -78,9 +78,9 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
-#include <openssl/dsa.h>
-#include <openssl/asn1.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/dsa_legacy.h>
+#include <openssl/asn1_legacy.h>
 
 const char *DSA_version="DSA" OPENSSL_VERSION_PTEXT;
 

@@ -23,12 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef XMLHttpRequestUpload_h
-#define XMLHttpRequestUpload_h
+#pragma once
 
 #include "XMLHttpRequest.h"
 #include <wtf/Forward.h>
-#include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
@@ -63,5 +61,3 @@ namespace WebCore {
     };
     
 } // namespace WebCore
-
-#endif // XMLHttpRequestUpload_h

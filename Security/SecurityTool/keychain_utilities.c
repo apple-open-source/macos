@@ -36,7 +36,7 @@
 #include <sys/param.h>
 #include <libkern/OSByteOrder.h>
 
-#include "readline.h"
+#include "readline_cssm.h"
 
 // SecTrustedApplicationValidateWithPath
 #include <Security/SecTrustedApplicationPriv.h>
@@ -864,7 +864,7 @@ cfFromHex(CFStringRef hex) {
     CFMutableDataRef bin = CFDataCreateMutable(kCFAllocatorDefault, bytes);
     CFDataIncreaseLength(bin, bytes);
 
-    if(!bin || CFDataGetLength(bin) != bytes) {
+    if(!bin || (size_t) CFDataGetLength(bin) != bytes) {
         safe_CFRelease(bin);
         return NULL;
     }
@@ -884,7 +884,7 @@ CFStringRef cfToHex(CFDataRef bin) {
     static const char* digits[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"};
 
     const uint8_t* data = CFDataGetBytePtr(bin);
-    for (size_t i = 0; i < CFDataGetLength(bin); i++) {
+    for (CFIndex i = 0; i < CFDataGetLength(bin); i++) {
         CFStringAppendCString(str, digits[data[i] >> 4], 1);
         CFStringAppendCString(str, digits[data[i] & 0xf], 1);
     }
@@ -950,7 +950,7 @@ void print_partition_id_list(FILE* stream, CFStringRef description) {
         goto error;
     }
 
-    for(size_t i = 0; i < CFArrayGetCount(partitionIDs); i++) {
+    for(CFIndex i = 0; i < CFArrayGetCount(partitionIDs); i++) {
         CFStringRef s = CFArrayGetValueAtIndex(partitionIDs, i);
         if(!s) {
             goto error;

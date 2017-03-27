@@ -24,6 +24,9 @@
 
 #import <Foundation/Foundation.h>
 
+#import <Security/SecKeyPriv.h>
+#import <Security/oidsalg.h>
+
 #include "shared_regressions.h"
 
 static NSData *decryptAndUnpad(SecKeyRef privateKey, SecKeyAlgorithm algorithm, NSData *ciphertext, NSError **error) {
@@ -177,9 +180,59 @@ static void test_bad_input_size() {
 }
 static const int TestCountBadInputSize = TestCountBadInputSizeStep * 8;
 
+static void test_bad_signature() {
+    NSDictionary *params = @{ (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @2048 };
+    NSError *error;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privateKey, "Generate RSA-2048 temporary key, err %@", error);
+    id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    ok(publicKey, "Get public key from private key");
+
+#if TARGET_OS_IPHONE
+    SecKeyAlgorithm algorithm = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1;
+#else
+    SecKeyAlgorithm algorithm = kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
+#endif
+
+    char digest[20] = "digest";
+    NSData *digestData = [NSData dataWithBytes:digest length:sizeof(digest)];
+    NSData *signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, algorithm, (CFDataRef)digestData, (void *)&error));
+    ok(signature, "Sign digest, err %@", error);
+
+    bool result = SecKeyVerifySignature((SecKeyRef)publicKey, algorithm, (CFDataRef)digestData, (CFDataRef)signature, (void *)&error);
+    ok(result, "Verify signature, err %@", error);
+
+    OSStatus status = SecKeyRawVerify((SecKeyRef)publicKey, kSecPaddingPKCS1SHA1, (const uint8_t *)digest, sizeof(digest), signature.bytes, signature.length);
+    ok_status(status, "Raw verify correct signature");
+
+    status = SecKeyRawVerify((SecKeyRef)publicKey, kSecPaddingPKCS1SHA1, (const uint8_t *)digest, sizeof(digest), (void  * _Nonnull)NULL, 0);
+    is_status(status, errSSLCrypto, "NULL signature failure");
+
+    const SecAsn1AlgId algId = { .algorithm = CSSMOID_SHA1WithRSA };
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1, (CFDataRef)digestData, (void *)&error));
+    ok(signature, "Sign message, err %@", error);
+
+    status = SecKeyDigestAndVerify((__bridge SecKeyRef)publicKey, &algId, (const uint8_t *)digest, sizeof(digest), signature.bytes, signature.length);
+    ok_status(status, "Raw verify correct signature");
+
+    status = SecKeyDigestAndVerify((__bridge SecKeyRef)publicKey, &algId, (const uint8_t *)digest, sizeof(digest), (void * _Nonnull)NULL, 0);
+    is_status(status, errSSLCrypto, "NULL signature failure");
+
+    signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privateKey, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1, (CFDataRef)digestData, (void *)&error));
+    ok(signature, "Sign message, err %@", error);
+
+    status = SecKeyVerifyDigest((__bridge SecKeyRef)publicKey, &algId, (const uint8_t *)digest, sizeof(digest), signature.bytes, signature.length);
+    ok_status(status, "Raw verify correct signature");
+
+    status = SecKeyVerifyDigest((__bridge SecKeyRef)publicKey, &algId, (const uint8_t *)digest, sizeof(digest), (void * _Nonnull)NULL, 0);
+    is_status(status, errSSLCrypto, "NULL signature failure");
+}
+static const int TestCountBadSignature = 12;
+
 static const int TestCount =
 TestCountEncryption +
-TestCountBadInputSize;
+TestCountBadInputSize +
+TestCountBadSignature;
 
 int si_44_seckey_rsa(int argc, char *const *argv) {
     plan_tests(TestCount);
@@ -187,6 +240,7 @@ int si_44_seckey_rsa(int argc, char *const *argv) {
     @autoreleasepool {
         test_encryption();
         test_bad_input_size();
+        test_bad_signature();
     }
     
     return 0;

@@ -69,45 +69,47 @@ static CFMutableDictionaryRef makeBaseItemDictionary(CFStringRef itemclass, CFSt
     return query;
 }
 
-static CFMutableDictionaryRef makeQueryItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef service) {
+static CFMutableDictionaryRef createQueryItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef service) {
     return convertToQuery(makeBaseItemDictionary(itemclass, service), kc);
 }
-static CFMutableDictionaryRef makeQueryItemDictionary(SecKeychainRef kc, CFStringRef itemclass) {
-    return makeQueryItemDictionaryWithService(kc, itemclass, NULL);
+static CFMutableDictionaryRef createQueryItemDictionary(SecKeychainRef kc, CFStringRef itemclass) {
+    return createQueryItemDictionaryWithService(kc, itemclass, NULL);
 }
 
 static CFMutableDictionaryRef makeBaseQueryDictionary(SecKeychainRef kc, CFStringRef itemclass) {
     return convertToQuery(makeBaseDictionary(itemclass), kc);
 }
 
-static CFMutableDictionaryRef makeQueryCustomItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef service) {
-    CFMutableDictionaryRef query = makeQueryItemDictionaryWithService(kc, itemclass, service);
+static CFMutableDictionaryRef createQueryCustomItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef service) {
+    CFMutableDictionaryRef query = createQueryItemDictionaryWithService(kc, itemclass, service);
     CFDictionarySetValue(query, kSecAttrLabel, label);
     return query;
 }
-static CFMutableDictionaryRef makeQueryCustomItemDictionary(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label) {
-    return makeQueryCustomItemDictionaryWithService(kc, itemclass, label, NULL);
+static CFMutableDictionaryRef createQueryCustomItemDictionary(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label) {
+    return createQueryCustomItemDictionaryWithService(kc, itemclass, label, NULL);
 }
 
-static CFMutableDictionaryRef makeAddCustomItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef account, CFStringRef service) {
+static CFMutableDictionaryRef createAddCustomItemDictionaryWithService(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef account, CFStringRef service) {
     CFMutableDictionaryRef query = makeBaseItemDictionary(itemclass, service);
 
     CFDictionaryAddValue(query, kSecUseKeychain, kc);
     CFDictionarySetValue(query, kSecAttrAccount, account);
     CFDictionarySetValue(query, kSecAttrComment, CFSTR("a comment"));
     CFDictionarySetValue(query, kSecAttrLabel, label);
-    CFDictionarySetValue(query, kSecValueData, CFDataCreate(NULL, (void*)"data", 4));
+    CFDataRef data = CFDataCreate(NULL, (void*)"data", 4);
+    CFDictionarySetValue(query, kSecValueData, data);
+    CFReleaseNull(data);
     return query;
 }
-static CFMutableDictionaryRef makeAddCustomItemDictionary(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef account) {
-    return makeAddCustomItemDictionaryWithService(kc, itemclass, label, account, NULL);
+static CFMutableDictionaryRef createAddCustomItemDictionary(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label, CFStringRef account) {
+    return createAddCustomItemDictionaryWithService(kc, itemclass, label, account, NULL);
 }
 
-static CFMutableDictionaryRef makeAddItemDictionary(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label) {
-    return makeAddCustomItemDictionary(kc, itemclass, label, CFSTR("test_account"));
+static CFMutableDictionaryRef createAddItemDictionary(SecKeychainRef kc, CFStringRef itemclass, CFStringRef label) {
+    return createAddCustomItemDictionary(kc, itemclass, label, CFSTR("test_account"));
 }
 
-static SecKeychainItemRef makeCustomItem(const char* name, SecKeychainRef kc, CFDictionaryRef addDictionary) {
+static SecKeychainItemRef createCustomItem(const char* name, SecKeychainRef kc, CFDictionaryRef CF_CONSUMED addDictionary) {
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(addDictionary, &result), "%s: SecItemAdd", name);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
@@ -117,20 +119,20 @@ static SecKeychainItemRef makeCustomItem(const char* name, SecKeychainRef kc, CF
 
     return item;
 }
-#define makeCustomItemTests 3
+#define createCustomItemTests 3
 
 static SecKeychainItemRef makeItem(const char* name, SecKeychainRef kc, CFStringRef itemclass, CFStringRef label) {
-    CFMutableDictionaryRef query = makeAddItemDictionary(kc, itemclass, label);
+    CFMutableDictionaryRef query = createAddItemDictionary(kc, itemclass, label);
 
-    SecKeychainItemRef item = makeCustomItem(name, kc, query);
+    SecKeychainItemRef item = createCustomItem(name, kc, query);
 
     CFReleaseNull(query);
     return item;
 }
-#define makeItemTests makeCustomItemTests
+#define makeItemTests createCustomItemTests
 
 static void makeCustomDuplicateItem(const char* name, SecKeychainRef kc, CFStringRef itemclass, CFStringRef label) {
-    CFMutableDictionaryRef query = makeAddItemDictionary(kc, itemclass, label);
+    CFMutableDictionaryRef query = createAddItemDictionary(kc, itemclass, label);
 
     CFTypeRef result = NULL;
     is(SecItemAdd(query, &result), errSecDuplicateItem, "%s: SecItemAdd (duplicate)", name);
@@ -145,7 +147,7 @@ static void makeDuplicateItem(const char* name, SecKeychainRef kc, CFStringRef i
 #define makeDuplicateItemTests makeCustomDuplicateItemTests
 
 
-#pragma clang pop
+#pragma clang diagnostic pop
 #else
 
 #endif /* TARGET_OS_MAC */

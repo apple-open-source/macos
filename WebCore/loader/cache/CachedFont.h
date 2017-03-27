@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef CachedFont_h
-#define CachedFont_h
+#pragma once
 
 #include "CachedResource.h"
 #include "CachedResourceClient.h"
@@ -35,22 +34,23 @@ namespace WebCore {
 
 class CachedResourceLoader;
 class FontDescription;
-class FontFeatureSettings;
 class FontPlatformData;
 class SVGDocument;
 class SVGFontElement;
 struct FontCustomPlatformData;
 
+template <typename T> class FontTaggedSettings;
+typedef FontTaggedSettings<int> FontFeatureSettings;
+
 class CachedFont : public CachedResource {
 public:
-    CachedFont(const ResourceRequest&, SessionID, Type = FontResource);
+    CachedFont(CachedResourceRequest&&, SessionID, Type = FontResource);
     virtual ~CachedFont();
 
     void beginLoadIfNeeded(CachedResourceLoader&);
     bool stillNeedsLoad() const override { return !m_loadInitiated; }
 
     virtual bool ensureCustomFontData(const AtomicString& remoteURI);
-
     static std::unique_ptr<FontCustomPlatformData> createCustomFontData(SharedBuffer&, bool& wrapping);
     static FontPlatformData platformDataFromCustomData(FontCustomPlatformData&, const FontDescription&, bool bold, bool italic, const FontFeatureSettings&, const FontVariantSettings&);
 
@@ -65,9 +65,10 @@ private:
     void checkNotify() override;
     bool mayTryReplaceEncodedData() const override;
 
-    void load(CachedResourceLoader&, const ResourceLoaderOptions&) override;
+    void load(CachedResourceLoader&) override;
+    NO_RETURN_DUE_TO_ASSERT void setBodyDataFrom(const CachedResource&) final { ASSERT_NOT_REACHED(); }
 
-    void didAddClient(CachedResourceClient*) override;
+    void didAddClient(CachedResourceClient&) override;
     void finishLoading(SharedBuffer*) override;
 
     void allClientsRemoved() override;
@@ -82,5 +83,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CACHED_RESOURCE(CachedFont, CachedResource::FontResource)
-
-#endif // CachedFont_h

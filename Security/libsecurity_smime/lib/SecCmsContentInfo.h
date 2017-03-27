@@ -120,7 +120,6 @@ SecCmsContentInfoSetContentData(SecCmsContentInfoRef cinfo, CFDataRef data, Bool
 /*!
     @function
     @abstract Set a ContentInfos content to a SignedData.
-    @param cmsg A Message object to which the cinfo object belongs.
     @param cinfo A ContentInfo object of which we want set the content.
     @param sigd A SignedData object to set as the content of the cinfo object.
     @result A result code. See "SecCmsBase.h" for possible results.
@@ -133,7 +132,6 @@ SecCmsContentInfoSetContentSignedData(SecCmsContentInfoRef cinfo, SecCmsSignedDa
 /*!
     @function
     @abstract Set a ContentInfos content to a EnvelopedData.
-    @param cmsg A Message object to which the cinfo object belongs.
     @param cinfo A ContentInfo object of which we want set the content.
     @param envd A EnvelopedData object to set as the content of the cinfo object.
     @result A result code. See "SecCmsBase.h" for possible results.
@@ -146,7 +144,6 @@ SecCmsContentInfoSetContentEnvelopedData(SecCmsContentInfoRef cinfo, SecCmsEnvel
 /*!
     @function
     @abstract Set a ContentInfos content to a DigestedData.
-    @param cmsg A Message object to which the cinfo object belongs.
     @param cinfo A ContentInfo object of which we want set the content.
     @param digd A DigestedData object to set as the content of the cinfo object.
     @result A result code. See "SecCmsBase.h" for possible results.
@@ -159,7 +156,6 @@ SecCmsContentInfoSetContentDigestedData(SecCmsContentInfoRef cinfo, SecCmsDigest
 /*!
     @function
     @abstract Set a ContentInfos content to a EncryptedData.
-    @param cmsg A Message object to which the cinfo object belongs.
     @param cinfo A ContentInfo object of which we want set the content.
     @param encd A EncryptedData object to set as the content of the cinfo object.
     @result A result code. See "SecCmsBase.h" for possible results.

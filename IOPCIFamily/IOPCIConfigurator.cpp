@@ -2139,7 +2139,7 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
     {
         barOffset  = kIOPCIConfigBaseAddress0 + barNum * 4;
         nextBarNum = barNum + 1;
-        value64    = (-1LL << 32);
+        value64    = (-1ULL << 32);
 
         saved = configRead32(device, barOffset);
         configWrite32(device, barOffset, 0xFFFFFFFF);
@@ -2815,7 +2815,7 @@ bool CLASS::treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask)
     return (NULL != entry);
 }
 
-bool IOPCIRangeAppendRangeByAlignment(IOPCIRange ** list, IOPCIRange * newRange)
+static bool IOPCIRangeAppendRangeByAlignment(IOPCIRange ** list, IOPCIRange * newRange)
 {
     IOPCIRange ** prev;
     IOPCIRange *  range;

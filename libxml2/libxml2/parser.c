@@ -3448,16 +3448,20 @@ xmlParseNameComplex(xmlParserCtxtPtr ctxt) {
 	}
     }
 
-    if (BASE_PTR > CUR_PTR - len)
-       return(NULL);
-
     if ((len > XML_MAX_NAME_LENGTH) &&
         ((ctxt->options & XML_PARSE_HUGE) == 0)) {
         xmlFatalErr(ctxt, XML_ERR_NAME_TOO_LONG, "Name");
         return(NULL);
     }
-    if ((*ctxt->input->cur == '\n') && (ctxt->input->cur[-1] == '\r'))
+    if ((*ctxt->input->cur == '\n') && (ctxt->input->cur[-1] == '\r')) {
+        if (BASE_PTR > CUR_PTR - (len + 1))
+            return(NULL);
         return(xmlDictLookup(ctxt->dict, ctxt->input->cur - (len + 1), len));
+    }
+
+    if (BASE_PTR > CUR_PTR - len)
+        return(NULL);
+
     return(xmlDictLookup(ctxt->dict, ctxt->input->cur - len, len));
 }
 

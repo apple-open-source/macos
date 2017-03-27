@@ -284,11 +284,23 @@ public:
     @result an IOReturn code. If kIOReturnSuccces, the result of the transaction is returned in the requests result field.
 */
     virtual IOReturn doI2CRequest( UInt32 bus, struct IOI2CBusTiming * timing, struct IOI2CRequest * request );
-
-private:
     OSMetaClassDeclareReservedUsed(IOFramebuffer, 0);
 
-    OSMetaClassDeclareReservedUnused(IOFramebuffer, 1);
+/*! @function setGammaTable
+    @abstract Set the gamma table to be used by the framebuffer.
+    @discussion IOFramebuffer subclasses should implement this method to allow a gamma table to be set.
+    @param channelCount Defines the number of channels in the supplied data. OS X will pass three for separate R, G, B data, or one if the same data should apply to all channels.
+    @param dataCount The number of data entries per channel.
+    @param dataWidth The number of bits in each entry. 8 for Mac OS X 10.1 and earlier, 16 for later releases.
+    @param data The packed array of correction data. Data is passed for the R (or single) channel followed by the G & B channels. Each entry is one or two bytes (if dataWidth > 8).
+    @param syncToVBL 0 don't sync to VBL, else sync.
+    @result an IOReturn code.
+ */
+    virtual IOReturn setGammaTable( UInt32 channelCount, UInt32 dataCount,
+                                   UInt32 dataWidth, void * data, bool syncToVBL );
+    OSMetaClassDeclareReservedUsed(IOFramebuffer, 1);
+
+private:
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 2);
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 3);
     OSMetaClassDeclareReservedUnused(IOFramebuffer, 4);

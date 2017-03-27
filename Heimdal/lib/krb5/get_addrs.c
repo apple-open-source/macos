@@ -328,3 +328,49 @@ krb5_get_all_any_addrs(krb5_context context, krb5_addresses *res)
     }
     return 0;
 }
+
+/*
+ * Get currently configured address families on the local device
+ */
+
+static const struct {
+    int af;
+    krb5_af_flags kaf;
+} af2kaf[] = {
+    {
+	KRB5_ADDRESS_INET,
+	KRB5_AF_FLAG_INET,
+    }, {
+	KRB5_ADDRESS_INET6,
+	KRB5_AF_FLAG_INET6,
+    }
+};
+
+
+krb5_af_flags
+_krb5_get_supported_af(krb5_context context)
+{
+    krb5_af_flags kaf = 0;
+    krb5_addresses res;
+    krb5_error_code ret;
+    unsigned n, m;
+
+    memset(&res, 0, sizeof(res));
+
+    ret = find_all_addresses(context, &res, SCAN_INTERFACES);
+    if (ret)
+	return 0;
+
+    for (n = 0; n < res.len; n++) {
+	int af = res.val[n].addr_type;
+	for (m = 0; m < sizeof(af2kaf)/sizeof(af2kaf[0]); m++) {
+	    if (af == af2kaf[m].af) {
+		kaf |= af2kaf[m].kaf;
+		break;
+	    }
+	}
+    }
+    krb5_free_addresses(context, &res);
+
+    return kaf;
+}

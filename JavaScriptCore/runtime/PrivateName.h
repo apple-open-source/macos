@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PrivateName_h
-#define PrivateName_h
+#pragma once
 
 #include <wtf/text/SymbolImpl.h>
 
@@ -33,30 +32,35 @@ namespace JSC {
 class PrivateName {
 public:
     PrivateName()
-        : m_uid(StringImpl::createNullSymbol())
+        : m_uid(SymbolImpl::createNullSymbol())
     {
     }
 
     explicit PrivateName(SymbolImpl& uid)
-        : m_uid(&uid)
+        : m_uid(uid)
     {
     }
 
     enum DescriptionTag { Description };
     explicit PrivateName(DescriptionTag, const String& description)
-        : m_uid(StringImpl::createSymbol(*description.impl()))
+        : m_uid(SymbolImpl::create(*description.impl()))
     {
     }
 
-    SymbolImpl* uid() const { return m_uid.get(); }
+    PrivateName(const PrivateName& privateName)
+        : m_uid(privateName.m_uid.copyRef())
+    {
+    }
 
-    bool operator==(const PrivateName& other) const { return uid() == other.uid(); }
-    bool operator!=(const PrivateName& other) const { return uid() != other.uid(); }
+    PrivateName(PrivateName&&) = default;
+
+    SymbolImpl& uid() const { return const_cast<SymbolImpl&>(m_uid.get()); }
+
+    bool operator==(const PrivateName& other) const { return &uid() == &other.uid(); }
+    bool operator!=(const PrivateName& other) const { return &uid() != &other.uid(); }
 
 private:
-    RefPtr<SymbolImpl> m_uid;
+    Ref<SymbolImpl> m_uid;
 };
 
-}
-
-#endif
+} // namespace JSC

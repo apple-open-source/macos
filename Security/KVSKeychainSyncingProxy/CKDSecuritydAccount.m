@@ -40,6 +40,18 @@
     return result;
 }
 
+- (NSSet<NSString*>*) syncWithPeers: (NSSet<NSString*>*) peerIDs backups: (NSSet<NSString*>*) backupPeerIDs error: (NSError**) error
+{
+    CFErrorRef localError = NULL;
+    CFSetRef handledPeers = SOSCCProcessSyncWithPeers((__bridge CFSetRef) peerIDs, (__bridge CFSetRef) backupPeerIDs, &localError);
+
+    if (error && localError) {
+        *error = (__bridge_transfer NSError*) localError;
+    }
+
+    return (__bridge_transfer NSSet<NSString*>*) handledPeers;
+}
+
 - (SyncWithAllPeersReason) syncWithAllPeers: (NSError**) error
 {
     CFErrorRef localError = NULL;

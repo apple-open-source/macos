@@ -156,11 +156,11 @@ errOut:
                     inDirectory:(NSString *)kSecTrustTestPinningPolicyResources];
             require_action_quiet(path, blockOut,
                                  fail("%@: failed to get path for cert %ld",
-                                      _fullTestName, (unsigned long)idx));
+                                      self->_fullTestName, (unsigned long)idx));
             cert = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
             require_action_quiet(cert, blockOut,
                                  fail("%@: failed to create certificate %ld from path %@",
-                                      _fullTestName, (unsigned long) idx, path));
+                                      self->_fullTestName, (unsigned long) idx, path));
             [outArray addObject:(__bridge id)cert];
 
             CFReleaseNull(cert);
@@ -234,14 +234,14 @@ errOut:
         [(NSArray *)policiesObj enumerateObjectsUsingBlock:^(NSDictionary *policyDict, NSUInteger idx, BOOL *stop) {
             NSString *policyIdentifier = [(NSDictionary *)policyDict objectForKey:kSecTrustTestPolicyOID];
             NSDictionary *policyProperties = [(NSDictionary *)policyDict objectForKey:kSecTrustTestPolicyProperties];
-            require_action_quiet(policyIdentifier, blockOut, fail("%@: failed to get policy OID", _fullTestName));
+            require_action_quiet(policyIdentifier, blockOut, fail("%@: failed to get policy OID", self->_fullTestName));
 
             policy = SecPolicyCreateWithProperties((__bridge CFStringRef)policyIdentifier,
                                                    (__bridge CFDictionaryRef)policyProperties);
             require_action_quiet(policy, blockOut,
                                  fail("%@: failed to create properties for policy OID %@",
-                                      _fullTestName, policyIdentifier));
-            [_policies addObject:(__bridge id)policy];
+                                      self->_fullTestName, policyIdentifier));
+            [self->_policies addObject:(__bridge id)policy];
 
             CFReleaseNull(policy);
             return;

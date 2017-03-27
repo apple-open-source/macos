@@ -113,6 +113,7 @@ $(OBJROOT)/$(PROJECT):
 	sed 's/@VERSION@/$(VERS)/' $(FIX)/python.c.ed | ed - $(PROJECT)/Modules/python.c && \
 	ed - $(PROJECT)/Modules/readline.c < $(FIX)/readline.c.ed && \
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
+	patch $(PROJECT)/Modules/zipimport.c $(FIX)/Modules_zipimport.c.patch && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py.patch && \

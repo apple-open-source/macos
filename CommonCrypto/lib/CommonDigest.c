@@ -24,16 +24,15 @@
 // #define COMMON_DIGEST_FUNCTIONS
 #define COMMON_DIGEST_FOR_RFC_1321
 
-#include "CommonDigest.h"
+#include <CommonCrypto/CommonDigest.h>
 #include "CommonDigestPriv.h"
-#include "CommonDigestSPI.h"
+#include <CommonCrypto/CommonDigestSPI.h>
 #include "ccErrors.h"
 #include "ccGlobals.h"
 #include "ccMemory.h"
 #include "ccdebug.h"
 #include <stdio.h>
-#include <dispatch/dispatch.h>
-#include <dispatch/queue.h>
+#include "ccDispatch.h"
 #include <corecrypto/ccmd2.h>
 #include <corecrypto/ccmd4.h>
 #include <corecrypto/ccmd5.h>
@@ -53,35 +52,38 @@ static const size_t diMax = kCCDigestSkein512+1;
 // This returns a pointer to the corecrypto "di" structure for a digest.
 // It's used for all functions that need a di (HMac, Key Derivation, etc).
 
+static void init_globals(__unused void *g){
+    cc_globals_t globals = _cc_globals();
+    
+    globals->digest_info = (const struct ccdigest_info **)calloc(diMax, sizeof(struct ccdigest_info *));
+    globals->digest_info[kCCDigestNone] = NULL;
+    globals->digest_info[kCCDigestMD2] = &ccmd2_di;
+    globals->digest_info[kCCDigestMD4] = &ccmd4_di;
+    globals->digest_info[kCCDigestMD5] = ccmd5_di();
+    globals->digest_info[kCCDigestRMD128] = &ccrmd128_di;
+    globals->digest_info[kCCDigestRMD160] = &ccrmd160_di;
+    globals->digest_info[kCCDigestRMD256] = &ccrmd256_di;
+    globals->digest_info[kCCDigestRMD320] = &ccrmd320_di;
+    globals->digest_info[kCCDigestSHA1] = ccsha1_di();
+    globals->digest_info[kCCDigestSHA224] = ccsha224_di();
+    globals->digest_info[kCCDigestSHA256] = ccsha256_di();
+    globals->digest_info[kCCDigestSHA384] = ccsha384_di();
+    globals->digest_info[kCCDigestSHA512] = ccsha512_di();
+    globals->digest_info[kCCDigestSkein128] = NULL;
+    globals->digest_info[kCCDigestSkein160] = NULL;
+    globals->digest_info[15] = NULL; // gap
+    globals->digest_info[kCCDigestSkein224] = NULL;
+    globals->digest_info[kCCDigestSkein256] = NULL;
+    globals->digest_info[kCCDigestSkein384] = NULL;
+    globals->digest_info[kCCDigestSkein512] = NULL;
+}
+
 const struct ccdigest_info *
 CCDigestGetDigestInfo(CCDigestAlgorithm algorithm) {
     cc_globals_t globals = _cc_globals();
-    dispatch_once(&globals->digest_info_init, ^{
-        globals->digest_info = (const struct ccdigest_info **)calloc(diMax, sizeof(struct ccdigest_info *));
-        globals->digest_info[kCCDigestNone] = NULL;
-        globals->digest_info[kCCDigestMD2] = &ccmd2_di;
-        globals->digest_info[kCCDigestMD4] = &ccmd4_di;
-        globals->digest_info[kCCDigestMD5] = ccmd5_di();
-        globals->digest_info[kCCDigestRMD128] = &ccrmd128_di;
-        globals->digest_info[kCCDigestRMD160] = &ccrmd160_di;
-        globals->digest_info[kCCDigestRMD256] = &ccrmd256_di;
-        globals->digest_info[kCCDigestRMD320] = &ccrmd320_di;
-        globals->digest_info[kCCDigestSHA1] = ccsha1_di();
-        globals->digest_info[kCCDigestSHA224] = ccsha224_di();
-        globals->digest_info[kCCDigestSHA256] = ccsha256_di();
-        globals->digest_info[kCCDigestSHA384] = ccsha384_di();
-        globals->digest_info[kCCDigestSHA512] = ccsha512_di();
-        globals->digest_info[kCCDigestSkein128] = NULL;
-        globals->digest_info[kCCDigestSkein160] = NULL;
-        globals->digest_info[15] = NULL; // gap
-        globals->digest_info[kCCDigestSkein224] = NULL;
-        globals->digest_info[kCCDigestSkein256] = NULL;
-        globals->digest_info[kCCDigestSkein384] = NULL;
-        globals->digest_info[kCCDigestSkein512] = NULL;
-    });
+    cc_dispatch_once(&globals->digest_info_init, NULL, init_globals);
     return globals->digest_info[algorithm];
 }
-
     
 int 
 CCDigestInit(CCDigestAlgorithm alg, CCDigestRef c)
@@ -89,7 +91,7 @@ CCDigestInit(CCDigestAlgorithm alg, CCDigestRef c)
     if(alg == 0 || alg >= diMax) return kCCParamError;
     if(!c) return kCCParamError;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", alg);
+    CC_DEBUG_LOG("Entering Algorithm: %d\n", alg);
     CCDigestCtxPtr p = (CCDigestCtxPtr) c;
 
     if((p->di = CCDigestGetDigestInfo(alg)) != NULL) {
@@ -103,7 +105,7 @@ CCDigestInit(CCDigestAlgorithm alg, CCDigestRef c)
 int
 CCDigestUpdate(CCDigestRef c, const void *data, size_t len)
 {
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
     if(c == NULL) return kCCParamError;
     if(len == 0) return kCCSuccess;
     if(data == NULL) return kCCParamError; /* this is only a problem if len > 0 */
@@ -118,7 +120,7 @@ CCDigestUpdate(CCDigestRef c, const void *data, size_t len)
 int
 CCDigestFinal(CCDigestRef c, uint8_t *out)
 {
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
 	if(c == NULL || out == NULL) return kCCParamError;
 	CCDigestCtxPtr p = (CCDigestCtxPtr) c;
     if(p->di) {
@@ -133,7 +135,7 @@ CCDigest(CCDigestAlgorithm alg, const uint8_t *data, size_t len, uint8_t *out)
 {
     const struct ccdigest_info *di;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", alg);
+    CC_DEBUG_LOG("Entering Algorithm: %d\n", alg);
     if((di = CCDigestGetDigestInfo(alg)) != NULL) {
         ccdigest(di, len, data, out);
         return 0;
@@ -144,7 +146,7 @@ CCDigest(CCDigestAlgorithm alg, const uint8_t *data, size_t len, uint8_t *out)
 size_t
 CCDigestGetBlockSize(CCDigestAlgorithm algorithm) 
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", algorithm);
+    CC_DEBUG_LOG("Entering Algorithm: %d\n", algorithm);
     const struct ccdigest_info *di = CCDigestGetDigestInfo(algorithm);
     if(di) return di->block_size;
     return kCCUnimplemented;
@@ -153,7 +155,7 @@ CCDigestGetBlockSize(CCDigestAlgorithm algorithm)
 size_t
 CCDigestGetOutputSize(CCDigestAlgorithm algorithm)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", algorithm);
+    CC_DEBUG_LOG("Entering Algorithm: %d\n", algorithm);
     const struct ccdigest_info *di = CCDigestGetDigestInfo(algorithm);
     if(di) return di->output_size;
     return kCCUnimplemented;
@@ -162,7 +164,7 @@ CCDigestGetOutputSize(CCDigestAlgorithm algorithm)
 size_t
 CCDigestGetBlockSizeFromRef(CCDigestRef ctx) 
 {
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
     CCDigestCtxPtr p = (CCDigestCtxPtr) ctx;
     if(p->di) return p->di->block_size;
     return kCCUnimplemented;
@@ -171,21 +173,21 @@ CCDigestGetBlockSizeFromRef(CCDigestRef ctx)
 size_t
 CCDigestBlockSize(CCDigestRef ctx)
 {
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
     return CCDigestGetBlockSizeFromRef(ctx);
 }
 
 size_t
 CCDigestOutputSize(CCDigestRef ctx)
 {
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
     return CCDigestGetOutputSizeFromRef(ctx);
 }
 
 size_t
 CCDigestGetOutputSizeFromRef(CCDigestRef ctx)
 {
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
     CCDigestCtxPtr p = (CCDigestCtxPtr) ctx;
     if(p->di) return p->di->output_size;
     return kCCUnimplemented;
@@ -200,7 +202,7 @@ CCDigestCreate(CCDigestAlgorithm alg)
 {
 	CCDigestRef retval = CC_XMALLOC(sizeof(CCDigestCtx));
     
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
     if(!retval) return NULL;
     if(CCDigestInit(alg, retval)) {
     	CC_XFREE(retval, sizeof(CCDigestCtx_t));
@@ -213,15 +215,15 @@ CCDigestCreate(CCDigestAlgorithm alg)
 const uint8_t *
 CCDigestOID(CCDigestRef ctx)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCDigestCtxPtr p = (CCDigestCtxPtr) ctx;
-	return p->di->oid;
+	return (uint8_t *)p->di->oid;//need to drop the const qualifier
 }
 
 size_t
 CCDigestOIDLen(CCDigestRef ctx)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCDigestCtxPtr p = (CCDigestCtxPtr) ctx;
 	return p->di->oid_size;
 }
@@ -229,7 +231,7 @@ CCDigestOIDLen(CCDigestRef ctx)
 CCDigestRef
 CCDigestCreateByOID(const uint8_t *OID, size_t OIDlen)
 {    
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     for(unsigned int i=kCCDigestMD2; i<diMax; i++) {
         const struct ccdigest_info *di = CCDigestGetDigestInfo(i);
         if(di && (OIDlen == di->oid_size) && (CC_XMEMCMP(OID, di->oid, OIDlen) == 0))
@@ -241,7 +243,7 @@ CCDigestCreateByOID(const uint8_t *OID, size_t OIDlen)
 void
 CCDigestReset(CCDigestRef ctx)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCDigestCtxPtr p = (CCDigestCtxPtr) ctx;
     if(p->di) ccdigest_init(p->di, (struct ccdigest_ctx *) p->md);
 }
@@ -250,7 +252,7 @@ CCDigestReset(CCDigestRef ctx)
 void
 CCDigestDestroy(CCDigestRef ctx)
 {
-    // CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    // CC_DEBUG_LOG("Entering\n");
 	if(ctx) {
 		CC_XZEROMEM(ctx, sizeof(CCDigestCtx_t));
 		CC_XFREE(ctx, sizeof(CCDigestCtx_t));
@@ -341,7 +343,7 @@ DIGEST_FINAL_SHIMS(SHA512, kCCDigestSHA512)
 #define MD5_CTX                     CC_MD5_CTX
 void MD5Final(unsigned char md[16], MD5_CTX *c)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     (void) CC_MD5_Final(md, c);
 }
 
@@ -480,7 +482,7 @@ int
 CC_SHA256_Init(CC_SHA256_CTX *x)
 {
     CC_SHA256_CTX_X *c = (CC_SHA256_CTX_X *) x;
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ASSERT(sizeof(CC_SHA256_CTX) == sizeof(CC_SHA256_CTX_X));
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA256);
     ASSERT(di->state_size == CC_SHA256_DIGEST_LENGTH);
@@ -502,7 +504,7 @@ CC_SHA256_Update(CC_SHA256_CTX *x, const void *data, CC_LONG len)
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
    	if(!len || !data) return CC_COMPAT_DIGEST_RETURN;
     c->count += len;
     
@@ -521,7 +523,7 @@ CC_SHA256_Final(unsigned char *md, CC_SHA256_CTX *x)
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if(!md) return CC_COMPAT_DIGEST_RETURN;
     
     ccdigest_finalize(di, bufptr, state, curlen, totalLen);
@@ -553,7 +555,7 @@ typedef struct CC_SHA512state_x
 int
 CC_SHA512_Init(CC_SHA512_CTX *x)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA512);
     CC_SHA512_CTX_X *c = (CC_SHA512_CTX_X *) x;
     ASSERT(di->state_size == CC_SHA512_DIGEST_LENGTH);
@@ -575,7 +577,7 @@ CC_SHA512_Update(CC_SHA512_CTX *x, const void *data, CC_LONG len)
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     
    	if(!len || !data) return CC_COMPAT_DIGEST_RETURN;
     
@@ -594,7 +596,7 @@ CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *x)
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if(!md) return CC_COMPAT_DIGEST_RETURN;
     
     ccdigest_finalize(di, bufptr, state, curlen, totalLen);
@@ -612,7 +614,7 @@ CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *x)
 int
 CC_SHA224_Init(CC_SHA256_CTX *c)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA224);
     ASSERT(di->state_size == CC_SHA256_DIGEST_LENGTH);
     CC_XZEROMEM(c->hash, CC_SHA256_DIGEST_LENGTH);
@@ -626,7 +628,7 @@ CC_SHA224_Init(CC_SHA256_CTX *c)
 int
 CC_SHA224_Update(CC_SHA256_CTX *c, const void *data, CC_LONG len)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return CC_SHA256_Update(c, data, len);
 }
 
@@ -634,7 +636,7 @@ int
 CC_SHA224_Final(unsigned char *md, CC_SHA256_CTX *c)
 {
     uint32_t buf[CC_SHA256_DIGEST_LENGTH/4];
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     
     CC_SHA256_Final((unsigned char *) buf, c);
     CC_XMEMCPY(md, buf, CC_SHA224_DIGEST_LENGTH);
@@ -645,7 +647,7 @@ CC_SHA224_Final(unsigned char *md, CC_SHA256_CTX *c)
 int
 CC_SHA384_Init(CC_SHA512_CTX *c)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA384);
     ASSERT(di->state_size == CC_SHA512_DIGEST_LENGTH);
     CC_XZEROMEM(c->hash, CC_SHA512_DIGEST_LENGTH);
@@ -660,7 +662,7 @@ CC_SHA384_Init(CC_SHA512_CTX *c)
 int
 CC_SHA384_Update(CC_SHA512_CTX *c, const void *data, CC_LONG len)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return CC_SHA512_Update(c, data, len);
 }
 
@@ -669,7 +671,7 @@ CC_SHA384_Final(unsigned char *md, CC_SHA512_CTX *c)
 {
     uint64_t buf[CC_SHA512_DIGEST_LENGTH/8];
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CC_SHA512_Final((unsigned char *) buf, c);
     CC_XMEMCPY(md, buf, CC_SHA384_DIGEST_LENGTH);
 	return CC_COMPAT_DIGEST_RETURN;

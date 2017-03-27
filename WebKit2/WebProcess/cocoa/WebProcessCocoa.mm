@@ -27,10 +27,12 @@
 #import "WebProcess.h"
 
 #import "CustomProtocolManager.h"
+#import "Logging.h"
 #import "ObjCObjectGraph.h"
 #import "SandboxExtension.h"
 #import "SandboxInitializationParameters.h"
 #import "SecItemShim.h"
+#import "SessionTracker.h"
 #import "WKAPICast.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKFullKeyboardAccessWatcher.h"
@@ -48,20 +50,19 @@
 #import <WebCore/FontCache.h>
 #import <WebCore/FontCascade.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/MemoryCache.h>
-#import <WebCore/MemoryPressureHandler.h>
+#import <WebCore/MemoryRelease.h>
 #import <WebCore/NSAccessibilitySPI.h>
-#import <WebCore/PageCache.h>
+#import <WebCore/PerformanceLogging.h>
+#import <WebCore/QuartzCoreSPI.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/pthreadSPI.h>
 #import <WebCore/VNodeTracker.h>
 #import <WebCore/WebCoreNSURLExtras.h>
+#import <WebCore/pthreadSPI.h>
 #import <WebKitSystemInterface.h>
 #import <algorithm>
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
 #import <stdio.h>
-#import <wtf/RAMSize.h>
 
 #if PLATFORM(IOS)
 #import <WebCore/GraphicsServicesSPI.h>
@@ -75,45 +76,8 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static uint64_t volumeFreeSize(NSString *path)
+void WebProcess::platformSetCacheModel(CacheModel)
 {
-    NSDictionary *fileSystemAttributesDictionary = [[NSFileManager defaultManager] attributesOfFileSystemForPath:path error:NULL];
-    return [[fileSystemAttributesDictionary objectForKey:NSFileSystemFreeSize] unsignedLongLongValue];
-}
-
-void WebProcess::platformSetCacheModel(CacheModel cacheModel)
-{
-    RetainPtr<NSString> nsurlCacheDirectory = adoptNS((NSString *)WKCopyFoundationCacheDirectory());
-    if (!nsurlCacheDirectory)
-        nsurlCacheDirectory = NSHomeDirectory();
-
-    uint64_t memSize = ramSize() / 1024 / 1024;
-
-    // As a fudge factor, use 1000 instead of 1024, in case the reported byte 
-    // count doesn't align exactly to a megabyte boundary.
-    uint64_t diskFreeSize = volumeFreeSize(nsurlCacheDirectory.get()) / 1024 / 1000;
-
-    unsigned cacheTotalCapacity = 0;
-    unsigned cacheMinDeadCapacity = 0;
-    unsigned cacheMaxDeadCapacity = 0;
-    auto deadDecodedDataDeletionInterval = std::chrono::seconds { 0 };
-    unsigned pageCacheSize = 0;
-    unsigned long urlCacheMemoryCapacity = 0;
-    unsigned long urlCacheDiskCapacity = 0;
-
-    calculateCacheSizes(cacheModel, memSize, diskFreeSize,
-        cacheTotalCapacity, cacheMinDeadCapacity, cacheMaxDeadCapacity, deadDecodedDataDeletionInterval,
-        pageCacheSize, urlCacheMemoryCapacity, urlCacheDiskCapacity);
-
-    auto& memoryCache = MemoryCache::singleton();
-    memoryCache.setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
-    memoryCache.setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
-    PageCache::singleton().setMaxSize(pageCacheSize);
-}
-
-void WebProcess::platformClearResourceCaches(ResourceCachesToClear cachesToClear)
-{
-    // FIXME: Remove this.
 }
 
 #if USE(APPKIT)
@@ -130,6 +94,7 @@ static id NSApplicationAccessibilityFocusedUIElement(NSApplication*, SEL)
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& parameters)
 {
     WebCore::setApplicationBundleIdentifier(parameters.uiProcessBundleIdentifier);
+    SessionTracker::setIdentifierBase(parameters.uiProcessBundleIdentifier);
 
 #if ENABLE(SANDBOX_EXTENSIONS)
     SandboxExtension::consumePermanently(parameters.uiProcessBundleResourcePathExtensionHandle);
@@ -158,6 +123,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& par
     m_compositingRenderServerPort = WTFMove(parameters.acceleratedCompositingPort);
     m_presenterApplicationPid = parameters.presenterApplicationPid;
 
+    WebCore::registerMemoryReleaseNotifyCallbacks();
     MemoryPressureHandler::ReliefLogger::setLoggingEnabled(parameters.shouldEnableMemoryPressureReliefLogging);
 
 #if PLATFORM(IOS)
@@ -231,6 +197,24 @@ void WebProcess::registerWithStateDumper()
             // dictionary will be serialized and passed back to os_state.
             auto stateDict = adoptNS([[NSMutableDictionary alloc] init]);
 
+            {
+                auto memoryUsageStats = adoptNS([[NSMutableDictionary alloc] init]);
+                for (auto& it : PerformanceLogging::memoryUsageStatistics(ShouldIncludeExpensiveComputations::Yes)) {
+                    auto keyString = adoptNS([[NSString alloc] initWithUTF8String:it.key]);
+                    [memoryUsageStats setObject:@(it.value) forKey:keyString.get()];
+                }
+                [stateDict setObject:memoryUsageStats.get() forKey:@"Memory Usage Stats"];
+            }
+
+            {
+                auto jsObjectCounts = adoptNS([[NSMutableDictionary alloc] init]);
+                for (auto& it : PerformanceLogging::javaScriptObjectCounts()) {
+                    auto keyString = adoptNS([[NSString alloc] initWithUTF8String:it.key]);
+                    [jsObjectCounts setObject:@(it.value) forKey:keyString.get()];
+                }
+                [stateDict setObject:jsObjectCounts.get() forKey:@"JavaScript Object Counts"];
+            }
+
             auto pageLoadTimes = adoptNS([[NSMutableArray alloc] init]);
             for (auto& page : m_pageMap.values()) {
                 if (page->usesEphemeralSession())
@@ -289,7 +273,7 @@ void WebProcess::platformInitializeProcess(const ChildProcessInitializationParam
 #endif
 
 #if ENABLE(SEC_ITEM_SHIM)
-    SecItemShim::singleton().initialize(this);
+    initializeSecItemShim(*this);
 #endif
 }
 
@@ -354,7 +338,7 @@ static NSURL *origin(WebPage& page)
     if (!mainFrameOrigin->isUnique())
         mainFrameOriginString = mainFrameOrigin->toRawString();
     else
-        mainFrameOriginString = mainFrameURL.protocol() + ':'; // toRawString() is not supposed to work with unique origins, and would just return "://".
+        mainFrameOriginString = makeString(mainFrameURL.protocol(), ':'); // toRawString() is not supposed to work with unique origins, and would just return "://".
 
     // +[NSURL URLWithString:] returns nil when its argument is malformed. It's unclear when we would have a malformed URL here,
     // but it happens in practice according to <rdar://problem/14173389>. Leaving an assertion in to catch a reproducible case.
@@ -460,7 +444,14 @@ RefPtr<ObjCObjectGraph> WebProcess::transformObjectsToHandles(ObjCObjectGraph& o
 
 void WebProcess::destroyRenderingResources()
 {
-    WKDestroyRenderingResources();
+#if !RELEASE_LOG_DISABLED
+    double startTime = monotonicallyIncreasingTime();
+#endif
+    CABackingStoreCollectBlocking();
+#if !RELEASE_LOG_DISABLED
+    double endTime = monotonicallyIncreasingTime();
+#endif
+    RELEASE_LOG(ProcessSuspension, "%p - WebProcess::destroyRenderingResources() took %.2fms", this, (endTime - startTime) * 1000.0);
 }
 
 } // namespace WebKit

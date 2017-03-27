@@ -23,7 +23,7 @@
 #define _RC2_CONTEXT_H_
 
 #include <BlockCryptor.h>
-#include <openssl/rc2.h>
+#include <openssl/rc2_legacy.h>
 
 /* RC2 Symmetric encryption context */
 class RC2Context : public BlockCryptor {

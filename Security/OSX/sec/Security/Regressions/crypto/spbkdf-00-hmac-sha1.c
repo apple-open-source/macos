@@ -13,18 +13,6 @@
 
 #include "Security_regressions.h"
 
-#if 0
-static void
-printComparison(const uint8_t*left, const uint8_t* right, int length)
-{
-    int i;
-    for(i = 0; i < length; ++i)
-    {
-        fprintf(stderr, "#  Values :: 0x%02x :: 0x%02x\n", left[i], right[i]);
-    }
-}
-#endif
-
 static int kTestTestCount = 8;
 
 static void tests(void)
@@ -45,7 +33,7 @@ static void tests(void)
 
         pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-1");
+        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-1");
     }
 
     {
@@ -64,7 +52,7 @@ static void tests(void)
 
         pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-2");
+        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-2");
     }
 
     {
@@ -83,7 +71,7 @@ static void tests(void)
 
         pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-4096");
+        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-4096");
     }
 
     SKIP: {
@@ -104,7 +92,7 @@ static void tests(void)
 
         pbkdf2_hmac_sha1((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize);
 
-        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-16777216");
+        ok(memcmp(expected, actual, resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-16777216");
     }
 
 
@@ -129,7 +117,7 @@ static void tests(void)
 
         SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-1");
+        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-1");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);
@@ -159,7 +147,7 @@ static void tests(void)
 
         SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-1");
+        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-2");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);
@@ -190,7 +178,7 @@ static void tests(void)
 
         SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-1");
+        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-4096");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);
@@ -223,7 +211,7 @@ static void tests(void)
 
         SecKeyFromPassphraseDataHMACSHA1(passwordData, saltData, iterations, resultData);
 
-        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'Salt' I-1");
+        ok(memcmp(expected, CFDataGetBytePtr(resultData), resultSize) == 0, "pbkdf-sha-1: P-'password' S-'salt' I-16777216");
 
         CFReleaseSafe(password);
         CFReleaseSafe(salt);

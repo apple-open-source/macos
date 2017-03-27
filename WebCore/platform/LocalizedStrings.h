@@ -166,8 +166,17 @@ namespace WebCore {
     String AXDescriptionListDetailText();
     String AXFooterRoleDescriptionText();
     String AXFileUploadButtonText();
+    String AXOutputText();
     String AXSearchFieldCancelButtonText();
     String AXAttachmentRoleText();
+    String AXDetailsText();
+    String AXSummaryText();
+    String AXFigureText();
+    String AXEmailFieldText();
+    String AXTelephoneFieldText();
+    String AXURLFieldText();
+    String AXDateFieldText();
+    String AXTimeFieldText();
     
     String AXButtonActionVerb();
     String AXRadioButtonActionVerb();
@@ -187,6 +196,12 @@ namespace WebCore {
 #if PLATFORM(COCOA)
     String AXARIAContentGroupText(const String& ariaType);
     String AXHorizontalRuleDescriptionText();
+    String AXMarkText();
+#if ENABLE(METER_ELEMENT)
+    String AXMeterGaugeRegionOptimumText();
+    String AXMeterGaugeRegionSuboptimalText();
+    String AXMeterGaugeRegionLessGoodText();
+#endif
 #endif
     
     String AXAutoFillCredentialsLabel();
@@ -209,8 +224,6 @@ namespace WebCore {
     WEBCORE_EXPORT String builtInPDFPluginName();
     WEBCORE_EXPORT String pdfDocumentTypeDescription();
     WEBCORE_EXPORT String postScriptDocumentTypeDescription();
-    String keygenMenuItem512();
-    String keygenMenuItem1024();
     String keygenMenuItem2048();
     String keygenKeychainItemName(const String& host);
 #endif
@@ -242,6 +255,7 @@ namespace WebCore {
     String validationMessageTypeMismatchForMultipleEmailText();
     String validationMessageTypeMismatchForURLText();
     String validationMessagePatternMismatchText();
+    String validationMessageTooShortText(int valueLength, int minLength);
     String validationMessageTooLongText(int valueLength, int maxLength);
     String validationMessageRangeUnderflowText(const String& minimum);
     String validationMessageRangeOverflowText(const String& maximum);
@@ -266,6 +280,7 @@ namespace WebCore {
     String sdhTrackMenuItemText(const String&);
     String easyReaderTrackMenuItemText(const String&);
     String forcedTrackMenuItemText(const String&);
+    String audioDescriptionTrackSuffixText(const String&);
 #endif
 #endif
 
@@ -292,6 +307,11 @@ namespace WebCore {
 #define WEB_UI_STRING_KEY(string, key, description) WebCore::localizedString(key)
 
     WEBCORE_EXPORT String localizedString(const char* key);
+
+#ifdef __OBJC__
+#define WEB_UI_NSSTRING(string, description) WebCore::localizedNSString(string)
+    WEBCORE_EXPORT NSString *localizedNSString(NSString *key) NS_FORMAT_ARGUMENT(1);
+#endif
 
 } // namespace WebCore
 

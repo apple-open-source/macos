@@ -92,6 +92,8 @@ public:
     virtual SocketProvider* socketProvider() = 0;
 #endif
 
+    virtual String resourceRequestIdentifier() const { return String(); };
+
     bool sanitizeScriptError(String& errorMessage, int& lineNumber, int& columnNumber, String& sourceURL, Deprecated::ScriptValue& error, CachedScript* = nullptr);
     void reportException(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception*, RefPtr<Inspector::ScriptCallStack>&&, CachedScript* = nullptr);
 
@@ -132,7 +134,7 @@ public:
     void createdMessagePort(MessagePort&);
     void destroyedMessagePort(MessagePort&);
 
-    virtual void didLoadResourceSynchronously(const ResourceRequest&);
+    virtual void didLoadResourceSynchronously();
 
     void ref() { refScriptExecutionContext(); }
     void deref() { derefScriptExecutionContext(); }
@@ -198,6 +200,7 @@ public:
 
     virtual EventQueue& eventQueue() const = 0;
 
+    DatabaseContext* databaseContext() { return m_databaseContext.get(); }
     void setDatabaseContext(DatabaseContext*);
 
 #if ENABLE(SUBTLE_CRYPTO)
@@ -256,6 +259,7 @@ private:
     RefPtr<DatabaseContext> m_databaseContext;
 
     bool m_activeDOMObjectAdditionForbidden;
+    bool m_willProcessMessagePortMessagesSoon { false };
     int m_timerNestingLevel;
 
 #if !ASSERT_DISABLED

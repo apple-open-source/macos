@@ -29,13 +29,17 @@
 
 #if TARGET_OS_MAC
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+#pragma clang diagnostic ignored "-Wunused-function"
+
 static void makeCustomKeyWithIntegrity(const char* name, SecKeychainRef kc, CFStringRef label, CFStringRef expectedHash) {
-    SecKeyRef key = makeCustomKey(name, kc, label);
+    SecKeyRef key = createCustomKey(name, kc, label);
     checkIntegrityHash(name, (SecKeychainItemRef) key, expectedHash);
     checkPartitionIDs(name, (SecKeychainItemRef) key, 1);
     CFReleaseNull(key);
  }
-#define makeCustomKeyWithIntegrityTests (makeCustomKeyTests + checkIntegrityHashTests + checkPartitionIDsTests)
+#define makeCustomKeyWithIntegrityTests (createCustomKeyTests + checkIntegrityHashTests + checkPartitionIDsTests)
 
 static void makeKeyWithIntegrity(const char* name, SecKeychainRef kc, CFStringRef expectedHash) {
     makeCustomKeyWithIntegrity(name, kc, CFSTR("test_key"), expectedHash);
@@ -84,13 +88,14 @@ static void testCopyMatchingKey(CFStringRef expectedHash) {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
 
     makeKeyWithIntegrity(name, kc, expectedHash);
 
-    SecKeyRef item = (SecKeyRef) checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    SecKeyRef item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, expectedHash);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
+    CFReleaseNull(item);
     CFReleaseNull(kc);
 }
 #define testCopyMatchingKeyTests (newKeychainTests + checkNTests + makeKeyWithIntegrityTests + checkNTests + checkIntegrityHashTests + 1)
@@ -102,12 +107,12 @@ static void testUpdateKey(CFStringRef expectedHash, CFStringRef expectedHashAfte
 
     SecKeychainRef kc = newKeychain(name);
     makeKeyWithIntegrity(name, kc, expectedHash);
-    SecKeychainItemRef item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     CFReleaseNull(item);
 
     CFStringRef label = CFSTR("a modified label");
 
-    CFMutableDictionaryRef query = makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
+    CFMutableDictionaryRef query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
     CFMutableDictionaryRef update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(update, kSecAttrLabel, label);
     ok_status(SecItemUpdate(query, update), "%s: SecItemUpdate", name);
@@ -116,9 +121,9 @@ static void testUpdateKey(CFStringRef expectedHash, CFStringRef expectedHashAfte
     CFReleaseNull(update);
 
     // Find the item again.
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
     CFDictionarySetValue(query, kSecAttrLabel, label);
-    item = checkN(name, query, 1);
+    item = checkNCopyFirst(name, query, 1);
     checkIntegrityHash(name, item, expectedHashAfter);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -136,8 +141,8 @@ static void testKeyPair() {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
 
     SecKeyRef pub;
     SecKeyRef priv;
@@ -153,40 +158,40 @@ static void testKeyPair() {
     // Ensure that the public key still exists and can be updated
 
     SecKeyRef item;
-    item = (SecKeyRef) checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkHashesMatch(name, (SecKeychainItemRef)pub, (SecKeychainItemRef)item);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
     CFDictionarySetValue(query, kSecAttrLabel, label);
-    item = (SecKeyRef) checkN(name, query, 0);
+    item = (SecKeyRef) checkNCopyFirst(name, query, 0);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
     update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(update, kSecAttrLabel, label);
     ok_status(SecItemUpdate(query, update), "%s: SecItemUpdate (public key)", name);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
     CFDictionarySetValue(query, kSecAttrLabel, label);
-    item = (SecKeyRef) checkN(name, query, 1);
+    item = (SecKeyRef) checkNCopyFirst(name, query, 1);
     CFReleaseNull(item);
 
     // Ensure that the private key still exists and can be updated
 
-    item = (SecKeyRef) checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkHashesMatch(name, (SecKeychainItemRef)priv, (SecKeychainItemRef)item);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
     CFDictionarySetValue(query, kSecAttrLabel, label);
-    item = (SecKeyRef) checkN(name, query, 0);
+    item = (SecKeyRef) checkNCopyFirst(name, query, 0);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
     update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(update, kSecAttrLabel, label);
     ok_status(SecItemUpdate(query, update), "%s: SecItemUpdate (private key)", name);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
     CFDictionarySetValue(query, kSecAttrLabel, label);
-    item = (SecKeyRef) checkN(name, query, 1);
+    item = (SecKeyRef) checkNCopyFirst(name, query, 1);
     CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
@@ -204,13 +209,14 @@ static void testAddDuplicateKey(CFStringRef expectedHash) {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
 
     makeKeyWithIntegrity(name, kc, expectedHash);
 
-    SecKeychainItemRef item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     makeDuplicateKey(name, kc);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -223,14 +229,14 @@ static void testAddDuplicateFreeKey(CFStringRef expectedHash) {
     //char * name = "testAddDuplicateFreeKey";
     //secnotice("integrity", "************************************* %s", name);
     //SecKeychainRef kc = newKeychain(name);
-    //checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
+    //checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
 
     //SecKeyRef key = makeFreeKey(name, kc);
     //checkIntegrityHash(name, (SecKeychainItemRef) key, expectedHash);
-    //SecKeychainItemRef item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    //SecKeychainItemRef item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
 
     //makeDuplicateFreeKey(name, kc);
-    //checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    //checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
 
     //ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     //CFReleaseNull(kc);
@@ -251,8 +257,8 @@ static void testExportImportKeyPair() {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
 
     SecKeyRef pub;
     SecKeyRef priv;
@@ -261,10 +267,10 @@ static void testExportImportKeyPair() {
     // Now that we have the key pair, make sure we can pull the individual keys out
 
     SecKeyRef item;
-    item = (SecKeyRef) checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkHashesMatch(name, (SecKeychainItemRef)pub, (SecKeychainItemRef)item);
 
-    item = (SecKeyRef) checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = (SecKeyRef) checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkHashesMatch(name, (SecKeychainItemRef)priv, (SecKeychainItemRef)item);
 
     CFMutableArrayRef applications = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
@@ -296,9 +302,9 @@ static void testExportImportKeyPair() {
     CFRelease(pub);
     pub = NULL;
 
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
     ok_status(SecItemImport(keyData, NULL, NULL, NULL, kSecItemPemArmour, &keyParams, kc, &items), "%s: SecItemImport", name);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
 
 
     ok_status(SecItemExport(priv, kSecFormatPEMSequence, kSecItemPemArmour, &keyParams, &keyData), "%s: SecItemExport", name);
@@ -306,11 +312,11 @@ static void testExportImportKeyPair() {
     CFRelease(priv);
     priv = NULL;
 
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
 
     ok_status(SecItemImport(keyData, NULL, NULL, NULL, kSecItemPemArmour, &keyParams, kc, &items), "%s: SecItemImport", name);
 
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     SecAccessRef newRef = NULL;
     ok_status(SecKeychainItemCopyAccess((SecKeychainItemRef) CFArrayGetValueAtIndex(items, 0), &newRef), "%s:SecKeychainItemCopyAccess", name);
@@ -332,7 +338,7 @@ static void testExportImportKeyPair() {
     ok_status(SecKeychainItemCopyAccess((SecKeychainItemRef) CFArrayGetValueAtIndex(items, 0), &newRef), "%s:SecKeychainItemCopyAccess", name);
     // TODO: should probably check this AccessRef object to make sure it's simple
 
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -344,6 +350,7 @@ static void testExportImportKeyPair() {
         + 2 + checkNTests + 1 + checkNTests + 1 + 1 + 1 + checkNTests\
         + 1)
 
+#pragma clang diagnostic pop
 
 #else
 

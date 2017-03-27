@@ -27,6 +27,7 @@
 #pragma once
 
 #if ENABLE(MATHML)
+
 #include "GlyphPage.h"
 #include "LayoutUnit.h"
 #include "OpenTypeMathData.h"
@@ -41,7 +42,7 @@ class MathOperator {
 public:
     MathOperator();
     enum class Type { NormalOperator, DisplayOperator, VerticalOperator, HorizontalOperator };
-    void setOperator(const RenderStyle&, UChar baseCharacter, Type);
+    void setOperator(const RenderStyle&, UChar32 baseCharacter, Type);
     void reset(const RenderStyle&);
 
     LayoutUnit width() const { return m_width; }
@@ -81,13 +82,14 @@ private:
     };
 
     LayoutUnit stretchSize() const;
-    bool getBaseGlyph(const RenderStyle&, GlyphData&) const;
+    bool getGlyph(const RenderStyle&, UChar32 character, GlyphData&) const;
+    bool getBaseGlyph(const RenderStyle& style, GlyphData& baseGlyph) const { return getGlyph(style, m_baseCharacter, baseGlyph); }
     void setSizeVariant(const GlyphData&);
     void setGlyphAssembly(const RenderStyle&, const GlyphAssemblyData&);
+    void getMathVariantsWithFallback(const RenderStyle&, bool isVertical, Vector<Glyph>&, Vector<OpenTypeMathData::AssemblyPart>&);
     void calculateDisplayStyleLargeOperator(const RenderStyle&);
     void calculateStretchyData(const RenderStyle&, bool calculateMaxPreferredWidth, LayoutUnit targetSize = 0);
     bool calculateGlyphAssemblyFallback(const Vector<OpenTypeMathData::AssemblyPart>&, GlyphAssemblyData&) const;
-
 
     LayoutRect paintGlyph(const RenderStyle&, PaintInfo&, const GlyphData&, const LayoutPoint& origin, GlyphPaintTrimming);
     void fillWithVerticalExtensionGlyph(const RenderStyle&, PaintInfo&, const LayoutPoint& from, const LayoutPoint& to);
@@ -95,7 +97,7 @@ private:
     void paintVerticalGlyphAssembly(const RenderStyle&, PaintInfo&, const LayoutPoint&);
     void paintHorizontalGlyphAssembly(const RenderStyle&, PaintInfo&, const LayoutPoint&);
 
-    UChar m_baseCharacter { 0 };
+    UChar32 m_baseCharacter { 0 };
     Type m_operatorType { Type::NormalOperator };
     StretchType m_stretchType { StretchType::Unstretched };
     union {

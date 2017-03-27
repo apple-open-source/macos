@@ -62,6 +62,7 @@
 #import "RenderStyle.h"
 #import "RenderThemeIOS.h"
 #import "RenderView.h"
+#import "RuntimeEnabledFeatures.h"
 #import "SoftLinking.h"
 #import "UIKitSPI.h"
 #import "UTIUtilities.h"
@@ -73,9 +74,6 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RefPtr.h>
 #import <wtf/StdLibExtras.h>
-
-SOFT_LINK_FRAMEWORK(MobileCoreServices)
-SOFT_LINK_CLASS(MobileCoreServices, LSDocumentProxy)
 
 SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_CLASS(UIKit, UIApplication)
@@ -297,10 +295,10 @@ RenderThemeIOS::RenderThemeIOS()
     CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), this, contentSizeCategoryDidChange, UIContentSizeCategoryDidChangeNotification, 0, CFNotificationSuspensionBehaviorDeliverImmediately);
 }
 
-PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page*)
+Ref<RenderTheme> RenderTheme::themeForPage(Page*)
 {
     static RenderTheme& renderTheme = RenderThemeIOS::create().leakRef();
-    return &renderTheme;
+    return renderTheme;
 }
 
 Ref<RenderTheme> RenderThemeIOS::create()
@@ -328,7 +326,7 @@ void RenderThemeIOS::setContentSizeCategory(const String& contentSizeCategory)
 
 const Color& RenderThemeIOS::shadowColor() const
 {
-    static Color color(0.0f, 0.0f, 0.0f, 0.7f);
+    static NeverDestroyed<Color> color(0.0f, 0.0f, 0.0f, 0.7f);
     return color;
 }
 
@@ -575,7 +573,7 @@ public:
     }
     float measureText(const String& string) const override
     {
-        TextRun run = RenderBlock::constructTextRun(string, m_style, AllowTrailingExpansion | ForbidLeadingExpansion, DefaultTextRunFlags);
+        TextRun run = RenderBlock::constructTextRun(string, m_style);
         return m_font.width(run);
     }
 private:
@@ -1281,7 +1279,7 @@ void RenderThemeIOS::updateCachedSystemFontDescription(CSSValueID valueID, FontC
 
     ASSERT(fontDescriptor);
     RetainPtr<CTFontRef> font = adoptCF(CTFontCreateWithFontDescriptor(fontDescriptor.get(), 0, nullptr));
-    font = preparePlatformFont(font.get(), fontDescription.textRenderingMode(), nullptr, nullptr, fontDescription.featureSettings(), fontDescription.variantSettings());
+    font = preparePlatformFont(font.get(), fontDescription.textRenderingMode(), nullptr, nullptr, fontDescription.featureSettings(), fontDescription.variantSettings(), fontDescription.variationSettings());
     fontDescription.setIsAbsoluteSize(true);
     fontDescription.setOneFamily(textStyle);
     fontDescription.setSpecifiedSize(CTFontGetSize(font.get()));
@@ -1293,12 +1291,15 @@ void RenderThemeIOS::updateCachedSystemFontDescription(CSSValueID valueID, FontC
 String RenderThemeIOS::mediaControlsStyleSheet()
 {
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
-    if (m_mediaControlsStyleSheet.isEmpty()) {
-        StringBuilder builder;
-        builder.append([NSString stringWithContentsOfFile:[[NSBundle bundleForClass:[WebCoreRenderThemeBundle class]] pathForResource:@"mediaControlsiOS" ofType:@"css"] encoding:NSUTF8StringEncoding error:nil]);
-        m_mediaControlsStyleSheet = builder.toString();
+    if (RuntimeEnabledFeatures::sharedFeatures().modernMediaControlsEnabled()) {
+        if (m_mediaControlsStyleSheet.isEmpty())
+            m_mediaControlsStyleSheet = [NSString stringWithContentsOfFile:[[NSBundle bundleForClass:[WebCoreRenderThemeBundle class]] pathForResource:@"modern-media-controls" ofType:@"css" inDirectory:@"modern-media-controls"] encoding:NSUTF8StringEncoding error:nil];
+        return m_mediaControlsStyleSheet;
     }
-    return m_mediaControlsStyleSheet;
+
+    if (m_legacyMediaControlsStyleSheet.isEmpty())
+        m_legacyMediaControlsStyleSheet = [NSString stringWithContentsOfFile:[[NSBundle bundleForClass:[WebCoreRenderThemeBundle class]] pathForResource:@"mediaControlsiOS" ofType:@"css"] encoding:NSUTF8StringEncoding error:nil];
+    return m_legacyMediaControlsStyleSheet;
 #else
     return emptyString();
 #endif
@@ -1307,18 +1308,48 @@ String RenderThemeIOS::mediaControlsStyleSheet()
 String RenderThemeIOS::mediaControlsScript()
 {
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
-    if (m_mediaControlsScript.isEmpty()) {
-        StringBuilder scriptBuilder;
-        scriptBuilder.append([NSString stringWithContentsOfFile:[[NSBundle bundleForClass:[WebCoreRenderThemeBundle class]] pathForResource:@"mediaControlsLocalizedStrings" ofType:@"js"] encoding:NSUTF8StringEncoding error:nil]);
-        scriptBuilder.append([NSString stringWithContentsOfFile:[[NSBundle bundleForClass:[WebCoreRenderThemeBundle class]] pathForResource:@"mediaControlsApple" ofType:@"js"] encoding:NSUTF8StringEncoding error:nil]);
-        scriptBuilder.append([NSString stringWithContentsOfFile:[[NSBundle bundleForClass:[WebCoreRenderThemeBundle class]] pathForResource:@"mediaControlsiOS" ofType:@"js"] encoding:NSUTF8StringEncoding error:nil]);
-        m_mediaControlsScript = scriptBuilder.toString();
+    if (RuntimeEnabledFeatures::sharedFeatures().modernMediaControlsEnabled()) {
+        if (m_mediaControlsScript.isEmpty()) {
+            NSBundle *bundle = [NSBundle bundleForClass:[WebCoreRenderThemeBundle class]];
+
+            StringBuilder scriptBuilder;
+            scriptBuilder.append([NSString stringWithContentsOfFile:[bundle pathForResource:@"modern-media-controls-localized-strings.js" ofType:@"js"] encoding:NSUTF8StringEncoding error:nil]);
+            scriptBuilder.append([NSString stringWithContentsOfFile:[bundle pathForResource:@"modern-media-controls" ofType:@"js" inDirectory:@"modern-media-controls"] encoding:NSUTF8StringEncoding error:nil]);
+            m_mediaControlsScript = scriptBuilder.toString();
+        }
+        return m_mediaControlsScript;
     }
-    return m_mediaControlsScript;
+
+    if (m_legacyMediaControlsScript.isEmpty()) {
+        NSBundle *bundle = [NSBundle bundleForClass:[WebCoreRenderThemeBundle class]];
+
+        StringBuilder scriptBuilder;
+        scriptBuilder.append([NSString stringWithContentsOfFile:[bundle pathForResource:@"mediaControlsLocalizedStrings" ofType:@"js"] encoding:NSUTF8StringEncoding error:nil]);
+        scriptBuilder.append([NSString stringWithContentsOfFile:[bundle pathForResource:@"mediaControlsApple" ofType:@"js"] encoding:NSUTF8StringEncoding error:nil]);
+        scriptBuilder.append([NSString stringWithContentsOfFile:[bundle pathForResource:@"mediaControlsiOS" ofType:@"js"] encoding:NSUTF8StringEncoding error:nil]);
+
+        m_legacyMediaControlsScript = scriptBuilder.toString();
+    }
+    return m_legacyMediaControlsScript;
 #else
     return emptyString();
 #endif
 }
+
+String RenderThemeIOS::mediaControlsBase64StringForIconAndPlatform(const String& iconName, const String& platform)
+{
+#if ENABLE(MEDIA_CONTROLS_SCRIPT)
+    if (!RuntimeEnabledFeatures::sharedFeatures().modernMediaControlsEnabled())
+        return emptyString();
+
+    String directory = "modern-media-controls/images/" + platform;
+    NSBundle *bundle = [NSBundle bundleForClass:[WebCoreRenderThemeBundle class]];
+    return [[NSData dataWithContentsOfFile:[bundle pathForResource:iconName ofType:@"png" inDirectory:directory]] base64EncodedStringWithOptions:0];
+#else
+    return emptyString();
+#endif
+}
+
 #endif // ENABLE(VIDEO)
 
 Color RenderThemeIOS::systemColor(CSSValueID cssValueID) const
@@ -1380,8 +1411,8 @@ const CGFloat attachmentIconSize = 48;
 
 const CGFloat attachmentItemMargin = 8;
 
-const CGFloat attachmentTitleMaximumWidth = 140;
-const CFIndex attachmentTitleMaximumLineCount = 2;
+const CGFloat attachmentWrappingTextMaximumWidth = 140;
+const CFIndex attachmentWrappingTextMaximumLineCount = 2;
 
 static RetainPtr<CTFontRef> attachmentActionFont()
 {
@@ -1432,7 +1463,7 @@ struct AttachmentInfo {
     CGFloat contentYOrigin { 0 };
 
 private:
-    void buildTitleLines(const RenderAttachment&, unsigned maximumLineCount);
+    void buildWrappedLines(const String&, CTFontRef, UIColor *, unsigned maximumLineCount);
     void buildSingleLine(const String&, CTFontRef, UIColor *);
 
     void addLine(CTLineRef);
@@ -1453,28 +1484,25 @@ void AttachmentInfo::addLine(CTLineRef line)
     lines.append(labelLine);
 }
 
-void AttachmentInfo::buildTitleLines(const RenderAttachment& attachment, unsigned maximumLineCount)
+void AttachmentInfo::buildWrappedLines(const String& text, CTFontRef font, UIColor *color, unsigned maximumLineCount)
 {
-    RetainPtr<CTFontRef> font = attachmentTitleFont();
-
-    String title = attachment.attachmentElement().attachmentTitle();
-    if (title.isEmpty())
+    if (text.isEmpty())
         return;
 
     NSDictionary *textAttributes = @{
-        (id)kCTFontAttributeName: (id)font.get(),
-        (id)kCTForegroundColorAttributeName: attachmentTitleColor()
+        (id)kCTFontAttributeName: (id)font,
+        (id)kCTForegroundColorAttributeName: color
     };
-    RetainPtr<NSAttributedString> attributedTitle = adoptNS([[NSAttributedString alloc] initWithString:title attributes:textAttributes]);
-    RetainPtr<CTFramesetterRef> titleFramesetter = adoptCF(CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributedTitle.get()));
+    RetainPtr<NSAttributedString> attributedText = adoptNS([[NSAttributedString alloc] initWithString:text attributes:textAttributes]);
+    RetainPtr<CTFramesetterRef> framesetter = adoptCF(CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributedText.get()));
 
     CFRange fitRange;
-    CGSize titleTextSize = CTFramesetterSuggestFrameSizeWithConstraints(titleFramesetter.get(), CFRangeMake(0, 0), nullptr, CGSizeMake(attachmentTitleMaximumWidth, CGFLOAT_MAX), &fitRange);
+    CGSize textSize = CTFramesetterSuggestFrameSizeWithConstraints(framesetter.get(), CFRangeMake(0, 0), nullptr, CGSizeMake(attachmentWrappingTextMaximumWidth, CGFLOAT_MAX), &fitRange);
 
-    RetainPtr<CGPathRef> titlePath = adoptCF(CGPathCreateWithRect(CGRectMake(0, 0, titleTextSize.width, titleTextSize.height), nullptr));
-    RetainPtr<CTFrameRef> titleFrame = adoptCF(CTFramesetterCreateFrame(titleFramesetter.get(), fitRange, titlePath.get(), nullptr));
+    RetainPtr<CGPathRef> textPath = adoptCF(CGPathCreateWithRect(CGRectMake(0, 0, textSize.width, textSize.height), nullptr));
+    RetainPtr<CTFrameRef> textFrame = adoptCF(CTFramesetterCreateFrame(framesetter.get(), fitRange, textPath.get(), nullptr));
 
-    CFArrayRef ctLines = CTFrameGetLines(titleFrame.get());
+    CFArrayRef ctLines = CTFrameGetLines(textFrame.get());
     CFIndex lineCount = CFArrayGetCount(ctLines);
     if (!lineCount)
         return;
@@ -1492,12 +1520,12 @@ void AttachmentInfo::buildTitleLines(const RenderAttachment& attachment, unsigne
     // Combine it into one last line, and center-truncate it.
     CTLineRef firstRemainingLine = (CTLineRef)CFArrayGetValueAtIndex(ctLines, lineIndex);
     CFIndex remainingRangeStart = CTLineGetStringRange(firstRemainingLine).location;
-    NSRange remainingRange = NSMakeRange(remainingRangeStart, [attributedTitle length] - remainingRangeStart);
-    NSAttributedString *remainingString = [attributedTitle attributedSubstringFromRange:remainingRange];
+    NSRange remainingRange = NSMakeRange(remainingRangeStart, [attributedText length] - remainingRangeStart);
+    NSAttributedString *remainingString = [attributedText attributedSubstringFromRange:remainingRange];
     RetainPtr<CTLineRef> remainingLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)remainingString));
     RetainPtr<NSAttributedString> ellipsisString = adoptNS([[NSAttributedString alloc] initWithString:@"\u2026" attributes:textAttributes]);
     RetainPtr<CTLineRef> ellipsisLine = adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)ellipsisString.get()));
-    RetainPtr<CTLineRef> truncatedLine = adoptCF(CTLineCreateTruncatedLine(remainingLine.get(), attachmentTitleMaximumWidth, kCTLineTruncationMiddle, ellipsisLine.get()));
+    RetainPtr<CTLineRef> truncatedLine = adoptCF(CTLineCreateTruncatedLine(remainingLine.get(), attachmentWrappingTextMaximumWidth, kCTLineTruncationMiddle, ellipsisLine.get()));
 
     if (!truncatedLine)
         truncatedLine = remainingLine;
@@ -1587,6 +1615,7 @@ AttachmentInfo::AttachmentInfo(const RenderAttachment& attachment)
 
     hasProgress = getAttachmentProgress(attachment, progress);
 
+    String title = attachment.attachmentElement().attachmentTitle();
     String action = attachment.attachmentElement().attributeWithoutSynchronization(actionAttr);
     String subtitle = attachment.attachmentElement().attributeWithoutSynchronization(subtitleAttr);
 
@@ -1605,10 +1634,10 @@ AttachmentInfo::AttachmentInfo(const RenderAttachment& attachment)
             yOffset += iconRect.height() + attachmentItemMargin;
         }
     } else
-        buildSingleLine(action, attachmentActionFont().get(), attachmentActionColor(attachment));
+        buildWrappedLines(action, attachmentActionFont().get(), attachmentActionColor(attachment), attachmentWrappingTextMaximumLineCount);
 
     bool forceSingleLineTitle = !action.isEmpty() || !subtitle.isEmpty() || hasProgress;
-    buildTitleLines(attachment, forceSingleLineTitle ? 1 : attachmentTitleMaximumLineCount);
+    buildWrappedLines(title, attachmentTitleFont().get(), attachmentTitleColor(), forceSingleLineTitle ? 1 : attachmentWrappingTextMaximumLineCount);
     buildSingleLine(subtitle, attachmentSubtitleFont().get(), attachmentSubtitleColor());
 
     if (!lines.isEmpty()) {
@@ -1654,7 +1683,7 @@ static void paintAttachmentText(GraphicsContext& context, AttachmentInfo& info)
         context.translate(toFloatSize(line.rect.minXMaxYCorner()));
         context.scale(FloatSize(1, -1));
 
-        CGContextSetTextMatrix(context.platformContext(), CGAffineTransformIdentity);
+        CGContextSetTextPosition(context.platformContext(), 0, 0);
         CTLineDraw(line.line.get(), context.platformContext());
     }
 }

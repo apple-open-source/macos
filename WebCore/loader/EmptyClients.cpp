@@ -29,6 +29,7 @@
 #include "EmptyClients.h"
 
 #include "ApplicationCacheStorage.h"
+#include "BackForwardClient.h"
 #include "ColorChooser.h"
 #include "DOMWrapperWorld.h"
 #include "DatabaseProvider.h"
@@ -42,11 +43,14 @@
 #include "Page.h"
 #include "PageConfiguration.h"
 #include "PaymentCoordinatorClient.h"
+#include "PluginInfoProvider.h"
+#include "SecurityOriginData.h"
 #include "StorageArea.h"
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
 #include "ThreadableWebSocketChannel.h"
 #include "UserContentProvider.h"
+#include <heap/HeapInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -61,9 +65,9 @@ class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
     bool showPaymentUI(const URL&, const Vector<URL>&, const PaymentRequest&) override { return false; }
     void completeMerchantValidation(const PaymentMerchantSession&) override { }
 
-    void completeShippingMethodSelection(PaymentAuthorizationStatus, Optional<PaymentRequest::TotalAndLineItems>) override { }
-    void completeShippingContactSelection(PaymentAuthorizationStatus, const Vector<PaymentRequest::ShippingMethod>&, Optional<PaymentRequest::TotalAndLineItems>) override { }
-    void completePaymentMethodSelection(Optional<WebCore::PaymentRequest::TotalAndLineItems>) override { }
+    void completeShippingMethodSelection(PaymentAuthorizationStatus, std::optional<PaymentRequest::TotalAndLineItems>) override { }
+    void completeShippingContactSelection(PaymentAuthorizationStatus, const Vector<PaymentRequest::ShippingMethod>&, std::optional<PaymentRequest::TotalAndLineItems>) override { }
+    void completePaymentMethodSelection(std::optional<WebCore::PaymentRequest::TotalAndLineItems>) override { }
     void completePaymentSession(PaymentAuthorizationStatus) override { }
     void abortPaymentSession() override { }
     void paymentCoordinatorDestroyed() override { }
@@ -80,6 +84,12 @@ class EmptyDatabaseProvider final : public DatabaseProvider {
 #endif
 };
 
+class EmptyPluginInfoProvider final : public PluginInfoProvider {
+    void refreshPlugins() override { };
+    void getPluginInfo(Page&, Vector<PluginInfo>&) override { }
+    void getWebVisiblePluginInfo(Page&, Vector<PluginInfo>&) override { }
+};
+
 class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
     struct EmptyStorageArea : public StorageArea {
         unsigned length() override { return 0; }
@@ -92,11 +102,11 @@ class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
         bool canAccessStorage(Frame*) override { return false; }
         StorageType storageType() const override { return LocalStorage; }
         size_t memoryBytesUsedByCache() override { return 0; }
-        SecurityOrigin& securityOrigin() override { return SecurityOrigin::createUnique(); }
+        SecurityOriginData securityOrigin() const override { return { }; }
     };
 
     struct EmptyStorageNamespace final : public StorageNamespace {
-        RefPtr<StorageArea> storageArea(RefPtr<SecurityOrigin>&&) override { return adoptRef(new EmptyStorageArea); }
+        RefPtr<StorageArea> storageArea(const SecurityOriginData&) override { return adoptRef(new EmptyStorageArea); }
         RefPtr<StorageNamespace> copy(Page*) override { return adoptRef(new EmptyStorageNamespace); }
     };
 
@@ -132,6 +142,15 @@ class EmptyVisitedLinkStore final : public VisitedLinkStore {
     void addVisitedLink(Page&, LinkHash) override { }
 };
 
+class EmptyBackForwardClient final : public BackForwardClient {
+    void addItem(Ref<HistoryItem>&&) override { }
+    void goToItem(HistoryItem*) override { }
+    HistoryItem* itemAtIndex(int) override { return nullptr; }
+    int backListCount() override { return 0; }
+    int forwardListCount() override { return 0; }
+    void close() override { }
+};
+
 void fillWithEmptyClients(PageConfiguration& pageConfiguration)
 {
     static NeverDestroyed<EmptyChromeClient> dummyChromeClient;
@@ -161,10 +180,12 @@ void fillWithEmptyClients(PageConfiguration& pageConfiguration)
     static NeverDestroyed<EmptyProgressTrackerClient> dummyProgressTrackerClient;
     pageConfiguration.progressTrackerClient = &dummyProgressTrackerClient.get();
 
+    pageConfiguration.backForwardClient = adoptRef(new EmptyBackForwardClient);
     pageConfiguration.diagnosticLoggingClient = std::make_unique<EmptyDiagnosticLoggingClient>();
 
     pageConfiguration.applicationCacheStorage = ApplicationCacheStorage::create(String(), String());
     pageConfiguration.databaseProvider = adoptRef(new EmptyDatabaseProvider);
+    pageConfiguration.pluginInfoProvider = adoptRef(new EmptyPluginInfoProvider);
     pageConfiguration.storageNamespaceProvider = adoptRef(new EmptyStorageNamespaceProvider);
     pageConfiguration.userContentProvider = adoptRef(new EmptyUserContentProvider);
     pageConfiguration.visitedLinkStore = adoptRef(new EmptyVisitedLinkStore);

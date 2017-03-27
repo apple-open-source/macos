@@ -2270,15 +2270,22 @@ _dispatch_priority_propagate(void)
 // including maintenance
 DISPATCH_ALWAYS_INLINE
 static inline bool
-_dispatch_is_background_thread(void)
+_dispatch_is_background_priority(pthread_priority_t pp)
 {
 #if HAVE_PTHREAD_WORKQUEUE_QOS
-	pthread_priority_t pp = _dispatch_get_priority();
 	pp &= ~_PTHREAD_PRIORITY_FLAGS_MASK;
 	return pp && (pp <= _dispatch_background_priority);
 #else
 	return false;
 #endif
+}
+
+// including maintenance
+DISPATCH_ALWAYS_INLINE
+static inline bool
+_dispatch_is_background_thread(void)
+{
+	return _dispatch_is_background_priority(_dispatch_get_priority());
 }
 
 #pragma mark -

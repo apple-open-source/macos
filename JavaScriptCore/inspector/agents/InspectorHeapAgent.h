@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorHeapAgent_h
-#define InspectorHeapAgent_h
+#pragma once
 
 #include "HeapSnapshot.h"
 #include "InspectorBackendDispatchers.h"
@@ -61,13 +60,13 @@ public:
 
     // HeapObserver
     void willGarbageCollect() override;
-    void didGarbageCollect(JSC::HeapOperation) override;
+    void didGarbageCollect(JSC::CollectionScope) override;
 
 protected:
     void clearHeapSnapshots();
 
 private:
-    Optional<JSC::HeapSnapshotNode> nodeForHeapObjectIdentifier(ErrorString&, unsigned heapObjectIdentifier);
+    std::optional<JSC::HeapSnapshotNode> nodeForHeapObjectIdentifier(ErrorString&, unsigned heapObjectIdentifier);
 
     InjectedScriptManager& m_injectedScriptManager;
     std::unique_ptr<HeapFrontendDispatcher> m_frontendDispatcher;
@@ -82,5 +81,3 @@ private:
 };
 
 } // namespace Inspector
-
-#endif // InspectorHeapAgent_h

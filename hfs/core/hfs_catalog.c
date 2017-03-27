@@ -3038,7 +3038,6 @@ exit:
 }
 
 #define SMALL_DIRENTRY_SIZE  (int)(sizeof(struct dirent) - (MAXNAMLEN + 1) + 8)
-#define MAX_LINKINFO_ENTRIES 3000
 
 /*
  * Callback to pack directory entries.
@@ -3518,12 +3517,13 @@ cat_getdirentries(struct hfsmount *hfsmp, u_int32_t entrycnt, directoryhint_t *d
 	}
 	fcb = hfsmp->hfs_catalog_cp->c_datafork;
 
+	#define MAX_LINKINFO_ENTRIES 275
 	/*
-	 * Get a buffer for link info array, btree iterator and a direntry. 
-	 * 
-	 * We impose an cap of 3000 link entries when trying to compute
-	 * the total number of hardlink entries that we'll allow in the  
-	 * linkinfo array. 
+	 * Get a buffer for link info array, btree iterator and a direntry.
+	 *
+	 * We impose an cap of 275 link entries when trying to compute
+	 * the total number of hardlink entries that we'll allow in the
+	 * linkinfo array, as this has been shown to noticeably impact performance.
 	 *
 	 * Note that in the case where there are very few hardlinks,
 	 * this does not restrict or prevent us from vending out as many entries
@@ -3532,8 +3532,11 @@ cat_getdirentries(struct hfsmount *hfsmp, u_int32_t entrycnt, directoryhint_t *d
 	 * this MALLOC'd array. It also limits itself to maxlinks of hardlinks.
 	 */
 
-	/* Now compute the maximum link array size */
-	maxlinks = MIN (entrycnt, MAX_LINKINFO_ENTRIES);
+	// This value cannot underflow: both entrycnt and the rhs are unsigned 32-bit
+	// ints, so the worst-case MIN of them is 0.
+	maxlinks = MIN (entrycnt, (u_int32_t)(uio_resid(uio) / SMALL_DIRENTRY_SIZE));
+	// Prevent overflow.
+	maxlinks = MIN (maxlinks, MAX_LINKINFO_ENTRIES);
 	bufsize = MAXPATHLEN + (maxlinks * sizeof(linkinfo_t)) + sizeof(*iterator);	
 	
 	if (extended) {

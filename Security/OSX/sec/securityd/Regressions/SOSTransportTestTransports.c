@@ -15,7 +15,7 @@
 #include "SOSTransportTestTransports.h"
 
 static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName, CFStringRef peerID, CFDataRef message, CFErrorRef *error);
-static bool syncWithPeers(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error);
+static bool syncWithPeers(SOSTransportMessageRef transport, CFSetRef peers, CFErrorRef *error);
 static bool sendMessages(SOSTransportMessageRef transport, CFDictionaryRef circleToPeersToMessage, CFErrorRef *error);
 static bool cleanupAfterPeer(SOSTransportMessageRef transport, CFDictionaryRef circle_to_peer_ids, CFErrorRef *error);
 static CF_RETURNS_RETAINED
@@ -632,57 +632,50 @@ static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName,
     return result;
 }
 
-static bool syncWithPeers(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error){
+static bool syncWithPeers(SOSTransportMessageRef transport, CFSetRef peers, CFErrorRef *error){
     // Each entry is keyed by circle name and contains a list of peerIDs
         
     __block bool result = true;
     
-    CFDictionaryForEach(circleToPeerIDs, ^(const void *key, const void *value) {
-        if (isString(key) && isArray(value)) {
-            CFStringRef circleName = (CFStringRef) key;
-            CFArrayForEach(value, ^(const void *value) {
-                if (isString(value)) {
-                    CFStringRef peerID = (CFStringRef) value;
-                    SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
-                    SOSEngineWithPeerID(engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
-                        SOSEnginePeerMessageSentBlock sent = NULL;
-                        CFDataRef message_to_send = NULL;
-                        bool ok = SOSPeerCoderSendMessageIfNeeded(engine, txn, peer, coder, &message_to_send, circleName, peerID, &sent, error);
-                        if (message_to_send)    {
-                            CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerID, message_to_send, NULL);
-                            CFDictionarySetValue(SOSTransportMessageTestGetChanges((SOSTransportMessageTestRef)transport), circleName, peer_dict);
-                            SOSPeerCoderConsume(&sent, ok);
-                            CFReleaseSafe(peer_dict);
-                        }
-                        Block_release(sent);
-                        CFReleaseSafe(message_to_send);
-                    });
-                 }
+    CFStringRef circleName = transport->circleName;
+    CFSetForEach(peers, ^(const void *value) {
+        CFStringRef peerID = asString(value, NULL);
+
+        if (peerID) {
+            SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
+            SOSEngineWithPeerID(engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
+                SOSEnginePeerMessageSentBlock sent = NULL;
+                CFDataRef message_to_send = NULL;
+                bool ok = SOSPeerCoderSendMessageIfNeeded(engine, txn, peer, coder, &message_to_send, peerID, &sent, error);
+                if (message_to_send)    {
+                    CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerID, message_to_send, NULL);
+                    CFDictionarySetValue(SOSTransportMessageTestGetChanges((SOSTransportMessageTestRef)transport), circleName, peer_dict);
+                    SOSPeerCoderConsume(&sent, ok);
+                    CFReleaseSafe(peer_dict);
+                }
+                Block_release(sent);
+                CFReleaseSafe(message_to_send);
             });
-        }
+         }
     });
-    
+
     return result;
 }
 
-static bool sendMessages(SOSTransportMessageRef transport, CFDictionaryRef circleToPeersToMessage, CFErrorRef *error) {
+static bool sendMessages(SOSTransportMessageRef transport, CFDictionaryRef peersToMessage, CFErrorRef *error) {
     __block bool result = true;
     
-    CFDictionaryForEach(circleToPeersToMessage, ^(const void *key, const void *value) {
-        if (isString(key) && isDictionary(value)) {
-            CFStringRef circleName = (CFStringRef) key;
-            CFDictionaryForEach(value, ^(const void *key, const void *value) {
-                if (isString(key) && isData(value)) {
-                    CFStringRef peerID = (CFStringRef) key;
-                    CFDataRef message = (CFDataRef) value;
-                    bool rx = sendToPeer(transport, circleName, peerID, message, error);
-                    result &= rx;
-                }
-            });
+    CFStringRef circleName = transport->circleName;
+    CFDictionaryForEach(peersToMessage, ^(const void *key, const void *value) {
+        if (isString(key) && isData(value)) {
+            CFStringRef peerID = (CFStringRef) key;
+            CFDataRef message = (CFDataRef) value;
+            bool rx = sendToPeer(transport, circleName, peerID, message, error);
+            result &= rx;
         }
     });
-    
-    return true;
+
+    return result;
 }
 
 static CF_RETURNS_RETAINED
@@ -745,7 +738,7 @@ struct SOSTransportMessageIDSTest {
 static bool sendDataToPeerIDSTest(SOSTransportMessageRef transport, CFStringRef circleName, CFStringRef deviceID, CFStringRef peerID, CFDataRef message, CFErrorRef *error);
 static bool sendDictionaryToPeerIDSTest(SOSTransportMessageRef transport, CFStringRef circleName, CFStringRef deviceID, CFStringRef peerID, CFDictionaryRef message, CFErrorRef *error);
 
-static bool syncWithPeersIDSTest(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error);
+static bool syncWithPeersIDSTest(SOSTransportMessageRef transport, CFSetRef peers, CFErrorRef *error);
 static bool sendMessagesIDSTest(SOSTransportMessageRef transport, CFDictionaryRef circleToPeersToMessage, CFErrorRef *error);
 static void destroyIDSTest(SOSTransportMessageRef transport);
 static bool cleanupAfterPeerIDSTest(SOSTransportMessageRef transport, CFDictionaryRef circle_to_peer_ids, CFErrorRef *error);
@@ -884,75 +877,54 @@ static bool sendDictionaryToPeerIDSTest(SOSTransportMessageRef transport, CFStri
     
 }
 
-static bool syncWithPeersIDSTest(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error){
+static bool syncWithPeersIDSTest(SOSTransportMessageRef transport, CFSetRef peerIDs, CFErrorRef *error){
     // Each entry is keyed by circle name and contains a list of peerIDs
     __block bool result = true;
 
-    CFDictionaryForEach(circleToPeerIDs, ^(const void *key, const void *value) {
-        if (isString(key) && isArray(value)) {
-            CFStringRef circleName = (CFStringRef) key;
-            CFArrayForEach(value, ^(const void *value) {
-                if (isString(value)) {
-                    CFStringRef peerID = (CFStringRef) value;
-                    secnotice("transport", "IDS sync with peerIDs %@", peerID);
-                    result &= SOSTransportMessageSendMessageIfNeeded(transport, circleName, peerID, error);
-                }
-            });
+    CFSetForEach(peerIDs, ^(const void *value) {
+        CFStringRef peerID = asString(value, NULL);
+        if (peerID) {
+            secnotice("transport", "IDS sync with peerIDs %@", peerID);
+            result &= SOSTransportMessageSendMessageIfNeeded(transport, transport->circleName, peerID, error);
         }
     });
 
     return result;
 }
 
-static bool sendMessagesIDSTest(SOSTransportMessageRef transport, CFDictionaryRef circleToPeersToMessage, CFErrorRef *error) {
+static bool sendMessagesIDSTest(SOSTransportMessageRef transport, CFDictionaryRef peersToMessage, CFErrorRef *error) {
 
     __block bool result = true;
-    SOSCircleRef circle = SOSAccountGetCircle(transport->account, error);
-    SOSPeerInfoRef myPeer = SOSAccountGetMyPeerInfo(transport->account);
-    __block CFStringRef peerID = NULL;
-    require_quiet(myPeer, fail);
-    
-    CFDictionaryForEach(circleToPeersToMessage, ^(const void *key, const void *value) {
-        if (isString(key) && isDictionary(value)) {
-            CFStringRef circleName = (CFStringRef) key;
-            
-            CFDictionaryForEach(value, ^(const void *key1, const void *value1) {
-                if (isString(key1) && isDictionary(value1)) {
-                    peerID = (CFStringRef) key1;
-                    CFMutableDictionaryRef message = CFRetainSafe((CFMutableDictionaryRef) value1);
-                    SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
-                        if(!CFEqualSafe(myPeer, peer)){
-                            CFStringRef deviceID = SOSPeerInfoCopyDeviceID(peer);
-                            if(CFStringCompare(SOSPeerInfoGetPeerID(peer), peerID, 0) == 0){
-                                bool rx = false;
-                                rx = sendDictionaryToPeerIDSTest(transport, circleName, deviceID, peerID, message, error);
-                                result &= rx;
-                            }
-                            CFReleaseNull(deviceID);
-                        }
-                    });
-                }
-                else{
-                    peerID = (CFStringRef) key1;
-                    CFDataRef message = CFRetainSafe((CFDataRef) value1);
-                    
-                    SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
-                        if(!CFEqualSafe(myPeer, peer)){
-                            
-                            CFStringRef deviceID = SOSPeerInfoCopyDeviceID(peer);
-                            if(CFStringCompare(SOSPeerInfoGetPeerID(peer), peerID, 0) == 0){
-                                bool rx = false;
-                                rx = sendDataToPeerIDSTest(transport, circleName, deviceID, peerID, message, error);
-                                result &= rx;
-                            }
-                            CFReleaseNull(deviceID);
-                        }
-                    });
-                }
-            });
+    SOSAccountRef account = transport->account;
+
+    CFDictionaryForEach(peersToMessage, ^(const void *key, const void *value) {
+        CFStringRef idsDeviceID = NULL;;
+        CFStringRef peerID = asString(key, NULL);
+        SOSPeerInfoRef pi = NULL;
+        require(peerID, done);
+        require(!CFEqualSafe(peerID, SOSAccountGetMyPeerID(account)), done);
+
+        pi = SOSAccountCopyPeerWithID(account, peerID, NULL);
+        require(pi, done);
+
+        idsDeviceID = SOSPeerInfoCopyDeviceID(pi);
+        require(idsDeviceID, done);
+
+        CFDictionaryRef messageDictionary = asDictionary(value, NULL);
+        if (messageDictionary) {
+                result &= sendDictionaryToPeerIDSTest(transport, transport->circleName, idsDeviceID, peerID, messageDictionary, error);
+        } else {
+            CFDataRef messageData = asData(value, NULL);
+            if (messageData) {
+                result &= sendDataToPeerIDSTest(transport, transport->circleName, idsDeviceID, peerID, messageData, error);
+            }
         }
+    done:
+        CFReleaseNull(idsDeviceID);
+        CFReleaseNull(pi);
+
     });
-fail:
+
     return result;
 }
 

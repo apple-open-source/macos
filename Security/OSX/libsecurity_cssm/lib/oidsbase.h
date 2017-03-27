@@ -30,6 +30,10 @@
 extern "C" {
 #endif
 
+#define SECASN1OID_DEF(NAME, VALUE, ARGS...) \
+static const uint8_t _##NAME[] = { VALUE, ## ARGS }; \
+const SecAsn1Oid NAME = { sizeof(_##NAME), (uint8_t *)_##NAME }
+
 /* Intel CSSM */
 
 #define INTEL 96, 134, 72, 1, 134, 248, 77
@@ -495,6 +499,12 @@ representation is implied */
 
 #define NETSCAPE_CERT_POLICY		NETSCAPE_BASE_OID, 0x04
 #define NETSCAPE_CERT_POLICY_LENGTH	NETSCAPE_BASE_OID_LEN + 1
+
+/* Google OIDs: 1.3.6.1.4.1.11129.  */
+#define GOOGLE_BASE_OID             OID_DOD, 0x01, 0x04, 0x01, 0xD6, 0x79
+#define GOOGLE_BASE_OID_LEN         OID_DOD_LEN + 5
+#define GOOGLE_EMBEDDED_SCT_OID     GOOGLE_BASE_OID, 0x02, 0x04, 0x02
+#define GOOGLE_OCSP_SCT_OID         GOOGLE_BASE_OID, 0x02, 0x04, 0x05
 
 /*
  * Domain Component OID

@@ -97,14 +97,7 @@ static void tests(void)
     SOSDataSourceFactoryRelease(test_factory);
     SOSDataSourceRelease(test_source, NULL);
         
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-    
+    SOSTestCleanup();
 }
 
 int secd_50_account(int argc, char *const *argv)

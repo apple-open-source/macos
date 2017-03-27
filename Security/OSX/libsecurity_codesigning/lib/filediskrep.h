@@ -78,12 +78,14 @@ class FileDiskRep::Writer : public SingleDiskRep::Writer {
 	friend class FileDiskRep;
 public:
 	void component(CodeDirectory::SpecialSlot slot, CFDataRef data);
+    void flush();
 	void remove();
 	bool preferredStore();
 
 protected:
 	Writer(FileDiskRep *r) : SingleDiskRep::Writer(r, writerLastResort) { }
 	RefPointer<FileDiskRep> rep;
+    std::set<std::string> mWrittenAttributes;
 };
 
 

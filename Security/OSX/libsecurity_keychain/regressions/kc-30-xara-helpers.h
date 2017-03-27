@@ -225,7 +225,7 @@ static void checkHashesMatch(const char* name, SecKeychainItemRef item, SecKeych
 }
 #define checkHashesMatchTests (getIntegrityHashTests + getIntegrityHashTests + 1)
 
-#pragma clang pop
+#pragma clang diagnostic pop
 #else
 
 #endif /* TARGET_OS_MAC */

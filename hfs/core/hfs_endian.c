@@ -204,7 +204,8 @@ hfs_swap_BTNode (
 			    (allow_empty_node == false) && (srcOffs[i] == 0)) ||
 				(srcOffs[i] < sizeof(BTNodeDescriptor) && srcOffs[i] != 0) || 
 				(srcOffs[i] > (src->blockSize - 2 * (srcDesc->numRecords + 1)))) {
-            	printf("hfs_swap_BTNode: record #%d invalid offset (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
+            	printf("hfs_swap_BTNode: offset #%d invalid (0x%04X) (blockSize 0x%x numRecords %d)\n",
+					   i, srcOffs[i], src->blockSize, srcDesc->numRecords);
             	error = fsBTInvalidHeaderErr;
             	goto fail;
             }
@@ -215,7 +216,7 @@ hfs_swap_BTNode (
              */
             if ((i != 0) && (srcOffs[i] >= srcOffs[i-1])) {
             	printf("hfs_swap_BTNode: offsets %d and %d out of order (0x%04X, 0x%04X)\n",
-            	    srcDesc->numRecords-i-1, srcDesc->numRecords-i, srcOffs[i], srcOffs[i-1]);
+            	    i, i-1, srcOffs[i], srcOffs[i-1]);
             	error = fsBTInvalidHeaderErr;
             	goto fail;
             }
@@ -359,7 +360,8 @@ hfs_swap_BTNode (
 			    ((allow_empty_node == false) && (srcOffs[i] == 0)) ||
 				(srcOffs[i] < sizeof(BTNodeDescriptor) && srcOffs[i] != 0) || 
 				(srcOffs[i] > (src->blockSize - 2 * (srcDesc->numRecords + 1)))) {
-            	panic("hfs_UNswap_BTNode: record #%d invalid offset (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
+            	panic("hfs_UNswap_BTNode: offset #%d invalid (0x%04X) (blockSize 0x%x numRecords %d)\n",
+					  i, srcOffs[i], src->blockSize, srcDesc->numRecords);
             	error = fsBTInvalidHeaderErr;
             	goto fail;
             }
@@ -370,7 +372,7 @@ hfs_swap_BTNode (
              */
             if ((i < srcDesc->numRecords) && (srcOffs[i+1] >= srcOffs[i])) {
             	panic("hfs_UNswap_BTNode: offsets %d and %d out of order (0x%04X, 0x%04X)\n",
-            	    srcDesc->numRecords-i-2, srcDesc->numRecords-i-1, srcOffs[i+1], srcOffs[i]);
+            	    i+1, i, srcOffs[i+1], srcOffs[i]);
             	error = fsBTInvalidHeaderErr;
             	goto fail;
             }

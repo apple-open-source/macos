@@ -62,10 +62,10 @@ public:
         void invalidate();
 
         // We could make Rule a friend but instead we just expose this for now
-        inline const uid_t uid() const { return mUid; }
+        inline uid_t uid() const { return mUid; }
         inline const string& name() const { return mName; }
         inline const string& realname() const { return mRealName; }
-        inline const bool isRight() const { return mRight; }
+        inline bool isRight() const { return mRight; }
     
 private:
         bool mShared;       // credential is shared

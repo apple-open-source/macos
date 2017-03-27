@@ -26,10 +26,10 @@
 #ifndef CDMSessionAVFoundationCF_h
 #define CDMSessionAVFoundationCF_h
 
-#include "CDMSession.h"
+#include "LegacyCDMSession.h"
 #include <wtf/RetainPtr.h>
 
-#if HAVE(AVFOUNDATION_LOADER_DELEGATE) && ENABLE(ENCRYPTED_MEDIA_V2)
+#if HAVE(AVFOUNDATION_LOADER_DELEGATE) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
 typedef struct OpaqueAVCFAssetResourceLoadingRequest* AVCFAssetResourceLoadingRequestRef;
 

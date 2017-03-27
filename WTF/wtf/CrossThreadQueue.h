@@ -45,7 +45,7 @@ public:
     void append(DataType&&);
 
     DataType waitForMessage();
-    Optional<DataType> tryGetMessage();
+    std::optional<DataType> tryGetMessage();
 
     bool isKilled() const { return false; }
 
@@ -74,15 +74,14 @@ DataType CrossThreadQueue<DataType>::waitForMessage()
         if (found != m_queue.end())
             break;
 
-        static const double infiniteTime = std::numeric_limits<double>::max();
-        m_condition.waitUntilWallClockSeconds(m_lock, infiniteTime);
+        m_condition.wait(m_lock);
     }
 
     return m_queue.takeFirst();
 }
 
 template<typename DataType>
-Optional<DataType> CrossThreadQueue<DataType>::tryGetMessage()
+std::optional<DataType> CrossThreadQueue<DataType>::tryGetMessage()
 {
     LockHolder lock(m_lock);
 

@@ -22,16 +22,15 @@
  */
 
 // #define COMMON_BIGNUM_FUNCTIONS
-#include "CommonBigNum.h"
+
+#include <CommonCrypto/CommonBigNum.h>
 #include "CommonBigNumPriv.h"
-#include "CommonRandomSPI.h"
+#include <CommonCrypto/CommonRandomSPI.h>
 #include "ccMemory.h"
-#include "ccErrors.h"
 #include "ccdebug.h"
 #include <corecrypto/ccz.h>
 #include <corecrypto/ccn.h> /* For ccn_sizeof(). */
 #include <corecrypto/cc_priv.h> /* For CC_LOAD32_BE. */
-
 
 static void *
 cc_alloc(void *ctx CC_UNUSED, size_t size) {
@@ -64,7 +63,7 @@ static const struct ccz_class ccz_c = {
 CCBigNumRef
 CCCreateBigNum(CCStatus *status)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = malloc(ccz_size((struct ccz_class *)&ccz_c));
     if (status)
         *status = r ? kCCSuccess : kCCMemoryFailure;
@@ -76,7 +75,7 @@ CCCreateBigNum(CCStatus *status)
 CCStatus
 CCBigNumClear(CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)bn;
     ccz_zero(r);
     return kCCSuccess;
@@ -85,7 +84,7 @@ CCBigNumClear(CCBigNumRef bn)
 void
 CCBigNumFree(CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)bn;
     ccz_free(r);
     free(r);
@@ -94,7 +93,7 @@ CCBigNumFree(CCBigNumRef bn)
 CCBigNumRef
 CCBigNumCopy(CCStatus *status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     ccz *r = (ccz *)CCCreateBigNum(status);
     if (r)
@@ -105,7 +104,7 @@ CCBigNumCopy(CCStatus *status, const CCBigNumRef bn)
 uint32_t
 CCBigNumBitCount(const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     return (uint32_t) ccz_bitlen(s);
 }
@@ -113,7 +112,7 @@ CCBigNumBitCount(const CCBigNumRef bn)
 uint32_t
 CCBigNumZeroLSBCount(const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     return (uint32_t) ccz_trailing_zeros(s);
 }
@@ -121,7 +120,7 @@ CCBigNumZeroLSBCount(const CCBigNumRef bn)
 uint32_t
 CCBigNumByteCount(const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     return (uint32_t) ccz_write_uint_size(s);
 }
@@ -129,7 +128,7 @@ CCBigNumByteCount(const CCBigNumRef bn)
 CCBigNumRef
 CCBigNumFromData(CCStatus *status, const void *s, size_t len)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)CCCreateBigNum(status);
     if (r) {
         ccz_read_uint(r, len, s);
@@ -140,7 +139,7 @@ CCBigNumFromData(CCStatus *status, const void *s, size_t len)
 size_t
 CCBigNumToData(CCStatus *  __unused status, const CCBigNumRef bn, void *to)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     size_t to_size = ccz_write_uint_size(s);
     ccz_write_uint(s, to_size, to);
@@ -150,7 +149,7 @@ CCBigNumToData(CCStatus *  __unused status, const CCBigNumRef bn, void *to)
 CCBigNumRef
 CCBigNumFromHexString(CCStatus *status, const char *in)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)CCCreateBigNum(status);
     if (r) {
         if (ccz_read_radix(r, strlen(in), in, 16)) {
@@ -166,7 +165,7 @@ CCBigNumFromHexString(CCStatus *status, const char *in)
 char *
 CCBigNumToHexString(CCStatus *  __unused status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     size_t to_size = ccz_write_radix_size(s, 16);
     char *to = malloc(to_size+1);
@@ -179,7 +178,7 @@ CCBigNumToHexString(CCStatus *  __unused status, const CCBigNumRef bn)
 CCBigNumRef
 CCBigNumFromDecimalString(CCStatus *status, const char *in)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)CCCreateBigNum(status);
     if (r) {
         if (ccz_read_radix(r, strlen(in), in, 10)) {
@@ -195,7 +194,7 @@ CCBigNumFromDecimalString(CCStatus *status, const char *in)
 char *
 CCBigNumToDecimalString(CCStatus * __unused status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (ccz *)bn;
     size_t to_size = ccz_write_radix_size(s, 10);
     char *to = malloc(to_size+1);
@@ -208,7 +207,7 @@ CCBigNumToDecimalString(CCStatus * __unused status, const CCBigNumRef bn)
 int
 CCBigNumCompare(const CCBigNumRef bn1, const CCBigNumRef bn2)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (const ccz *)bn1;
     const ccz *t = (const ccz *)bn2;
 	return ccz_cmp(s, t);
@@ -217,7 +216,7 @@ CCBigNumCompare(const CCBigNumRef bn1, const CCBigNumRef bn2)
 int
 CCBigNumCompareI(const CCBigNumRef bn1, const uint32_t num)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     const ccz *s = (const ccz *)bn1;
 	return ccz_cmpi(s, num);
 }
@@ -225,7 +224,7 @@ CCBigNumCompareI(const CCBigNumRef bn1, const uint32_t num)
 CCStatus
 CCBigNumSetNegative(CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)bn;
     ccz_neg(r);
     return kCCSuccess;
@@ -234,7 +233,7 @@ CCBigNumSetNegative(CCBigNumRef bn)
 CCStatus
 CCBigNumSetI(CCBigNumRef bn, uint64_t num)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)bn;
     ccz_seti(r, num);
     return kCCSuccess;
@@ -243,7 +242,7 @@ CCBigNumSetI(CCBigNumRef bn, uint64_t num)
 uint32_t
 CCBigNumGetI(CCStatus *status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     /* TODO: This could be done more efficiently if we pushed a ccz_readi and
        ccn_readi routine all the way down into corecrypto. */
     ccz *s = (ccz *)bn;
@@ -265,7 +264,7 @@ CCBigNumGetI(CCStatus *status, const CCBigNumRef bn)
 CCBigNumRef
 CCBigNumCreateRandom(CCStatus *status, int __unused bits, int top, int bottom)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     struct ccrng_state *rng = ccDRBGGetRngState();
     ccz *r = (ccz *)CCCreateBigNum(status);
     if (r && top > 0) {
@@ -303,7 +302,7 @@ CCBigNumCreateRandom(CCStatus *status, int __unused bits, int top, int bottom)
 CCStatus
 CCBigNumAdd(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)res;
     ccz *s = (ccz *)a;
     ccz *t = (ccz *)b;
@@ -314,7 +313,7 @@ CCBigNumAdd(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 CCStatus
 CCBigNumAddI(CCBigNumRef res, const CCBigNumRef a, const uint32_t b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)res;
     ccz *s = (ccz *)a;
     ccz_addi(r, s, b);
@@ -324,7 +323,7 @@ CCBigNumAddI(CCBigNumRef res, const CCBigNumRef a, const uint32_t b)
 CCStatus
 CCBigNumSub(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)res;
     ccz *s = (ccz *)a;
     ccz *t = (ccz *)b;
@@ -335,7 +334,7 @@ CCBigNumSub(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 CCStatus
 CCBigNumSubI(CCBigNumRef res, const CCBigNumRef a, const uint32_t b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz *r = (ccz *)res;
     ccz *s = (ccz *)a;
     ccz_subi(r, s, b);
@@ -345,7 +344,7 @@ CCBigNumSubI(CCBigNumRef res, const CCBigNumRef a, const uint32_t b)
 CCStatus
 CCBigNumMul(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_mul((ccz *)res, (ccz *)a, (ccz *)b);
     return kCCSuccess;
 }
@@ -353,7 +352,7 @@ CCBigNumMul(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 CCStatus
 CCBigNumMulI(CCBigNumRef res, const CCBigNumRef a, const uint32_t b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_muli((ccz *)res, (ccz *)a, b);
     return kCCSuccess;
 }
@@ -361,7 +360,7 @@ CCBigNumMulI(CCBigNumRef res, const CCBigNumRef a, const uint32_t b)
 CCStatus
 CCBigNumDiv(CCBigNumRef quotient, CCBigNumRef remainder, const CCBigNumRef a, const CCBigNumRef b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_divmod((ccz *)quotient, (ccz *)remainder, (ccz *)a, (ccz *)b);
     return kCCSuccess;
 }
@@ -369,7 +368,7 @@ CCBigNumDiv(CCBigNumRef quotient, CCBigNumRef remainder, const CCBigNumRef a, co
 CCStatus
 CCBigNumDiv2(CCBigNumRef res, const CCBigNumRef a)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_div2((ccz *)res, (ccz *)a);
     return kCCSuccess;
 }
@@ -377,7 +376,7 @@ CCBigNumDiv2(CCBigNumRef res, const CCBigNumRef a)
 CCStatus
 CCBigNumMod(CCBigNumRef res, CCBigNumRef dividend, CCBigNumRef modulus)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_mod((ccz *)res, (ccz *)dividend, (ccz *)modulus);
     return kCCSuccess;
 }
@@ -385,7 +384,7 @@ CCBigNumMod(CCBigNumRef res, CCBigNumRef dividend, CCBigNumRef modulus)
 CCStatus
 CCBigNumModI(uint32_t *res, CCBigNumRef dividend, uint32_t modulus)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCStatus status = 0;
     CCBigNumRef mod = NULL;
     CCBigNumRef r = CCCreateBigNum(&status);
@@ -405,7 +404,7 @@ err:
 CCStatus
 CCBigNumSquare(CCBigNumRef res, const CCBigNumRef a)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_sqr((ccz *)res, (ccz *)a);
     return kCCSuccess;
 }
@@ -413,7 +412,7 @@ CCBigNumSquare(CCBigNumRef res, const CCBigNumRef a)
 CCStatus
 CCBigNumGCD(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_gcd((ccz *)res, (ccz *)a, (ccz *)b);
     return kCCSuccess;
 }
@@ -421,7 +420,7 @@ CCBigNumGCD(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 CCStatus
 CCBigNumLCM(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_lcm((ccz *)res, (ccz *)a, (ccz *)b);
     return kCCSuccess;
 }
@@ -429,7 +428,7 @@ CCBigNumLCM(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
 CCStatus
 CCBigNumMulMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b, const CCBigNumRef modulus)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	ccz_mulmod((ccz *)res, (ccz *)a, (ccz *)b, (ccz *)modulus);
     return kCCSuccess;
 }
@@ -437,7 +436,7 @@ CCBigNumMulMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b, const 
 CCStatus
 CCBigNumSquareMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modulus)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	ccz_sqrmod((ccz *)res, (ccz *)a, (ccz *)modulus);
     return kCCSuccess;
 }
@@ -445,7 +444,7 @@ CCBigNumSquareMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modulu
 CCStatus
 CCBigNumInverseMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modulus)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	ccz_invmod((ccz *)res, (ccz *)a, (ccz *)modulus);
     return kCCSuccess;
 }
@@ -453,7 +452,7 @@ CCBigNumInverseMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modul
 CCStatus
 CCBigNumModExp(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef power, const CCBigNumRef modulus)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	ccz_expmod((ccz *)res, (ccz *)a, (ccz *)power, (ccz *) modulus);
     return kCCSuccess;
 }
@@ -461,7 +460,7 @@ CCBigNumModExp(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef power, co
 CCStatus
 CCBigNumLeftShift(CCBigNumRef res, const CCBigNumRef a, const uint32_t digits)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_lsl((ccz *) res, (ccz *) a, digits);
     return kCCSuccess;
 }
@@ -469,7 +468,7 @@ CCBigNumLeftShift(CCBigNumRef res, const CCBigNumRef a, const uint32_t digits)
 CCStatus
 CCBigNumRightShift(CCBigNumRef res, const CCBigNumRef a, const uint32_t digits)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccz_lsr((ccz *)res, (ccz *)a, digits);
     return kCCSuccess;
 }
@@ -477,28 +476,28 @@ CCBigNumRightShift(CCBigNumRef res, const CCBigNumRef a, const uint32_t digits)
 CCStatus
 CCBigNumMontgomerySetup(CCBigNumRef  __unused num, uint32_t *  __unused rho)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return kCCUnimplemented; // ccLTCErr(mp_montgomery_setup(num, rho));
 }
 
 CCStatus
 CCBigNumMontgomeryNormalization(CCBigNumRef __unused a, CCBigNumRef __unused b)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return kCCUnimplemented; // ccLTCErr(mp_montgomery_normalization(a, b));
 }
 
 CCStatus
 CCBigNumMontgomeryReduce(CCBigNumRef __unused x, CCBigNumRef __unused n, uint32_t __unused rho)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return kCCUnimplemented; // ccLTCErr(mp_montgomery_reduce(x, n, rho));
 }
 
 bool
 CCBigNumIsPrime(CCStatus *status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if (status)
         *status = kCCSuccess;
 
@@ -509,7 +508,7 @@ CCBigNumIsPrime(CCStatus *status, const CCBigNumRef bn)
 bool
 CCBigNumIsOdd(CCStatus *status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if (status)
         *status = kCCSuccess;
 
@@ -519,7 +518,7 @@ CCBigNumIsOdd(CCStatus *status, const CCBigNumRef bn)
 bool
 CCBigNumIsZero(CCStatus *status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if (status)
         *status = kCCSuccess;
 
@@ -529,7 +528,7 @@ CCBigNumIsZero(CCStatus *status, const CCBigNumRef bn)
 bool
 CCBigNumIsNegative(CCStatus *status, const CCBigNumRef bn)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if (status)
         *status = kCCSuccess;
 

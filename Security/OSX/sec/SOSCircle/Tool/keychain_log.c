@@ -147,7 +147,6 @@ static void dumpCircleInfo()
 {
     CFErrorRef error = NULL;
     CFArrayRef generations = NULL;
-    CFArrayRef confirmedDigests = NULL;
     bool is_user_public_trusted = false;
     __block int count = 0;
 
@@ -191,25 +190,13 @@ static void dumpCircleInfo()
     printPeerInfos("    Concur", ^(CFErrorRef *error) { return SOSCCCopyConcurringPeerPeerInfo(error); });
     printPeerInfos("Applicants", ^(CFErrorRef *error) { return SOSCCCopyApplicantPeerInfo(error); });
 
-    confirmedDigests = SOSCCCopyEngineState(&error);
-    if(confirmedDigests)
-    {
-        count = 0;
-        CFArrayForEach(confirmedDigests, ^(const void *value) {
-            count++;
-            if(count % 2 != 0)
-                printmsg(CFSTR("%@"), value);
-
-            if(count % 2 == 0) {
-                CFStringRef hexDigest = CFDataCopyHexString(value);
-                printmsg(CFSTR(" %@\n"), hexDigest);
-                CFReleaseSafe(hexDigest);
-            }
-        });
-    }
-    else
+    if (!SOSCCForEachEngineStateAsString(&error, ^(CFStringRef oneStateString) {
+        printmsg(CFSTR("%@\n"), oneStateString);
+    })) {
         printmsg(CFSTR("No engine peers: %@\n"), error);
-    CFReleaseNull(confirmedDigests);
+    }
+
+    CFReleaseNull(error);
 }
 
 static CFTypeRef getObjectsFromCloud(CFArrayRef keysToGet, dispatch_queue_t processQueue, dispatch_group_t dgroup)
@@ -232,7 +219,6 @@ static CFTypeRef getObjectsFromCloud(CFArrayRef keysToGet, dispatch_queue_t proc
         if (error)
         {
             secerror("SOSCloudKeychainGetObjectsFromCloud returned error: %@", error);
-            //       CFRelease(*error);
         }
         dispatch_group_leave(dgroup);
         secinfo("sync", "SOSCloudKeychainGetObjectsFromCloud block exit: %@", object);
@@ -547,7 +533,7 @@ static void sysdiagnose_dump() {
 
     mkdir(outputDir, 0700);
 
-    setOutputTo(outputDir, "sw_vers.log");
+    SOSLogSetOutputTo(outputDir, "sw_vers.log");
     // report uname stuff + hostname
     fprintf(outFile, "HostName:	  %s\n", hostname);
     fprintf(outFile, "ProductName:	  %s\n", productName);
@@ -555,17 +541,17 @@ static void sysdiagnose_dump() {
     fprintf(outFile, "BuildVersion:	  %s\n", buildVersion);
     closeOutput();
 
-    setOutputTo(outputDir, "syncD.log");
+    SOSLogSetOutputTo(outputDir, "syncD.log");
     // do sync -D
     dumpKVS(optarg, NULL);
     closeOutput();
 
-    setOutputTo(outputDir, "synci.log");
+    SOSLogSetOutputTo(outputDir, "synci.log");
     // do sync -i
     dumpCircleInfo();
     closeOutput();
 
-    setOutputTo(outputDir, "syncL.log");
+    SOSLogSetOutputTo(outputDir, "syncL.log");
     // do sync -L
     listviewcmd(NULL);
     closeOutput();
@@ -608,7 +594,7 @@ keychain_log(int argc, char * const *argv)
      "    -M string   place a mark in the syslog - category \"mark\""
 
      */
-    setOutputTo(NULL, NULL);
+    SOSLogSetOutputTo(NULL, NULL);
 
     int ch, result = 0;
     CFErrorRef error = NULL;

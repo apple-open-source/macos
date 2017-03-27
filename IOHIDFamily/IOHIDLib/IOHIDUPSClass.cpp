@@ -34,7 +34,6 @@
 __BEGIN_DECLS
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
-#include <IOKit/iokitmig.h>
 #include <IOKit/IOMessage.h>
 __END_DECLS
 
@@ -570,6 +569,15 @@ IOReturn IOHIDUPSClass::getProperties(CFDictionaryRef * properties)
         {
             CFDictionarySetValue(_upsProperties, CFSTR(kIOPSProductIDKey), pid);
         }
+        
+#if TARGET_OS_IPHONE
+        CFStringRef serial = (CFStringRef) CFDictionaryGetValue( _hidProperties, CFSTR( kIOHIDSerialNumberKey ) );
+        
+        if (serial)
+        {
+            CFDictionarySetValue(_upsProperties, CFSTR(kIOPSAccessoryIdentifierKey), serial);
+        }
+#endif
     }
     
     if (properties)

@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGPatternElement_h
-#define SVGPatternElement_h
+#pragma once
 
 #include "SVGAnimatedBoolean.h"
 #include "SVGAnimatedEnumeration.h"
@@ -39,32 +38,33 @@ namespace WebCore {
 
 struct PatternAttributes;
  
-class SVGPatternElement final : public SVGElement,
-                                public SVGURIReference,
-                                public SVGTests,
-                                public SVGExternalResourcesRequired,
-                                public SVGFitToViewBox {
+class SVGPatternElement final : public SVGElement, public SVGURIReference, public SVGTests, public SVGExternalResourcesRequired, public SVGFitToViewBox {
 public:
     static Ref<SVGPatternElement> create(const QualifiedName&, Document&);
 
     void collectPatternAttributes(PatternAttributes&) const;
 
-    AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const override;
+    AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const final;
+
+    // SVGTests
+    Ref<SVGStringList> requiredFeatures();
+    Ref<SVGStringList> requiredExtensions();
+    Ref<SVGStringList> systemLanguage();
 
 private:
     SVGPatternElement(const QualifiedName&, Document&);
     
-    bool isValid() const override { return SVGTests::isValid(); }
-    bool needsPendingResourceHandling() const override { return false; }
+    bool isValid() const final { return SVGTests::isValid(); }
+    bool needsPendingResourceHandling() const final { return false; }
 
     static bool isSupportedAttribute(const QualifiedName&);
-    void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    void svgAttributeChanged(const QualifiedName&) override;
-    void childrenChanged(const ChildChange&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    void svgAttributeChanged(const QualifiedName&) final;
+    void childrenChanged(const ChildChange&) final;
 
-    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
-    bool selfHasRelativeLengths() const override { return true; }
+    bool selfHasRelativeLengths() const final { return true; }
 
     BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGPatternElement)
         DECLARE_ANIMATED_LENGTH(X, x)
@@ -81,11 +81,9 @@ private:
     END_DECLARE_ANIMATED_PROPERTIES
 
     // SVGTests
-    void synchronizeRequiredFeatures() override { SVGTests::synchronizeRequiredFeatures(this); }
-    void synchronizeRequiredExtensions() override { SVGTests::synchronizeRequiredExtensions(this); }
-    void synchronizeSystemLanguage() override { SVGTests::synchronizeSystemLanguage(this); }
+    void synchronizeRequiredFeatures() final { SVGTests::synchronizeRequiredFeatures(*this); }
+    void synchronizeRequiredExtensions() final { SVGTests::synchronizeRequiredExtensions(*this); }
+    void synchronizeSystemLanguage() final { SVGTests::synchronizeSystemLanguage(*this); }
 };
 
 } // namespace WebCore
-
-#endif

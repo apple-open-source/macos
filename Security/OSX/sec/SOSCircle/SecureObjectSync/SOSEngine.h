@@ -86,8 +86,7 @@ void SOSEngineCircleChanged(SOSEngineRef engine, CFStringRef myPeerID, CFArrayRe
 // Iterate over all peers.
 void SOSEngineForEachPeer(SOSEngineRef engine, void (^with)(SOSPeerRef peer));
 
-// TODO: Move SOSTransportMessageIDSRef declarations somewhere we can get to them here.
-bool SOSEngineSyncWithPeers(SOSEngineRef engine, CFErrorRef *error);
+CF_RETURNS_RETAINED CFSetRef SOSEngineSyncWithBackupPeers(SOSEngineRef engine, CFSetRef /* CFStringRef */ peers, CFErrorRef *error);
 
 // Don't call this unless you know what you are doing.  If you do then still don't call it.
 bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSMessageRef message,
@@ -129,6 +128,9 @@ CFArrayRef SOSEngineCopyPeerConfirmedDigests(SOSEngineRef engine, CFErrorRef *er
 // Private do not use!
 SOSDataSourceRef SOSEngineGetDataSource(SOSEngineRef engine);
 bool SOSTestEngineSaveWithDER(SOSEngineRef engine, CFDataRef derState, CFErrorRef *error);
+bool SOSTestEngineSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
+bool SOSTestEngineLoad(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
+CFMutableDictionaryRef derStateToDictionaryCopy(CFDataRef state, CFErrorRef *error);
 bool SOSTestEngineSaveCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 bool TestSOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error);
 
@@ -140,6 +142,19 @@ void SOSEngineSetSyncCompleteListenerQueue(SOSEngineRef engine, dispatch_queue_t
 
 // Engine State by Log
 void SOSEngineLogState(SOSEngineRef engine);
+
+// Keychain/datasource items
+// Used for the kSecAttrAccount when saving in the datasource with dsSetStateWithKey
+// Class D [kSecAttrAccessibleAlwaysPrivate/kSecAttrAccessibleAlwaysThisDeviceOnly]
+extern CFStringRef kSOSEngineStatev2;
+extern CFStringRef kSOSEnginePeerStates;
+extern CFStringRef kSOSEngineManifestCache;
+#define kSOSEngineProtectionDomainClassD kSecAttrAccessibleAlwaysPrivate
+// Class A [kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
+extern CFStringRef kSOSEngineCoders;
+#define kSOSEngineProtectionDomainClassA kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+
+extern CFStringRef kSOSEngineStateVersionKey;
 
 __END_DECLS
 

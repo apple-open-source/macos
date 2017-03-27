@@ -103,11 +103,10 @@ int kc_23_key_export_symmetric(int argc, char *const *argv)
     
     SecKeychainRef kc = getPopulatedTestKeychain();
 
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	SecKeyRef cryptokey;
 	OSStatus status;
 
-	CFStringRef label = (CFStringRef)([NSString stringWithFormat:@"Symmetric Cryptotest %ld %d", (long)time(NULL), arc4random(), nil]);
+	CFStringRef label = (__bridge_retained CFStringRef)([NSString stringWithFormat:@"Symmetric Cryptotest %ld %d", (long)time(NULL), arc4random(), nil]);
 	cryptokey = generateSymmetricKey(kc, label);
 
 	// Using SecItemExport
@@ -134,8 +133,6 @@ int kc_23_key_export_symmetric(int argc, char *const *argv)
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", testName);
     CFReleaseNull(kc);
-
-    [pool drain];
 
     deleteTestFiles();
 	return 0;

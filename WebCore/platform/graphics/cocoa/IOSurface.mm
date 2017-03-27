@@ -34,6 +34,7 @@
 #import "IOSurfaceSPI.h"
 #import "ImageBuffer.h"
 #import "ImageBufferDataCG.h"
+#import "Logging.h"
 #import "MachSendRight.h"
 #import <wtf/Assertions.h>
 #import <wtf/MathExtras.h>
@@ -71,7 +72,7 @@ std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::create(IntSize size, Int
     return surface;
 }
 
-std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::createFromSendRight(const MachSendRight& sendRight, CGColorSpaceRef colorSpace)
+std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::createFromSendRight(const MachSendRight&& sendRight, CGColorSpaceRef colorSpace)
 {
     auto surface = adoptCF(IOSurfaceLookupFromMachPort(sendRight.sendRight()));
     return IOSurface::createFromSurface(surface.get(), colorSpace);
@@ -90,7 +91,7 @@ std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::createFromImage(CGImageR
     size_t width = CGImageGetWidth(image);
     size_t height = CGImageGetHeight(image);
 
-    auto surface = IOSurface::create(IntSize(width, height), sRGBColorSpaceRef());
+    auto surface = IOSurface::create(IntSize(width, height), CGImageGetColorSpace(image));
     if (!surface)
         return nullptr;
     auto surfaceContext = surface->ensurePlatformContext();
@@ -211,7 +212,7 @@ WebCore::IOSurface::IOSurface(IntSize size, IntSize contextSize, CGColorSpaceRef
     if (success)
         m_totalBytes = IOSurfaceGetAllocSize(m_surface.get());
     else
-        RELEASE_LOG_ERROR("Surface creation failed for size: (%d %d) and format: (%d)", size.width(), size.height(), format);
+        RELEASE_LOG_ERROR(Layers, "Surface creation failed for size: (%d %d) and format: (%d)", size.width(), size.height(), format);
 }
 
 WebCore::IOSurface::IOSurface(IOSurfaceRef surface, CGColorSpaceRef colorSpace)

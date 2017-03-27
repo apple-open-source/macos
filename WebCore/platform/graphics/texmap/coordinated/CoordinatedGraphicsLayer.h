@@ -21,6 +21,8 @@
 #ifndef CoordinatedGraphicsLayer_h
 #define CoordinatedGraphicsLayer_h
 
+#if USE(COORDINATED_GRAPHICS)
+
 #include "CoordinatedGraphicsState.h"
 #include "CoordinatedImageBacking.h"
 #include "FloatPoint3D.h"
@@ -37,8 +39,6 @@
 #include "GraphicsSurfaceToken.h"
 #endif
 #include <wtf/text/StringHash.h>
-
-#if USE(COORDINATED_GRAPHICS)
 
 namespace WebCore {
 class CoordinatedGraphicsLayer;
@@ -103,8 +103,8 @@ public:
     void setNeedsDisplayInRect(const FloatRect&, ShouldClipToLayer = ClipToLayer) override;
     void setContentsNeedsDisplay() override;
     void deviceOrPageScaleFactorChanged() override;
-    void flushCompositingState(const FloatRect&, bool) override;
-    void flushCompositingStateForThisLayerOnly(bool) override;
+    void flushCompositingState(const FloatRect&) override;
+    void flushCompositingStateForThisLayerOnly() override;
     bool setFilters(const FilterOperations&) override;
     bool addAnimation(const KeyframeValueList&, const FloatSize&, const Animation*, const String&, double) override;
     void pauseAnimation(const String&, double) override;
@@ -193,7 +193,7 @@ private:
     void createBackingStore();
     void releaseImageBackingIfNeeded();
 
-    bool notifyFlushRequired();
+    void notifyFlushRequired();
 
     // CoordinatedImageBacking::Host
     bool imageBackingVisible() override;
@@ -206,6 +206,8 @@ private:
     float effectiveContentsScale();
 
     void animationStartedTimerFired();
+
+    bool filtersCanBeComposited(const FilterOperations&) const;
 
     CoordinatedLayerID m_id;
     CoordinatedGraphicsLayerState m_layerState;

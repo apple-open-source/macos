@@ -19,8 +19,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGPathSegLinetoVerticalRel_h
-#define SVGPathSegLinetoVerticalRel_h
+#pragma once
 
 #include "SVGPathSegLinetoVertical.h"
 
@@ -39,10 +38,8 @@ private:
     {
     }
 
-    unsigned short pathSegType() const override { return PATHSEG_LINETO_VERTICAL_REL; }
-    String pathSegTypeAsLetter() const override { return "v"; }
+    unsigned short pathSegType() const final { return PATHSEG_LINETO_VERTICAL_REL; }
+    String pathSegTypeAsLetter() const final { return "v"; }
 };
 
 } // namespace WebCore
-
-#endif

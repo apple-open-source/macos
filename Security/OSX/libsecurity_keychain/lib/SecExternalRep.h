@@ -27,7 +27,7 @@
 #ifndef	_SECURITY_SEC_EXTERNAL_REP_H_
 #define _SECURITY_SEC_EXTERNAL_REP_H_
 
-#include "SecImportExport.h"
+#include <Security/SecImportExport.h>
 
 /*
  * mechanism to limit private key import

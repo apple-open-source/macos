@@ -440,7 +440,7 @@ bool asynchttp_request(CFHTTPMessageRef request, uint64_t timeout, asynchttp_t *
     /* Set source application property info */
     if (http->token) {
         CFReadStreamSetProperty(http->stream, kCFStreamPropertySourceApplication, http->token);
-}
+    }
 
     http->data = CFDataCreateMutable(kCFAllocatorDefault, 0);
 

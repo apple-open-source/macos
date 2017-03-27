@@ -38,22 +38,25 @@ public:
         Memory()
             : resident()
             , residentMax()
+            , physicalFootprint()
         {
         }
         
-        Memory(size_t resident, size_t residentMax)
+        Memory(size_t resident, size_t residentMax, size_t physicalFootprint)
             : resident(resident)
             , residentMax(residentMax)
+            , physicalFootprint(physicalFootprint)
         {
         }
 
         Memory operator-(const Memory& other)
         {
-            return Memory(resident - other.resident, residentMax - other.residentMax);
+            return Memory(resident - other.resident, residentMax - other.residentMax, physicalFootprint - other.physicalFootprint);
         }
     
         size_t resident;
         size_t residentMax;
+        size_t physicalFootprint;
     };
 
     static double currentTimeMS();

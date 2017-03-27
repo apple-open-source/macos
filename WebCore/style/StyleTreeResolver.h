@@ -32,23 +32,18 @@
 #include "StyleChange.h"
 #include "StyleSharingResolver.h"
 #include "StyleUpdate.h"
+#include "StyleValidity.h"
 #include <wtf/Function.h>
-#include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class ContainerNode;
 class Document;
 class Element;
-class HTMLSlotElement;
 class Node;
 class RenderStyle;
-class Settings;
 class ShadowRoot;
 class StyleResolver;
-class Text;
-class TreeChange;
 
 namespace Style {
 
@@ -59,7 +54,7 @@ public:
 
     std::unique_ptr<Update> resolve(Change);
 
-    static ElementUpdate createAnimatedElementUpdate(std::unique_ptr<RenderStyle>, RenderElement* existingRenderer, Document&);
+    static ElementUpdate createAnimatedElementUpdate(std::unique_ptr<RenderStyle>, Element&, Change parentChange);
 
 private:
     std::unique_ptr<RenderStyle> styleForElement(Element&, const RenderStyle& inheritedStyle);
@@ -99,6 +94,8 @@ private:
     void pushParent(Element&, const RenderStyle&, Change);
     void popParent();
     void popParentsToDepth(unsigned depth);
+
+    const RenderStyle* parentBoxStyle() const;
 
     Document& m_document;
     std::unique_ptr<RenderStyle> m_documentElementStyle;

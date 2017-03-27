@@ -36,6 +36,7 @@
 #import "AccessibilityLabel.h"
 #import "AccessibilityList.h"
 #import "AccessibilityListBox.h"
+#import "AccessibilityProgressIndicator.h"
 #import "AccessibilityRenderObject.h"
 #import "AccessibilityScrollView.h"
 #import "AccessibilitySpinButton.h"
@@ -58,7 +59,6 @@
 #import "HTMLImageElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
-#import "HTMLTextAreaElement.h"
 #import "LocalizedStrings.h"
 #import "MainFrame.h"
 #import "Page.h"
@@ -68,6 +68,7 @@
 #import "ScrollView.h"
 #import "TextCheckerClient.h"
 #import "TextCheckingHelper.h"
+#import "TextDecorationPainter.h"
 #import "TextIterator.h"
 #import "VisibleUnits.h"
 #import "WebCoreFrameView.h"
@@ -75,7 +76,7 @@
 #import "WebCoreSystemInterface.h"
 #import "htmlediting.h"
 #import <wtf/ObjcRuntimeExtras.h>
-#if ENABLE(TREE_DEBUGGING)
+#if ENABLE(TREE_DEBUGGING) || ENABLE(METER_ELEMENT)
 #import <wtf/text/StringBuilder.h>
 #endif
 
@@ -1119,18 +1120,16 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
     
     if ((decor & (TextDecorationUnderline | TextDecorationLineThrough)) != 0) {
         // FIXME: Should the underline style be reported here?
-        Color underlineColor, overlineColor, linethroughColor;
-        TextDecorationStyle underlineStyle, overlineStyle, linethroughStyle;
-        renderer->getTextDecorationColorsAndStyles(decor, underlineColor, overlineColor, linethroughColor, underlineStyle, overlineStyle, linethroughStyle);
-        
+        auto decorationStyles = TextDecorationPainter::stylesForRenderer(*renderer, decor);
+
         if ((decor & TextDecorationUnderline) != 0) {
             AXAttributeStringSetNumber(attrString, NSAccessibilityUnderlineTextAttribute, [NSNumber numberWithBool:YES], range);
-            AXAttributeStringSetColor(attrString, NSAccessibilityUnderlineColorTextAttribute, nsColor(underlineColor), range);
+            AXAttributeStringSetColor(attrString, NSAccessibilityUnderlineColorTextAttribute, nsColor(decorationStyles.underlineColor), range);
         }
         
         if ((decor & TextDecorationLineThrough) != 0) {
             AXAttributeStringSetNumber(attrString, NSAccessibilityStrikethroughTextAttribute, [NSNumber numberWithBool:YES], range);
-            AXAttributeStringSetColor(attrString, NSAccessibilityStrikethroughColorTextAttribute, nsColor(linethroughColor), range);
+            AXAttributeStringSetColor(attrString, NSAccessibilityStrikethroughColorTextAttribute, nsColor(decorationStyles.linethroughColor), range);
         }
     }
     
@@ -1194,7 +1193,7 @@ static void AXAttributeStringSetSpelling(NSMutableAttributedString* attrString, 
     }
 }
 
-static void AXAttributeStringSetexpandedTextValue(NSMutableAttributedString *attrString, RenderObject* renderer, NSRange range)
+static void AXAttributeStringSetExpandedTextValue(NSMutableAttributedString *attrString, RenderObject* renderer, NSRange range)
 {
     if (!renderer || !AXAttributedStringRangeIsValid(attrString, range))
         return;
@@ -1283,7 +1282,7 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     AXAttributeStringSetStyle(attrString, renderer, attrStringRange);
     AXAttributeStringSetHeadingLevel(attrString, renderer, attrStringRange);
     AXAttributeStringSetBlockquoteLevel(attrString, renderer, attrStringRange);
-    AXAttributeStringSetexpandedTextValue(attrString, renderer, attrStringRange);
+    AXAttributeStringSetExpandedTextValue(attrString, renderer, attrStringRange);
     AXAttributeStringSetElement(attrString, NSAccessibilityLinkTextAttribute, AccessibilityObject::anchorElementForNode(node), attrStringRange);
     
     // do spelling last because it tends to break up the range
@@ -1411,7 +1410,7 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache* cache, const Visibl
     if (m_object->isToggleButton())
         [additional addObject:NSAccessibilityValueAttribute];
     
-    if (m_object->supportsExpanded())
+    if (m_object->supportsExpanded() || m_object->isSummary())
         [additional addObject:NSAccessibilityExpandedAttribute];
     
     if (m_object->isScrollbar()
@@ -2208,11 +2207,12 @@ static const AccessibilityRoleMap& createAccessibilityRoleMap()
         { RubyRunRole, NSAccessibilityGroupRole },
         { RubyTextRole, NSAccessibilityGroupRole },
         { DetailsRole, NSAccessibilityGroupRole },
-        { SummaryRole, NSAccessibilityGroupRole },
+        { SummaryRole, NSAccessibilityButtonRole },
         { SVGTextPathRole, NSAccessibilityGroupRole },
         { SVGTextRole, NSAccessibilityGroupRole },
         { SVGTSpanRole, NSAccessibilityGroupRole },
         { InlineRole, NSAccessibilityGroupRole },
+        { MarkRole, NSAccessibilityGroupRole },
     };
     AccessibilityRoleMap& roleMap = *new AccessibilityRoleMap;
     
@@ -2475,9 +2475,15 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     
     if ([axRole isEqualToString:NSAccessibilityGroupRole]) {
         
+        if (m_object->isOutput())
+            return AXOutputText();
+        
         NSString *ariaLandmarkRoleDescription = [self ariaLandmarkRoleDescription];
         if (ariaLandmarkRoleDescription)
             return ariaLandmarkRoleDescription;
+        
+        if (m_object->isFigure())
+            return AXFigureText();
         
         switch (m_object->roleValue()) {
         case AudioRole:
@@ -2488,8 +2494,12 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             return AXDescriptionListTermText();
         case DescriptionListDetailRole:
             return AXDescriptionListDetailText();
+        case DetailsRole:
+            return AXDetailsText();
         case FooterRole:
             return AXFooterRoleDescriptionText();
+        case MarkRole:
+            return AXMarkText();
         case VideoRole:
             return localizedMediaControlElementString("VideoElement");
         default:
@@ -2512,6 +2522,26 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if ([axRole isEqualToString:@"AXHeading"])
         return AXHeadingText();
     
+    if ([axRole isEqualToString:NSAccessibilityTextFieldRole]) {
+        auto* node = m_object->node();
+        if (is<HTMLInputElement>(node)) {
+            auto& input = downcast<HTMLInputElement>(*node);
+            if (input.isEmailField())
+                return AXEmailFieldText();
+            if (input.isTelephoneField())
+                return AXTelephoneFieldText();
+            if (input.isURLField())
+                return AXURLFieldText();
+            
+            // These input types are not enabled on mac yet, we check the type attribute for now.
+            auto& type = input.attributeWithoutSynchronization(typeAttr);
+            if (equalLettersIgnoringASCIICase(type, "date"))
+                return AXDateFieldText();
+            if (equalLettersIgnoringASCIICase(type, "time"))
+                return AXTimeFieldText();
+        }
+    }
+    
     if (m_object->isFileUploadButton())
         return AXFileUploadButtonText();
     
@@ -2528,6 +2558,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     // AppKit also returns AXTab for the role description for a tab item.
     if (m_object->isTabItem())
         return NSAccessibilityRoleDescription(@"AXTab", nil);
+    
+    if (m_object->isSummary())
+        return AXSummaryText();
     
     // We should try the system default role description for all other roles.
     // If we get the same string back, then as a last resort, return unknown.
@@ -2570,6 +2603,29 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return NSAccessibilityUnignoredAncestor(scroll->platformWidget());
     
     return [self remoteAccessibilityParentObject];
+}
+
+- (NSString *)valueDescriptionForMeter
+{
+    if (!m_object)
+        return nil;
+    
+    String valueDescription = m_object->valueDescription();
+#if ENABLE(METER_ELEMENT)
+    if (!is<AccessibilityProgressIndicator>(m_object))
+        return valueDescription;
+    auto &meter = downcast<AccessibilityProgressIndicator>(*m_object);
+    String gaugeRegionValue = meter.gaugeRegionValueDescription();
+    if (!gaugeRegionValue.isEmpty()) {
+        StringBuilder builder;
+        builder.append(valueDescription);
+        if (builder.length())
+            builder.appendLiteral(", ");
+        builder.append(gaugeRegionValue);
+        return builder.toString();
+    }
+#endif
+    return valueDescription;
 }
 
 // FIXME: split up this function in a better way.
@@ -2648,7 +2704,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     }
     
     if ([attributeName isEqualToString: NSAccessibilitySelectedChildrenAttribute]) {
-        if (m_object->isListBox()) {
+        if (m_object->canHaveSelectedChildren()) {
             AccessibilityObject::AccessibilityChildrenVector selectedChildrenCopy;
             m_object->selectedChildren(selectedChildrenCopy);
             return convertToNSArray(selectedChildrenCopy);
@@ -2750,6 +2806,10 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         // Meter elements should communicate their content via AXValueDescription.
         if (m_object->isMeter())
             return [NSString string];
+        
+        // Summary element should use its text node as AXTitle.
+        if (m_object->isSummary())
+            return m_object->textUnderElement();
         
         return [self baseAccessibilityTitle];
     }
@@ -3165,8 +3225,11 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
     }
     
-    if ([attributeName isEqualToString:NSAccessibilityValueDescriptionAttribute])
+    if ([attributeName isEqualToString:NSAccessibilityValueDescriptionAttribute]) {
+        if (m_object->isMeter())
+            return [self valueDescriptionForMeter];
         return m_object->valueDescription();
+    }
     
     if ([attributeName isEqualToString:NSAccessibilityOrientationAttribute]) {
         AccessibilityOrientation elementOrientation = m_object->orientation();
@@ -3266,7 +3329,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if ([attributeName isEqualToString:NSAccessibilityARIAAtomicAttribute])
         return [NSNumber numberWithBool:m_object->ariaLiveRegionAtomic()];
     if ([attributeName isEqualToString:NSAccessibilityElementBusyAttribute])
-        return [NSNumber numberWithBool:m_object->ariaLiveRegionBusy()];
+        return [NSNumber numberWithBool:m_object->isBusy()];
     
     // MathML Attributes.
     if (m_object->isMathElement()) {

@@ -574,7 +574,7 @@ gd{
         was{"Washo"}
         wbp{"Warlpiri"}
         wo{"Wolof"}
-        wuu{"Wu"}
+        wuu{"Shanghainese"}
         xal{"Kalmyk"}
         xh{"Xhosa"}
         xog{"Soga"}

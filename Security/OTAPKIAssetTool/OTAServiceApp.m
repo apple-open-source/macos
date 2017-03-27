@@ -2,8 +2,6 @@
 //  OTAServiceApp.m
 //  Security
 //
-//  Created by local on 2/11/13.
-//
 //
 
 
@@ -23,6 +21,7 @@
 #import <Security/SecCmsContentInfo.h>
 #import <Security/SecCmsSignedData.h>
 #import <CommonCrypto/CommonDigest.h>
+#import <CommonCrypto/CommonDigestSPI.h>
 #import <CommonNumerics/CommonBaseXX.h>
 #import <ManagedConfiguration/MCProfileConnection.h>
 #import <MobileGestalt.h>
@@ -628,7 +627,7 @@ out:
 		 */
 		xpc_transaction_begin();
 		
-		if (_verbose)
+		if (self->_verbose)
 		{
 			syslog(LOG_NOTICE, "BackgroundTaskAgent job %s fired", job_name);
 		}
@@ -640,14 +639,14 @@ out:
 		}
 		else if (job_status == kBackgroundTaskAgentJobSatisfied)
 		{
-			if (_verbose)
+			if (self->_verbose)
 			{
 				syslog(LOG_NOTICE, "BTA job %s is satisfied -- performing asset query", job_name);
 			}
 			bool shouldReschedule = false;
 			if ([self run:&shouldReschedule] || !shouldReschedule)
 			{
-				if (_verbose)
+				if (self->_verbose)
 				{
 					syslog(LOG_NOTICE, "Unscheduling BTA job");
 				}
@@ -655,8 +654,8 @@ out:
 			}
 			else
 			{
-				syslog(LOG_NOTICE, "Asset query failed due to network error. Re-scheduling BTA job for another attempt in %f seconds.", _asset_query_retry_interval);
-				[self registerBackgroundTaskAgentJobWithDelay:_asset_query_retry_interval];
+				syslog(LOG_NOTICE, "Asset query failed due to network error. Re-scheduling BTA job for another attempt in %f seconds.", self->_asset_query_retry_interval);
+				[self registerBackgroundTaskAgentJobWithDelay:self->_asset_query_retry_interval];
 			}
 		}
 		else if (job_status == kBackgroundTaskAgentJobUnsatisfied)
@@ -681,7 +680,7 @@ out:
 	{
 		xpc_activity_state_t state = xpc_activity_get_state(activity);
 		
-		if (_verbose)
+		if (self->_verbose)
 		{
 			xpc_object_t criteria = xpc_activity_copy_criteria(activity);
 			
@@ -703,7 +702,7 @@ out:
 			 * The activity is already configured in the launchd plist, so there
 			 * is nothing to do here
 			 */
-			if (_verbose)
+			if (self->_verbose)
 			{
 				syslog(LOG_NOTICE, "Activity %s in check in state", kOTAPKIAssetToolActivity);
 			}
@@ -720,7 +719,7 @@ out:
 				syslog(LOG_NOTICE, "Activity %s in run state. Scheduling BTA job for earliest network availability.", kOTAPKIAssetToolActivity);
 				[self registerBackgroundTaskAgentJobWithDelay:0];
 			}
-			else if (_verbose)
+			else if (self->_verbose)
 			{
 				syslog(LOG_NOTICE, "Already have a BTA job registered. Ignoring activity.");
 			}
@@ -1183,20 +1182,27 @@ out:
 	{
 		return result;
 	}
-	
+
 	NSError* error = nil;
 	NSData* file_data = [NSData dataWithContentsOfFile:file_path options:0 error:&error];
 	if (nil != error)
 	{
 		return result;
 	}
+
+	NSMutableData *digest = [NSMutableData dataWithLength:CC_SHA256_DIGEST_LENGTH];
+	uint8_t *dp = (digest) ? [digest mutableBytes] : NULL;
+	if (NULL == dp)
+	{
+		return result;
+	}
+
+	memset(dp, 0, CC_SHA256_DIGEST_LENGTH);
+	CCDigest(kCCDigestSHA256,
+	         (const uint8_t *)[file_data bytes],
+	         (size_t)[file_data length], dp);
     
-	UInt8 buffer[CC_SHA256_DIGEST_LENGTH];
-	memset(buffer, 0, CC_SHA256_DIGEST_LENGTH);
-	CC_SHA256([file_data bytes], (CC_LONG)[file_data length], buffer);
-	NSData* file_hash_data = [NSData dataWithBytesNoCopy:buffer length:CC_SHA256_DIGEST_LENGTH freeWhenDone:NO];
-    
-    result = [hash isEqualToData:file_hash_data];
+	result = [hash isEqualToData:digest];
        
 	return result;
 }

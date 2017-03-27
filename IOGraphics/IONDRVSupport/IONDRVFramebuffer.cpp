@@ -2456,9 +2456,16 @@ IOReturn IONDRVFramebuffer::setCLUTWithEntries(
     return (err);
 }
 
-IOReturn IONDRVFramebuffer::setGammaTable( 
-        UInt32 channelCount, UInt32 dataCount,
-        UInt32 dataWidth, void * data )
+IOReturn IONDRVFramebuffer::setGammaTable(
+                                          UInt32 channelCount, UInt32 dataCount,
+                                          UInt32 dataWidth, void * data )
+{
+    return (setGammaTable(channelCount, dataCount, dataWidth, data, true));
+}
+
+IOReturn IONDRVFramebuffer::setGammaTable(
+                                          UInt32 channelCount, UInt32 dataCount,
+                                          UInt32 dataWidth, void * data, bool /*syncToVBL*/ )
 {
     IOReturn            err;
     VDClutBehavior      clutSetting;

@@ -618,16 +618,15 @@ void __IOHIDKeyboardEventTranslatorAddMenuButtonEvent (IOHIDKeyboardEventTransla
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDKeyboardEventTranslatorAddConsumerEvents
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDKeyboardEventTranslatorAddConsumerEvents (IOHIDKeyboardEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context, uint8_t keyCode) {
+void __IOHIDKeyboardEventTranslatorAddConsumerEvents (IOHIDKeyboardEventTranslatorRef translator, EVENT_TRANSLATOR_CONTEXT *context, uint8_t keyCode)
+{
   uint8_t subType = 0;
+  
   switch (keyCode) {
   case NX_KEYTYPE_MENU:
     __IOHIDKeyboardEventTranslatorAddMenuButtonEvent (translator, context);
     return;
   case NX_POWER_KEY:
-    if (IOHIDEventGetPhase(context->event) & kIOHIDEventPhaseEnded) {
-      return;
-    }
   case NX_KEYTYPE_EJECT:
     if (( context->eventFlags & kNXFlagsModifierMask) == (NX_ALTERNATEMASK | NX_COMMANDMASK)) {
       subType = NX_SUBTYPE_SLEEP_EVENT;
@@ -645,9 +644,14 @@ void __IOHIDKeyboardEventTranslatorAddConsumerEvents (IOHIDKeyboardEventTranslat
       }
     }
     break;
+    default:
+      // Don't create NXEvent for synthetic consumer keyboard multi-click IOHIDEvents (PhaseEnded events and LongPress events).
+      if (IOHIDEventGetPhase(context->event) & kIOHIDEventPhaseEnded ||
+          IOHIDEventGetIntegerValue(context->event, kIOHIDEventFieldKeyboardLongPress) != 0) {
+        return;
+      }
+      break;
   }
-  
-  
   
   if (subType && context->down) {
     __IOHIDKeyboardEventTranslatorAddSysdefinedEventWithSubtype (translator, context, subType);

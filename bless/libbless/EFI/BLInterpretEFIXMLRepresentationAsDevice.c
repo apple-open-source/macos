@@ -44,6 +44,9 @@
 static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
 						 char *bsdName, int bsdNameLen);
 
+static int checkForPath(BLContextPtr context, CFDictionaryRef dict,
+                         char *path, int pathLen);
+
 static CFUUIDRef    copyVolUUIDFromDiskArb(BLContextPtr context,
                                           CFStringRef bsdName);
 
@@ -99,6 +102,74 @@ int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
 		contextprintf(context, kBLLogLevelVerbose, "Could not find disk device for string\n");
 		return 4;
 	}
+    
+    return 0;
+}
+
+
+int BLInterpretEFIXMLRepresentationAsDeviceWithPath(BLContextPtr context,
+                                                    CFStringRef xmlString,
+                                                    char *bsdName,
+                                                    int bsdNameLen,
+                                                    char *path,
+                                                    int pathLen)
+{
+    CFArrayRef  efiArray = NULL;
+    CFIndex     count, i;
+    char        buffer[1024];
+    int			foundDevice = 0;
+    int         foundPath = 0;
+    
+    if(!CFStringGetCString(xmlString, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+        return 1;
+    }
+    
+    efiArray = IOCFUnserialize(buffer,
+                               kCFAllocatorDefault,
+                               0,
+                               NULL);
+    if(efiArray == NULL) {
+        contextprintf(context, kBLLogLevelError, "Could not unserialize string\n");
+        return 2;
+    }
+    
+    if(CFGetTypeID(efiArray) != CFArrayGetTypeID()) {
+        CFRelease(efiArray);
+        contextprintf(context, kBLLogLevelError, "Bad type in XML string\n");
+        return 2;
+    }
+    
+    // for each entry, see if there's a volume UUID, or if IOMatch works
+    count = CFArrayGetCount(efiArray);
+    for (i=0; i < count; i++) {
+        CFDictionaryRef dict = CFArrayGetValueAtIndex(efiArray, i);
+        
+        if(CFGetTypeID(dict) != CFDictionaryGetTypeID()) {
+            CFRelease(efiArray);
+            contextprintf(context, kBLLogLevelError, "Bad type in XML string\n");
+            return 2;
+        }
+        
+        if (checkForMatch(context, dict, bsdName, bsdNameLen)) {
+            foundDevice = 1;
+        }
+        if (path) {
+            // Caller wants us to look for a path within the device
+            if (checkForPath(context, dict, path, pathLen)) {
+                foundPath = 1;
+            }
+        }
+
+        if (foundDevice && (!path || foundPath)) break;
+    
+    }
+    
+    CFRelease(efiArray);
+    
+    if(!foundDevice) {
+        contextprintf(context, kBLLogLevelVerbose, "Could not find disk device for string\n");
+        return 4;
+    }
     
     return 0;
 }
@@ -207,6 +278,38 @@ static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
 		return 0;
 	}
 }
+
+
+
+static int checkForPath(BLContextPtr context, CFDictionaryRef dict,
+                        char *path, int pathLen)
+{
+    int         ret = 0;
+    CFStringRef type;
+    CFStringRef pathStr;
+    
+    type = CFDictionaryGetValue(dict, CFSTR("IOEFIDevicePathType"));
+    if (type && CFEqual(type, CFSTR("MediaFilePath"))) {
+        pathStr = CFDictionaryGetValue(dict, CFSTR("Path"));
+        if (pathStr && CFGetTypeID(pathStr) == CFStringGetTypeID()) {
+            if (CFStringGetCString(pathStr, path, pathLen, kCFStringEncodingUTF8)) {
+                ret = 1;
+            }
+        }
+    }
+    if (ret) {
+        // Change path separators from EFI to fs representation
+        // Note: we know there's a '\0' before the end of the
+        // buffer (pathLen) because it was successfully converted
+        // by CFStringGetCString, above.
+        for (; *path; path++) {
+            if (*path == '\\') *path = '/';
+        }
+    }
+    return ret;
+}
+
+
 
 static CFUUIDRef    copyVolUUIDFromDiskArb(BLContextPtr context,
                                            CFStringRef bsdName)

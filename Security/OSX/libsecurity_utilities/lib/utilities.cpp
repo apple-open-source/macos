@@ -26,6 +26,7 @@
 // Utilities
 //
 #include <security_utilities/utilities.h>
+#include <utilities/SecCFRelease.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <dispatch/dispatch.h>
 
@@ -114,7 +115,7 @@ char *cached_realpath(const char * file_name, char * resolved_name)
             valueToReturn = realpath(file_name, resolved_name);
         }
 
-        CFRelease(input);
+        CFReleaseSafe(input);
     });
 
     return valueToReturn;

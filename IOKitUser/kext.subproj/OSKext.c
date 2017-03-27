@@ -38,6 +38,9 @@
 #include <kxld_types.h>
 #endif
 
+#ifdef SPLIT_KEXTS_DEBUG
+#undef SPLIT_KEXTS_DEBUG
+#endif
 #define SPLIT_KEXTS_DEBUG 0
 
 #include <sys/cdefs.h>
@@ -86,6 +89,10 @@
 #define SEG_DATA_CONST "__DATA_CONST"
 #endif
 
+#ifndef SEG_LLVM_COV
+#define SEG_LLVM_COV   "__LLVM_COV"
+#endif
+
 #ifndef kPrelinkTextSegment
 #define kPrelinkTextSegment                "__PRELINK_TEXT"
 #endif
@@ -113,6 +120,14 @@
 
 #ifndef kPrelinkLinkeditSegment
 #define kPrelinkLinkeditSegment           "__PLK_LINKEDIT"
+#endif
+
+#ifndef kPrelinkLLVMCovSegment
+#define kPrelinkLLVMCovSegment            "__PLK_LLVM_COV"
+#endif
+
+#ifndef kPrelinkLLVMCovSection
+#define kPrelinkLLVMCovSection            "__llvm_covmap"
 #endif
 
 #ifndef kPrelinkLinkeditSection
@@ -153,6 +168,7 @@ typedef struct splitKextLinkInfo {
     uint64_t        vmaddr_DATA;        // vmaddr of kext __DATA segment
     uint64_t        vmaddr_DATA_CONST;  // vmaddr of kext __DATA_CONST segment
     uint64_t        vmaddr_LINKEDIT;    // vmaddr of kext __LINKEDIT segment
+    uint64_t        vmaddr_LLVM_COV;    // vmaddr of kext __LLVM_COV segment
     uint32_t        kaslr_offsets_count; // offsets into the kext to slide
     uint32_t *      kaslr_offsets;      // offsets into the kext to slide
 } splitKextLinkInfo;
@@ -386,6 +402,7 @@ enum enumSegIdx {
     SEG_IDX_TEXT_EXEC,
     SEG_IDX_DATA,
     SEG_IDX_DATA_CONST,
+    SEG_IDX_LLVM_COV,
     SEG_IDX_LINKEDIT,
     SEG_IDX_COUNT,
 };
@@ -628,6 +645,7 @@ typedef struct plkInfo {
     plkSegInfo  plk_DATA;       /* __PRELINK_DATA */
     plkSegInfo  plk_DATA_CONST; /* __PLK_DATA_CONST */
     plkSegInfo  plk_LINKEDIT;   /* __PLK_LINKEDIT */
+    plkSegInfo  plk_LLVM_COV;   /* __PLK_LLVM_COV */
     SegInfo     plk_INFO;       /* __PRELINK_INFO */
 } plkInfo;
 
@@ -1181,6 +1199,8 @@ static uint64_t getKCPlkSegVMSize(plkInfo *plkInfo, enum enumSegIdx idx) {
         return plkInfo->plk_DATA_CONST.plkSegInfo.vmsize;
     case SEG_IDX_LINKEDIT:
         return plkInfo->plk_LINKEDIT.plkSegInfo.vmsize;
+    case SEG_IDX_LLVM_COV:
+        return plkInfo->plk_LLVM_COV.plkSegInfo.vmsize;
     default:
         /* shouldn't ever be here */
         assert(false);
@@ -1207,6 +1227,9 @@ static boolean_t setKCPlkSegVMSize(plkInfo *plkInfo, enum enumSegIdx idx, uint64
     case SEG_IDX_LINKEDIT:
         plkInfo->plk_LINKEDIT.plkSegInfo.vmsize = x;
     break;
+    case SEG_IDX_LLVM_COV:
+        plkInfo->plk_LLVM_COV.plkSegInfo.vmsize = x;
+    break;
     default:
         /* shouldn't ever be here */
         assert(false);
@@ -1231,6 +1254,8 @@ static uint64_t getKCPlkSegVMAddr(plkInfo *plkInfo, enum enumSegIdx idx) {
         return plkInfo->plk_DATA_CONST.plkSegInfo.vmaddr;
     case SEG_IDX_LINKEDIT:
         return plkInfo->plk_LINKEDIT.plkSegInfo.vmaddr;
+    case SEG_IDX_LLVM_COV:
+        return plkInfo->plk_LLVM_COV.plkSegInfo.vmaddr;
     default:
         /* shouldn't ever be here */
         assert(false);
@@ -1253,6 +1278,8 @@ static uint64_t getKCPlkSegFileOff(plkInfo *plkInfo, enum enumSegIdx idx) {
         return plkInfo->plk_DATA_CONST.plkSegInfo.fileoff;
     case SEG_IDX_LINKEDIT:
         return plkInfo->plk_LINKEDIT.plkSegInfo.fileoff;
+    case SEG_IDX_LLVM_COV:
+        return plkInfo->plk_LLVM_COV.plkSegInfo.fileoff;
     default:
         /* shouldn't ever be here */
         assert(false);
@@ -1274,6 +1301,8 @@ static uint64_t getKCPlkSegNextVMAddr(plkInfo *plkInfo, enum enumSegIdx idx) {
         return plkInfo->plk_DATA_CONST.plk_next_kext_vmaddr;
     case SEG_IDX_LINKEDIT:
         return plkInfo->plk_LINKEDIT.plk_next_kext_vmaddr;
+    case SEG_IDX_LLVM_COV:
+        return plkInfo->plk_LLVM_COV.plk_next_kext_vmaddr;
     default:
         /* shouldn't ever be here */
         assert(false);
@@ -1300,6 +1329,9 @@ static boolean_t setKCPlkSegNextVMAddr(plkInfo *plkInfo, enum enumSegIdx idx, ui
         return true;
     case SEG_IDX_LINKEDIT:
         plkInfo->plk_LINKEDIT.plk_next_kext_vmaddr = x;
+        return true;
+    case SEG_IDX_LLVM_COV:
+        plkInfo->plk_LLVM_COV.plk_next_kext_vmaddr = x;
         return true;
     default:
         /* shouldn't ever be here */
@@ -1328,6 +1360,9 @@ static boolean_t setKextVMAddr(OSKextRef aKext, enum enumSegIdx idx, uint64_t vm
     case SEG_IDX_LINKEDIT:
         aKext->loadInfo->linkInfo.vmaddr_LINKEDIT = vmaddr;
         return true;
+    case SEG_IDX_LLVM_COV:
+        aKext->loadInfo->linkInfo.vmaddr_LLVM_COV = vmaddr;
+        return true;
     default:
         /* shouldn't ever be here */
         assert(false);
@@ -1349,6 +1384,8 @@ static uint64_t getKextVMAddr(OSKextRef aKext, enum enumSegIdx idx) {
         return aKext->loadInfo->linkInfo.vmaddr_DATA_CONST;
     case SEG_IDX_LINKEDIT:
         return aKext->loadInfo->linkInfo.vmaddr_LINKEDIT;
+    case SEG_IDX_LLVM_COV:
+        return aKext->loadInfo->linkInfo.vmaddr_LLVM_COV;
     default:
         /* shouldn't ever be here */
         assert(false);
@@ -1377,6 +1414,10 @@ static boolean_t getSegIndex(const char *name, enum enumSegIdx *idx) {
         if (idx)
             *idx = SEG_IDX_LINKEDIT;
         return true;
+    } else if (!strcmp(name, "__LLVM_COV")) {
+        if (idx)
+            *idx = SEG_IDX_LLVM_COV;
+        return true;
     } else {
         return false;
     }
@@ -1394,6 +1435,8 @@ static char * segIdxToName(enum enumSegIdx idx) {
         return "__DATA_CONST";
     case SEG_IDX_LINKEDIT:
         return "__LINKEDIT";
+    case SEG_IDX_LLVM_COV:
+        return "__LLVM_COV";
     default:
         return NULL;
     }
@@ -2025,7 +2068,7 @@ void OSKextSetExecutableSuffix(const char * suffix, const char * kernelPath)
     if (suffix) {
         strlcpy(sOSKextExecutableSuffix, suffix, sizeof(sOSKextExecutableSuffix));
     } else if (kernelPath) {
-        copy = strndup(kernelPath, sizeof(sOSKextExecutableSuffix));
+        copy = strndup(kernelPath, MAXPATHLEN);
         if (copy)
         {
             file = basename(copy);
@@ -10031,7 +10074,19 @@ static Boolean __OSKextPerformSplitLink(
                                       kxldDependencies,
                                       numKxldDependencies,
                                       &kmodInfoKern);
-    
+#if SPLIT_KEXTS_DEBUG
+    {
+        u_char *kext_exe = (u_char *)CFDataGetBytePtr(kextExecutable);
+        unsigned int kext_exe_sz = (unsigned int)CFDataGetLength(kextExecutable);
+        u_char *linked_kext = (u_char *)aKext->loadInfo->linkInfo.linkedKext;
+        unsigned int linked_kext_sz = (unsigned int)aKext->loadInfo->linkInfo.linkedKextSize;
+
+        kcgen_verboseLog("Linked %s from %p-%p (%d) into %p-%p (%d)", kextPath,
+                         kext_exe, kext_exe + kext_exe_sz, kext_exe_sz,
+                         linked_kext, linked_kext + linked_kext_sz, linked_kext_sz);
+    }
+#endif
+
     for (i = 0; i < numKxldDependencies; i++) {
         SAFE_FREE(kxldDependencies[i].kext_name);
         SAFE_FREE(kxldDependencies[i].interface_name);
@@ -15479,19 +15534,20 @@ static boolean_t __OSKextValidatePLKInfo(
 {
     boolean_t       result = true;
     boolean_t       isSplitKext = false;
-    plkSegInfo     *plkSeg[5] = {NULL, NULL, NULL, NULL, NULL};
+    plkSegInfo     *plkSeg[SEG_IDX_COUNT] = { NULL };
     char            kextPath[PATH_MAX];
 
     __OSKextGetFileSystemPath(aKext, NULL, true, kextPath);
 
     isSplitKext = __OSKextIsSplitKextMacho64(kextHeader);
 
-    plkSeg[0] = &plkInfo->plk_TEXT;
+    plkSeg[SEG_IDX_TEXT] = &plkInfo->plk_TEXT;
     if (isSplitKext) {
-        plkSeg[1] = &plkInfo->plk_TEXT_EXEC;
-        plkSeg[2] = &plkInfo->plk_DATA;
-        plkSeg[3] = &plkInfo->plk_DATA_CONST;
-        plkSeg[4] = &plkInfo->plk_LINKEDIT;
+        plkSeg[SEG_IDX_TEXT_EXEC]  = &plkInfo->plk_TEXT_EXEC;
+        plkSeg[SEG_IDX_DATA]       = &plkInfo->plk_DATA;
+        plkSeg[SEG_IDX_DATA_CONST] = &plkInfo->plk_DATA_CONST;
+        plkSeg[SEG_IDX_LINKEDIT]   = &plkInfo->plk_LINKEDIT;
+        plkSeg[SEG_IDX_LLVM_COV]   = &plkInfo->plk_LLVM_COV;
     }
 
     for (size_t i = 0; i < sizeof(plkSeg)/sizeof(plkSeg[0]); i++) {
@@ -15766,6 +15822,7 @@ static boolean_t __OSKextCopyToPLK(OSKextRef aKext,
         __OSKextMachOSetSegmentProtection(mh, SEG_TEXT_EXEC, PROT_READ | PROT_EXEC, PROT_READ | PROT_EXEC);
         __OSKextMachOSetSegmentProtection(mh, SEG_DATA, PROT_READ | PROT_WRITE, PROT_READ | PROT_WRITE);
         __OSKextMachOSetSegmentProtection(mh, SEG_DATA_CONST, PROT_READ, PROT_READ);
+        __OSKextMachOSetSegmentProtection(mh, SEG_LLVM_COV, PROT_READ, PROT_READ | PROT_WRITE);
         __OSKextMachOSetSegmentProtection(mh, SEG_LINKEDIT, PROT_READ, PROT_READ);
     }
 
@@ -15795,8 +15852,8 @@ static boolean_t __OSKextCopyToPLK(OSKextRef aKext,
         result = __OSKextGetSegmentInfo(linkInfo->linkedKext, segName, &my_vmaddr, &my_vmsize, &my_fileoff, &my_filesize, &my_maxalign, true);
 
         if (result == false) {
-            kcgen_verboseLog("OSKextGetSegmentInfo returns false");
-            //abort();
+            /* not all kexts will have all segments, e.g., __LLVM_COV */
+            kcgen_verboseLog("Kext doesn't contain '%s' segment: skipping.", segName);
             continue;
         }
 
@@ -15816,7 +15873,7 @@ static boolean_t __OSKextCopyToPLK(OSKextRef aKext,
 
         kcgen_verboseLog("memcpy(%llx, %llx, %llx)", (uintptr_t)prelinkData + in_kc_offs[segIndex], (uintptr_t)linkInfo->linkedKext + my_fileoff, my_filesize);
         // my_fileoff and my_filesize are the offset and size of the kext TEXT segment at this point
-        assert(my_fileoff < linkInfo->linkedKextSize);
+        assert((my_fileoff + my_filesize) < linkInfo->linkedKextSize);
         memcpy(prelinkData + in_kc_offs[segIndex], linkInfo->linkedKext + my_fileoff, my_filesize);
 
 
@@ -15830,6 +15887,7 @@ static boolean_t __OSKextCopyToPLK(OSKextRef aKext,
 
     if (isSplitKext) {
         /* adjust intra-kext relocations */
+        kcgen_verboseLog("Adjusting intra-kext relocations...");
         result = kcgen_adjustKextSegmentLocations(OSKextGetArchitecture()->cputype,
                                          OSKextGetArchitecture()->cpusubtype,
                                          prelinkData,
@@ -15986,8 +16044,8 @@ static boolean_t __OSKextInit_plkInfo(
                      (void *) (mySegInfo->vmaddr + mySegInfo->vmsize),
                      mySegInfo->vmsize,
                      mySegInfo->fileoff,
-                     (mySegInfo->fileoff + mySegInfo->filesize),
-                     mySegInfo->filesize);
+                     (mySegInfo->fileoff + mySegInfo->vmsize),
+                     mySegInfo->vmsize);
 #endif
 
     // We want to compress the gap between __PRELINK_TEXT, __PLK_TEXT_EXEC, and __PLK_DATA_CONST
@@ -15999,6 +16057,7 @@ static boolean_t __OSKextInit_plkInfo(
     plkInfo->plk_TEXT_EXEC.plkSegInfo.vmsize = roundPageCrossSafeFixedWidth(plkInfo->plk_TEXT_EXEC.plkSegInfo.vmsize);
     plkInfo->plk_DATA_CONST.plkSegInfo.vmsize = roundPageCrossSafeFixedWidth(plkInfo->plk_DATA_CONST.plkSegInfo.vmsize);
     plkInfo->plk_DATA.plkSegInfo.vmsize = roundPageCrossSafeFixedWidth(plkInfo->plk_DATA.plkSegInfo.vmsize);
+    plkInfo->plk_LLVM_COV.plkSegInfo.vmsize = roundPageCrossSafeFixedWidth(plkInfo->plk_LLVM_COV.plkSegInfo.vmsize);
     plkInfo->plk_LINKEDIT.plkSegInfo.vmsize = roundPageCrossSafeFixedWidth(plkInfo->plk_LINKEDIT.plkSegInfo.vmsize);
 
     next_vmaddr = roundPageCrossSafeFixedWidth(mySegInfo->vmaddr -
@@ -16029,15 +16088,14 @@ static boolean_t __OSKextInit_plkInfo(
     next_vmaddr = mySegInfo->vmaddr + mySegInfo->vmsize;
 
 #if SPLIT_KEXTS_DEBUG
-    kcgen_verboseLog("__PRELINK_TEXT vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu next fileoff %llu filesize %llu",
+    kcgen_verboseLog("__PRELINK_TEXT vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu filesize %llu",
                      (void *)mySegInfo->vmaddr,
                      (void *) (mySegInfo->vmaddr + mySegInfo->vmsize),
                      (void *)plkInfo->plk_TEXT.plk_next_kext_vmaddr,
                      mySegInfo->vmsize,
                      mySegInfo->fileoff,
-                     (mySegInfo->fileoff + mySegInfo->filesize),
-                     plkInfo->plk_TEXT.plk_next_kext_fileoff,
-                     mySegInfo->filesize);
+                     (mySegInfo->fileoff + mySegInfo->vmsize),
+                     mySegInfo->vmsize);
 #endif
 
     //
@@ -16061,15 +16119,14 @@ static boolean_t __OSKextInit_plkInfo(
         next_vmaddr = mySegInfo->vmaddr + mySegInfo->vmsize;
 
 #if SPLIT_KEXTS_DEBUG
-        kcgen_verboseLog("__PLK_TEXT_EXEC vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu next fileoff %llu filesize %llu",
+        kcgen_verboseLog("__PLK_TEXT_EXEC vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu filesize %llu",
                          (void *)mySegInfo->vmaddr,
                          (void *) (mySegInfo->vmaddr + mySegInfo->vmsize),
                          (void *)plkInfo->plk_TEXT_EXEC.plk_next_kext_vmaddr,
                          mySegInfo->vmsize,
                          mySegInfo->fileoff,
-                         (mySegInfo->fileoff + mySegInfo->filesize),
-                         plkInfo->plk_TEXT_EXEC.plk_next_kext_fileoff,
-                         mySegInfo->filesize);
+                         (mySegInfo->fileoff + mySegInfo->vmsize),
+                         mySegInfo->vmsize);
 #endif
     }
 
@@ -16094,20 +16151,19 @@ static boolean_t __OSKextInit_plkInfo(
         next_vmaddr = mySegInfo->vmaddr + mySegInfo->vmsize;
 
 #if SPLIT_KEXTS_DEBUG
-        kcgen_verboseLog("__PLK_DATA_CONST vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu next fileoff %llu filesize %llu",
+        kcgen_verboseLog("__PLK_DATA_CONST vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu filesize %llu",
                          (void *)mySegInfo->vmaddr,
                          (void *) (mySegInfo->vmaddr + mySegInfo->vmsize),
                          (void *)plkInfo->plk_DATA_CONST.plk_next_kext_vmaddr,
                          mySegInfo->vmsize,
                          mySegInfo->fileoff,
-                         mySegInfo->fileoff + mySegInfo->filesize,
-                         plkInfo->plk_DATA_CONST.plk_next_kext_fileoff,
-                         mySegInfo->filesize);
+                         mySegInfo->fileoff + mySegInfo->vmsize,
+                         mySegInfo->vmsize);
 #endif
     }
  
     //
-    // __PRELINK_DATA, __PLK_LINKEDIT, and __PRELINK_INFO are after the last of the kernel
+    // __PRELINK_DATA, __PLK_LLVM_COV, __PLK_LINKEDIT, and __PRELINK_INFO are after the last of the kernel
     // __DATA segments
     //
     result = __OSKextGetLastKernelLoadAddr(kernelImage, &next_vmaddr);
@@ -16141,15 +16197,46 @@ static boolean_t __OSKextInit_plkInfo(
         next_vmaddr = mySegInfo->vmaddr + mySegInfo->vmsize;
 
 #if SPLIT_KEXTS_DEBUG
-        kcgen_verboseLog("__PRELINK_DATA vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu next fileoff %llu filesize %llu",
+        kcgen_verboseLog("__PRELINK_DATA vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu filesize %llu",
                          (void *)mySegInfo->vmaddr,
                          (void *) (mySegInfo->vmaddr + mySegInfo->vmsize),
                          (void *)plkInfo->plk_DATA.plk_next_kext_vmaddr,
                          mySegInfo->vmsize,
                          mySegInfo->fileoff,
-                         mySegInfo->fileoff + mySegInfo->filesize,
-                         plkInfo->plk_DATA.plk_next_kext_fileoff,
-                         mySegInfo->filesize);
+                         mySegInfo->fileoff + mySegInfo->vmsize,
+                         mySegInfo->vmsize);
+#endif
+    }
+
+    //
+    // grab __PLK_LLVM_COV segment info
+    //
+    seg_cmd = macho_get_segment_by_name_64(kernelHeader, kPrelinkLLVMCovSegment);
+    if (NULL == seg_cmd) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                  "%s %d - could not find %s, will skip this segment... ",
+                  __func__, __LINE__, kPrelinkLLVMCovSegment);
+    }
+    else {
+        mySegInfo = &plkInfo->plk_LLVM_COV.plkSegInfo;
+        mySegInfo->vmaddr = next_vmaddr;
+        plkInfo->plk_LLVM_COV.plk_next_kext_vmaddr = mySegInfo->vmaddr;
+        mySegInfo->fileoff = next_fileoff;
+        next_fileoff += mySegInfo->vmsize;
+        // vmsize and filesize are set in __OSKextGetPLKSegSizes
+
+        next_vmaddr = mySegInfo->vmaddr + mySegInfo->vmsize;
+
+#if SPLIT_KEXTS_DEBUG
+        kcgen_verboseLog("__PLK_LLVM_COV vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu filesize %llu",
+                         (void *)mySegInfo->vmaddr,
+                         (void *) (mySegInfo->vmaddr + mySegInfo->vmsize),
+                         (void *)plkInfo->plk_LLVM_COV.plk_next_kext_vmaddr,
+                         mySegInfo->vmsize,
+                         mySegInfo->fileoff,
+                         mySegInfo->fileoff + mySegInfo->vmsize,
+                         mySegInfo->vmsize);
 #endif
     }
 
@@ -16174,18 +16261,17 @@ static boolean_t __OSKextInit_plkInfo(
         next_vmaddr = mySegInfo->vmaddr + mySegInfo->vmsize;
 
 #if SPLIT_KEXTS_DEBUG
-        kcgen_verboseLog("__PLK_LINKEDIT vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu next fileoff %llu filesize %llu",
+        kcgen_verboseLog("__PLK_LINKEDIT vmaddr %p to %p next vmaddr %p vmsize %llu fileoff %llu to %llu filesize %llu",
                          (void *)mySegInfo->vmaddr,
                          (void *) (mySegInfo->vmaddr + mySegInfo->vmsize),
                          (void *)plkInfo->plk_LINKEDIT.plk_next_kext_vmaddr,
                          mySegInfo->vmsize,
                          mySegInfo->fileoff,
-                         mySegInfo->fileoff + mySegInfo->filesize,
-                         plkInfo->plk_LINKEDIT.plk_next_kext_fileoff,
-                         mySegInfo->filesize);
+                         mySegInfo->fileoff + mySegInfo->vmsize,
+                         mySegInfo->vmsize);
 #endif
     }
-    
+
     //
     // grab __PRELINK_INFO segment info
     //
@@ -16210,7 +16296,7 @@ static boolean_t __OSKextInit_plkInfo(
                      (void *)mySegInfo->vmaddr,
                      mySegInfo->vmsize,
                      mySegInfo->fileoff,
-                     mySegInfo->filesize);
+                     mySegInfo->vmsize);
 #endif
 
     // next_fileoff is the total length of the known parts of the kernelcache
@@ -16222,6 +16308,13 @@ static boolean_t __OSKextInit_plkInfo(
         goto finish;
     }
     CFDataSetLength(plkInfo->kernelCacheImage, next_fileoff);
+#if SPLIT_KEXTS_DEBUG
+    {
+        u_char *prelinkData = CFDataGetMutableBytePtr(plkInfo->kernelCacheImage);
+        kcgen_verboseLog("plkInfo->kernelCacheImage @%p - %p (%d bytes)",
+                         prelinkData, prelinkData + (unsigned int)next_fileoff, (unsigned int)next_fileoff);
+    }
+#endif
 
     result = true;
 
@@ -16298,6 +16391,7 @@ static void __OSKextGetEffectiveSegmentSizes(OSKextRef kext, struct max_data *md
  * __PLK_TEXT_EXEC
  * __PRELINK_DATA
  * __PLK_DATA_CONST
+ * __PLK_LLVM_COV
  * __PLK_LINKEDIT
  * __PRELINK_INFO is calculated later.
  *********************************************************************/
@@ -16330,6 +16424,7 @@ static boolean_t __OSKextGetPLKSegSizes(
     segInfo->plk_TEXT_EXEC.plk_seg_name = kPrelinkTextExecSegment;
     segInfo->plk_DATA.plk_seg_name = kPrelinkDataSegment;
     segInfo->plk_DATA_CONST.plk_seg_name = kPrelinkDataConstSegment;
+    segInfo->plk_LLVM_COV.plk_seg_name = kPrelinkLLVMCovSegment;
     segInfo->plk_LINKEDIT.plk_seg_name = kPrelinkLinkeditSegment;
 
     count = CFArrayGetCount(loadList);
@@ -16495,7 +16590,7 @@ static boolean_t __OSKextSetPLKSegInfo(plkInfo *plkInfo)
 
     boolean_t ret = false;
 
-    struct _seginfo plkseg[5] = {
+    struct _seginfo plkseg[SEG_IDX_COUNT] = {
         { .seg_name = plkInfo->plk_TEXT.plk_seg_name,
           .seg_vmsize = getKCPlkSegVMSize(plkInfo, SEG_IDX_TEXT),
           .seg_vmaddr = getKCPlkSegVMAddr(plkInfo, SEG_IDX_TEXT),
@@ -16532,6 +16627,15 @@ static boolean_t __OSKextSetPLKSegInfo(plkInfo *plkInfo)
           .sect_name = kPrelinkDataSection,
           .sect_info = &plkInfo->plk_DATA_CONST.plkSegInfo
         },
+        { .seg_name = plkInfo->plk_LLVM_COV.plk_seg_name,
+          .seg_vmsize = getKCPlkSegVMSize(plkInfo, SEG_IDX_LLVM_COV),
+          .seg_vmaddr = getKCPlkSegVMAddr(plkInfo, SEG_IDX_LLVM_COV),
+          .seg_info = &plkInfo->plk_LLVM_COV.plkSegInfo,
+          .seg_maxprot  = PROT_READ | PROT_WRITE,
+          .seg_initprot = PROT_READ | PROT_WRITE,
+          .sect_name = kPrelinkLLVMCovSection,
+          .sect_info = &plkInfo->plk_LLVM_COV.plkSegInfo
+        },
         { .seg_name = plkInfo->plk_LINKEDIT.plk_seg_name,
           .seg_vmsize = getKCPlkSegVMSize(plkInfo, SEG_IDX_LINKEDIT),
           .seg_vmaddr = getKCPlkSegVMAddr(plkInfo, SEG_IDX_LINKEDIT),
@@ -16557,16 +16661,19 @@ static boolean_t __OSKextSetPLKSegInfo(plkInfo *plkInfo)
         if (__OSKextSetSegmentAddress(plkInfo->kernelCacheImage,
                                       plkseg[i].seg_name,
                                       seg_vmbase) == false) {
+            kcgen_warning("__OSKextSetSegmentAddress FAILED for %s", plkseg[i].seg_name);
             goto finish;
         }
         if (__OSKextSetSegmentVMSize(plkInfo->kernelCacheImage,
                                      plkseg[i].seg_name,
                                      seg_vmsize) == false) {
+            kcgen_warning("__OSKextSetSegmentVMSize FAILED for %s", plkseg[i].seg_name);
             goto finish;
         }
         if (__OSKextSetSegmentOffset(plkInfo->kernelCacheImage,
                                      plkseg[i].seg_name,
                                      plkseg[i].seg_info->fileoff) == false) {
+            kcgen_warning("__OSKextSetSegmentOffset FAILED for %s", plkseg[i].seg_name);
             goto finish;
         }
 
@@ -16574,28 +16681,36 @@ static boolean_t __OSKextSetPLKSegInfo(plkInfo *plkInfo)
         if (__OSKextSetSegmentFilesize(plkInfo->kernelCacheImage,
                                        plkseg[i].seg_name,
                                        seg_vmsize) == false) {
+            kcgen_warning("__OSKextSetSegmentFilesize FAILED for %s", plkseg[i].seg_name);
             goto finish;
         }
         if (__OSKextSetSegmentProtection(plkInfo->kernelCacheImage,
                                          plkseg[i].seg_name,
                                          plkseg[i].seg_initprot,
                                          plkseg[i].seg_maxprot) == false) {
+            kcgen_warning("__OSKextSetSegmentProtection FAILED for %s", plkseg[i].seg_name);
             goto finish;
         }
         /* set single-section in the segment */
         if (__OSKextSetSectionAddress(plkInfo->kernelCacheImage,
                                       plkseg[i].seg_name, plkseg[i].sect_name,
                                       seg_vmbase) == false) {
+            kcgen_warning("__OSKextSetSectionAddress FAILED for %s,%s",
+                          plkseg[i].seg_name, plkseg[i].sect_name);
             goto finish;
         }
         if (__OSKextSetSectionOffset(plkInfo->kernelCacheImage,
                                      plkseg[i].seg_name, plkseg[i].sect_name,
                                      plkseg[i].sect_info->fileoff) == false) {
+            kcgen_warning("__OSKextSetSectionOffset FAILED for %s,%s",
+                          plkseg[i].seg_name, plkseg[i].sect_name);
             goto finish;
         }
         if (__OSKextSetSectionSize(plkInfo->kernelCacheImage,
                                    plkseg[i].seg_name, plkseg[i].sect_name,
                                    seg_vmsize) == false) {
+            kcgen_warning("__OSKextSetSectionSize FAILED for %s,%s",
+                          plkseg[i].seg_name, plkseg[i].sect_name);
             goto finish;
         }
     }
@@ -16745,8 +16860,8 @@ static boolean_t __OSKextGetSegmentInfo(
     boolean_t result = false;
     uint64_t max_off = 0;
 
-    /* do the normal thing for LINKEDIT regardless of truncateSegs flag */
-    if (truncateSegs && !strcmp(segname, "__LINKEDIT"))
+    /* do the normal thing for LINKEDIT/LLVM_COV regardless of truncateSegs flag */
+    if (truncateSegs && (!strcmp(segname, SEG_LINKEDIT) || !strcmp(segname, SEG_LLVM_COV)))
         truncateSegs = false;
 
     if (__OSKextIsArchitectureLP64()) {
@@ -16867,7 +16982,7 @@ static boolean_t __OSKextGetSegmentInfoForOffset(
     assert(filesizeOut);
 
     /* ordered by most likely relocation target */
-    static const char  *SegsToLookup[] = {SEG_DATA_CONST, SEG_DATA, SEG_TEXT_EXEC, SEG_LINKEDIT};
+    static const char  *SegsToLookup[] = {SEG_DATA_CONST, SEG_DATA, SEG_TEXT_EXEC, SEG_LLVM_COV, SEG_LINKEDIT};
     static const size_t nSegsToLookup = sizeof(SegsToLookup) / sizeof(char *);
 
     /*
@@ -19725,12 +19840,14 @@ Boolean _isString(CFTypeRef cf)
 static void __OSKextShowPLKInfo(plkInfo *info)
 {
     OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-              "\n plkInfo: <%s %d>",
+              "\n plkInfo @%p: <%s %d>", info,
               __func__, __LINE__);
- 
-    OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-              "kaslrOffsets count %ld",
-              CFSetGetCount(info->kaslrOffsets));
+
+    if (info->kaslrOffsets) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                  "kaslrOffsets count %ld",
+                  CFSetGetCount(info->kaslrOffsets));
+    }
 
     OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
               "kernelImage %p (%ld) kernelCacheImage %p (%ld)",

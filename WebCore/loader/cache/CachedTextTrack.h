@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedTextTrack_h
-#define CachedTextTrack_h
+#pragma once
 
 #if ENABLE(VIDEO_TRACK)
 
@@ -35,7 +34,7 @@ namespace WebCore {
 
 class CachedTextTrack final : public CachedResource {
 public:
-    CachedTextTrack(const ResourceRequest&, SessionID);
+    CachedTextTrack(CachedResourceRequest&&, SessionID);
 
 private:
     bool mayTryReplaceEncodedData() const override { return true; }
@@ -50,5 +49,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_CACHED_RESOURCE(CachedTextTrack, CachedResource::TextTrackResource)
 
 #endif // ENABLE(VIDEO_TRACK)
-
-#endif // CachedTextTrack_h

@@ -35,64 +35,54 @@
 
 #include <stdatomic.h>
 
-#define memory_order_ordered memory_order_seq_cst
+#define memory_order_ordered    memory_order_seq_cst
+#define memory_order_dependency memory_order_acquire
+
+#if __has_extension(c_generic_selections) && __has_extension(c_atomic)
+#define os_atomic(type) _Atomic(type)
+#else
+#define os_atomic(type) type volatile
+#endif
+
+#define _os_atomic_type_cases(type, expr) \
+		type *: expr, \
+		type volatile *: expr, \
+		_Atomic(type) *: expr, \
+		_Atomic(type) volatile *: expr
 
 #define _os_atomic_basetypeof(p) \
 		typeof(*_Generic((p), \
-		char*: (char*)(p), \
-		volatile char*: (char*)(p), \
-		signed char*: (signed char*)(p), \
-		volatile signed char*: (signed char*)(p), \
-		unsigned char*: (unsigned char*)(p), \
-		volatile unsigned char*: (unsigned char*)(p), \
-		short*: (short*)(p), \
-		volatile short*: (short*)(p), \
-		unsigned short*: (unsigned short*)(p), \
-		volatile unsigned short*: (unsigned short*)(p), \
-		int*: (int*)(p), \
-		volatile int*: (int*)(p), \
-		unsigned int*: (unsigned int*)(p), \
-		volatile unsigned int*: (unsigned int*)(p), \
-		long*: (long*)(p), \
-		volatile long*: (long*)(p), \
-		unsigned long*: (unsigned long*)(p), \
-		volatile unsigned long*: (unsigned long*)(p), \
-		long long*: (long long*)(p), \
-		volatile long long*: (long long*)(p), \
-		unsigned long long*: (unsigned long long*)(p), \
-		volatile unsigned long long*: (unsigned long long*)(p), \
-		const void**: (const void**)(p), \
-		const void*volatile*: (const void**)(p), \
+		_os_atomic_type_cases(char, (char *)(p)), \
+		_os_atomic_type_cases(signed char, (signed char *)(p)), \
+		_os_atomic_type_cases(unsigned char, (unsigned char *)(p)), \
+		_os_atomic_type_cases(short, (short *)(p)), \
+		_os_atomic_type_cases(unsigned short, (unsigned short *)(p)), \
+		_os_atomic_type_cases(int, (int *)(p)), \
+		_os_atomic_type_cases(unsigned int, (unsigned int *)(p)), \
+		_os_atomic_type_cases(long, (long *)(p)), \
+		_os_atomic_type_cases(unsigned long, (unsigned long *)(p)), \
+		_os_atomic_type_cases(long long, (long long *)(p)), \
+		_os_atomic_type_cases(unsigned long long, (unsigned long long *)(p)), \
+		_os_atomic_type_cases(void *, (void **)(p)), \
+		_os_atomic_type_cases(const void *, (const void **)(p)), \
 		default: (void**)(p)))
 
 #define _os_atomic_c11_atomic(p) \
 		_Generic((p), \
-		char*: (_Atomic(char)*)(p), \
-		volatile char*: (volatile _Atomic(char)*)(p), \
-		signed char*: (_Atomic(signed char)*)(p), \
-		volatile signed char*: (volatile _Atomic(signed char)*)(p), \
-		unsigned char*: (_Atomic(unsigned char)*)(p), \
-		volatile unsigned char*: (volatile _Atomic(unsigned char)*)(p), \
-		short*: (_Atomic(short)*)(p), \
-		volatile short*: (volatile _Atomic(short)*)(p), \
-		unsigned short*: (_Atomic(unsigned short)*)(p), \
-		volatile unsigned short*: (volatile _Atomic(unsigned short)*)(p), \
-		int*: (_Atomic(int)*)(p), \
-		volatile int*: (volatile _Atomic(int)*)(p), \
-		unsigned int*: (_Atomic(unsigned int)*)(p), \
-		volatile unsigned int*: (volatile _Atomic(unsigned int)*)(p), \
-		long*: (_Atomic(long)*)(p), \
-		volatile long*: (volatile _Atomic(long)*)(p), \
-		unsigned long*: (_Atomic(unsigned long)*)(p), \
-		volatile unsigned long*: (volatile _Atomic(unsigned long)*)(p), \
-		long long*: (_Atomic(long long)*)(p), \
-		volatile long long*: (volatile _Atomic(long long)*)(p), \
-		unsigned long long*: (_Atomic(unsigned long long)*)(p), \
-		volatile unsigned long long*: \
-				(volatile _Atomic(unsigned long long)*)(p), \
-		const void**: (_Atomic(const void*)*)(p), \
-		const void*volatile*: (volatile _Atomic(const void*)*)(p), \
-		default: (volatile _Atomic(void*)*)(p))
+		_os_atomic_type_cases(char, (_Atomic(char)*)(p)), \
+		_os_atomic_type_cases(signed char, (_Atomic(signed char)*)(p)), \
+		_os_atomic_type_cases(unsigned char, (_Atomic(unsigned char)*)(p)), \
+		_os_atomic_type_cases(short, (_Atomic(short)*)(p)), \
+		_os_atomic_type_cases(unsigned short, (_Atomic(unsigned short)*)(p)), \
+		_os_atomic_type_cases(int, (_Atomic(int)*)(p)), \
+		_os_atomic_type_cases(unsigned int, (_Atomic(unsigned int)*)(p)), \
+		_os_atomic_type_cases(long, (_Atomic(long)*)(p)), \
+		_os_atomic_type_cases(unsigned long, (_Atomic(unsigned long)*)(p)), \
+		_os_atomic_type_cases(long long, (_Atomic(long long)*)(p)), \
+		_os_atomic_type_cases(unsigned long long, (_Atomic(unsigned long long)*)(p)), \
+		_os_atomic_type_cases(void *, (_Atomic(void*)*)(p)), \
+		_os_atomic_type_cases(const void *, (_Atomic(const void*)*)(p)), \
+		default: (_Atomic(void*)*)(p))
 
 #define os_atomic_thread_fence(m)  atomic_thread_fence(memory_order_##m)
 // see comment in dispatch_once.c
@@ -155,6 +145,12 @@
 		_os_atomic_c11_op((p), (v), m, xor, ^)
 #define os_atomic_xor_orig(p, v, m) \
 		_os_atomic_c11_op_orig((p), (v), m, xor, ^)
+
+#define os_atomic_force_dependency_on(p, e) (p)
+#define os_atomic_load_with_dependency_on(p, e) \
+		os_atomic_load(os_atomic_force_dependency_on(p, e), relaxed)
+#define os_atomic_load_with_dependency_on2o(p, f, e) \
+		os_atomic_load_with_dependency_on(&(p)->f, e)
 
 #define os_atomic_rmw_loop(p, ov, nv, m, ...)  ({ \
 		bool _result = false; \

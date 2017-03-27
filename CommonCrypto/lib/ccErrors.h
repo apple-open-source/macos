@@ -26,8 +26,8 @@
  *  CommonCrypto
  */
 
-#include "CommonCryptor.h"
-#include "ccdebug.h"
+#include <CommonCrypto/CommonCryptor.h>
+
 #ifndef CCERRORS_H
 #define CCERRORS_H
 
@@ -35,9 +35,9 @@
 #define CC_NONULLPARM(X) if(NULL==(X)) return kCCParamError
 #define CC_NONULLPARMRETNULL(X) if(NULL==(X)) return NULL
 
-#define CC_FAILURE_LOG(...) ccdebug_imp(ASL_LEVEL_CRIT, __FUNCTION__, __VA_ARGS__)
+#define CC_FAILURE_LOG(fmt, ...)  os_log(OS_LOG_TYPE_FAULT, __FUNCTION__ ## "  " ## fmt , __VA_ARGS__)
 #define CC_ABORT()      abort()
 
 
-#endif /* CCERRORS_H */
+#endif // CCERRORS_H
 

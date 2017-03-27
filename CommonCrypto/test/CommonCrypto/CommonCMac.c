@@ -87,8 +87,12 @@ static int kTestTestCount = 5;
 
 int CommonCMac (int __unused argc, char *const * __unused argv) {
 	char *strvalue, *keyvalue;
-	plan_tests(kTestTestCount*3);
+	plan_tests(kTestTestCount*3+2);
     int accum = 0;
+    const unsigned char key[16]={0};
+    ok(CCAESCmacCreate(key, 15)==NULL,  "Detect incorrect key length");
+    ok(CCAESCmacCreate(NULL, 16)==NULL, "Detect incorrect key pointer");
+
     strvalue = "";
     keyvalue = "2b7e151628aed2a6abf7158809cf4f3c";
 	accum |= CMACTest(strvalue, keyvalue, "bb1d6929e95937287fa37d129b756746");   

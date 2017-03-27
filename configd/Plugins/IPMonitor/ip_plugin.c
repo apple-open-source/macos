@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2017 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -3797,30 +3797,47 @@ parse_component(CFStringRef key, CFStringRef prefix)
     return (comp);
 }
 
-__private_extern__ boolean_t
-service_contains_protocol(CFDictionaryRef service, int af)
+
+static boolean_t
+entity_routes_protocol(CFDictionaryRef entity_dict)
 {
-    boolean_t		contains_protocol = FALSE;
-    CFStringRef		entity;
     RouteListRef	routes;
-    CFDictionaryRef	dict;
+
+    routes = ipdict_get_routelist(entity_dict);
+    if (routes == NULL) {
+	// if no routes
+	return FALSE;
+    }
+
+    if ((routes->flags & kRouteListFlagsHasDefault) == 0) {
+	// if service has no default route
+	return FALSE;
+    }
+
+    if ((routes->flags & kRouteListFlagsExcludeNWI) != 0) {
+	// if service should be excluded from NWI
+	return FALSE;
+    }
+
+    return TRUE;
+}
+
+
+__private_extern__ boolean_t
+service_contains_protocol(CFDictionaryRef service_dict, int af)
+{
+    boolean_t		contains_protocol;
+    CFStringRef		entity;
+    CFDictionaryRef	entity_dict;
 
     entity = (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
-    dict = CFDictionaryGetValue(service, entity);
-    if (dict == NULL) {
-	goto done;
+    entity_dict = CFDictionaryGetValue(service_dict, entity);
+    if (entity_dict == NULL) {
+	return FALSE;
     }
-    routes = ipdict_get_routelist(dict);
-    if (routes == NULL) {
-	goto done;
-    }
-    if ((routes->flags & kRouteListFlagsExcludeNWI) != 0) {
-	goto done;
-    }
-    contains_protocol = TRUE;
 
- done:
-    return (contains_protocol);
+    contains_protocol = entity_routes_protocol(entity_dict);
+    return contains_protocol;
 }
 
 
@@ -4598,9 +4615,8 @@ order_dns_servers(CFArrayRef servers, ProtocolFlags active_protos)
 	    if (((proto == kProtocolFlagsIPv4) && (v4_n == 1)) ||
 		((proto == kProtocolFlagsIPv6) && (v6_n == 1))) {
 		/* if we now have the 1st server address of another protocol */
-		favor_v4 = (sa_dst_compare_no_stats((struct sockaddr *)&v4_dns1,
-						    (struct sockaddr *)&v6_dns1,
-						    0) >= 0);
+		favor_v4 = (sa_dst_compare_no_dependencies((struct sockaddr *)&v4_dns1,
+							   (struct sockaddr *)&v6_dns1) >= 0);
 #ifdef	TEST_DNS_ORDER
 		char v4_buf[INET_ADDRSTRLEN];
 		char v6_buf[INET6_ADDRSTRLEN];
@@ -4754,7 +4770,7 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
     }
 
     ipv4 = service_dict_get(serviceID, kSCEntNetIPv4);
-    if (ipv4 != NULL) {
+    if (entity_routes_protocol(ipv4)) {
 	if (get_service_setup_entity(info, serviceID, kSCEntNetIPv4) != NULL) {
 	    have_setup = TRUE;
 	}
@@ -4763,10 +4779,9 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
     }
 
     ipv6 = service_dict_get(serviceID, kSCEntNetIPv6);
-    if (ipv6 != NULL) {
-	if (!have_setup
-	    && (get_service_setup_entity(info, serviceID, kSCEntNetIPv6)
-		!= NULL)) {
+    if (entity_routes_protocol(ipv6)) {
+	if (!have_setup &&
+	    (get_service_setup_entity(info, serviceID, kSCEntNetIPv6) != NULL)) {
 	    have_setup = TRUE;
 	}
 	active_protos |= kProtocolFlagsIPv6;
@@ -5014,12 +5029,12 @@ get_proxies_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 	goto done;
     }
     ipv4 = service_dict_get(serviceID, kSCEntNetIPv4);
-    if (ipdict_get_routelist(ipv4) != NULL) {
+    if (entity_routes_protocol(ipv4)) {
 	active_protos |= kProtocolFlagsIPv4;
 	interface = ipdict_get_ifname(ipv4);
     }
     ipv6 = service_dict_get(serviceID, kSCEntNetIPv6);
-    if (ipdict_get_routelist(ipv6) != NULL) {
+    if (entity_routes_protocol(ipv6)) {
 	active_protos |= kProtocolFlagsIPv6;
 	if (interface == NULL) {
 	    interface = ipdict_get_ifname(ipv6);

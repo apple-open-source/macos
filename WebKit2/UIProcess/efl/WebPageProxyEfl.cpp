@@ -29,7 +29,7 @@
 #include "EwkView.h"
 #include "NativeWebKeyboardEvent.h"
 #include "NotImplemented.h"
-#include "UserAgentEfl.h"
+#include "UserAgent.h"
 #include "WebPageMessages.h"
 #include "WebProcessProxy.h"
 #include "WebView.h"
@@ -69,7 +69,7 @@ void WebsiteDataStore::platformRemoveRecentSearches(std::chrono::system_clock::t
 void WebPageProxy::editorStateChanged(const EditorState& editorState)
 {
     m_editorState = editorState;
-    
+
     if (editorState.shouldIgnoreCompositionSelectionChange)
         return;
     m_pageClient.updateTextInputState();
@@ -80,9 +80,10 @@ void WebPageProxy::setThemePath(const String& themePath)
     if (!isValid())
         return;
 
-    process().send(Messages::WebPage::SetThemePath(themePath), m_pageID, 0);
+    process().send(Messages::WebPage::SetThemePath(themePath), m_pageID);
 }
 
+#if PLUGIN_ARCHITECTURE(X11)
 void WebPageProxy::createPluginContainer(uint64_t&)
 {
     notImplemented();
@@ -102,13 +103,14 @@ void WebPageProxy::handleInputMethodKeydown(bool& handled)
 {
     handled = m_keyEventQueue.first().isFiltered();
 }
+#endif
 
 void WebPageProxy::confirmComposition(const String& compositionString)
 {
     if (!isValid())
         return;
 
-    process().send(Messages::WebPage::ConfirmComposition(compositionString), m_pageID, 0);
+    process().send(Messages::WebPage::ConfirmComposition(compositionString), m_pageID);
 }
 
 void WebPageProxy::setComposition(const String& compositionString, Vector<WebCore::CompositionUnderline>& underlines, int cursorPosition)
@@ -116,7 +118,7 @@ void WebPageProxy::setComposition(const String& compositionString, Vector<WebCor
     if (!isValid())
         return;
 
-    process().send(Messages::WebPage::SetComposition(compositionString, underlines, cursorPosition), m_pageID, 0);
+    process().send(Messages::WebPage::SetComposition(compositionString, underlines, cursorPosition), m_pageID);
 }
 
 void WebPageProxy::cancelComposition()
@@ -124,7 +126,7 @@ void WebPageProxy::cancelComposition()
     if (!isValid())
         return;
 
-    process().send(Messages::WebPage::CancelComposition(), m_pageID, 0);
+    process().send(Messages::WebPage::CancelComposition(), m_pageID);
 }
 
 #if HAVE(ACCESSIBILITY) && defined(HAVE_ECORE_X)

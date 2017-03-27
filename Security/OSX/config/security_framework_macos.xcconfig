@@ -1,0 +1,26 @@
+#include "OSX/config/security_macos.xcconfig"
+
+PRODUCT_NAME = Security
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.security
+
+FRAMEWORK_VERSION = A
+
+DYLIB_COMPATIBILITY_VERSION = 1
+DYLIB_CURRENT_VERSION = $(CURRENT_PROJECT_VERSION)
+
+MODULEMAP_FILE = Modules/Security.macOS.modulemap
+DEFINES_MODULE = YES
+
+EXPORTED_SYMBOLS_FILE = $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).$(CURRENT_ARCH).exp
+ORDER_FILE = OSX/lib/Security.order
+INFOPLIST_FILE = OSX/lib/Info-Security.plist
+
+INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/Frameworks
+
+OTHER_LDFLAGS = -Wl,-upward-lcoretls -Wl,-upward-lcoretls_cfhelpers -laks -lCrashReporterClient
+
+SECTORDER_FLAGS = -order_file_statistics
+APPLY_RULES_IN_COPY_FILES = NO
+
+// Not entirely sure what this is for, but, okay.
+INSTALLHDRS_SCRIPT_PHASE = YES

@@ -589,7 +589,7 @@ static const char* InitOTADirectory(int* pAssetVersion)
 	return result;
 }
 
-static CFSetRef InitializeBlackList(const char* path_ptr)
+static CF_RETURNS_RETAINED CFSetRef InitializeBlackList(const char* path_ptr)
 {
     CFPropertyListRef plist = CFPropertyListCopyFromAsset(path_ptr, CFSTR("Blocked"));
     CFSetRef result = CFSetCreateFromPropertyList(plist);
@@ -598,7 +598,7 @@ static CFSetRef InitializeBlackList(const char* path_ptr)
     return result;
 }
 
-static CFSetRef InitializeGrayList(const char* path_ptr)
+static CF_RETURNS_RETAINED CFSetRef InitializeGrayList(const char* path_ptr)
 {
     CFPropertyListRef plist = CFPropertyListCopyFromAsset(path_ptr, CFSTR("GrayListedKeys"));
     CFSetRef result = CFSetCreateFromPropertyList(plist);
@@ -607,7 +607,7 @@ static CFSetRef InitializeGrayList(const char* path_ptr)
     return result;
 }
 
-static CFDataRef InitializeCTWhiteListData(const char* path_ptr)
+static CF_RETURNS_RETAINED CFDataRef InitializeCTWhiteListData(const char* path_ptr)
 {
     CFPropertyListRef data = CFPropertyListCopyFromAsset(path_ptr, CFSTR("CTWhiteListData"));
 
@@ -619,7 +619,7 @@ static CFDataRef InitializeCTWhiteListData(const char* path_ptr)
     }
 }
 
-static CFDictionaryRef InitializeAllowList(const char* path_ptr)
+static CF_RETURNS_RETAINED CFDictionaryRef InitializeAllowList(const char* path_ptr)
 {
     CFPropertyListRef allowList = CFPropertyListCopyFromAsset(path_ptr, CFSTR("Allowed"));
 
@@ -631,7 +631,7 @@ static CFDictionaryRef InitializeAllowList(const char* path_ptr)
     }
 }
 
-static CFArrayRef InitializeTrustedCTLogs(const char* path_ptr)
+static CF_RETURNS_RETAINED CFArrayRef InitializeTrustedCTLogs(const char* path_ptr)
 {
     CFPropertyListRef trustedCTLogs = CFPropertyListCopyFromAsset(path_ptr, CFSTR("TrustedCTLogs"));
 
@@ -643,7 +643,7 @@ static CFArrayRef InitializeTrustedCTLogs(const char* path_ptr)
     }
 }
 
-static CFDictionaryRef InitializeEVPolicyToAnchorDigestsTable(const char* path_ptr)
+static CF_RETURNS_RETAINED CFDictionaryRef InitializeEVPolicyToAnchorDigestsTable(const char* path_ptr)
 {
     CFDictionaryRef result = NULL;
     CFPropertyListRef evroots = CFPropertyListCopyFromAsset(path_ptr, CFSTR("EVRoots"));

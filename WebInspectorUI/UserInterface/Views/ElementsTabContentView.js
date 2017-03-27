@@ -28,7 +28,7 @@ WebInspector.ElementsTabContentView = class ElementsTabContentView extends WebIn
     constructor(identifier)
     {
         let {image, title} = WebInspector.ElementsTabContentView.tabInfo();
-        let tabBarItem = new WebInspector.TabBarItem(image, title);
+        let tabBarItem = new WebInspector.GeneralTabBarItem(image, title);
         let detailsSidebarPanels = [WebInspector.domNodeDetailsSidebarPanel, WebInspector.cssStyleDetailsSidebarPanel];
 
         if (WebInspector.layerTreeDetailsSidebarPanel)
@@ -38,8 +38,6 @@ WebInspector.ElementsTabContentView = class ElementsTabContentView extends WebIn
 
         WebInspector.frameResourceManager.addEventListener(WebInspector.FrameResourceManager.Event.MainFrameDidChange, this._mainFrameDidChange, this);
         WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
-
-        this._showDOMTreeContentView();
     }
 
     static tabInfo()
@@ -84,6 +82,13 @@ WebInspector.ElementsTabContentView = class ElementsTabContentView extends WebIn
         // Because nodeToSelect is ephemeral, we don't want to keep
         // it around in the back-forward history entries.
         cookie.nodeToSelect = undefined;
+    }
+
+    shown()
+    {
+        super.shown();
+
+        this._showDOMTreeContentView();
     }
 
     closed()

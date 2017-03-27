@@ -30,14 +30,12 @@
 
 #import "CDMSessionMediaSourceAVFObjC.h"
 #import "ContentType.h"
-#import "ExceptionCodePlaceholder.h"
 #import "MediaPlayerPrivateMediaSourceAVFObjC.h"
 #import "MediaSourcePrivateClient.h"
 #import "SourceBufferPrivateAVFObjC.h"
 #import "SoftLinking.h"
 #import <objc/runtime.h>
 #import <wtf/text/AtomicString.h>
-#import <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -158,7 +156,7 @@ void MediaSourcePrivateAVFObjC::sourceBufferPrivateDidChangeActiveState(SourceBu
     }
 }
 
-#if ENABLE(ENCRYPTED_MEDIA_V2)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 void MediaSourcePrivateAVFObjC::sourceBufferKeyNeeded(SourceBufferPrivateAVFObjC* buffer, Uint8Array* initData)
 {
     m_sourceBuffersNeedingSessions.append(buffer);
@@ -184,6 +182,12 @@ static bool MediaSourcePrivateAVFObjCHasVideo(SourceBufferPrivateAVFObjC* source
 bool MediaSourcePrivateAVFObjC::hasVideo() const
 {
     return std::any_of(m_activeSourceBuffers.begin(), m_activeSourceBuffers.end(), MediaSourcePrivateAVFObjCHasVideo);
+}
+
+void MediaSourcePrivateAVFObjC::willSeek()
+{
+    for (auto* sourceBuffer : m_activeSourceBuffers)
+        sourceBuffer->willSeek();
 }
 
 void MediaSourcePrivateAVFObjC::seekToTime(const MediaTime& time)

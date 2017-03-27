@@ -33,16 +33,19 @@
 #include "CallFrameShuffler.h"
 #include "DFGOperations.h"
 #include "DFGSpeculativeJIT.h"
+#include "DOMJITGetterSetter.h"
 #include "DirectArguments.h"
 #include "FTLThunks.h"
+#include "FunctionCodeBlock.h"
 #include "GCAwareJITStubRoutine.h"
 #include "GetterSetter.h"
 #include "ICStats.h"
 #include "InlineAccess.h"
 #include "JIT.h"
 #include "JITInlines.h"
-#include "LinkBuffer.h"
 #include "JSCInlines.h"
+#include "JSWebAssembly.h"
+#include "LinkBuffer.h"
 #include "PolymorphicAccess.h"
 #include "ScopedArguments.h"
 #include "ScratchRegisterAllocator.h"
@@ -72,7 +75,7 @@ static FunctionPtr readCallTarget(CodeBlock* codeBlock, CodeLocationCall call)
     return result;
 }
 
-static void repatchCall(CodeBlock* codeBlock, CodeLocationCall call, FunctionPtr newCalleeFunction)
+void ftlThunkAwareRepatchCall(CodeBlock* codeBlock, CodeLocationCall call, FunctionPtr newCalleeFunction)
 {
 #if ENABLE(FTL_JIT)
     if (codeBlock->jitType() == JITCode::FTLJIT) {
@@ -167,7 +170,7 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
 
                 bool generatedCodeInline = InlineAccess::generateArrayLength(*codeBlock->vm(), stubInfo, jsCast<JSArray*>(baseValue));
                 if (generatedCodeInline) {
-                    repatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
+                    ftlThunkAwareRepatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
                     stubInfo.initArrayLength();
                     return RetryCacheLater;
                 }
@@ -220,7 +223,7 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
             if (generatedCodeInline) {
                 LOG_IC((ICEvent::GetByIdSelfPatch, structure->classInfo(), propertyName));
                 structure->startWatchingPropertyForReplacements(vm, slot.cachedOffset());
-                repatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
+                ftlThunkAwareRepatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
                 stubInfo.initGetByIdSelf(codeBlock, structure, slot.cachedOffset());
                 return RetryCacheLater;
             }
@@ -260,6 +263,10 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
         if (slot.isCacheableGetter())
             getter = jsDynamicCast<JSFunction*>(slot.getterSetter()->getter());
 
+        DOMJIT::GetterSetter* domJIT = nullptr;
+        if (slot.isCacheableCustom() && slot.domJIT())
+            domJIT = slot.domJIT();
+
         if (kind == GetByIDKind::Pure) {
             AccessCase::AccessType type;
             if (slot.isCacheableValue())
@@ -290,7 +297,8 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
             newCase = AccessCase::get(
                 vm, codeBlock, type, offset, structure, conditionSet, loadTargetFromProxy,
                 slot.watchpointSet(), slot.isCacheableCustom() ? slot.customGetter() : nullptr,
-                slot.isCacheableCustom() ? slot.slotBase() : nullptr);
+                slot.isCacheableCustom() ? slot.slotBase() : nullptr,
+                domJIT);
         }
     }
 
@@ -311,10 +319,10 @@ static InlineCacheAction tryCacheGetByID(ExecState* exec, JSValue baseValue, con
 void repatchGetByID(ExecState* exec, JSValue baseValue, const Identifier& propertyName, const PropertySlot& slot, StructureStubInfo& stubInfo, GetByIDKind kind)
 {
     SuperSamplerScope superSamplerScope(false);
-    GCSafeConcurrentJITLocker locker(exec->codeBlock()->m_lock, exec->vm().heap);
+    GCSafeConcurrentJSLocker locker(exec->codeBlock()->m_lock, exec->vm().heap);
     
     if (tryCacheGetByID(exec, baseValue, propertyName, slot, stubInfo, kind) == GiveUpOnCache)
-        repatchCall(exec->codeBlock(), stubInfo.slowPathCallLocation(), appropriateGenericGetByIdFunction(kind));
+        ftlThunkAwareRepatchCall(exec->codeBlock(), stubInfo.slowPathCallLocation(), appropriateGenericGetByIdFunction(kind));
 }
 
 static V_JITOperation_ESsiJJI appropriateGenericPutByIdFunction(const PutPropertySlot &slot, PutKind putKind)
@@ -372,7 +380,7 @@ static InlineCacheAction tryCachePutByID(ExecState* exec, JSValue baseValue, Str
                 bool generatedCodeInline = InlineAccess::generateSelfPropertyReplace(vm, stubInfo, structure, slot.cachedOffset());
                 if (generatedCodeInline) {
                     LOG_IC((ICEvent::PutByIdSelfPatch, structure->classInfo(), ident));
-                    repatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingPutByIdFunction(slot, putKind));
+                    ftlThunkAwareRepatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingPutByIdFunction(slot, putKind));
                     stubInfo.initPutByIdReplace(codeBlock, structure, slot.cachedOffset());
                     return RetryCacheLater;
                 }
@@ -465,10 +473,10 @@ static InlineCacheAction tryCachePutByID(ExecState* exec, JSValue baseValue, Str
 void repatchPutByID(ExecState* exec, JSValue baseValue, Structure* structure, const Identifier& propertyName, const PutPropertySlot& slot, StructureStubInfo& stubInfo, PutKind putKind)
 {
     SuperSamplerScope superSamplerScope(false);
-    GCSafeConcurrentJITLocker locker(exec->codeBlock()->m_lock, exec->vm().heap);
+    GCSafeConcurrentJSLocker locker(exec->codeBlock()->m_lock, exec->vm().heap);
     
     if (tryCachePutByID(exec, baseValue, structure, propertyName, slot, stubInfo, putKind) == GiveUpOnCache)
-        repatchCall(exec->codeBlock(), stubInfo.slowPathCallLocation(), appropriateGenericPutByIdFunction(slot, putKind));
+        ftlThunkAwareRepatchCall(exec->codeBlock(), stubInfo.slowPathCallLocation(), appropriateGenericPutByIdFunction(slot, putKind));
 }
 
 static InlineCacheAction tryRepatchIn(
@@ -529,7 +537,7 @@ void repatchIn(
 {
     SuperSamplerScope superSamplerScope(false);
     if (tryRepatchIn(exec, base, ident, wasFound, slot, stubInfo) == GiveUpOnCache)
-        repatchCall(exec->codeBlock(), stubInfo.slowPathCallLocation(), operationIn);
+        ftlThunkAwareRepatchCall(exec->codeBlock(), stubInfo.slowPathCallLocation(), operationIn);
 }
 
 static void linkSlowFor(VM*, CallLinkInfo& callLinkInfo, MacroAssemblerCodeRef codeRef)
@@ -549,32 +557,82 @@ static void linkSlowFor(VM* vm, CallLinkInfo& callLinkInfo)
     callLinkInfo.setSlowStub(createJITStubRoutine(virtualThunk, *vm, nullptr, true));
 }
 
+static bool isWebAssemblyToJSCallee(VM& vm, JSCell* callee)
+{
+#if ENABLE(WEBASSEMBLY)
+    // The WebAssembly -> JS stub sets it caller frame's callee to a singleton which lives on the VM.
+    return callee == vm.webAssemblyToJSCallee.get();
+#else
+    UNUSED_PARAM(vm);
+    UNUSED_PARAM(callee);
+    return false;
+#endif // ENABLE(WEBASSEMBLY)
+}
+
+static JSCell* webAssemblyOwner(VM& vm)
+{
+#if ENABLE(WEBASSEMBLY)
+    // Each WebAssembly.Instance shares the stubs from their WebAssembly.Module, which are therefore the appropriate owner.
+    return vm.topJSWebAssemblyInstance->module();
+#else
+    UNUSED_PARAM(vm);
+    RELEASE_ASSERT_NOT_REACHED();
+    return nullptr;
+#endif // ENABLE(WEBASSEMBLY)
+}
+
 void linkFor(
     ExecState* exec, CallLinkInfo& callLinkInfo, CodeBlock* calleeCodeBlock,
     JSFunction* callee, MacroAssemblerCodePtr codePtr)
 {
     ASSERT(!callLinkInfo.stub());
+
+    CallFrame* callerFrame = exec->callerFrame();
+    VM& vm = callerFrame->vm();
+    CodeBlock* callerCodeBlock = callerFrame->codeBlock();
+
+    // WebAssembly -> JS stubs don't have a valid CodeBlock.
+    JSCell* owner = isWebAssemblyToJSCallee(vm, callerFrame->callee()) ? webAssemblyOwner(vm) : callerCodeBlock;
+    ASSERT(owner);
+
+    ASSERT(!callLinkInfo.isLinked());
+    callLinkInfo.setCallee(vm, owner, callee);
+    callLinkInfo.setLastSeenCallee(vm, owner, callee);
+    if (shouldDumpDisassemblyFor(callerCodeBlock))
+        dataLog("Linking call in ", *callerCodeBlock, " at ", callLinkInfo.codeOrigin(), " to ", pointerDump(calleeCodeBlock), ", entrypoint at ", codePtr, "\n");
+    MacroAssembler::repatchNearCall(callLinkInfo.hotPathOther(), CodeLocationLabel(codePtr));
+
+    if (calleeCodeBlock)
+        calleeCodeBlock->linkIncomingCall(callerFrame, &callLinkInfo);
+
+    if (callLinkInfo.specializationKind() == CodeForCall && callLinkInfo.allowStubs()) {
+        linkSlowFor(&vm, callLinkInfo, linkPolymorphicCallThunkGenerator);
+        return;
+    }
     
-    CodeBlock* callerCodeBlock = exec->callerFrame()->codeBlock();
+    linkSlowFor(&vm, callLinkInfo);
+}
+
+void linkDirectFor(
+    ExecState* exec, CallLinkInfo& callLinkInfo, CodeBlock* calleeCodeBlock,
+    MacroAssemblerCodePtr codePtr)
+{
+    ASSERT(!callLinkInfo.stub());
+    
+    CodeBlock* callerCodeBlock = exec->codeBlock();
 
     VM* vm = callerCodeBlock->vm();
     
     ASSERT(!callLinkInfo.isLinked());
-    callLinkInfo.setCallee(exec->callerFrame()->vm(), callLinkInfo.hotPathBegin(), callerCodeBlock, callee);
-    callLinkInfo.setLastSeenCallee(exec->callerFrame()->vm(), callerCodeBlock, callee);
+    callLinkInfo.setCodeBlock(*vm, callerCodeBlock, jsCast<FunctionCodeBlock*>(calleeCodeBlock));
     if (shouldDumpDisassemblyFor(callerCodeBlock))
         dataLog("Linking call in ", *callerCodeBlock, " at ", callLinkInfo.codeOrigin(), " to ", pointerDump(calleeCodeBlock), ", entrypoint at ", codePtr, "\n");
+    if (callLinkInfo.callType() == CallLinkInfo::DirectTailCall)
+        MacroAssembler::repatchJumpToNop(callLinkInfo.patchableJump());
     MacroAssembler::repatchNearCall(callLinkInfo.hotPathOther(), CodeLocationLabel(codePtr));
     
     if (calleeCodeBlock)
-        calleeCodeBlock->linkIncomingCall(exec->callerFrame(), &callLinkInfo);
-    
-    if (callLinkInfo.specializationKind() == CodeForCall && callLinkInfo.allowStubs()) {
-        linkSlowFor(vm, callLinkInfo, linkPolymorphicCallThunkGenerator);
-        return;
-    }
-    
-    linkSlowFor(vm, callLinkInfo);
+        calleeCodeBlock->linkIncomingCall(exec, &callLinkInfo);
 }
 
 void linkSlowFor(
@@ -588,12 +646,20 @@ void linkSlowFor(
 
 static void revertCall(VM* vm, CallLinkInfo& callLinkInfo, MacroAssemblerCodeRef codeRef)
 {
-    MacroAssembler::revertJumpReplacementToBranchPtrWithPatch(
-        MacroAssembler::startOfBranchPtrWithPatchOnRegister(callLinkInfo.hotPathBegin()),
-        static_cast<MacroAssembler::RegisterID>(callLinkInfo.calleeGPR()), 0);
-    linkSlowFor(vm, callLinkInfo, codeRef);
+    if (callLinkInfo.isDirect()) {
+        callLinkInfo.clearCodeBlock();
+        if (callLinkInfo.callType() == CallLinkInfo::DirectTailCall)
+            MacroAssembler::repatchJump(callLinkInfo.patchableJump(), callLinkInfo.slowPathStart());
+        else
+            MacroAssembler::repatchNearCall(callLinkInfo.hotPathOther(), callLinkInfo.slowPathStart());
+    } else {
+        MacroAssembler::revertJumpReplacementToBranchPtrWithPatch(
+            MacroAssembler::startOfBranchPtrWithPatchOnRegister(callLinkInfo.hotPathBegin()),
+            static_cast<MacroAssembler::RegisterID>(callLinkInfo.calleeGPR()), 0);
+        linkSlowFor(vm, callLinkInfo, codeRef);
+        callLinkInfo.clearCallee();
+    }
     callLinkInfo.clearSeen();
-    callLinkInfo.clearCallee();
     callLinkInfo.clearStub();
     callLinkInfo.clearSlowStub();
     if (callLinkInfo.isOnList())
@@ -603,23 +669,23 @@ static void revertCall(VM* vm, CallLinkInfo& callLinkInfo, MacroAssemblerCodeRef
 void unlinkFor(VM& vm, CallLinkInfo& callLinkInfo)
 {
     if (Options::dumpDisassembly())
-        dataLog("Unlinking call from ", callLinkInfo.callReturnLocation(), "\n");
+        dataLog("Unlinking call at ", callLinkInfo.hotPathOther(), "\n");
     
     revertCall(&vm, callLinkInfo, vm.getCTIStub(linkCallThunkGenerator));
 }
 
-void linkVirtualFor(
-    ExecState* exec, CallLinkInfo& callLinkInfo)
+void linkVirtualFor(ExecState* exec, CallLinkInfo& callLinkInfo)
 {
-    CodeBlock* callerCodeBlock = exec->callerFrame()->codeBlock();
-    VM* vm = callerCodeBlock->vm();
+    CallFrame* callerFrame = exec->callerFrame();
+    VM& vm = callerFrame->vm();
+    CodeBlock* callerCodeBlock = callerFrame->codeBlock();
 
     if (shouldDumpDisassemblyFor(callerCodeBlock))
-        dataLog("Linking virtual call at ", *callerCodeBlock, " ", exec->callerFrame()->codeOrigin(), "\n");
-    
-    MacroAssemblerCodeRef virtualThunk = virtualThunkFor(vm, callLinkInfo);
-    revertCall(vm, callLinkInfo, virtualThunk);
-    callLinkInfo.setSlowStub(createJITStubRoutine(virtualThunk, *vm, nullptr, true));
+        dataLog("Linking virtual call at ", *callerCodeBlock, " ", callerFrame->codeOrigin(), "\n");
+
+    MacroAssemblerCodeRef virtualThunk = virtualThunkFor(&vm, callLinkInfo);
+    revertCall(&vm, callLinkInfo, virtualThunk);
+    callLinkInfo.setSlowStub(createJITStubRoutine(virtualThunk, vm, nullptr, true));
 }
 
 namespace {
@@ -640,10 +706,16 @@ void linkPolymorphicCall(
         linkVirtualFor(exec, callLinkInfo);
         return;
     }
-    
-    CodeBlock* callerCodeBlock = exec->callerFrame()->codeBlock();
-    VM* vm = callerCodeBlock->vm();
-    
+
+    CallFrame* callerFrame = exec->callerFrame();
+    VM& vm = callerFrame->vm();
+    CodeBlock* callerCodeBlock = callerFrame->codeBlock();
+    bool isWebAssembly = isWebAssemblyToJSCallee(vm, callerFrame->callee());
+
+    // WebAssembly -> JS stubs don't have a valid CodeBlock.
+    JSCell* owner = isWebAssembly ? webAssemblyOwner(vm) : callerCodeBlock;
+    ASSERT(owner);
+
     CallVariantList list;
     if (PolymorphicCallStubRoutine* stub = callLinkInfo.stub())
         list = stub->variants();
@@ -672,16 +744,11 @@ void linkPolymorphicCall(
     // Figure out what our cases are.
     for (CallVariant variant : list) {
         CodeBlock* codeBlock;
-        if (variant.executable()->isHostFunction())
+        if (isWebAssembly || variant.executable()->isHostFunction())
             codeBlock = nullptr;
         else {
             ExecutableBase* executable = variant.executable();
-#if ENABLE(WEBASSEMBLY)
-            if (executable->isWebAssemblyExecutable())
-                codeBlock = jsCast<WebAssemblyExecutable*>(executable)->codeBlockForCall();
-            else
-#endif
-                codeBlock = jsCast<FunctionExecutable*>(executable)->codeBlockForCall();
+            codeBlock = jsCast<FunctionExecutable*>(executable)->codeBlockForCall();
             // If we cannot handle a callee, either because we don't have a CodeBlock or because arity mismatch,
             // assume that it's better for this whole thing to be a virtual call.
             if (!codeBlock || exec->argumentCountIncludingThis() < static_cast<size_t>(codeBlock->numParameters()) || callLinkInfo.isVarargs()) {
@@ -695,10 +762,13 @@ void linkPolymorphicCall(
     
     // If we are over the limit, just use a normal virtual call.
     unsigned maxPolymorphicCallVariantListSize;
-    if (callerCodeBlock->jitType() == JITCode::topTierJIT())
+    if (isWebAssembly)
+        maxPolymorphicCallVariantListSize = Options::maxPolymorphicCallVariantListSizeForWebAssemblyToJS();
+    else if (callerCodeBlock->jitType() == JITCode::topTierJIT())
         maxPolymorphicCallVariantListSize = Options::maxPolymorphicCallVariantListSizeForTopTier();
     else
         maxPolymorphicCallVariantListSize = Options::maxPolymorphicCallVariantListSize();
+
     if (list.size() > maxPolymorphicCallVariantListSize) {
         linkVirtualFor(exec, callLinkInfo);
         return;
@@ -706,7 +776,7 @@ void linkPolymorphicCall(
     
     GPRReg calleeGPR = static_cast<GPRReg>(callLinkInfo.calleeGPR());
     
-    CCallHelpers stubJit(vm, callerCodeBlock);
+    CCallHelpers stubJit(&vm, callerCodeBlock);
     
     CCallHelpers::JumpList slowPath;
     
@@ -755,7 +825,7 @@ void linkPolymorphicCall(
     Vector<CallToCodePtr> calls(callCases.size());
     std::unique_ptr<uint32_t[]> fastCounts;
     
-    if (callerCodeBlock->jitType() != JITCode::topTierJIT())
+    if (!isWebAssembly && callerCodeBlock->jitType() != JITCode::topTierJIT())
         fastCounts = std::make_unique<uint32_t[]>(callCases.size());
     
     for (size_t i = 0; i < callCases.size(); ++i) {
@@ -852,7 +922,7 @@ void linkPolymorphicCall(
     stubJit.restoreReturnAddressBeforeReturn(GPRInfo::regT4);
     AssemblyHelpers::Jump slow = stubJit.jump();
         
-    LinkBuffer patchBuffer(*vm, stubJit, callerCodeBlock, JITCompilationCanFail);
+    LinkBuffer patchBuffer(vm, stubJit, owner, JITCompilationCanFail);
     if (patchBuffer.didFailToAllocate()) {
         linkVirtualFor(exec, callLinkInfo);
         return;
@@ -866,19 +936,19 @@ void linkPolymorphicCall(
         patchBuffer.link(
             callToCodePtr.call, FunctionPtr(isTailCall ? callToCodePtr.codePtr.dataLocation() : callToCodePtr.codePtr.executableAddress()));
     }
-    if (JITCode::isOptimizingJIT(callerCodeBlock->jitType()))
+    if (isWebAssembly || JITCode::isOptimizingJIT(callerCodeBlock->jitType()))
         patchBuffer.link(done, callLinkInfo.callReturnLocation().labelAtOffset(0));
     else
         patchBuffer.link(done, callLinkInfo.hotPathOther().labelAtOffset(0));
-    patchBuffer.link(slow, CodeLocationLabel(vm->getCTIStub(linkPolymorphicCallThunkGenerator).code()));
+    patchBuffer.link(slow, CodeLocationLabel(vm.getCTIStub(linkPolymorphicCallThunkGenerator).code()));
     
     auto stubRoutine = adoptRef(*new PolymorphicCallStubRoutine(
         FINALIZE_CODE_FOR(
             callerCodeBlock, patchBuffer,
             ("Polymorphic call stub for %s, return point %p, targets %s",
-                toCString(*callerCodeBlock).data(), callLinkInfo.callReturnLocation().labelAtOffset(0).executableAddress(),
+                isWebAssembly ? "WebAssembly" : toCString(*callerCodeBlock).data(), callLinkInfo.callReturnLocation().labelAtOffset(0).executableAddress(),
                 toCString(listDump(callCases)).data())),
-        *vm, callerCodeBlock, exec->callerFrame(), callLinkInfo, callCases,
+        vm, owner, exec->callerFrame(), callLinkInfo, callCases,
         WTFMove(fastCounts)));
     
     MacroAssembler::replaceWithJump(
@@ -887,7 +957,7 @@ void linkPolymorphicCall(
     // The original slow path is unreachable on 64-bits, but still
     // reachable on 32-bits since a non-cell callee will always
     // trigger the slow path
-    linkSlowFor(vm, callLinkInfo);
+    linkSlowFor(&vm, callLinkInfo);
     
     // If there had been a previous stub routine, that one will die as soon as the GC runs and sees
     // that it's no longer on stack.
@@ -901,7 +971,7 @@ void linkPolymorphicCall(
 
 void resetGetByID(CodeBlock* codeBlock, StructureStubInfo& stubInfo, GetByIDKind kind)
 {
-    repatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
+    ftlThunkAwareRepatchCall(codeBlock, stubInfo.slowPathCallLocation(), appropriateOptimizingGetByIdFunction(kind));
     InlineAccess::rewireStubAsJump(*codeBlock->vm(), stubInfo, stubInfo.slowPathStartLocation());
 }
 
@@ -920,7 +990,7 @@ void resetPutByID(CodeBlock* codeBlock, StructureStubInfo& stubInfo)
         optimizedFunction = operationPutByIdDirectNonStrictOptimize;
     }
 
-    repatchCall(codeBlock, stubInfo.slowPathCallLocation(), optimizedFunction);
+    ftlThunkAwareRepatchCall(codeBlock, stubInfo.slowPathCallLocation(), optimizedFunction);
     InlineAccess::rewireStubAsJump(*codeBlock->vm(), stubInfo, stubInfo.slowPathStartLocation());
 }
 

@@ -21,9 +21,7 @@
 /************************************************************************/
 SEC_BEGIN_PROTOS
 
-#if !USE_CDSA_CRYPTO
 bool CERT_CheckIssuerAndSerial(SecCertificateRef cert, SecAsn1Item *issuer, SecAsn1Item *serial);
-#endif
 
 typedef void CERTVerifyLog;
 
@@ -109,13 +107,8 @@ SECStatus CERT_SaveSMimeProfile(SecCertificateRef cert, SecAsn1Item *emailProfil
 // is given in the common name of the certificate.
 SECStatus CERT_VerifyCertName(SecCertificateRef cert, const char *hostname);
 
-#if USE_CDSA_CRYPTO
-SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, SecCertificateRef cert,
-			  CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef);
-#else
 SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, CFArrayRef cert,
 			  CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef);
-#endif
 
 CFTypeRef CERT_PolicyForCertUsage(SECCertUsage certUsage);
 

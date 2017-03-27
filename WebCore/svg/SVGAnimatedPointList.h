@@ -17,8 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGAnimatedPointList_h
-#define SVGAnimatedPointList_h
+#pragma once
 
 #include "SVGAnimatedListPropertyTearOff.h"
 #include "SVGAnimatedTypeAnimator.h"
@@ -26,7 +25,7 @@
 
 namespace WebCore {
 
-typedef SVGAnimatedListPropertyTearOff<SVGPointList> SVGAnimatedPointList;
+using SVGAnimatedPointList = SVGAnimatedListPropertyTearOff<SVGPointListValues>;
 
 class SVGAnimationElement;
 
@@ -47,5 +46,3 @@ public:
 };
 
 } // namespace WebCore
-
-#endif

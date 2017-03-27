@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebProcessPool_h
-#define WebProcessPool_h
+#pragma once
 
 #include "APIDictionary.h"
 #include "APIObject.h"
@@ -71,6 +70,7 @@ OBJC_CLASS NSString;
 
 namespace API {
 class AutomationClient;
+class CustomProtocolManagerClient;
 class DownloadClient;
 class LegacyContextHistoryClient;
 class PageConfiguration;
@@ -79,6 +79,9 @@ class PageConfiguration;
 namespace WebKit {
 
 class DownloadProxy;
+class HighPerformanceGraphicsUsageSampler;
+class UIGamepad;
+class PerActivityStateCPUUsageSampler;
 class WebAutomationSession;
 class WebContextSupplement;
 class WebIconDatabase;
@@ -98,9 +101,6 @@ int webProcessThroughputQOS();
 #endif
 
 class WebProcessPool final : public API::ObjectImpl<API::Object::Type::ProcessPool>, private IPC::MessageReceiver
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    , private PluginInfoStoreClient
-#endif
     {
 public:
     static Ref<WebProcessPool> create(API::ProcessPoolConfiguration&);
@@ -129,8 +129,8 @@ public:
     void removeMessageReceiver(IPC::StringReference messageReceiverName);
     void removeMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID);
 
-    bool dispatchMessage(IPC::Connection&, IPC::MessageDecoder&);
-    bool dispatchSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
+    bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
     void initializeClient(const WKContextClientBase*);
     void initializeInjectedBundleClient(const WKContextInjectedBundleClientBase*);
@@ -138,6 +138,9 @@ public:
     void setHistoryClient(std::unique_ptr<API::LegacyContextHistoryClient>);
     void setDownloadClient(std::unique_ptr<API::DownloadClient>);
     void setAutomationClient(std::unique_ptr<API::AutomationClient>);
+#if USE(SOUP)
+    void setCustomProtocolManagerClient(std::unique_ptr<API::CustomProtocolManagerClient>&&);
+#endif
 
     void setMaximumNumberOfProcesses(unsigned); // Can only be called when there are no processes running.
     unsigned maximumNumberOfProcesses() const { return !m_configuration->maximumProcessCount() ? UINT_MAX : m_configuration->maximumProcessCount(); }
@@ -169,7 +172,7 @@ public:
 
     const String& injectedBundlePath() const { return m_configuration->injectedBundlePath(); }
 
-    DownloadProxy* download(WebPageProxy* initiatingPage, const WebCore::ResourceRequest&);
+    DownloadProxy* download(WebPageProxy* initiatingPage, const WebCore::ResourceRequest&, const String& suggestedFilename = { });
     DownloadProxy* resumeDownload(const API::Data* resumeData, const String& path);
 
     void setInjectedBundleInitializationUserData(PassRefPtr<API::Object> userData) { m_injectedBundleInitializationUserData = userData; }
@@ -180,6 +183,7 @@ public:
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void setAdditionalPluginsDirectory(const String&);
+    void refreshPlugins();
 
     PluginInfoStore& pluginInfoStore() { return m_pluginInfoStore; }
 
@@ -228,6 +232,10 @@ public:
     API::LegacyContextHistoryClient& historyClient() { return *m_historyClient; }
     WebContextClient& client() { return m_client; }
 
+#if USE(SOUP)
+    API::CustomProtocolManagerClient& customProtocolManagerClient() const { return *m_customProtocolManagerClient; }
+#endif
+
     WebIconDatabase* iconDatabase() const { return m_iconDatabase.get(); }
 
     struct Statistics {
@@ -246,6 +254,8 @@ public:
 
     void clearCachedCredentials();
     void terminateDatabaseProcess();
+
+    void reportWebContentCPUTime(int64_t cpuTime, uint64_t activityState);
 
     void allowSpecificHTTPSCertificateForHost(const WebCertificateInfo*, const String& host);
 
@@ -369,6 +379,20 @@ public:
     bool resourceLoadStatisticsEnabled() { return m_resourceLoadStatisticsEnabled; }
     void setResourceLoadStatisticsEnabled(bool enabled) { m_resourceLoadStatisticsEnabled = enabled; }
 
+    bool alwaysRunsAtBackgroundPriority() { return m_alwaysRunsAtBackgroundPriority; }
+
+#if ENABLE(GAMEPAD)
+    void gamepadConnected(const UIGamepad&);
+    void gamepadDisconnected(const UIGamepad&);
+
+    void setInitialConnectedGamepads(const Vector<std::unique_ptr<UIGamepad>>&);
+#endif
+
+#if PLATFORM(COCOA)
+    bool cookieStoragePartitioningEnabled() const { return m_cookieStoragePartitioningEnabled; }
+    void setCookieStoragePartitioningEnabled(bool);
+#endif
+
 private:
     void platformInitialize();
 
@@ -387,10 +411,17 @@ private:
 
     void didGetStatistics(const StatisticsData&, uint64_t callbackID);
 
+#if ENABLE(GAMEPAD)
+    void startedUsingGamepads(IPC::Connection&);
+    void stoppedUsingGamepads(IPC::Connection&);
+
+    void processStoppedUsingGamepads(WebProcessProxy&);
+#endif
+
     // IPC::MessageReceiver.
     // Implemented in generated WebProcessPoolMessageReceiver.cpp
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&) override;
 
     static void languageChanged(void* context);
     void languageChanged();
@@ -418,10 +449,8 @@ private:
 
     void setAnyPageGroupMightHavePrivateBrowsingEnabled(bool);
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    // PluginInfoStoreClient:
-    void pluginInfoStoreDidLoadPlugins(PluginInfoStore*) override;
-#endif
+    void resolvePathsForSandboxExtensions();
+    void platformResolvePathsForSandboxExtensions();
 
     Ref<API::ProcessPoolConfiguration> m_configuration;
 
@@ -442,6 +471,9 @@ private:
     std::unique_ptr<API::AutomationClient> m_automationClient;
     std::unique_ptr<API::DownloadClient> m_downloadClient;
     std::unique_ptr<API::LegacyContextHistoryClient> m_historyClient;
+#if USE(SOUP)
+    std::unique_ptr<API::CustomProtocolManagerClient> m_customProtocolManagerClient;
+#endif
 
     RefPtr<WebAutomationSession> m_automationSession;
 
@@ -486,7 +518,7 @@ private:
     WebContextSupplementMap m_supplements;
 
 #if USE(SOUP)
-    HTTPCookieAcceptPolicy m_initialHTTPCookieAcceptPolicy;
+    HTTPCookieAcceptPolicy m_initialHTTPCookieAcceptPolicy { HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain };
 #endif
 
 #if PLATFORM(MAC)
@@ -495,6 +527,9 @@ private:
     RetainPtr<NSObject> m_automaticSpellingCorrectionNotificationObserver;
     RetainPtr<NSObject> m_automaticQuoteSubstitutionNotificationObserver;
     RetainPtr<NSObject> m_automaticDashSubstitutionNotificationObserver;
+
+    std::unique_ptr<HighPerformanceGraphicsUsageSampler> m_highPerformanceGraphicsUsageSampler;
+    std::unique_ptr<PerActivityStateCPUUsageSampler> m_perActivityStateCPUUsageSampler;
 #endif
 
     String m_overrideIconDatabasePath;
@@ -517,10 +552,13 @@ private:
 
 #if USE(SOUP)
     bool m_ignoreTLSErrors { true };
+    HashSet<String, ASCIICaseInsensitiveHash> m_urlSchemesRegisteredForCustomProtocols;
 #endif
 
     bool m_memoryCacheDisabled;
     bool m_resourceLoadStatisticsEnabled { false };
+
+    bool m_alwaysRunsAtBackgroundPriority;
 
     UserObservablePageCounter m_userObservablePageCounter;
     ProcessSuppressionDisabledCounter m_processSuppressionDisabledForPageCounter;
@@ -539,6 +577,30 @@ private:
 #if ENABLE(NETSCAPE_PLUGIN_API)
     HashMap<String, HashMap<String, HashMap<String, uint8_t>>> m_pluginLoadClientPolicies;
 #endif
+
+#if ENABLE(GAMEPAD)
+    HashSet<WebProcessProxy*> m_processesUsingGamepads;
+#endif
+
+#if PLATFORM(COCOA)
+    bool m_cookieStoragePartitioningEnabled { false };
+#endif
+
+    struct Paths {
+        String injectedBundlePath;
+        String applicationCacheDirectory;
+        String webSQLDatabaseDirectory;
+        String mediaCacheDirectory;
+        String mediaKeyStorageDirectory;
+        String uiProcessBundleResourcePath;
+
+#if PLATFORM(IOS)
+        String cookieStorageDirectory;
+        String containerCachesDirectory;
+        String containerTemporaryDirectory;
+#endif
+    };
+    Paths m_resolvedPaths;
 };
 
 template<typename T>
@@ -607,5 +669,3 @@ void WebProcessPool::sendToOneProcess(T&& message)
 }
 
 } // namespace WebKit
-
-#endif // UIProcessPool_h

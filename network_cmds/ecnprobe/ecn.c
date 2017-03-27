@@ -947,3 +947,173 @@ void ECNPathCheckTest(u_int32_t sourceAddress, u_int16_t sourcePort,
   DataPktPathCheck(session.filename, 3, 0);
   return;
 }
+
+
+void
+SynTest(u_int32_t sourceAddress, u_int16_t sourcePort,
+    u_int32_t targetAddress, u_int16_t targetPort, int mss, int syn_reply)
+{
+	int rawSocket, flag;
+	struct IPPacket *synPacket = NULL, *ackPacket = NULL;
+	char *read_packet;
+	struct pcap_pkthdr pi;
+	int synAckReceived = 0;
+	int numRetransmits = 0;
+	double timeoutTime;
+	int tcpoptlen = 4; /* For negotiating MSS */
+	u_int8_t *opt = NULL;
+	struct IPPacket *p = NULL;
+
+	arc4random_stir();
+
+	session.src = sourceAddress;
+	session.sport = sourcePort;
+	session.dst = targetAddress;
+	session.dport = targetPort;
+	session.rcv_wnd = 5*mss;
+	session.snd_nxt = arc4random();
+	session.iss = session.snd_nxt;
+	session.rcv_nxt = 0;
+	session.irs = 0;
+	session.mss = mss;
+	session.maxseqseen = 0;
+	session.epochTime = GetTime();
+	session.maxpkts = 1000;
+
+	if ((session.dataRcvd = (u_int8_t *)calloc(sizeof(u_int8_t),
+						   mss * session.maxpkts)) == NULL) {
+		printf("no memory to store data, error: %d \n", ERR_MEM_ALLOC);
+		Quit(ERR_MEM_ALLOC);
+	}
+
+	if ((rawSocket = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+		perror("ERROR: couldn't open socket:");
+		Quit(ERR_SOCKET_OPEN);
+	}
+
+	flag = 1;
+	if (setsockopt(rawSocket, IPPROTO_IP, IP_HDRINCL,
+		       (char *)&flag, sizeof(flag)) < 0) {
+		perror("ERROR: couldn't set raw socket options:");
+		Quit(ERR_SOCKOPT);
+	}
+
+	session.socket = rawSocket;
+
+
+	/* allocate the syn packet -- Changed for new IPPacket structure */
+	synPacket = AllocateIPPacket(0, tcpoptlen, 0, "ECN (SYN)");
+	opt = (((u_int8_t *)synPacket->tcp) + sizeof(struct TcpHeader));
+	opt[0] = (u_int8_t)TCPOPT_MAXSEG;
+	opt[1] = (u_int8_t)TCPOLEN_MAXSEG;
+	*((u_int16_t *)((u_int8_t *)opt + 2)) = htons(session.mss);
+
+	SendSessionPacket(synPacket,
+			  sizeof(struct IpHeader) + sizeof(struct TcpHeader) + tcpoptlen,
+			  TCPFLAGS_SYN , 0, tcpoptlen, 0);
+	timeoutTime = GetTime() + 1;
+
+	/*
+	 * Wait for SYN/ACK and retransmit SYN if appropriate
+	 * not great, but it gets the job done
+	 */
+
+	while(!synAckReceived && numRetransmits < 3) {
+		while(GetTime() < timeoutTime) {
+			/* Have we captured any packets? */
+			if ((read_packet = (char *)CaptureGetPacket(&pi)) != NULL) {
+				p = (struct IPPacket *)FindHeaderBoundaries(read_packet);
+				/* Received a packet from us to them */
+				if (INSESSION(p, session.src, session.sport,
+					      session.dst, session.dport)) {
+					/* Is it a SYN/ACK? */
+					if (p->tcp->tcp_flags & TCPFLAGS_SYN) {
+						if (session.debug >= SESSION_DEBUG_LOW) {
+							PrintTcpPacket(p);
+						}
+						StorePacket(p);
+						session.totSeenSent++ ;
+					} else {
+						processBadPacket(p);
+					}
+					continue;
+				}
+
+				/* Received a packet from them to us */
+				if (INSESSION(p, session.dst, session.dport, session.src,
+					      session.sport)) {
+					/* Is it a SYN/ACK? */
+					if ((p->tcp->tcp_flags & TCPFLAGS_SYN) &&
+					    (p->tcp->tcp_flags & TCPFLAGS_ACK)) {
+						timeoutTime = GetTime(); /* force exit */
+						synAckReceived++;
+						if (session.debug >= SESSION_DEBUG_LOW) {
+							PrintTcpPacket(p);
+						}
+						StorePacket(p);
+
+						/*
+						 * Save ttl for,admittedly poor,indications of reverse
+						 * route change
+						 */
+						session.ttl = p->ip->ip_ttl;
+						session.snd_wnd = ntohl(p->tcp->tcp_win);
+						session.totRcvd ++;
+						break;
+					} else {
+						if ((p->tcp->tcp_flags)& (TCPFLAGS_RST)) {
+							printf ("ERROR: EARLY_RST\n");
+							goto done;
+						}
+					}
+				}
+			}
+		}
+
+		if (!synAckReceived) {
+			if (session.debug >= SESSION_DEBUG_LOW) {
+				printf("SYN timeout. Retransmitting\n");
+			}
+			SendSessionPacket(synPacket,
+					  sizeof(struct IpHeader) + sizeof(struct TcpHeader) + tcpoptlen,
+					  TCPFLAGS_SYN , 0, tcpoptlen, 0);
+			timeoutTime = GetTime() + 1;
+			numRetransmits++;
+		}
+	}
+
+	if (numRetransmits >= 3) {
+		printf("ERROR: No connection after 3 retries...\nRETURN CODE: %d\n",
+		       NO_CONNECTION);
+		goto done;
+	}
+	if (session.debug >= SESSION_DEBUG_LOW)
+		printf("Received SYN-ACK\n");
+	if (syn_reply != 0) {
+		/* Update session variables */
+		session.irs = ntohl(p->tcp->tcp_seq);
+		session.dataRcvd[0] = 1 ;
+		session.rcv_nxt = session.irs + 1;	/* SYN/ACK takes up a byte of seq space */
+		session.snd_nxt = session.iss + 1;	/* SYN takes up a byte of seq space */
+		session.snd_una = session.iss + 1;
+		session.maxseqseen = ntohl(p->tcp->tcp_seq);
+		session.initSession = 1;
+		if (session.debug >= SESSION_DEBUG_LOW) {
+			printf("try to send the %s\n", syn_reply == TCPFLAGS_ACK ? "third Ack" : "RST");
+			printf("src = %s:%d (%u)\n", InetAddress(session.src),
+			       session.sport, session.iss);
+			printf("dst = %s:%d (%u)\n",InetAddress(session.dst),
+			       session.dport, session.irs);
+		}
+
+		/* allocate the syn packet -- Changed for new IPPacket structure */
+		ackPacket = AllocateIPPacket(0, 0, 0, "SYN reply");
+		/* send an ACK */
+		SendSessionPacket(ackPacket,
+				  sizeof(struct IpHeader) + sizeof(struct TcpHeader),
+				  syn_reply, 0, 0, 0);
+		FreeIPPacket(&ackPacket);
+	}
+done:
+	FreeIPPacket(&synPacket);
+}

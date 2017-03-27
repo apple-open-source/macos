@@ -269,6 +269,7 @@
 				BACC1D341377B58A007728F4 /* PBXTargetDependency */,
 				BACC1D361377B58A007728F4 /* PBXTargetDependency */,
 				BACC1D3A1377B58A007728F4 /* PBXTargetDependency */,
+				8E556A4B1D3FF7A40038D48B /* PBXTargetDependency */,
 			);
 			name = All_iOS;
 			productName = All_iOS;
@@ -906,6 +907,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 78DE9DDF1B5045DE00FE6DF5;
 			remoteInfo = wait4path;
+		};
+		8E556A4A1D3FF7A40038D48B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA2DE9181372FA9100D1913C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8EC3915B1C9733C2001E28E6;
+			remoteInfo = proc_uuid_policy;
 		};
 		8EC3916D1C973440001E28E6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -6131,6 +6139,11 @@
 			isa = PBXTargetDependency;
 			target = 78DE9DDF1B5045DE00FE6DF5 /* wait4path */;
 			targetProxy = 78DE9DF91B504D1200FE6DF5 /* PBXContainerItemProxy */;
+		};
+		8E556A4B1D3FF7A40038D48B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8EC3915B1C9733C2001E28E6 /* proc_uuid_policy */;
+			targetProxy = 8E556A4A1D3FF7A40038D48B /* PBXContainerItemProxy */;
 		};
 		8EC3916E1C973440001E28E6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ScrollingStateNode_h
-#define ScrollingStateNode_h
+#pragma once
 
 #if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 
@@ -41,9 +40,11 @@ class ScrollingStateTree;
 class TextStream;
 
 enum ScrollingStateTreeAsTextBehaviorFlags {
-    ScrollingStateTreeAsTextBehaviorNormal               = 0,
-    ScrollingStateTreeAsTextBehaviorIncludeLayerIDs      = 1 << 0,
-    ScrollingStateTreeAsTextBehaviorDebug                = ScrollingStateTreeAsTextBehaviorIncludeLayerIDs
+    ScrollingStateTreeAsTextBehaviorNormal                  = 0,
+    ScrollingStateTreeAsTextBehaviorIncludeLayerIDs         = 1 << 0,
+    ScrollingStateTreeAsTextBehaviorIncludeNodeIDs          = 1 << 1,
+    ScrollingStateTreeAsTextBehaviorIncludeLayerPositions   = 1 << 2,
+    ScrollingStateTreeAsTextBehaviorDebug                   = ScrollingStateTreeAsTextBehaviorIncludeLayerIDs | ScrollingStateTreeAsTextBehaviorIncludeNodeIDs | ScrollingStateTreeAsTextBehaviorIncludeLayerPositions
 };
 typedef unsigned ScrollingStateTreeAsTextBehavior;
 
@@ -222,7 +223,7 @@ public:
     ChangedProperties changedProperties() const { return m_changedProperties; }
     void setChangedProperties(ChangedProperties changedProperties) { m_changedProperties = changedProperties; }
     
-    virtual void syncLayerPositionForViewportRect(const LayoutRect& /*viewportRect*/) { }
+    virtual void reconcileLayerPositionForViewportRect(const LayoutRect& /*viewportRect*/, ScrollingLayerPositionAction) { }
 
     const LayerRepresentation& layer() const { return m_layer; }
     WEBCORE_EXPORT void setLayer(const LayerRepresentation&);
@@ -269,5 +270,3 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToValueTypeName) \
 SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
-
-#endif // ScrollingStateNode_h

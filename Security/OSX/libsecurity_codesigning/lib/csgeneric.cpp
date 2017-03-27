@@ -168,7 +168,6 @@ void GenericCode::changeGuestStatus(SecCode *iguest, SecCodeStatusOperation oper
 		case kSecCodeOperationSetHard:
 		case kSecCodeOperationSetKill:
 			MacOSError::throwMe(errSecCSUnimplemented);
-			break;
 		default:
 			MacOSError::throwMe(errSecCSUnimplemented);
 		}

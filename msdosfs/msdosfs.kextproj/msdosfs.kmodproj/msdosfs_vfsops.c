@@ -1124,6 +1124,9 @@ int msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
 			VOL_CAP_FMT_NO_ROOT_TIMES |
 			VOL_CAP_FMT_CASE_PRESERVING |
 			VOL_CAP_FMT_FAST_STATFS |
+#ifdef VOL_CAP_FMT_NO_PERMISSIONS
+			VOL_CAP_FMT_NO_PERMISSIONS |
+#endif
 			VOL_CAP_FMT_HIDDEN_FILES ;
 		attr->f_capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] = 
 			VOL_CAP_INT_VOL_RENAME |
@@ -1146,6 +1149,9 @@ int msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
 			VOL_CAP_FMT_FAST_STATFS | 
 			VOL_CAP_FMT_2TB_FILESIZE |
 			VOL_CAP_FMT_OPENDENYMODES |
+#ifdef VOL_CAP_FMT_NO_PERMISSIONS
+			VOL_CAP_FMT_NO_PERMISSIONS |
+#endif
 			VOL_CAP_FMT_HIDDEN_FILES ;
 		attr->f_capabilities.valid[VOL_CAPABILITIES_INTERFACES] =
 			VOL_CAP_INT_SEARCHFS |

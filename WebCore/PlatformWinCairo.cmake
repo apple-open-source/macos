@@ -2,13 +2,12 @@ include(platform/ImageDecoders.cmake)
 include(platform/TextureMapper.cmake)
 
 list(APPEND WebCore_INCLUDE_DIRECTORIES
+    ${CAIRO_INCLUDE_DIRS}
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders/JavaScriptCore"
     "${DirectX_INCLUDE_DIRS}"
     "${WEBKIT_LIBRARIES_DIR}/include"
-    "${WEBKIT_LIBRARIES_DIR}/include/cairo"
     "${WEBKIT_LIBRARIES_DIR}/include/SQLite"
     "${WEBKIT_LIBRARIES_DIR}/include/zlib"
-    "${JAVASCRIPTCORE_DIR}/wtf/text"
     "${WEBCORE_DIR}/loader/archive/cf"
     "${WEBCORE_DIR}/platform/cf"
     "${WEBCORE_DIR}/platform/graphics/cairo"
@@ -21,7 +20,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/GLContext.cpp
     platform/graphics/PlatformDisplay.cpp
 
-    platform/graphics/cairo/BitmapImageCairo.cpp
     platform/graphics/cairo/CairoUtilities.cpp
     platform/graphics/cairo/FloatRectCairo.cpp
     platform/graphics/cairo/FontCairo.cpp
@@ -31,6 +29,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cairo/ImageBufferCairo.cpp
     platform/graphics/cairo/ImageCairo.cpp
     platform/graphics/cairo/IntRectCairo.cpp
+    platform/graphics/cairo/NativeImageCairo.cpp
     platform/graphics/cairo/PathCairo.cpp
     platform/graphics/cairo/PatternCairo.cpp
     platform/graphics/cairo/PlatformContextCairo.cpp
@@ -46,7 +45,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/MediaPlayerPrivateMediaFoundation.cpp
     platform/graphics/win/SimpleFontDataCairoWin.cpp
 
-    platform/image-decoders/cairo/ImageDecoderCairo.cpp
+    platform/image-decoders/cairo/ImageBackingStoreCairo.cpp
 
     platform/network/NetworkStorageSessionStub.cpp
 
@@ -62,7 +61,7 @@ list(APPEND WebCore_SOURCES
     platform/network/curl/ResourceHandleCurl.cpp
     platform/network/curl/ResourceHandleManager.cpp
     platform/network/curl/SSLHandle.cpp
-    platform/network/curl/SocketStreamHandleCurl.cpp
+    platform/network/curl/SocketStreamHandleImplCurl.cpp
 
     platform/text/win/LocaleWin.cpp
 
@@ -74,10 +73,10 @@ list(APPEND WebCore_SOURCES
 )
 
 list(APPEND WebCore_LIBRARIES
+    ${CAIRO_LIBRARIES}
     ${DirectX_LIBRARIES}
     CFLite
     SQLite3
-    cairo
     comctl32
     crypt32
     iphlpapi
@@ -96,8 +95,8 @@ list(APPEND WebCore_LIBRARIES
 )
 
 list(APPEND WebCoreTestSupport_LIBRARIES
+    ${CAIRO_LIBRARIES}
     CFLite
-    cairo
     shlwapi
 )
 

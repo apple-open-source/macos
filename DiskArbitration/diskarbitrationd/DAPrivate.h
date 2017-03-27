@@ -38,6 +38,8 @@ extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
 extern DAReturn _DADiskSetEncoding( DADiskRef disk, CFStringEncoding encoding );
 
+extern DADiskRef _DAUnitGetParentUnit( DADiskRef disk );
+
 extern Boolean _DAUnitIsUnreadable( DADiskRef disk );
 
 #ifdef __cplusplus

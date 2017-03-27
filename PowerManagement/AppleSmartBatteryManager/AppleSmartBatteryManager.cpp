@@ -29,7 +29,7 @@
 
 #define kMaxRetries     5
 
-uint32_t gBMDebugFlags = 0;
+uint32_t gBMDebugFlags = BM_LOG_LEVEL0;
 /*
  * 0x00000001 : Level 1 - Log completions and failures
  * 0x00000020 : Level 2 - Transaction logging
@@ -73,6 +73,8 @@ bool AppleSmartBatteryManager::start(IOService *provider)
         return false;
     }
     
+    PE_parse_boot_argn("batman", &gBMDebugFlags, sizeof(gBMDebugFlags));
+
     const OSSymbol *ucClassName = 
             OSSymbol::withCStringNoCopy("AppleSmartBatteryManagerUserClient");
     setProperty(gIOUserClientClassKey, (OSObject *) ucClassName);

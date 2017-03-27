@@ -183,7 +183,6 @@ bool TranslocatorClient::destroyTranslocatedPathForUser(const string &translocat
 {
     Syslog::error("SecTranslocate, TranslocatorClient, delete operation not allowed");
     UnixError::throwMe(EPERM);
-    return false;
 }
 
 } //namespace SecTranslocate

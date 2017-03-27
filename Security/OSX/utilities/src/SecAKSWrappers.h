@@ -32,14 +32,20 @@
 
 #include <CoreFoundation/CFData.h>
 
-#if TARGET_OS_SIMULATOR
+#if RC_HORIZON
 #define TARGET_HAS_KEYSTORE 0
-#elif TARGET_OS_MAC && !(TARGET_CPU_X86)
+#elif TARGET_OS_SIMULATOR
+#define TARGET_HAS_KEYSTORE 0
+#elif TARGET_OS_OSX
+#if TARGET_CPU_X86
+#define TARGET_HAS_KEYSTORE 0
+#else
 #define TARGET_HAS_KEYSTORE 1
+#endif
 #elif TARGET_OS_EMBEDDED
 #define TARGET_HAS_KEYSTORE 1
-#else /* no keystore on this platform */
-#define TARGET_HAS_KEYSTORE 0
+#else
+#error "unknown keystore status for this platform"
 #endif
 
 #if !TARGET_HAS_KEYSTORE

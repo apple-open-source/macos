@@ -20,7 +20,7 @@ n
 // 
 // Produce the "genuine plugin version" of the AppleCSPDL
 //
-#include <CSPDLPlugin.h>
+#include "CSPDLPlugin.h"
 
 
 //

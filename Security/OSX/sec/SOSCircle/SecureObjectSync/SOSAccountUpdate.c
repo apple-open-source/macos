@@ -15,6 +15,8 @@
 #include <Security/SecureObjectSync/SOSPeerInfoV2.h>
 #include <Security/SecureObjectSync/SOSPeerInfoDER.h>
 #include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
+#include <Security/SecureObjectSync/SOSAccountGhost.h>
+
 
 static void DifferenceAndCall(CFSetRef old_members, CFSetRef new_members, void (^updatedCircle)(CFSetRef additions, CFSetRef removals))
 {
@@ -472,6 +474,12 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
     SOSAccountScanForRetired(account, prospective_circle, error);
     SOSCircleRef newCircle = SOSAccountCloneCircleWithRetirement(account, prospective_circle, error);
     if(!newCircle) return false;
+    
+    SOSCircleRef ghostCleaned = SOSAccountCloneCircleWithoutMyGhosts(account, newCircle);
+    if(ghostCleaned) {
+        CFRetainAssign(newCircle, ghostCleaned);
+        writeUpdate = true;
+    }
 
     SOSFullPeerInfoRef me_full = account->my_identity;
     SOSPeerInfoRef     me = SOSFullPeerInfoGetPeerInfo(me_full);

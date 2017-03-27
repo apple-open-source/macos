@@ -26,7 +26,7 @@
 #include <TargetConditionals.h>
 #if TARGET_OS_EMBEDDED
 
-#include "Securitycommands.h"
+#include "SecurityCommands.h"
 
 #include <AssertMacros.h>
 #include <Security/SecItemPriv.h>

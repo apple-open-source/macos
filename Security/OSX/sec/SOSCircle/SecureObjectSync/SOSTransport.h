@@ -7,7 +7,7 @@
 #include <Security/SecureObjectSync/SOSTransportKeyParameter.h>
 #include <Security/SecureObjectSync/SOSAccount.h>
 
-CF_RETURNS_RETAINED CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictionaryRef updates, CFErrorRef *error);
+CF_RETURNS_RETAINED CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransactionRef txn, CFDictionaryRef updates, CFErrorRef *error);
 
 void SOSRegisterTransportMessage(SOSTransportMessageRef additional);
 void SOSUnregisterTransportMessage(SOSTransportMessageRef removal);

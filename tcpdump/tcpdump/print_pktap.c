@@ -30,11 +30,11 @@
 #include "config.h"
 #endif
 
-#include <tcpdump-stdinc.h>
+#include <netdissect-stdinc.h>
 
 #include <pcap.h>
 
-#include "interface.h"
+#include "netdissect.h"
 
 #ifdef DLT_PKTAP
 
@@ -69,19 +69,19 @@ print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr
 static void
 pktap_print_procinfo(struct netdissect_options *ndo, const char *label, const char **pprsep, char *comm, pid_t pid, uuid_t uu)
 {
-	if ((kflag & (PRMD_PNAME | PRMD_PID | PRMD_PUUID)) &&
+	if ((ndo->ndo_kflag & (PRMD_PNAME | PRMD_PID | PRMD_PUUID)) &&
 	    (comm[0] != 0 || pid != -1 || uuid_is_null(uu) == 0)) {
 		const char *semicolumn = "";
 		
 		ND_PRINT((ndo, "%s%s ", *pprsep, label));
 		
-		if ((kflag & PRMD_PNAME)) {
+		if ((ndo->ndo_kflag & PRMD_PNAME)) {
 			ND_PRINT((ndo, "%s%s",
 				  semicolumn,
 				  comm[0] != 0 ? comm : ""));
 			semicolumn = ":";
 		}
-		if ((kflag & PRMD_PID)) {
+		if ((ndo->ndo_kflag & PRMD_PID)) {
 			if (pid != -1)
 				ND_PRINT((ndo, "%s%u",
 					  semicolumn, pid));
@@ -90,7 +90,7 @@ pktap_print_procinfo(struct netdissect_options *ndo, const char *label, const ch
 					  semicolumn));
 			semicolumn = ":";
 		}
-		if ((kflag & PRMD_PUUID)) {
+		if ((ndo->ndo_kflag & PRMD_PUUID)) {
 			if (uuid_is_null(uu) == 0) {
 				uuid_string_t uuid_str;
 				
@@ -113,7 +113,6 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 {
 	struct pktap_header *pktp_hdr;
 	uint32_t dlt;
-	if_ndo_printer ndo_printer;
 	if_printer printer;
 	struct pcap_pkthdr tmp_hdr;
 	
@@ -127,16 +126,16 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 	}
 	
 #ifdef DEBUG
-	if (eflag > 1)
+	if (ndo->ndo_eflag > 1)
 		print_pktap_header(ndo, pktp_hdr);
 #endif
 	
-	if (kflag != PRMD_NONE) {
+	if (ndo->ndo_kflag != PRMD_NONE) {
 		const char *prsep = "";
 		
 		ND_PRINT((ndo, "("));
 		
-		if (kflag & PRMD_IF) {
+		if (ndo->ndo_kflag & PRMD_IF) {
 			ND_PRINT((ndo, "%s", pktp_hdr->pth_ifname));
 			prsep = ", ";
 		}
@@ -146,13 +145,13 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 		pktap_print_procinfo(ndo, "eproc", &prsep, pktp_hdr->pth_ecomm, pktp_hdr->pth_epid, pktp_hdr->pth_euuid);
 
 
-		if ((kflag & PRMD_SVC) && pktp_hdr->pth_svc != -1) {
+		if ((ndo->ndo_kflag & PRMD_SVC) && pktp_hdr->pth_svc != -1) {
 			ND_PRINT((ndo, "%ssvc %s",
 				  prsep,
 				  svc2str(pktp_hdr->pth_svc)));
 			prsep = ", ";
 		}
-		if (kflag & PRMD_DIR) {
+		if (ndo->ndo_kflag & PRMD_DIR) {
 			if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_IN)) {
 				ND_PRINT((ndo, "%sin",
 					  prsep));
@@ -177,9 +176,7 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 	dlt = pktp_hdr->pth_dlt;
 
 	if ((printer = lookup_printer(dlt)) != NULL) {
-		printer(&tmp_hdr, p);
-	} else if ((ndo_printer = lookup_ndo_printer(dlt)) != NULL) {
-		ndo_printer(ndo, &tmp_hdr, p);
+		printer(ndo, &tmp_hdr, p);
 	} else {
 		if (!ndo->ndo_suppress_default_print)
 			ndo->ndo_default_print(ndo, p,tmp_hdr.caplen);

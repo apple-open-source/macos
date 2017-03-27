@@ -26,14 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef AnimationBase_h
-#define AnimationBase_h
+#pragma once
 
 #include "Animation.h"
 #include "CSSPropertyNames.h"
 #include "RenderStyleConstants.h"
-#include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/AtomicString.h>
 
@@ -264,5 +261,3 @@ protected:
 };
 
 } // namespace WebCore
-
-#endif // AnimationBase_h

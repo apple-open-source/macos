@@ -24,7 +24,6 @@
 
 #include <stdint.h>
 #include <sys/types.h>
-#include "utilities/comparison.h"
 #include <CoreFoundation/CFDate.h>
 
 #include "SecOTRSession.h"
@@ -104,7 +103,7 @@ static void SecOTRSExpireCachedKeysForFullKey(SecOTRSessionRef session, SecOTRFu
 {
     for(int i = 0; i < kOTRKeyCacheSize; ++i)
     {
-        if (0 == constant_memcmp(session->_keyCache[i]._fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE)) {
+        if (0 == timingsafe_bcmp(session->_keyCache[i]._fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE)) {
             CFDataAppendBytes(session->_macKeysToExpose, session->_keyCache[i]._receiveMacKey, sizeof(session->_keyCache[i]._receiveMacKey));
             bzero(&session->_keyCache[i], sizeof(session->_keyCache[i]));
         }
@@ -115,7 +114,7 @@ static void SecOTRSExpireCachedKeysForPublicKey(SecOTRSessionRef session, SecOTR
 {
     for(int i = 0; i < kOTRKeyCacheSize; ++i)
     {
-        if (0 == constant_memcmp(session->_keyCache[i]._publicKeyHash, SecPDHKGetHash(theirKey), CCSHA1_OUTPUT_SIZE)) {
+        if (0 == timingsafe_bcmp(session->_keyCache[i]._publicKeyHash, SecPDHKGetHash(theirKey), CCSHA1_OUTPUT_SIZE)) {
             CFDataAppendBytes(session->_macKeysToExpose, session->_keyCache[i]._receiveMacKey, sizeof(session->_keyCache[i]._receiveMacKey));
             
             bzero(&session->_keyCache[i], sizeof(session->_keyCache[i]));
@@ -455,8 +454,8 @@ static void SecOTRSFindKeysForMessage(SecOTRSessionRef session,
     
     for(int i = 0; i < kOTRKeyCacheSize; ++i)
     {
-        if (0 == constant_memcmp(session->_keyCache[i]._fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE)
-         && (0 == constant_memcmp(session->_keyCache[i]._publicKeyHash, SecPDHKGetHash(theirKey), CCSHA1_OUTPUT_SIZE))) {
+        if (0 == timingsafe_bcmp(session->_keyCache[i]._fullKeyHash, SecFDHKGetHash(myKey), CCSHA1_OUTPUT_SIZE)
+         && (0 == timingsafe_bcmp(session->_keyCache[i]._publicKeyHash, SecPDHKGetHash(theirKey), CCSHA1_OUTPUT_SIZE))) {
             cachedKeys = &session->_keyCache[i];
 #if DEBUG
             secdebug("OTR","session@[%p] found key match: mk: %@, tk: %@", session, myKey, theirKey);
@@ -1126,7 +1125,7 @@ static OSStatus SecOTRVerifyAndExposeRaw_locked(SecOTRSessionRef session,
                macDataSize, macDataStart,
                mac);
 
-        require_noerr_action_quiet(constant_memcmp(mac, bytes, sizeof(mac)), fail, result = errSecAuthFailed);
+        require_noerr_action_quiet(timingsafe_bcmp(mac, bytes, sizeof(mac)), fail, result = errSecAuthFailed);
 
         uint8_t* dataSpace = CFDataIncreaseLengthAndGetMutableBytes(exposedMessageContents, (CFIndex)messageSize);
 
@@ -1255,7 +1254,7 @@ static OSStatus SecOTRVerifyAndExposeRawCompact_locked(SecOTRSessionRef session,
            macDataSize, macDataStart,
            mac);
 
-    require_noerr_action_quiet(constant_memcmp(mac, bytes, kCompactMessageMACSize), fail, result = errSecAuthFailed);
+    require_noerr_action_quiet(timingsafe_bcmp(mac, bytes, kCompactMessageMACSize), fail, result = errSecAuthFailed);
 
     uint8_t* dataSpace = CFDataIncreaseLengthAndGetMutableBytes(exposedMessageContents, (CFIndex)messageSize);
 

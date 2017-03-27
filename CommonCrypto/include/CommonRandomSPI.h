@@ -27,8 +27,6 @@
  *
  */
 
-#include <dispatch/dispatch.h>
-#include <dispatch/queue.h>
 #include <Availability.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -215,7 +213,6 @@ enum {
     
 // Accessor functions to get the rng "states" for internal Security Framework
 // use.
-#include <corecrypto/ccdrbg.h>
 #include <corecrypto/ccrng_system.h>
 
 struct ccrng_state *ccDevRandomGetRngState(void)

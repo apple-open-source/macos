@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef AirInstInlines_h
-#define AirInstInlines_h
+#pragma once
 
 #if ENABLE(B3_JIT)
 
@@ -45,15 +44,15 @@ void Inst::forEach(const Functor& functor)
         });
 }
 
-inline const RegisterSet& Inst::extraClobberedRegs()
+inline RegisterSet Inst::extraClobberedRegs()
 {
-    ASSERT(opcode == Patch);
+    ASSERT(kind.opcode == Patch);
     return args[0].special()->extraClobberedRegs(*this);
 }
 
-inline const RegisterSet& Inst::extraEarlyClobberedRegs()
+inline RegisterSet Inst::extraEarlyClobberedRegs()
 {
-    ASSERT(opcode == Patch);
+    ASSERT(kind.opcode == Patch);
     return args[0].special()->extraEarlyClobberedRegs(*this);
 }
 
@@ -90,12 +89,12 @@ inline void Inst::forEachDefWithExtraClobberedRegs(
         functor(Thing(reg), regDefRole, type, Arg::conservativeWidth(type));
     };
 
-    if (prevInst && prevInst->opcode == Patch) {
+    if (prevInst && prevInst->kind.opcode == Patch) {
         regDefRole = Arg::Def;
         prevInst->extraClobberedRegs().forEach(reportReg);
     }
 
-    if (nextInst && nextInst->opcode == Patch) {
+    if (nextInst && nextInst->kind.opcode == Patch) {
         regDefRole = Arg::EarlyDef;
         nextInst->extraEarlyClobberedRegs().forEach(reportReg);
     }
@@ -103,7 +102,7 @@ inline void Inst::forEachDefWithExtraClobberedRegs(
 
 inline void Inst::reportUsedRegisters(const RegisterSet& usedRegisters)
 {
-    ASSERT(opcode == Patch);
+    ASSERT(kind.opcode == Patch);
     args[0].special()->reportUsedRegisters(*this, usedRegisters);
 }
 
@@ -112,12 +111,12 @@ inline bool Inst::admitsStack(Arg& arg)
     return admitsStack(&arg - &args[0]);
 }
 
-inline Optional<unsigned> Inst::shouldTryAliasingDef()
+inline std::optional<unsigned> Inst::shouldTryAliasingDef()
 {
     if (!isX86())
-        return Nullopt;
+        return std::nullopt;
 
-    switch (opcode) {
+    switch (kind.opcode) {
     case Add32:
     case Add64:
     case And32:
@@ -141,7 +140,7 @@ inline Optional<unsigned> Inst::shouldTryAliasingDef()
     case MulFloat:
 #if CPU(X86) || CPU(X86_64)
         if (MacroAssembler::supportsAVX())
-            return Nullopt;
+            return std::nullopt;
 #endif
         if (args.size() == 3)
             return 2;
@@ -172,7 +171,7 @@ inline Optional<unsigned> Inst::shouldTryAliasingDef()
     default:
         break;
     }
-    return Nullopt;
+    return std::nullopt;
 }
 
 inline bool isShiftValid(const Inst& inst)
@@ -215,6 +214,26 @@ inline bool isUrshift64Valid(const Inst& inst)
     return isShiftValid(inst);
 }
 
+inline bool isRotateRight32Valid(const Inst& inst)
+{
+    return isShiftValid(inst);
+}
+
+inline bool isRotateLeft32Valid(const Inst& inst)
+{
+    return isShiftValid(inst);
+}
+
+inline bool isRotateRight64Valid(const Inst& inst)
+{
+    return isShiftValid(inst);
+}
+
+inline bool isRotateLeft64Valid(const Inst& inst)
+{
+    return isShiftValid(inst);
+}
+
 inline bool isX86DivHelperValid(const Inst& inst)
 {
 #if CPU(X86) || CPU(X86_64)
@@ -241,7 +260,17 @@ inline bool isX86Div32Valid(const Inst& inst)
     return isX86DivHelperValid(inst);
 }
 
+inline bool isX86UDiv32Valid(const Inst& inst)
+{
+    return isX86DivHelperValid(inst);
+}
+
 inline bool isX86Div64Valid(const Inst& inst)
+{
+    return isX86DivHelperValid(inst);
+}
+
+inline bool isX86UDiv64Valid(const Inst& inst)
 {
     return isX86DivHelperValid(inst);
 }
@@ -249,6 +278,3 @@ inline bool isX86Div64Valid(const Inst& inst)
 } } } // namespace JSC::B3::Air
 
 #endif // ENABLE(B3_JIT)
-
-#endif // AirInstInlines_h
-

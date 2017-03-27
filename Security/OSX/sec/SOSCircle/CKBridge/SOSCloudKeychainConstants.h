@@ -44,12 +44,16 @@ extern const char *kMessageKeyKeysRequireFirstUnlock;
 extern const char *kMessageKeyKeysRequiresUnlocked;
 extern const char *kMessageOperationItemChanged;
 extern const char *kMessageKeyNotificationFlags;
+extern const char *kMessageKeyPeerIDList;
+extern const char *kMesssgeKeyBackupPeerIDList;
 extern const char *kMessageKeyIDS;
 extern const char *kMessageKeyDeviceName;
 extern const char *kMessageKeyIDSDataMessage;
 extern const char *kMessageKeyDeviceID;
 extern const char *kMessageKeyPeerID;
 extern const char *kMessageKeySendersPeerID;
+extern const char *kMessageKeyAccountUUID;
+extern const char *kOperationSendDeviceList;
 
 extern const char *kMessageContext;
 extern const char *kMessageKeyParameter;
@@ -69,17 +73,20 @@ extern const char *kOperationPUTDictionary;
 extern const char *kOperationGETv2;
 extern const char *kOperationRegisterKeys;
 extern const char *kOperationGetDeviceID;
+extern const char *kOperationHasPendingKey;
 
 extern const uint64_t kCKDXPCVersion;
 
 extern const char *kOperationFlush;
 
-extern const char *kOperationRequestSyncWithAllPeers;
+extern const char *kOperationRequestSyncWithPeers;
+extern const char *kOperationHasPendingSyncWithPeer;
+
 extern const char *kOperationRequestEnsurePeerRegistration;
 extern const char *kOperationSendIDSMessage;
-extern const char *kOperationSendDeviceList;
 
 extern const char *kOperationSendFragmentedIDSMessage;
+extern const char *kOperationGetPendingMesages;
 
 
 extern const char * const kCloudKeychainStorechangeChangeNotification;

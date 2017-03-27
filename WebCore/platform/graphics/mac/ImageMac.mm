@@ -31,29 +31,23 @@
 #import "SharedBuffer.h"
 #import <wtf/text/WTFString.h>
 
+#if PLATFORM(IOS)
+#import <CoreGraphics/CoreGraphics.h>
+#import <ImageIO/ImageIO.h>
+#import <MobileCoreServices/MobileCoreServices.h>
+#endif
+
 @interface WebCoreBundleFinder : NSObject
 @end
 
 @implementation WebCoreBundleFinder
 @end
 
-#if PLATFORM(IOS)
-#import "SoftLinking.h"
-
-#import <CoreGraphics/CoreGraphics.h>
-#import <ImageIO/ImageIO.h>
-#import <MobileCoreServices/MobileCoreServices.h>
-
-SOFT_LINK_FRAMEWORK(MobileCoreServices)
-SOFT_LINK_CONSTANT(MobileCoreServices, kUTTypeTIFF, CFStringRef)
-#define kUTTypeTIFF getkUTTypeTIFF()
-#endif
-
 namespace WebCore {
 
 void BitmapImage::invalidatePlatformData()
 {
-    if (m_frames.size() != 1)
+    if (frameCount() != 1)
         return;
 
 #if USE(APPKIT)
@@ -92,7 +86,7 @@ RetainPtr<CFDataRef> BitmapImage::tiffRepresentation(const Vector<NativeImagePtr
     RetainPtr<CGImageDestinationRef> destination = adoptCF(CGImageDestinationCreateWithData(data.get(), kUTTypeTIFF, nativeImages.size(), 0));
 
     if (!destination)
-        return 0;
+        return nullptr;
 
     for (auto nativeImage : nativeImages)
         CGImageDestinationAddImage(destination.get(), nativeImage.get(), 0);
@@ -112,6 +106,8 @@ CFDataRef BitmapImage::tiffRepresentation()
 
     m_tiffRep = data;
     return m_tiffRep.get();
+
+    
 }
 
 #if USE(APPKIT)
@@ -138,7 +134,7 @@ RetainPtr<NSImage> BitmapImage::snapshotNSImage()
     if (!data)
         return nullptr;
 
-    return adoptNS([[NSImage alloc] initWithData:(NSData *)data.get()]);
+    return adoptNS([[NSImage alloc] initWithData:(NSData*)data.get()]);
 }
 #endif
 

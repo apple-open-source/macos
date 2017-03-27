@@ -414,7 +414,7 @@ OS_ASSUME_NONNULL_END
  * function calls to the os_unfair_lock API entrypoints add measurable overhead.
  *
  * Do not use in frameworks to implement synchronization API primitives that are
- * exposed to developers, that would lead to false primitives for that API from
+ * exposed to developers, that would lead to false positives for that API from
  * tools such as ThreadSanitizer.
  *
  * !!!!!!!!!!!!!!!!!!!!! WARNING WARNING WARNING WARNING !!!!!!!!!!!!!!!!!!!!!

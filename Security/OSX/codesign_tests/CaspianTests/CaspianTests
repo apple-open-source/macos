@@ -264,6 +264,11 @@ esac
 #
 
 runTest fail-evil-itunes spctl -a -t exec $ct/evil-itunes.app
+runTest fail-finderinfo codesign -fs- $ct/ls-finderinfo
+runTest fail-resourcefork codesign -fs- $ct/cp-resourcefork
+runTest fail-finderinfo-app codesign -fs- $ct/HelloCaspian-finderinfo.app
+runTest fail-resourcefork-app codesign -fs- $ct/HelloCaspian-resourcefork.app
+runTest override-resourcefork-app codesign -fs- --no-strict $ct/HelloCaspian-resourcefork.app
 
 
 #

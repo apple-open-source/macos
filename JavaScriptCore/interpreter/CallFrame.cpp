@@ -29,7 +29,6 @@
 #include "CodeBlock.h"
 #include "InlineCallFrame.h"
 #include "Interpreter.h"
-#include "JSLexicalEnvironment.h"
 #include "JSCInlines.h"
 #include "VMEntryScope.h"
 #include <wtf/StringPrintStream.h>
@@ -186,8 +185,11 @@ Register* CallFrame::topOfFrameInternal()
 
 JSGlobalObject* CallFrame::vmEntryGlobalObject()
 {
-    if (this == lexicalGlobalObject()->globalExec())
-        return lexicalGlobalObject();
+    if (callee()->isObject()) { 
+        if (this == lexicalGlobalObject()->globalExec())
+            return lexicalGlobalObject();
+    }
+    // If we're not an object, we're wasm, and therefore we're executing code and the below is safe.
 
     // For any ExecState that's not a globalExec, the 
     // dynamic global object must be set since code is running
@@ -229,8 +231,8 @@ String CallFrame::friendlyFunctionName()
     case GlobalCode:
         return ASCIILiteral("global code");
     case FunctionCode:
-        if (callee())
-            return getCalculatedDisplayName(vm(), callee());
+        if (jsCallee())
+            return getCalculatedDisplayName(vm(), jsCallee());
         return emptyString();
     }
 

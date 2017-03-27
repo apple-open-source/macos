@@ -55,6 +55,7 @@ void SOSTestDataSourceFactorySetDataSource(SOSDataSourceFactoryRef factory, CFSt
 
 SOSObjectRef SOSDataSourceCreateGenericItemWithData(SOSDataSourceRef ds, CFStringRef account, CFStringRef service, bool is_tomb, CFDataRef data);
 SOSObjectRef SOSDataSourceCreateGenericItem(SOSDataSourceRef ds, CFStringRef account, CFStringRef service);
+SOSObjectRef SOSDataSourceCreateV0EngineStateWithData(SOSDataSourceRef ds, CFDataRef engineStateData);
 
 SOSObjectRef SOSDataSourceCopyObject(SOSDataSourceRef ds, SOSObjectRef match, CFErrorRef *error);
 

@@ -19,8 +19,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGUseElement_h
-#define SVGUseElement_h
+#pragma once
 
 #include "CachedResourceHandle.h"
 #include "CachedSVGDocumentClient.h"
@@ -63,7 +62,7 @@ private:
     void buildPendingResource() override;
     void parseAttribute(const QualifiedName&, const AtomicString&) override;
     void svgAttributeChanged(const QualifiedName&) override;
-    bool willRecalcStyle(Style::Change) override;
+    void willRecalcStyle(Style::Change) override;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
     void toClipPath(Path&) override;
     bool haveLoadedRequiredResources() override;
@@ -72,7 +71,7 @@ private:
     void setHaveFiredLoadEvent(bool) override;
     bool haveFiredLoadEvent() const override;
     Timer* svgLoadEventTimer() override;
-    void notifyFinished(CachedResource*) override;
+    void notifyFinished(CachedResource&) final;
 
     Document* externalDocument() const;
     void updateExternalDocument();
@@ -98,5 +97,3 @@ private:
 };
 
 }
-
-#endif

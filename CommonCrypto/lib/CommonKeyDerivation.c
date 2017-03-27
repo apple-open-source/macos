@@ -23,23 +23,22 @@
 
 // #define COMMON_KEYDERIVATION_FUNCTIONS
 
-#include "CommonKeyDerivation.h"
+#include <CommonCrypto/CommonKeyDerivation.h>
 #include <corecrypto/ccpbkdf2.h>
 #include "CommonDigestPriv.h"
-#include "CommonDigestSPI.h"
+#include <CommonCrypto/CommonDigestSPI.h>
 #include "ccdebug.h"
 #include "ccGlobals.h"
-
 
 int 
 CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t passwordLen,
 					 const uint8_t *salt, size_t saltLen,
-					 CCPseudoRandomAlgorithm prf, uint rounds, 
+					 CCPseudoRandomAlgorithm prf, unsigned rounds,
 					 uint8_t *derivedKey, size_t derivedKeyLen)
 {
     const struct ccdigest_info *di;
 
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "PasswordLen %lu SaltLen %lU PRF %d Rounds %u DKLen %lu\n", passwordLen, saltLen, prf, rounds, derivedKeyLen);
+    CC_DEBUG_LOG("PasswordLen %lu SaltLen %lU PRF %d Rounds %u DKLen %lu\n", passwordLen, saltLen, prf, rounds, derivedKeyLen);
     if(algorithm != kCCPBKDF2) return -1;
     switch(prf) {
         case kCCPRFHmacAlgSHA1: di = CCDigestGetDigestInfo(kCCDigestSHA1); break;
@@ -55,41 +54,48 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
     return 0;
 }
 
-#include <mach/mach.h>
-#include <mach/mach_time.h>
-#define ROUNDMEASURE 100000
-// This is for the scratchspace - it's twice the size of the max PRF buffer + 4 to work within the pbkdf2 code we currently
-// have.
-
-#define CC_MAX_PRF_WORKSPACE 128+4
-
-
-static uint64_t
-timer(void)
-{
-    cc_globals_t globals = _cc_globals();    
-    uint64_t        timeNano;
-    
-    if (globals->timebaseInfo.denom == 0) {
-        (void)mach_timebase_info(&globals->timebaseInfo);
-    }
-	
-    timeNano = mach_absolute_time();
-    return (uint64_t) (timeNano * globals->timebaseInfo.numer) / (globals->timebaseInfo.denom * 1000000);
+//time functions are from corecrypto
+#if defined(_WIN32)
+#include <windows.h>
+static uint64_t absolute_time(void) {
+    LARGE_INTEGER time;
+    QueryPerformanceCounter(&time); //resolution < 1us
+    return (uint64_t)time.QuadPart;
 }
 
-uint
-CCCalibratePBKDF(CCPBKDFAlgorithm algorithm, size_t passwordLen, size_t saltLen,
+static uint64_t to_msec(uint64_t at){
+    LARGE_INTEGER freq;
+    QueryPerformanceFrequency(&freq); //performance counter freq in Hz
+    double msec = (double)at / freq.QuadPart / 1000;
+    return (uint64_t) msec;
+}
+
+#else
+#include <mach/mach_time.h>
+#define absolute_time() (mach_absolute_time())
+static uint64_t to_msec(uint64_t at){
+    struct mach_timebase_info info;
+    mach_timebase_info(&info);
+    double msec =  (double)at * info.numer / info.denom / 1000000;
+    return (uint64_t) msec;
+}
+#endif
+
+#define ROUNDMEASURE 100000
+// This is for the scratchspace - it's twice the size of the max PRF buffer + 4 to work within the pbkdf2 code we currently have.
+#define CC_MAX_PRF_WORKSPACE 128+4
+#define CC_MIN_PBKDF2_ITERATIONS 10000
+
+unsigned CCCalibratePBKDF(CCPBKDFAlgorithm algorithm, size_t passwordLen, size_t saltLen,
 				 CCPseudoRandomAlgorithm prf, size_t derivedKeyLen, uint32_t msec)
 {
 	char        *password;
-	uint8_t     *salt = NULL;
-	uint64_t	startTime, endTime, elapsedTime;
-	uint8_t     *derivedKey = NULL;
-	size_t         i;
+	uint8_t     *salt=NULL, *derivedKey=NULL;
+	uint64_t	startTime, elapsedTime;
+	size_t       i;
     int retval = -1;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	if (derivedKeyLen == 0) return -1; // bad parameters
 	if (saltLen == 0 || saltLen > CC_MAX_PRF_WORKSPACE) return -1; // out of bounds parameters
 	if (passwordLen == 0 ) passwordLen = 1;
@@ -101,20 +107,22 @@ CCCalibratePBKDF(CCPBKDFAlgorithm algorithm, size_t passwordLen, size_t saltLen,
 	for(i=0; i<saltLen; i++) salt[i] = (uint8_t)(i%256);
 	if((derivedKey = malloc(derivedKeyLen)) == NULL) goto error;
     
-    for(elapsedTime = 0, i=0; i < 5 && elapsedTime == 0; i++) {
-        startTime = timer();
+    for(elapsedTime=i=0; i < 5 && elapsedTime == 0; i++) {
+        startTime = absolute_time();
         if(CCKeyDerivationPBKDF(algorithm, password, passwordLen, salt, saltLen, prf, ROUNDMEASURE, derivedKey, derivedKeyLen)) goto error;
-        endTime = timer();
-        
-        elapsedTime = endTime - startTime;
+        elapsedTime = absolute_time() - startTime;
 	}
     
-    if(elapsedTime == 0) return 123456; // arbitrary, but something is seriously wrong
-    retval = (msec * ROUNDMEASURE)/elapsedTime;
+    if(elapsedTime == 0){
+        retval = CC_MIN_PBKDF2_ITERATIONS; // something is seriously wrong
+        goto error;
+    }
+    
+    retval = CC_MAX(CC_MIN_PBKDF2_ITERATIONS,(int)((msec * ROUNDMEASURE)/to_msec(elapsedTime)));
 error:
-	if(password) free(password);
-	if(salt) free(salt);
-	if(derivedKey) free(derivedKey);
+	free(password);
+	free(salt);
+	free(derivedKey);
     
 	return retval;
 }

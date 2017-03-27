@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef Intrinsic_h
-#define Intrinsic_h
+#pragma once
 
 namespace JSC {
 
@@ -38,8 +37,10 @@ enum JS_EXPORT_PRIVATE Intrinsic {
     SinIntrinsic,
     Clz32Intrinsic,
     CosIntrinsic,
+    TanIntrinsic,
     ArrayPushIntrinsic,
     ArrayPopIntrinsic,
+    ArraySliceIntrinsic,
     CharCodeAtIntrinsic,
     CharAtIntrinsic,
     FromCharCodeIntrinsic,
@@ -59,9 +60,25 @@ enum JS_EXPORT_PRIVATE Intrinsic {
     RandomIntrinsic,
     FRoundIntrinsic,
     TruncIntrinsic,
-    IsRegExpObjectIntrinsic,
     IsTypedArrayViewIntrinsic,
     BoundThisNoArgsFunctionCallIntrinsic,
+    JSMapGetIntrinsic,
+    JSMapHasIntrinsic,
+    JSSetHasIntrinsic,
+    HasOwnPropertyIntrinsic,
+    AtomicsAddIntrinsic,
+    AtomicsAndIntrinsic,
+    AtomicsCompareExchangeIntrinsic,
+    AtomicsExchangeIntrinsic,
+    AtomicsIsLockFreeIntrinsic,
+    AtomicsLoadIntrinsic,
+    AtomicsOrIntrinsic,
+    AtomicsStoreIntrinsic,
+    AtomicsSubIntrinsic,
+    AtomicsWaitIntrinsic,
+    AtomicsWakeIntrinsic,
+    AtomicsXorIntrinsic,
+    ToLowerCaseIntrinsic,
 
     // Getter intrinsics.
     TypedArrayLengthIntrinsic,
@@ -79,5 +96,3 @@ enum JS_EXPORT_PRIVATE Intrinsic {
 };
 
 } // namespace JSC
-
-#endif // Intrinsic_h

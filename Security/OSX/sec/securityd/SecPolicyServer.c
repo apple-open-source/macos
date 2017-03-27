@@ -49,7 +49,7 @@
 #include <Security/SecFramework.h>
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecTrustPriv.h>
-#include <Security/SecTrustSettings.h>
+#include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecInternal.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecTask.h>
@@ -62,6 +62,8 @@
 #include <securityd/asynchttp.h>
 #include <securityd/SecTrustServer.h>
 #include <securityd/SecOCSPCache.h>
+#include <securityd/SecRevocationDb.h>
+#include <securityd/SecTrustLoggingServer.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecAppleAnchorPriv.h>
@@ -624,7 +626,6 @@ static bool SecPolicyCheckDomain(SecPVCRef pvc, CFStringRef hostname)
 	return true;
 }
 
-
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
@@ -1158,6 +1159,26 @@ static void SecPolicyCheckLeafMarkerOidWithoutValueCheck(SecPVCRef pvc, CFString
     }
 }
 
+/*
+ * The value is a dictionary. The dictionary contains keys indicating
+ * whether the value is for Prod or QA. The values are the same as
+ * in the options dictionary for SecPolicyCheckLeafMarkerOid.
+ */
+static void SecPolicyCheckLeafMarkersProdAndQA(SecPVCRef pvc, CFStringRef key)
+{
+    SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFDictionaryRef value = CFDictionaryGetValue(policy->_options, key);
+    CFTypeRef prodValue = CFDictionaryGetValue(value, kSecPolicyLeafMarkerProd);
+
+    if (!SecPolicyCheckCertLeafMarkerOid(cert, prodValue)) {
+        bool result = false;
+        if (!result) {
+            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
+    }
+}
+
 static void SecPolicyCheckIntermediateMarkerOid(SecPVCRef pvc, CFStringRef key)
 {
     CFIndex ix, count = SecPVCGetCertificateCount(pvc);
@@ -1184,6 +1205,34 @@ static void SecPolicyCheckIntermediateEKU(SecPVCRef pvc, CFStringRef key)
 			SecPVCSetResult(pvc, key, ix, kCFBooleanFalse);
 		}
 	}
+}
+
+static void SecPolicyCheckIntermediateOrganization(SecPVCRef pvc, CFStringRef key)
+{
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef organization = CFDictionaryGetValue(policy->_options, key);
+
+    for (ix = 1; ix < count - 1; ix++) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (!SecPolicyCheckCertSubjectOrganization(cert, organization)) {
+            SecPVCSetResult(pvc, key, ix, kCFBooleanFalse);
+        }
+    }
+}
+
+static void SecPolicyCheckIntermediateCountry(SecPVCRef pvc, CFStringRef key)
+{
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef country = CFDictionaryGetValue(policy->_options, key);
+
+    for (ix = 1; ix < count - 1; ix++) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (!SecPolicyCheckCertSubjectCountry(cert, country)) {
+            SecPVCSetResult(pvc, key, ix, kCFBooleanFalse);
+        }
+    }
 }
 
 /* Returns true if path is on the allow list for the authority key of the
@@ -1311,47 +1360,8 @@ out:
  *********************** New rfc5280 Chain Validation ***********************
  ****************************************************************************/
 
-#if 0
-typedef struct cert_path *cert_path_t;
-struct cert_path {
-    int length;
-};
-
-typedef struct x500_name *x500_name_t;
-struct x500_name {
-};
-
-typedef struct algorithm_id *algorithm_id_t;
-struct algorithm_id {
-    oid_t algorithm_oid;
-    der_t parameters;
-};
-
-typedef struct trust_anchor *trust_anchor_t;
-struct trust_anchor {
-    x500_name_t issuer_name;
-    algorithm_id_t public_key_algorithm; /* includes optional params */
-    SecKeyRef public_key;
-};
-
-typedef struct certificate_policy *certificate_policy_t;
-struct certificate_policy {
-    policy_qualifier_t qualifiers;
-    oid_t oid;
-    SLIST_ENTRY(certificate_policy) policies;
-};
-
-typedef struct policy_mapping *policy_mapping_t;
-struct policy_mapping {
-    SLIST_ENTRY(policy_mapping) mappings;
-    oid_t issuer_domain_policy;
-    oid_t subject_domain_policy;
-};
-
-typedef struct root_name *root_name_t;
-struct root_name {
-};
-#endif
+#define POLICY_MAPPING 1
+#define POLICY_SUBTREES 1
 
 struct policy_tree_add_ctx {
     oid_t p_oid;
@@ -1411,17 +1421,17 @@ static bool policy_tree_add_expected(policy_tree_t node, void *ctx) {
     return added_node;
 }
 
-#if 0
+#if POLICY_MAPPING
 /* For each node where ID-P is the valid_policy, set expected_policy_set to the set of subjectDomainPolicy values that are specified as equivalent to ID-P by the policy mappings extension. */
-static bool policy_tree_map(policy_tree_t node, void *ctx) {
+static bool policy_tree_map_if_match(policy_tree_t node, void *ctx) {
     /* Can't map oidAnyPolicy. */
     if (oid_equal(node->valid_policy, oidAnyPolicy))
         return false;
 
     const SecCEPolicyMappings *pm = (const SecCEPolicyMappings *)ctx;
-    uint32_t mapping_ix, mapping_count = pm->numMappings;
+    size_t mapping_ix, mapping_count = pm->numMappings;
     policy_set_t policy_set = NULL;
-    /* First count how many mappings match this nodes valid_policy. */
+    /* Generate the policy_set of sdps for matching idp */
     for (mapping_ix = 0; mapping_ix < mapping_count; ++mapping_ix) {
         const SecCEPolicyMapping *mapping = &pm->mappings[mapping_ix];
         if (oid_equal(node->valid_policy, mapping->issuerDomainPolicy)) {
@@ -1437,10 +1447,97 @@ static bool policy_tree_map(policy_tree_t node, void *ctx) {
     }
     return false;
 }
-#endif
 
-#define POLICY_MAPPING 0
-#define POLICY_SUBTREES 1
+/* If no node of depth i in the valid_policy_tree has a valid_policy of ID-P but there is a node of depth i with a valid_policy of anyPolicy, then generate a child node of the node of depth i-1 that has a valid_policy of anyPolicy as follows:
+        (i)   set the valid_policy to ID-P;
+        (ii)  set the qualifier_set to the qualifier set of the policy anyPolicy in the certificate policies extension of certificate i; and
+        (iii) set the expected_policy_set to the set of subjectDomainPolicy values that are specified as equivalent to ID-P by the policy mappings extension. */
+static bool policy_tree_map_if_any(policy_tree_t node, void *ctx) {
+    if (!oid_equal(node->valid_policy, oidAnyPolicy)) {
+        return false;
+    }
+
+    const SecCEPolicyMappings *pm = (const SecCEPolicyMappings *)ctx;
+    size_t mapping_ix, mapping_count = pm->numMappings;
+    CFMutableDictionaryRef mappings = NULL;
+    CFDataRef idp = NULL;
+    CFDataRef sdp = NULL;
+    require_quiet(mappings = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
+                                                                &kCFTypeDictionaryValueCallBacks),
+                   errOut);
+    /* First we need to walk the mappings to generate the dictionary idp->sdps */
+    for (mapping_ix = 0; mapping_ix < mapping_count; mapping_ix++) {
+        oid_t issuerDomainPolicy = pm->mappings[mapping_ix].issuerDomainPolicy;
+        oid_t subjectDomainPolicy = pm->mappings[mapping_ix].subjectDomainPolicy;
+        idp = CFDataCreateWithBytesNoCopy(NULL, issuerDomainPolicy.data, issuerDomainPolicy.length, kCFAllocatorNull);
+        sdp = CFDataCreateWithBytesNoCopy(NULL, subjectDomainPolicy.data, subjectDomainPolicy.length, kCFAllocatorNull);
+        CFMutableArrayRef sdps = (CFMutableArrayRef)CFDictionaryGetValue(mappings, idp);
+        if (sdps) {
+            CFArrayAppendValue(sdps, sdp);
+        } else {
+            require_quiet(sdps = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+                                                      &kCFTypeArrayCallBacks), errOut);
+            CFArrayAppendValue(sdps, sdp);
+            CFDictionarySetValue(mappings, idp, sdps);
+            CFRelease(sdps);
+        }
+        CFReleaseNull(idp);
+        CFReleaseNull(sdp);
+    }
+
+    /* Now we use the dictionary to generate the new nodes */
+    CFDictionaryForEach(mappings, ^(const void *key, const void *value) {
+        CFDataRef idp = key;
+        CFArrayRef sdps = value;
+
+        /* (i)   set the valid_policy to ID-P; */
+        oid_t p_oid;
+        p_oid.data = (uint8_t *)CFDataGetBytePtr(idp);
+        p_oid.length = CFDataGetLength(idp);
+
+        /* (ii)  set the qualifier_set to the qualifier set of the policy anyPolicy in the certificate policies extension of certificate i */
+        policy_qualifier_t p_q = node->qualifier_set;
+
+        /* (iii) set the expected_policy_set to the set of subjectDomainPolicy values that are specified as equivalent to ID-P by the policy mappings extension.  */
+        __block policy_set_t p_expected = NULL;
+        CFArrayForEach(sdps, ^(const void *value) {
+            policy_set_t p_node = (policy_set_t)malloc(sizeof(*p_expected));
+            p_node->oid.data = (void *)CFDataGetBytePtr(value);
+            p_node->oid.length = CFDataGetLength(value);
+            p_node->oid_next = p_expected ? p_expected : NULL;
+            p_expected = p_node;
+        });
+
+        policy_tree_add_sibling(node, &p_oid, p_q, p_expected);
+    });
+    CFReleaseNull(mappings);
+    return true;
+
+errOut:
+    CFReleaseNull(mappings);
+    CFReleaseNull(idp);
+    CFReleaseNull(sdp);
+    return false;
+}
+
+static bool policy_tree_map_delete_if_match(policy_tree_t node, void *ctx) {
+    /* Can't map oidAnyPolicy. */
+    if (oid_equal(node->valid_policy, oidAnyPolicy))
+        return false;
+
+    const SecCEPolicyMappings *pm = (const SecCEPolicyMappings *)ctx;
+    size_t mapping_ix, mapping_count = pm->numMappings;
+    /* If this node matches any of the idps, delete it. */
+    for (mapping_ix = 0; mapping_ix < mapping_count; ++mapping_ix) {
+        const SecCEPolicyMapping *mapping = &pm->mappings[mapping_ix];
+        if (oid_equal(node->valid_policy, mapping->issuerDomainPolicy)) {
+            policy_tree_remove_node(&node);
+            break;
+        }
+    }
+    return true;
+}
+#endif  /* POLICY_MAPPINGS */
 
 /* rfc5280 basic cert processing. */
 static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
@@ -1461,7 +1558,7 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         pvc->is_allowlisted = SecPVCCheckCertificateAllowList(pvc, n - 1);
         if (!pvc->is_allowlisted) {
             /* Add a detail for the root not being trusted. */
-            if (SecPVCSetResultForced(pvc, kSecPolicyCheckAnchorTrusted,
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckAnchorTrusted,
                                       n - 1, kCFBooleanFalse, true))
                 return;
         }
@@ -1502,7 +1599,7 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
     for (i = 1; i <= n; ++i) {
         /* Process Cert */
         cert = SecPVCGetCertificateAtIndex(pvc, n - i);
-        bool is_self_issued = SecPVCIsCertificateAtIndexSelfSigned(pvc, n - i);
+        bool is_self_issued = SecPVCIsCertificateAtIndexSelfIssued(pvc, n - i);
 
         /* (a) Verify the basic certificate information. */
         /* @@@ Ensure that cert was signed with working_public_key_algorithm
@@ -1601,41 +1698,33 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
 #if POLICY_MAPPING
         /* (a) verify that anyPolicy does not appear as an
            issuerDomainPolicy or a subjectDomainPolicy */
-        CFDictionaryRef pm = SecCertificateGetPolicyMappings(cert);
-        if (pm) {
-            uint32_t mapping_ix, mapping_count = pm->numMappings;
+        const SecCEPolicyMappings *pm = SecCertificateGetPolicyMappings(cert);
+        if (pm && pm->present) {
+            size_t mapping_ix, mapping_count = pm->numMappings;
             for (mapping_ix = 0; mapping_ix < mapping_count; ++mapping_ix) {
                 const SecCEPolicyMapping *mapping = &pm->mappings[mapping_ix];
                 if (oid_equal(mapping->issuerDomainPolicy, oidAnyPolicy)
                     || oid_equal(mapping->subjectDomainPolicy, oidAnyPolicy)) {
                     /* Policy mapping uses anyPolicy, illegal. */
-                    if (!SecPVCSetResultForced(pvc, key /* @@@ Need custom key */, n - i, kCFBooleanFalse)) {
+                    if (!SecPVCSetResultForced(pvc, key /* @@@ Need custom key */, n - i, kCFBooleanFalse, true)) {
                         goto errOut;
                     }
                 }
             }
+
             /* (b) */
             /* (1) If the policy_mapping variable is greater than 0 */
-            if (policy_mapping > 0) {
+            if (policy_mapping > 0 && pvc->valid_policy_tree) {
                 if (!policy_tree_walk_depth(pvc->valid_policy_tree, i,
-                    policy_tree_map, (void *)pm)) {
-                        /* If no node of depth i in the valid_policy_tree has a valid_policy of ID-P but there is a node of depth i with a valid_policy of anyPolicy, then generate a child node of the node of depth i-1 that has a valid_policy of anyPolicy as follows:
-
-            (i)    set the valid_policy to ID-P;
-
-            (ii)   set the qualifier_set to the qualifier set of the
-                   policy anyPolicy in the certificate policies
-                   extension of certificate i; and
-    (iii) set the expected_policy_set to the set of subjectDomainPolicy values that are specified as equivalent to ID-P by the policy mappings extension. */
-                    }
-            } else {
-    #if 0
+                    policy_tree_map_if_match, (void *)pm)) {
+                    /* If no node of depth i in the valid_policy_tree has a valid_policy of ID-P but there is a node of depth i with a valid_policy of anyPolicy, then generate a child node of the node of depth i-1. */
+                    policy_tree_walk_depth(pvc->valid_policy_tree, i, policy_tree_map_if_any, (void *)pm);
+                }
+            } else if (pvc->valid_policy_tree) {
                 /* (i)    delete each node of depth i in the valid_policy_tree
                    where ID-P is the valid_policy. */
-                struct policy_tree_map_ctx ctx = { idp_oid, sdp_oid };
                 policy_tree_walk_depth(pvc->valid_policy_tree, i,
-                    policy_tree_delete_if_match, &ctx);
-    #endif
+                    policy_tree_map_delete_if_match, (void *)pm);
                 /* (ii)   If there is a node in the valid_policy_tree of depth
                    i-1 or less without any child nodes, delete that
                    node.  Repeat this step until there are no nodes of
@@ -1688,9 +1777,9 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
             }
         }
         /* (j) */
-        uint32_t iap = SecCertificateGetInhibitAnyPolicySkipCerts(cert);
-        if (iap < inhibit_any_policy) {
-            inhibit_any_policy = iap;
+        const SecCEInhibitAnyPolicy *iap = SecCertificateGetInhibitAnyPolicySkipCerts(cert);
+        if (iap && iap->skipCerts < inhibit_any_policy) {
+            inhibit_any_policy = iap->skipCerts;
         }
         /* (k) */
 		const SecCEBasicConstraints *bc =
@@ -2450,6 +2539,10 @@ static void SecPolicyCheckRevocationResponseRequired(SecPVCRef pvc,
     SecPVCSetCheckRevocationResponseRequired(pvc);
 }
 
+static void SecPolicyCheckRevocationOnline(SecPVCRef pvc, CFStringRef key) {
+    SecPVCSetCheckRevocationOnline(pvc);
+}
+
 static void SecPolicyCheckNoNetworkAccess(SecPVCRef pvc,
     CFStringRef key) {
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
@@ -2523,6 +2616,110 @@ static void SecPolicyCheckSignatureHashAlgorithms(SecPVCRef pvc,
     }
 }
 
+static bool leaf_is_on_weak_hash_whitelist(SecPVCRef pvc) {
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    require_quiet(leaf, out);
+
+    /* Leaf certificates that expire before Jan 3 2017 can get a pass.
+     * They must be updated before this goes live. */
+    if (SecCertificateNotValidAfter(leaf) < 505200000.0) {
+        return true;
+    }
+
+    /* And now a few special snowflakes */
+
+    /* subject:/C=UK/O=Vodafone Group/CN=Vodafone (Corporate Domain 2009) */
+    /* issuer :/C=IE/O=Baltimore/OU=CyberTrust/CN=Baltimore CyberTrust Root */
+    /* Not After : Dec 19 17:25:36 2019 GMT */
+    static const uint8_t vodafone[] = {
+        0xC5, 0x0E, 0x88, 0xE5, 0x20, 0xA8, 0x10, 0x41, 0x1D, 0x63,
+        0x4C, 0xB8, 0xF9, 0xCC, 0x93, 0x9B, 0xFD, 0x76, 0x93, 0x99
+    };
+
+    CFIndex intermediate_ix = SecPVCGetCertificateCount(pvc) - 2;
+    require_quiet(intermediate_ix > 0, out);
+    SecCertificateRef intermediate = SecPVCGetCertificateAtIndex(pvc, intermediate_ix);
+    CFDataRef fingerprint = SecCertificateGetSHA1Digest(intermediate);
+    require_quiet(fingerprint, out);
+    const unsigned int len = 20;
+    const uint8_t *dp = CFDataGetBytePtr(fingerprint);
+    if (dp && (!memcmp(vodafone, dp, len))) {
+        return true;
+    }
+
+out:
+    return false;
+}
+
+static bool SecPVCKeyIsConstraintPolicyOption(SecPVCRef pvc, CFStringRef key);
+
+static void SecPolicyCheckSystemTrustedWeakHash(SecPVCRef pvc,
+    CFStringRef key) {
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+#if !NO_SERVER
+    CFDataRef clientAuditToken = NULL;
+    SecTaskRef task = NULL;
+#endif
+    CFStringRef signingIdentifier = NULL;
+
+    /* Only for Safari and WebKit. */
+#if NO_SERVER
+    require_quiet(signingIdentifier = CFRetainSafe(CFBundleGetIdentifier(CFBundleGetMainBundle())), out);
+#else
+    require_quiet(clientAuditToken = SecPathBuilderCopyClientAuditToken(pvc->builder), out);
+    audit_token_t auditToken = {};
+    require(sizeof(auditToken) == CFDataGetLength(clientAuditToken), out);
+    CFDataGetBytes(clientAuditToken, CFRangeMake(0, sizeof(auditToken)), (uint8_t *)&auditToken);
+    require_quiet(task = SecTaskCreateWithAuditToken(NULL, auditToken), out);
+    require_quiet(signingIdentifier = SecTaskCopySigningIdentifier(task, NULL), out);
+#endif
+    require_quiet(CFStringHasPrefix(signingIdentifier, CFSTR("com.apple.Safari")) ||
+                  CFStringHasPrefix(signingIdentifier, CFSTR("com.apple.mobilesafari")) ||
+                  CFStringHasPrefix(signingIdentifier, CFSTR("com.apple.WebKit.Networking")) ||
+                  /* Or one of our test apps */
+                  CFStringHasPrefix(signingIdentifier, CFSTR("com.apple.security.SecurityTests")) ||
+                  CFStringHasPrefix(signingIdentifier, CFSTR("com.apple.security.SecurityDevTests")), out);
+
+    Boolean keyInPolicy = false;
+    CFArrayRef policies = pvc->policies;
+    CFIndex policyIX, policyCount = CFArrayGetCount(policies);
+    for (policyIX = 0; policyIX < policyCount; ++policyIX) {
+		SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, policyIX);
+        if (policy && CFDictionaryContainsKey(policy->_options, key)) {
+            keyInPolicy = true;
+        }
+    }
+
+    /* We only enforce this check when *both* of the following are true:
+     *  1. One of the certs in the path has this usage constraint, and
+     *  2. One of the policies in the PVC has this key
+     * (As compared to normal policy options which require only one to be true..) */
+    require_quiet(SecPVCKeyIsConstraintPolicyOption(pvc, key) &&
+                  keyInPolicy, out);
+
+    /* Ignore the anchor if it's trusted */
+    if (SecCertificatePathIsAnchored(pvc->path)) {
+        count--;
+    }
+    for (ix = 0; ix < count; ++ix) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (SecCertificateIsWeakHash(cert)) {
+            if (!leaf_is_on_weak_hash_whitelist(pvc)) {
+                if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse)) {
+                    goto out;
+                }
+            }
+        }
+    }
+out:
+#if !NO_SERVER
+    CFReleaseNull(clientAuditToken);
+    CFReleaseNull(task);
+#endif
+    CFReleaseNull(signingIdentifier);
+    return;
+}
+
 #define ENABLE_CRLS (TARGET_OS_MAC && !TARGET_OS_IPHONE)
 
 // MARK: -
@@ -2550,6 +2747,9 @@ struct OpaqueSecRVC {
     SecCRVCRef crvc;
 #endif
 
+    /* Valid database info for this revocation check */
+    SecValidInfoRef valid_info;
+
     bool done;
 };
 typedef struct OpaqueSecRVC *SecRVCRef;
@@ -2559,6 +2759,7 @@ typedef struct OpaqueSecRVC *SecRVCRef;
  ****************** OCSP RVC Functions ******************
  ********************************************************/
 const CFAbsoluteTime kSecDefaultOCSPResponseTTL = 24.0 * 60.0 * 60.0;
+const CFAbsoluteTime kSecOCSPResponseOnlineTTL = 5.0 * 60.0;
 #define OCSP_RESPONSE_TIMEOUT       (3 * NSEC_PER_SEC)
 
 /* OCSP Revocation verification context. */
@@ -2955,10 +3156,11 @@ static SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPVCRef pvc, CFIndex certIX) {
         orvc->done = false;
 
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, certIX);
-        /* The certIX + 1 is ok here since certCount is always at least 1
-         less than the actual number of certs in SecPVCCheckRevocation. */
-        SecCertificateRef issuer = SecPVCGetCertificateAtIndex(pvc, certIX + 1);
-        orvc->ocspRequest = SecOCSPRequestCreate(cert, issuer);
+        CFIndex count = SecPVCGetCertificateCount(pvc);
+        if (certIX + 1 < count) {
+            SecCertificateRef issuer = SecPVCGetCertificateAtIndex(pvc, certIX + 1);
+            orvc->ocspRequest = SecOCSPRequestCreate(cert, issuer);
+        }
     }
     return orvc;
 }
@@ -2983,7 +3185,6 @@ static void SecORVCProcessStapledResponses(SecORVCRef rvc) {
  ********************************************************/
 #if ENABLE_CRLS
 #include <../trustd/SecTrustOSXEntryPoints.h>
-OSStatus errSecCertificateRevoked = -67820;
 #define kSecDefaultCRLTTL kSecDefaultOCSPResponseTTL
 
 /* CRL Revocation verification context. */
@@ -3210,6 +3411,9 @@ static void SecRVCDelete(SecRVCRef rvc) {
         free(rvc->crvc);
     }
 #endif
+    if (rvc->valid_info) {
+        SecValidInfoRelease(rvc->valid_info);
+    }
 }
 
 static void SecRVCInit(SecRVCRef rvc, SecPVCRef pvc, CFIndex certIX) {
@@ -3244,12 +3448,117 @@ static bool SecRVCShouldCheckOCSP(SecRVCRef rvc) {
 }
 #endif
 
+static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
+    if (!rvc || !rvc->valid_info || !rvc->pvc) {
+        return;
+    }
+    /* Handle definitive revocations.
+    */
+    bool valid = rvc->valid_info->valid;
+    SecValidInfoFormat format = rvc->valid_info->format;
+    if (!valid && (format == kSecValidInfoFormatSerial || format == kSecValidInfoFormatSHA256)) {
+        secdebug("validupdate", "rvc: revoked cert %" PRIdCFIndex, rvc->certIX);
+        SInt32 reason = 0; // unspecified, since the Valid db doesn't tell us
+        CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
+        SecPVCSetResultForced(rvc->pvc, kSecPolicyCheckRevocation, rvc->certIX,
+                              cfreason, true);
+        if (rvc->pvc->info) {
+            /* make the revocation reason available in the trust result */
+            CFDictionarySetValue(rvc->pvc->info, kSecTrustRevocationReason, cfreason);
+        }
+        CFReleaseNull(cfreason);
+
+        rvc->done = true;
+        return;
+    }
+
+    /* Handle non-definitive information.
+       We set rvc->done = true above ONLY if the result was definitive;
+       otherwise we require a revocation check for SSL usage.
+    */
+    if (format == kSecValidInfoFormatNto1) {
+        /* matched the filter */
+        CFIndex count = SecPVCGetCertificateCount(rvc->pvc);
+        CFIndex issuerIX = rvc->certIX + 1;
+        if (issuerIX >= count) {
+            /* cannot perform a revocation check on the last cert in the
+               chain, since we don't have its issuer. */
+            return;
+        }
+        SecPolicyRef policy = SecPVCGetPolicy(rvc->pvc);
+        CFStringRef policyName = (policy) ? SecPolicyGetName(policy) : NULL;
+        if (policyName && CFEqual(CFSTR("sslServer"), policyName)) {
+            /* perform revocation check for SSL policy;
+               require for leaf if an OCSP responder is present. */
+            if (0 == rvc->certIX) {
+                SecCertificateRef cert = SecPVCGetCertificateAtIndex(rvc->pvc, rvc->certIX);
+                CFArrayRef resps = (cert) ? SecCertificateGetOCSPResponders(cert) : NULL;
+                CFIndex rcount = (resps) ? CFArrayGetCount(resps) : 0;
+                if (rcount > 0) {
+                    rvc->pvc->response_required = true;
+                }
+            }
+            rvc->pvc->check_revocation = kSecPolicyCheckRevocationAny;
+        }
+    }
+
+}
+
+static bool SecRVCCheckValidInfoDatabase(SecRVCRef rvc) {
+    /* If the valid database is enabled... */
+#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 101300 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
+    /* Make sure revocation db info is up-to-date,
+       if we are allowed to access the network */
+#if !TARGET_OS_BRIDGE
+    SecPathBuilderRef builder = rvc->pvc->builder;
+    if (SecPathBuilderCanAccessNetwork(builder)) {
+        SecRevocationDbCheckNextUpdate();
+    }
+#endif
+    /* Check whether we have valid db info for this cert,
+       given the cert and its issuer */
+    SecValidInfoRef info = NULL;
+    CFIndex count = SecPVCGetCertificateCount(rvc->pvc);
+    if (count) {
+        SecCertificateRef cert = NULL;
+        SecCertificateRef issuer = NULL;
+        CFIndex issuerIX = rvc->certIX + 1;
+        if (count > issuerIX) {
+            issuer = SecPVCGetCertificateAtIndex(rvc->pvc, issuerIX);
+        } else if (count == issuerIX) {
+            CFIndex rootIX = SecCertificatePathSelfSignedIndex(rvc->pvc->path);
+            if (rootIX == rvc->certIX) {
+                issuer = SecPVCGetCertificateAtIndex(rvc->pvc, rootIX);
+            }
+        }
+        cert = SecPVCGetCertificateAtIndex(rvc->pvc, rvc->certIX);
+        info = SecRevocationDbCopyMatching(cert, issuer);
+    }
+    if (info) {
+        SecValidInfoRef old_info = rvc->valid_info;
+        rvc->valid_info = info;
+        if (old_info) {
+            SecValidInfoRelease(old_info);
+        }
+        return true;
+    }
+#endif
+    return false;
+}
+
 static void SecRVCCheckRevocationCaches(SecRVCRef rvc) {
     /* Don't check OCSP cache if CRLs enabled and policy requested CRL only */
     if (SecRVCShouldCheckOCSP(rvc)) {
         secdebug("ocsp", "Checking cached responses for cert %ld", rvc->certIX);
+        SecOCSPResponseRef response = NULL;
+        if (rvc->pvc->online_revocation) {
+            CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+            response = SecOCSPCacheCopyMatchingWithMinInsertTime(rvc->orvc->ocspRequest, NULL, now - kSecOCSPResponseOnlineTTL);
+        } else {
+            response = SecOCSPCacheCopyMatching(rvc->orvc->ocspRequest, NULL);
+        }
         SecORVCConsumeOCSPResponse(rvc->orvc,
-                                   SecOCSPCacheCopyMatching(rvc->orvc->ocspRequest, NULL),
+                                   response,
                                    NULL_TIME, false);
     }
 #if ENABLE_CRLS
@@ -3301,9 +3610,12 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
 
     /*
      * Don't need to call SecPVCIsAnchored; having an issuer is sufficient here.
-     * We can't check revocation for the final cert in the chain.
+     *
+     * Note: we can't check revocation for the last certificate in the chain
+     * via OCSP or CRL methods, since there isn't a separate issuer cert to
+     * sign those responses. However, since a self-signed root has an implied
+     * issuer of itself, we can check for it in the valid database.
      */
-    certCount--;
 
     if (pvc->rvcs) {
         /* We have done revocation checking already, we're done. */
@@ -3311,27 +3623,27 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
         return completed;
     }
 
-    /* Setup things so we check revocation status of all certs except the
-     anchor. */
+    /* Setup things so we check revocation status of all certs. */
     pvc->rvcs = calloc(sizeof(struct OpaqueSecRVC), certCount);
 
     /* Note that if we are multi threaded and a job completes after it
      is started but before we return from this function, we don't want
      a callback to decrement asyncJobCount to zero before we finish issuing
-     all the jobs. To avoid this we pretend we issued certCount async jobs,
+     all the jobs. To avoid this we pretend we issued certCount-1 async jobs,
      and decrement pvc->asyncJobCount for each cert that we don't start a
-     background fetch for. */
+     background fetch for. (We will never start an async job for the final
+     cert in the chain.) */
 #if !ENABLE_CRLS
-    pvc->asyncJobCount = (unsigned int) certCount;
+    pvc->asyncJobCount = (unsigned int)(certCount-1);
 #else
     /* If we enable CRLS, we may end up with two async jobs per cert: one
      * for OCSP and one for fetching the CRL */
-    pvc->asyncJobCount =  2 * (unsigned int)certCount;
+    pvc->asyncJobCount =  2 * (unsigned int)(certCount-1);
 #endif
     secdebug("rvc", "set asyncJobCount to %d", pvc->asyncJobCount);
 
     /* Loop though certificates again and issue an ocsp fetch if the
-     revocation status checking isn't done yet. */
+     * revocation status checking isn't done yet (and we have an issuer!) */
     for (certIX = 0; certIX < certCount; ++certIX) {
         secdebug("rvc", "checking revocation for cert: %ld", certIX);
         SecRVCRef rvc = &((SecRVCRef)pvc->rvcs)[certIX];
@@ -3339,6 +3651,19 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
         if (rvc->done){
             continue;
         }
+
+#if !TARGET_OS_BRIDGE
+        /* Check valid database first (separate from OCSP response cache) */
+        if (SecRVCCheckValidInfoDatabase(rvc)) {
+            SecRVCProcessValidInfoResults(rvc);
+        }
+#endif
+        /* Any other revocation method requires an issuer certificate;
+         * skip the last cert in the chain since it doesn't have one. */
+        if (certIX+1 >= certCount) {
+            continue;
+        }
+
         /* Ignore stapled OCSP responses only if CRLs are enabled and the
          * policy specifically requested CRLs only. */
         if (SecRVCShouldCheckOCSP(rvc)) {
@@ -3366,10 +3691,16 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
             rvc->done = true;
         }
 
+        /* If we got a cached response that is no longer valid (which can only be true for
+         * revoked responses), let's try to get a fresher response even if no one asked.
+         * This check resolves unrevocation events after the nextUpdate time. */
+        bool old_cached_response = (!rvc->done && rvc->orvc->ocspResponse);
+
         /* If the cert is EV or if revocation checking was explicitly enabled, attempt to fire off an
          async http request for this cert's revocation status, unless we already successfully checked
-         the revocation status of this cert based on the cache or stapled responses,  */
-        bool allow_fetch = SecPathBuilderCanAccessNetwork(pvc->builder) && (pvc->is_ev || pvc->check_revocation);
+         the revocation status of this cert based on the cache or stapled responses.  */
+        bool allow_fetch = SecPathBuilderCanAccessNetwork(pvc->builder) &&
+                           (pvc->is_ev || pvc->check_revocation || old_cached_response);
         bool fetch_done = true;
         if (rvc->done || !allow_fetch) {
             /* We got a cache hit or we aren't allowed to access the network */
@@ -3502,6 +3833,9 @@ void SecPolicyServerInitalize(void) {
 	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
 		kSecPolicyCheckRevocationResponseRequired,
 		SecPolicyCheckRevocationResponseRequired);
+    CFDictionaryAddValue(gSecPolicyLeafCallbacks,
+        kSecPolicyCheckRevocationOnline,
+        SecPolicyCheckRevocationOnline);
 	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
 		kSecPolicyCheckNoNetworkAccess,
 		SecPolicyCheckNoNetworkAccess);
@@ -3517,6 +3851,9 @@ void SecPolicyServerInitalize(void) {
     CFDictionaryAddValue(gSecPolicyLeafCallbacks,
         kSecPolicyCheckLeafMarkerOidWithoutValueCheck,
         SecPolicyCheckLeafMarkerOidWithoutValueCheck);
+    CFDictionaryAddValue(gSecPolicyLeafCallbacks,
+        kSecPolicyCheckLeafMarkersProdAndQA,
+        SecPolicyCheckLeafMarkersProdAndQA);
 	CFDictionaryAddValue(gSecPolicyPathCallbacks,
 		kSecPolicyCheckIntermediateSPKISHA256,
 		SecPolicyCheckIntermediateSPKISHA256);
@@ -3544,6 +3881,15 @@ void SecPolicyServerInitalize(void) {
     CFDictionaryAddValue(gSecPolicyPathCallbacks,
         kSecPolicyCheckSignatureHashAlgorithms,
         SecPolicyCheckSignatureHashAlgorithms);
+    CFDictionaryAddValue(gSecPolicyPathCallbacks,
+        kSecPolicyCheckSystemTrustedWeakHash,
+        SecPolicyCheckSystemTrustedWeakHash);
+    CFDictionaryAddValue(gSecPolicyPathCallbacks,
+        kSecPolicyCheckIntermediateOrganization,
+        SecPolicyCheckIntermediateOrganization);
+    CFDictionaryAddValue(gSecPolicyPathCallbacks,
+        kSecPolicyCheckIntermediateCountry,
+        SecPolicyCheckIntermediateCountry);
 }
 
 // MARK: -
@@ -3571,7 +3917,7 @@ void SecPVCInit(SecPVCRef pvc, SecPathBuilderRef builder, CFArrayRef policies,
 static void SecPVCDeleteRVCs(SecPVCRef pvc) {
     secdebug("alloc", "%p", pvc);
     if (pvc->rvcs) {
-        CFIndex certIX, certCount = SecPVCGetCertificateCount(pvc) - 1;
+        CFIndex certIX, certCount = SecPVCGetCertificateCount(pvc);
         for (certIX = 0; certIX < certCount; ++certIX) {
             SecRVCRef rvc = &((SecRVCRef)pvc->rvcs)[certIX];
             SecRVCDelete(rvc);
@@ -3628,8 +3974,20 @@ SecCertificateRef SecPVCGetCertificateAtIndex(SecPVCRef pvc, CFIndex ix) {
 	return SecCertificatePathGetCertificateAtIndex(pvc->path, ix);
 }
 
-bool SecPVCIsCertificateAtIndexSelfSigned(SecPVCRef pvc, CFIndex ix) {
-    return SecCertificatePathSelfSignedIndex(pvc->path) == ix;
+bool SecPVCIsCertificateAtIndexSelfIssued(SecPVCRef pvc, CFIndex ix) {
+    /* The SecCertificatePath only tells us the last self-issued cert.
+     * The chain may have more than one self-issued cert, so we need to
+     * do the comparison. */
+    bool result = false;
+    SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+    CFDataRef issuer = SecCertificateCopyNormalizedIssuerSequence(cert);
+    CFDataRef subject = SecCertificateCopyNormalizedSubjectSequence(cert);
+    if (issuer && subject && CFEqual(issuer, subject)) {
+        result = true;
+    }
+    CFReleaseNull(issuer);
+    CFReleaseNull(subject);
+    return result;
 }
 
 void SecPVCSetCheckRevocation(SecPVCRef pvc, CFStringRef method) {
@@ -3640,6 +3998,11 @@ void SecPVCSetCheckRevocation(SecPVCRef pvc, CFStringRef method) {
 void SecPVCSetCheckRevocationResponseRequired(SecPVCRef pvc) {
     pvc->response_required = true;
     secdebug("rvc", "revocation response required");
+}
+
+void SecPVCSetCheckRevocationOnline(SecPVCRef pvc) {
+    pvc->online_revocation = true;
+    secdebug("rvc", "revocation force online check");
 }
 
 bool SecPVCIsAnchored(SecPVCRef pvc) {
@@ -3698,6 +4061,28 @@ static bool SecPVCIsAllowedError(SecPVCRef pvc, CFIndex ix, CFStringRef key) {
     return result;
 }
 
+static bool SecPVCKeyIsConstraintPolicyOption(SecPVCRef pvc, CFStringRef key) {
+    CFIndex certIX, certCount = SecCertificatePathGetCount(pvc->path);
+    for (certIX = 0; certIX < certCount; certIX++) {
+        CFArrayRef constraints = SecCertificatePathGetUsageConstraintsAtIndex(pvc->path, certIX);
+        CFIndex constraintIX, constraintCount = CFArrayGetCount(constraints);
+        for (constraintIX = 0; constraintIX < constraintCount; constraintIX++) {
+            CFDictionaryRef constraint = (CFDictionaryRef)CFArrayGetValueAtIndex(constraints, constraintIX);
+            if (!isDictionary(constraint)) {
+                continue;
+            }
+
+            CFDictionaryRef policyOptions = NULL;
+            policyOptions = (CFDictionaryRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicyOptions);
+            if (policyOptions && isDictionary(policyOptions) &&
+                CFDictionaryContainsKey(policyOptions, key)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
@@ -3714,12 +4099,12 @@ bool SecPVCSetResultForced(SecPVCRef pvc,
     /* If this is not something the current policy cares about ignore
        this error and return true so our caller continues evaluation. */
     if (!force) {
-        /* @@@ The right long term fix might be to check if none of the passed
-           in policies contain this key, since not all checks are run for all
-           policies. */
+        /* Either the policy or the usage constraints have to have this key */
         SecPolicyRef policy = SecPVCGetPolicy(pvc);
-        if (policy && !CFDictionaryContainsKey(policy->_options, key))
+        if (!(SecPVCKeyIsConstraintPolicyOption(pvc, key) ||
+            (policy && CFDictionaryContainsKey(policy->_options, key)))) {
             return true;
+        }
     }
 
 	/* Check to see if the SecTrustSettings for the certificate in question
@@ -4126,9 +4511,6 @@ static bool SecPVCContainsTrustSettingsKeyUsage(SecPVCRef pvc,
 }
 
 #if TARGET_OS_MAC && !TARGET_OS_IPHONE
-/* We need to declare the SecTrustedApplicationRef type for those binaries
- * that don't include the OS X Security Framework headers. */
-typedef struct CF_BRIDGED_TYPE(id) OpaqueSecTrustedApplicationRef *SecTrustedApplicationRef;
 
 #include <Security/SecTrustedApplicationPriv.h>
 #include <bsm/libbsm.h>
@@ -4155,12 +4537,36 @@ out:
 }
 #endif
 
+static bool SecPVCContainsTrustSettingsPolicyOption(SecPVCRef pvc, CFDictionaryRef options) {
+    if (!isDictionary(options)) {
+        return false;
+    }
+
+    /* Push */
+    CFDictionaryRef currentCallbacks = pvc->callbacks;
+
+    /* We need to run the leaf and path checks using these options. */
+    pvc->callbacks = gSecPolicyLeafCallbacks;
+    CFDictionaryApplyFunction(options, SecPVCValidateKey, pvc);
+
+    pvc->callbacks = gSecPolicyPathCallbacks;
+    CFDictionaryApplyFunction(options, SecPVCValidateKey, pvc);
+
+    /* Pop */
+    pvc->callbacks = currentCallbacks;
+
+    /* Our work here is done; no need to claim a match */
+    return false;
+}
+
 static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, CFDictionaryRef constraint) {
     CFStringRef policyOid = NULL, policyString = NULL, policyName = NULL;
     CFNumberRef keyUsageNumber = NULL;
     CFTypeRef trustedApplicationData = NULL;
+    CFDictionaryRef policyOptions = NULL;
 
-    bool policyMatch = false, policyStringMatch = false, applicationMatch = false , keyUsageMatch = false;
+    bool policyMatch = false, policyStringMatch = false, applicationMatch = false ,
+         keyUsageMatch = false, policyOptionMatch = false;
     bool result = false;
 
 #if TARGET_OS_MAC && !TARGET_OS_IPHONE
@@ -4174,11 +4580,13 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
     policyName = (CFStringRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicyName);
     policyString = (CFStringRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicyString);
     keyUsageNumber = (CFNumberRef)CFDictionaryGetValue(constraint, kSecTrustSettingsKeyUsage);
+    policyOptions = (CFDictionaryRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicyOptions);
 
     CFIndex policyIX = -1;
     policyMatch = SecPVCContainsPolicy(pvc, policyOid, policyName, &policyIX);
     policyStringMatch = SecPVCContainsString(pvc, policyIX, policyString);
     keyUsageMatch = SecPVCContainsTrustSettingsKeyUsage(pvc, certificate, policyIX, keyUsageNumber);
+    policyOptionMatch = SecPVCContainsTrustSettingsPolicyOption(pvc, policyOptions);
 
 #if TARGET_OS_MAC && !TARGET_OS_IPHONE
     trustedApplicationData =  CFDictionaryGetValue(constraint, kSecTrustSettingsApplication);
@@ -4197,7 +4605,8 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
     if (((!policyOid && !policyName) || policyMatch) &&
         (!policyString || policyStringMatch) &&
         (!trustedApplicationData || applicationMatch) &&
-        (!keyUsageNumber || keyUsageMatch)) {
+        (!keyUsageNumber || keyUsageMatch) &&
+        (!policyOptions || policyOptionMatch)) {
         result = true;
     }
 
@@ -4349,6 +4758,9 @@ bool SecPVCPathChecks(SecPVCRef pvc) {
         if (!pvc->result && !pvc->details)
             return completed;
     }
+
+    // Reset
+    pvc->policyIX = 0;
 
     /* Check whether the TrustSettings say to deny a cert in the path. */
     (void)SecPVCCheckUsageConstraints(pvc);

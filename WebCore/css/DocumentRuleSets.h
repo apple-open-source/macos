@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef DocumentRuleSets_h
-#define DocumentRuleSets_h
+#pragma once
 
 #include "CSSDefaultStyleSheets.h"
 #include "RuleFeature.h"
@@ -38,13 +37,14 @@ class CSSStyleSheet;
 class ExtensionStyleSheets;
 class InspectorCSSOMWrappers;
 class MediaQueryEvaluator;
-class RuleSet;
 
 class DocumentRuleSets {
 public:
     DocumentRuleSets();
     ~DocumentRuleSets();
-    RuleSet* authorStyle() const { return m_authorStyle.get(); }
+    
+    bool isAuthorStyleDefined() const { return m_isAuthorStyleDefined; }
+    RuleSet& authorStyle() const { return *m_authorStyle.get(); }
     RuleSet* userStyle() const { return m_userStyle.get(); }
     const RuleFeatureSet& features() const;
     RuleSet* sibling() const { return m_siblingRuleSet.get(); }
@@ -69,6 +69,7 @@ private:
     void collectFeatures() const;
     void collectRulesFromUserStyleSheets(const Vector<RefPtr<CSSStyleSheet>>&, RuleSet& userStyle, const MediaQueryEvaluator&, StyleResolver&);
 
+    bool m_isAuthorStyleDefined { false };
     std::unique_ptr<RuleSet> m_authorStyle;
     std::unique_ptr<RuleSet> m_userStyle;
 
@@ -96,5 +97,3 @@ inline RuleFeatureSet& DocumentRuleSets::mutableFeatures()
 }
 
 } // namespace WebCore
-
-#endif // DocumentRuleSets_h

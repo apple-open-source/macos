@@ -49,4 +49,6 @@ ADDED_IN_10_12(dirname_r);
 ADDED_IN_10_12(mkostemp);
 ADDED_IN_10_12(mkostemps);
 
+ADDED_IN_10_12(timingsafe_bcmp);
+
 #endif /* TARGET_OS_IPHONE */

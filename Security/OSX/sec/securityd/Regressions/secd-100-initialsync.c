@@ -102,7 +102,7 @@ static void tests(void)
     
     ok(!SOSAccountCheckHasBeenInSync_wTxn(bob_account), "Bob should not be initially synced");
     CFSetRef bob_viewSet = SOSPeerInfoCopyEnabledViews(SOSAccountGetMyPeerInfo(bob_account));
-    is(CFSetGetCount(bob_viewSet), 5, "bob's initial view set should be just the 14 views");
+    is(CFSetGetCount(bob_viewSet), 14, "bob's initial view set should be just the 14 views");
     CFReleaseNull(bob_viewSet);
     
     ok(!SOSAccountCheckHasBeenInSync_wTxn(bob_account), "Bob should not be initially synced");

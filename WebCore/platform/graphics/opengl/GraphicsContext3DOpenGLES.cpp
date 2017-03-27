@@ -90,7 +90,7 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
 
     // We don't allow the logic where stencil is required and depth is not.
     // See GraphicsContext3D::validateAttributes.
-    bool supportPackedDepthStencilBuffer = (m_attrs.stencil || m_attrs.depth) && getExtensions()->supports("GL_OES_packed_depth_stencil");
+    bool supportPackedDepthStencilBuffer = (m_attrs.stencil || m_attrs.depth) && getExtensions().supports("GL_OES_packed_depth_stencil");
 
     // Resize regular FBO.
     bool mustRestoreFBO = false;
@@ -110,19 +110,25 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
         ::glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    Extensions3DOpenGLES* extensions = static_cast<Extensions3DOpenGLES*>(getExtensions());
-    if (extensions->isImagination() && m_attrs.antialias) {
+#if USE(COORDINATED_GRAPHICS_THREADED)
+        ::glBindTexture(GL_TEXTURE_2D, m_intermediateTexture);
+        ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
+        ::glBindTexture(GL_TEXTURE_2D, 0);
+#endif
+
+    Extensions3DOpenGLES& extensions = static_cast<Extensions3DOpenGLES&>(getExtensions());
+    if (extensions.isImagination() && m_attrs.antialias) {
         GLint maxSampleCount;
         ::glGetIntegerv(Extensions3D::MAX_SAMPLES_IMG, &maxSampleCount); 
         GLint sampleCount = std::min(8, maxSampleCount);
 
-        extensions->framebufferTexture2DMultisampleIMG(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0, sampleCount);
+        extensions.framebufferTexture2DMultisampleIMG(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0, sampleCount);
 
         if (m_attrs.stencil || m_attrs.depth) {
             // Use a 24 bit depth buffer where we know we have it.
             if (supportPackedDepthStencilBuffer) {
                 ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
-                extensions->renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH24_STENCIL8_OES, width, height);
+                extensions.renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH24_STENCIL8_OES, width, height);
                 if (m_attrs.stencil)
                     ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_depthStencilBuffer);
                 if (m_attrs.depth)
@@ -130,12 +136,12 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
             } else {
                 if (m_attrs.stencil) {
                     ::glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBuffer);
-                    extensions->renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_STENCIL_INDEX8, width, height);
+                    extensions.renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_STENCIL_INDEX8, width, height);
                     ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
                 }
                 if (m_attrs.depth) {
                     ::glBindRenderbuffer(GL_RENDERBUFFER, m_depthBuffer);
-                    extensions->renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH_COMPONENT16, width, height);
+                    extensions.renderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, GL_DEPTH_COMPONENT16, width, height);
                     ::glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBuffer);
                 }
             }
@@ -216,11 +222,8 @@ void GraphicsContext3D::validateAttributes()
 {
     validateDepthStencil("GL_OES_packed_depth_stencil");
 
-    if (m_attrs.antialias) {
-        Extensions3D* extensions = getExtensions();
-        if (!extensions->supports("GL_IMG_multisampled_render_to_texture"))
-            m_attrs.antialias = false;
-    }
+    if (m_attrs.antialias && !getExtensions().supports("GL_IMG_multisampled_render_to_texture"))
+        m_attrs.antialias = false;
 }
 
 void GraphicsContext3D::depthRange(GC3Dclampf zNear, GC3Dclampf zFar)
@@ -235,12 +238,14 @@ void GraphicsContext3D::clearDepth(GC3Dclampf depth)
     ::glClearDepthf(depth);
 }
 
-Extensions3D* GraphicsContext3D::getExtensions()
+#if !PLATFORM(GTK)
+Extensions3D& GraphicsContext3D::getExtensions()
 {
     if (!m_extensions)
-        m_extensions = std::make_unique<Extensions3DOpenGLES>(this);
-    return m_extensions.get();
+        m_extensions = std::make_unique<Extensions3DOpenGLES>(this, isGLES2Compliant());
+    return *m_extensions;
 }
+#endif
 
 }
 

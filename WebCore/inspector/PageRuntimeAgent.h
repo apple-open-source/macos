@@ -29,8 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PageRuntimeAgent_h
-#define PageRuntimeAgent_h
+#pragma once
 
 #include "InspectorWebAgentBase.h"
 #include <inspector/InspectorFrontendDispatchers.h>
@@ -38,10 +37,6 @@
 
 namespace JSC {
 class ExecState;
-}
-
-namespace Inspector {
-class InjectedScriptManager;
 }
 
 namespace WebCore {
@@ -63,7 +58,7 @@ public:
     void enable(ErrorString&) override;
     void disable(ErrorString&) override;
 
-    // InspectorInstrumentation callbacks.
+    // InspectorInstrumentation
     void didCreateMainWorldContext(Frame&);
 
 private:
@@ -83,5 +78,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // !defined(InspectorPagerAgent_h)

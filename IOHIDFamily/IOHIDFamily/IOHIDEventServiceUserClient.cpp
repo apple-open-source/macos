@@ -28,7 +28,7 @@
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
 #include <sys/proc.h>
-
+#include <IOKit/hidsystem/IOHIDShared.h>
 
 #define kQueueSizeMin   0
 #define kQueueSizeFake  128
@@ -327,13 +327,12 @@ IOReturn IOHIDEventServiceUserClient::open(IOOptionBits options)
     _options = options;
     
     if (!_owner->open(  this,
-                        options, 
+                        options | kIOHIDOpenedByEventSystem,
                         NULL, 
                         OSMemberFunctionCast(IOHIDEventService::Action, 
                         this, &IOHIDEventServiceUserClient::eventServiceCallback)) ) {
        return kIOReturnExclusiveAccess;
     }
-    
     OSBitOrAtomic(kUserClientStateOpen, &_state);
     
     return kIOReturnSuccess;
@@ -359,7 +358,7 @@ IOReturn IOHIDEventServiceUserClient::close()
     uint32_t state = _state;
     
     if (_owner && state == kUserClientStateOpen) {
-      _owner->close(this, _options);
+      _owner->close(this, _options | kIOHIDOpenedByEventSystem);
     }
 
     return kIOReturnSuccess;

@@ -40,6 +40,8 @@
 #include <security_utilities/logging.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/alloc.h>
+#include <security_utilities/casts.h>
+#include <utilities/SecCFRelease.h>
 #include <Security/Authorization.h>
 #include <Security/cssmapplePriv.h>
 #include <Security/oidscert.h>
@@ -179,6 +181,7 @@ static bool tsCheckPolicyStr(
 		if (certPolicyStrNoNULL == NULL) {
 			/* I really don't see how this can happen either */
 			trustSettingsEvalDbg("tsCheckPolicyStr: policyStr string conversion error 2");
+            CFReleaseNull(cfPolicyStr);
 			return false;
 		}
 
@@ -628,10 +631,6 @@ bool TrustSettings::evaluateCert(
 
 	/* get trust settings dictionary for this cert */
 	CFDictionaryRef certDict = findDictionaryForCertHash(certHashStr);
-	if((certDict == NULL) && isRootCert) {
-		/* No? How about default root setting for this domain? */
-		certDict = findDictionaryForCertHash(kSecTrustRecordDefaultRootCert);
-	}
 #if CERT_HASH_DEBUG
 	/* @@@ debug only @@@ */
 	/* print certificate hash and found dictionary reference */
@@ -807,7 +806,7 @@ void TrustSettings::findQualifiedCerts(
 	CFRef<CFMutableSetRef> certSet(CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks));
 
 	/* search: all certs, no attributes */
-	KCCursor cursor(keychains, CSSM_DL_DB_RECORD_X509_CERTIFICATE, NULL);
+	KCCursor cursor(keychains, (SecItemClass) CSSM_DL_DB_RECORD_X509_CERTIFICATE, NULL);
 	Item certItem;
 	bool found;
 	unsigned int total=0, entries=0, qualified=0;
@@ -817,9 +816,7 @@ void TrustSettings::findQualifiedCerts(
 			break;
 		}
 		++total;
-	#if !SECTRUST_OSX
-		CFRef<SecCertificateRef> certRef((SecCertificateRef)certItem->handle());
-	#else
+
 		/* must convert to unified SecCertificateRef */
 		SecPointer<Certificate> certificate(static_cast<Certificate *>(&*certItem));
         CssmData certCssmData;
@@ -832,7 +829,6 @@ void TrustSettings::findQualifiedCerts(
 		}
 		CFRef<CFDataRef> cfDataRef(CFDataCreate(NULL, certCssmData.Data, certCssmData.Length));
 		CFRef<SecCertificateRef> certRef(SecCertificateCreateWithData(NULL, cfDataRef));
-	#endif
 
 		/* do we have an entry for this cert? */
 		CFDictionaryRef certDict = findDictionaryForCert(certRef);
@@ -937,7 +933,7 @@ CFArrayRef TrustSettings::copyTrustSettings(
 			SecPolicyRef policyRef = NULL;
 			if (CFDataGetTypeID() == CFGetTypeID(certPolicy)) {
 				/* convert OID as CFDataRef to SecPolicyRef */
-				CSSM_OID policyOid = { CFDataGetLength((CFDataRef)certPolicy),
+				CSSM_OID policyOid = { int_cast<CFIndex, CSSM_SIZE>(CFDataGetLength((CFDataRef)certPolicy)),
 					(uint8 *)CFDataGetBytePtr((CFDataRef)certPolicy) };
 				OSStatus ortn = SecPolicyCopy(CSSM_CERT_X_509v3, &policyOid, &policyRef);
 				if(ortn) {
@@ -1306,7 +1302,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 			ortn = errSecParam;
 			break;
 		}
-		result = resultNum;
+		result = (SecTrustSettingsResult) resultNum;
 		/* validate result later */
 
 		keyUsage   = (CFNumberRef)CFDictionaryGetValue(ucDict, kSecTrustSettingsKeyUsage);
@@ -1597,11 +1593,7 @@ void TrustSettings::copyIssuerAndSerial(
 	CFDataRef			*issuer,		/* optional, RETURNED */
 	CFDataRef			*serial)		/* RETURNED */
 {
-#if SECTRUST_OSX
 	CFRef<SecCertificateRef> certificate = SecCertificateCreateItemImplInstance(certRef);
-#else
-	CFRef<SecCertificateRef> certificate = (SecCertificateRef) ((certRef) ? CFRetain(certRef) : NULL);
-#endif
 
 	SecPointer<Certificate> cert = Certificate::required(certificate);
 	CSSM_DATA_PTR fieldVal;

@@ -603,7 +603,7 @@ ast{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wolof"}
-        wuu{"chinu wu"}
+        wuu{"shanghainese"}
         xal{"calmuco"}
         xh{"xhosa"}
         xmf{"mingrelianu"}

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "JSCustomXPathNSResolver.h"
 
+#include "CommonVM.h"
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
@@ -69,7 +70,7 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
 {
     ASSERT(m_customResolver);
 
-    JSLockHolder lock(JSDOMWindowBase::commonVM());
+    JSLockHolder lock(commonVM());
 
     ExecState* exec = m_globalObject->globalExec();
         
@@ -91,7 +92,7 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
     MarkedArgumentBuffer args;
     args.append(jsStringWithCache(exec, prefix));
 
-    NakedPtr<Exception> exception;
+    NakedPtr<JSC::Exception> exception;
     JSValue retval = JSMainThreadExecState::call(exec, function, callType, callData, m_customResolver.get(), args, exception);
 
     String result;
@@ -99,7 +100,7 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
         reportException(exec, exception);
     else {
         if (!retval.isUndefinedOrNull())
-            result = retval.toString(exec)->value(exec);
+            result = retval.toWTFString(exec);
     }
 
     return result;

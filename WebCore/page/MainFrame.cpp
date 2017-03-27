@@ -31,8 +31,8 @@
 #include "PageConfiguration.h"
 #include "PageOverlayController.h"
 #include "PaymentCoordinator.h"
+#include "PerformanceLogging.h"
 #include "ScrollLatchingState.h"
-#include "Settings.h"
 #include "WheelEventDeltaFilter.h"
 #include <wtf/NeverDestroyed.h>
 
@@ -53,6 +53,7 @@ inline MainFrame::MainFrame(Page& page, PageConfiguration& configuration)
 #if ENABLE(APPLE_PAY)
     , m_paymentCoordinator(std::make_unique<PaymentCoordinator>(*configuration.paymentCoordinatorClient))
 #endif
+    , m_performanceLogging(std::make_unique<PerformanceLogging>(*this))
 {
 }
 
@@ -93,6 +94,12 @@ void MainFrame::dropChildren()
 {
     while (Frame* child = tree().firstChild())
         tree().removeChild(child);
+}
+
+void MainFrame::didCompleteLoad()
+{
+    m_timeOfLastCompletedLoad = MonotonicTime::now();
+    performanceLogging().didReachPointOfInterest(PerformanceLogging::MainFrameLoadCompleted);
 }
 
 #if PLATFORM(MAC)

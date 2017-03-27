@@ -23,11 +23,9 @@
     pages from the web. It has a memory cache for these objects.
 */
 
-#ifndef CachedCSSStyleSheet_h
-#define CachedCSSStyleSheet_h
+#pragma once
 
 #include "CachedResource.h"
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -38,7 +36,7 @@ namespace WebCore {
 
     class CachedCSSStyleSheet final : public CachedResource {
     public:
-        CachedCSSStyleSheet(const ResourceRequest&, const String& charset, SessionID);
+        CachedCSSStyleSheet(CachedResourceRequest&&, SessionID);
         virtual ~CachedCSSStyleSheet();
 
         enum class MIMETypeCheck { Strict, Lax };
@@ -49,18 +47,20 @@ namespace WebCore {
 
     private:
         bool canUseSheet(MIMETypeCheck, bool* hasValidMIMEType) const;
-        bool mayTryReplaceEncodedData() const override { return true; }
+        bool mayTryReplaceEncodedData() const final { return true; }
 
-        void didAddClient(CachedResourceClient*) override;
+        void didAddClient(CachedResourceClient&) final;
 
-        void setEncoding(const String&) override;
-        String encoding() const override;
-        const TextResourceDecoder* textResourceDecoder() const override { return m_decoder.get(); }
-        void finishLoading(SharedBuffer*) override;
-        void destroyDecodedData() override;
+        void setEncoding(const String&) final;
+        String encoding() const final;
+        const TextResourceDecoder* textResourceDecoder() const final { return m_decoder.get(); }
+        void finishLoading(SharedBuffer*) final;
+        void destroyDecodedData() final;
+
+        void setBodyDataFrom(const CachedResource&) final;
 
     protected:
-        void checkNotify() override;
+        void checkNotify() final;
 
         RefPtr<TextResourceDecoder> m_decoder;
         String m_decodedSheetText;
@@ -71,5 +71,3 @@ namespace WebCore {
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CACHED_RESOURCE(CachedCSSStyleSheet, CachedResource::CSSStyleSheet)
-
-#endif // CachedCSSStyleSheet_h

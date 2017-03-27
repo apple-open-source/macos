@@ -24,6 +24,7 @@
 #include "config.h"
 #include "ScriptElement.h"
 
+#include "CachedModuleScript.h"
 #include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
 #include "CachedScript.h"
@@ -37,8 +38,12 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "IgnoreDestructiveWriteCountIncrementer.h"
+#include "LoadableClassicScript.h"
+#include "LoadableModuleScript.h"
 #include "MIMETypeRegistry.h"
 #include "Page.h"
+#include "NoEventDispatchAssertion.h"
+#include "PendingScript.h"
 #include "SVGNames.h"
 #include "SVGScriptElement.h"
 #include "ScriptController.h"
@@ -48,8 +53,6 @@
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "TextNodeTraversal.h"
-#include <bindings/ScriptValue.h>
-#include <inspector/ScriptCallStack.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
@@ -68,15 +71,10 @@ ScriptElement::ScriptElement(Element& element, bool parserInserted, bool already
     , m_willExecuteWhenDocumentFinishedParsing(false)
     , m_forceAsync(!parserInserted)
     , m_willExecuteInOrder(false)
-    , m_requestUsesAccessControl(false)
+    , m_isModuleScript(false)
 {
     if (parserInserted && m_element.document().scriptableDocumentParser() && !m_element.document().isInDocumentWrite())
         m_startLineNumber = m_element.document().scriptableDocumentParser()->textPosition().m_line;
-}
-
-ScriptElement::~ScriptElement()
-{
-    stopLoadRequest();
 }
 
 bool ScriptElement::shouldCallFinishedInsertingSubtree(ContainerNode& insertionPoint)
@@ -90,15 +88,15 @@ void ScriptElement::finishedInsertingSubtree()
     prepareScript(); // FIXME: Provide a real starting line number here.
 }
 
-void ScriptElement::childrenChanged()
+void ScriptElement::childrenChanged(const ContainerNode::ChildChange& childChange)
 {
-    if (!m_parserInserted && m_element.inDocument())
+    if (!m_parserInserted && childChange.isInsertion() && m_element.inDocument())
         prepareScript(); // FIXME: Provide a real starting line number here.
 }
 
-void ScriptElement::handleSourceAttribute(const String& sourceUrl)
+void ScriptElement::handleSourceAttribute(const String& sourceURL)
 {
-    if (ignoresLoadRequest() || sourceUrl.isEmpty())
+    if (ignoresLoadRequest() || sourceURL.isEmpty())
         return;
 
     prepareScript(); // FIXME: Provide a real starting line number here.
@@ -145,7 +143,7 @@ void ScriptElement::dispatchErrorEvent()
     m_element.dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 }
 
-bool ScriptElement::isScriptTypeSupported(LegacyTypeSupport supportLegacyTypes) const
+std::optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport supportLegacyTypes) const
 {
     // FIXME: isLegacySupportedJavaScriptLanguage() is not valid HTML5. It is used here to maintain backwards compatibility with existing layout tests. The specific violations are:
     // - Allowing type=javascript. type= should only support MIME types, such as text/javascript.
@@ -154,18 +152,33 @@ bool ScriptElement::isScriptTypeSupported(LegacyTypeSupport supportLegacyTypes) 
     String language = languageAttributeValue();
     if (type.isEmpty()) {
         if (language.isEmpty())
-            return true; // Assume text/javascript.
+            return ScriptType::Classic; // Assume text/javascript.
         if (MIMETypeRegistry::isSupportedJavaScriptMIMEType("text/" + language))
-            return true;
+            return ScriptType::Classic;
         if (isLegacySupportedJavaScriptLanguage(language))
-            return true;
-        return false;
+            return ScriptType::Classic;
+        return std::nullopt;
     }
     if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace()))
-        return true;
+        return ScriptType::Classic;
     if (supportLegacyTypes == AllowLegacyTypeInTypeAttribute && isLegacySupportedJavaScriptLanguage(type))
-        return true;
-    return false;
+        return ScriptType::Classic;
+
+    // FIXME: XHTML spec defines "defer" attribute. But WebKit does not implement it for a long time.
+    // And module tag also uses defer attribute semantics. We disable script type="module" for non HTML document.
+    // Once "defer" is implemented, we can reconsider enabling modules in XHTML.
+    // https://bugs.webkit.org/show_bug.cgi?id=123387
+    if (!m_element.document().isHTMLDocument())
+        return std::nullopt;
+
+    auto* settings = m_element.document().settings();
+    if (!settings || !settings->es6ModulesEnabled())
+        return std::nullopt;
+    // https://html.spec.whatwg.org/multipage/scripting.html#attr-script-type
+    // Setting the attribute to an ASCII case-insensitive match for the string "module" means that the script is a module script.
+    if (equalLettersIgnoringASCIICase(type, "module"))
+        return ScriptType::Module;
+    return std::nullopt;
 }
 
 // http://dev.w3.org/html5/spec/Overview.html#prepare-a-script
@@ -191,8 +204,12 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
     if (!m_element.inDocument())
         return false;
 
-    if (!isScriptTypeSupported(supportLegacyTypes))
+    ScriptType scriptType = ScriptType::Classic;
+    if (std::optional<ScriptType> result = determineScriptType(supportLegacyTypes))
+        scriptType = result.value();
+    else
         return false;
+    m_isModuleScript = scriptType == ScriptType::Module;
 
     if (wasParserInserted) {
         m_parserInserted = true;
@@ -213,75 +230,82 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
     if (!document.frame()->script().canExecuteScripts(AboutToExecuteScript))
         return false;
 
-    if (!isScriptForEventSupported())
+    if (scriptType == ScriptType::Classic && !isScriptForEventSupported())
         return false;
 
+    // According to the spec, the module tag ignores the "charset" attribute as the same to the worker's
+    // importScript. But WebKit supports the "charset" for importScript intentionally. So to be consistent,
+    // even for the module tags, we handle the "charset" attribute.
     if (!charsetAttributeValue().isEmpty())
         m_characterEncoding = charsetAttributeValue();
     else
         m_characterEncoding = document.charset();
 
-    if (hasSourceAttribute())
-        if (!requestScript(sourceAttributeValue()))
+    if (scriptType == ScriptType::Classic) {
+        if (hasSourceAttribute()) {
+            if (!requestClassicScript(sourceAttributeValue()))
+                return false;
+        }
+    } else {
+        ASSERT(scriptType == ScriptType::Module);
+        if (!requestModuleScript(scriptStartPosition))
             return false;
+    }
 
-    if (hasSourceAttribute() && deferAttributeValue() && m_parserInserted && !asyncAttributeValue()) {
+    // All the inlined module script is handled by requestModuleScript. It produces LoadableModuleScript and inlined module script
+    // is handled as the same to the external module script.
+
+    bool isClassicExternalScript = scriptType == ScriptType::Classic && hasSourceAttribute();
+    bool isParserInsertedDeferredScript = ((isClassicExternalScript && deferAttributeValue()) || scriptType == ScriptType::Module)
+        && m_parserInserted && !asyncAttributeValue();
+    if (isParserInsertedDeferredScript) {
         m_willExecuteWhenDocumentFinishedParsing = true;
         m_willBeParserExecuted = true;
-    } else if (hasSourceAttribute() && m_parserInserted && !asyncAttributeValue())
+    } else if (isClassicExternalScript && m_parserInserted && !asyncAttributeValue()) {
+        ASSERT(scriptType == ScriptType::Classic);
         m_willBeParserExecuted = true;
-    else if (!hasSourceAttribute() && m_parserInserted && !document.haveStylesheetsLoaded()) {
+    } else if ((isClassicExternalScript || scriptType == ScriptType::Module) && !asyncAttributeValue() && !m_forceAsync) {
+        m_willExecuteInOrder = true;
+        ASSERT(m_loadableScript);
+        document.scriptRunner()->queueScriptForExecution(this, *m_loadableScript, ScriptRunner::IN_ORDER_EXECUTION);
+    } else if (hasSourceAttribute() || scriptType == ScriptType::Module) {
+        ASSERT(m_loadableScript);
+        ASSERT(asyncAttributeValue() || m_forceAsync);
+        document.scriptRunner()->queueScriptForExecution(this, *m_loadableScript, ScriptRunner::ASYNC_EXECUTION);
+    } else if (!hasSourceAttribute() && m_parserInserted && !document.haveStylesheetsLoaded()) {
+        ASSERT(scriptType == ScriptType::Classic);
         m_willBeParserExecuted = true;
         m_readyToBeParserExecuted = true;
-    } else if (hasSourceAttribute() && !asyncAttributeValue() && !m_forceAsync) {
-        m_willExecuteInOrder = true;
-        document.scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::IN_ORDER_EXECUTION);
-        m_cachedScript->addClient(this);
-    } else if (hasSourceAttribute()) {
-        m_element.document().scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::ASYNC_EXECUTION);
-        m_cachedScript->addClient(this);
     } else {
-        // Reset line numbering for nested writes.
+        ASSERT(scriptType == ScriptType::Classic);
         TextPosition position = document.isInDocumentWrite() ? TextPosition() : scriptStartPosition;
-        executeScript(ScriptSourceCode(scriptContent(), document.url(), position));
+        executeClassicScript(ScriptSourceCode(scriptContent(), document.url(), position, JSC::SourceProviderSourceType::Program));
     }
 
     return true;
 }
 
-bool ScriptElement::requestScript(const String& sourceUrl)
+bool ScriptElement::requestClassicScript(const String& sourceURL)
 {
     Ref<Document> originalDocument(m_element.document());
-    if (!m_element.dispatchBeforeLoadEvent(sourceUrl))
+    if (!m_element.dispatchBeforeLoadEvent(sourceURL))
         return false;
-    if (!m_element.inDocument() || &m_element.document() != originalDocument.ptr())
+    bool didEventListenerDisconnectThisElement = !m_element.inDocument() || &m_element.document() != originalDocument.ptr();
+    if (didEventListenerDisconnectThisElement)
         return false;
 
-    ASSERT(!m_cachedScript);
-    if (!stripLeadingAndTrailingHTMLSpaces(sourceUrl).isEmpty()) {
-        bool hasKnownNonce = m_element.document().contentSecurityPolicy()->allowScriptWithNonce(m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr), m_element.isInUserAgentShadowTree());
-        ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
-        options.setContentSecurityPolicyImposition(hasKnownNonce ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck);
-
-        CachedResourceRequest request(ResourceRequest(m_element.document().completeURL(sourceUrl)), options);
-
-        m_element.document().contentSecurityPolicy()->upgradeInsecureRequestIfNeeded(request.mutableResourceRequest(), ContentSecurityPolicy::InsecureRequestType::Load);
-
+    ASSERT(!m_loadableScript);
+    if (!stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
+        String nonceAttribute = m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr);
         String crossOriginMode = m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
-        if (!crossOriginMode.isNull()) {
-            m_requestUsesAccessControl = true;
-            StoredCredentials allowCredentials = equalLettersIgnoringASCIICase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
-            ASSERT(m_element.document().securityOrigin());
-            updateRequestForAccessControl(request.mutableResourceRequest(), *m_element.document().securityOrigin(), allowCredentials);
+        auto request = requestScriptWithCache(m_element.document().completeURL(sourceURL), nonceAttribute, crossOriginMode);
+        if (request) {
+            m_loadableScript = LoadableClassicScript::create(WTFMove(request));
+            m_isExternalScript = true;
         }
-        request.setCharset(scriptCharset());
-        request.setInitiator(&element());
-
-        m_cachedScript = m_element.document().cachedResourceLoader().requestScript(request);
-        m_isExternalScript = true;
     }
 
-    if (m_cachedScript)
+    if (m_loadableScript)
         return true;
 
     callOnMainThread([this, element = Ref<Element>(m_element)] {
@@ -290,8 +314,89 @@ bool ScriptElement::requestScript(const String& sourceUrl)
     return false;
 }
 
-void ScriptElement::executeScript(const ScriptSourceCode& sourceCode)
+bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
 {
+    String nonce = m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr);
+    String crossOriginMode = m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
+    if (crossOriginMode.isNull())
+        crossOriginMode = ASCIILiteral("omit");
+
+    if (hasSourceAttribute()) {
+        String sourceURL = sourceAttributeValue();
+        Ref<Document> originalDocument(m_element.document());
+        if (!m_element.dispatchBeforeLoadEvent(sourceURL))
+            return false;
+
+        bool didEventListenerDisconnectThisElement = !m_element.inDocument() || &m_element.document() != originalDocument.ptr();
+        if (didEventListenerDisconnectThisElement)
+            return false;
+
+        if (stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
+            dispatchErrorEvent();
+            return false;
+        }
+
+        auto moduleScriptRootURL = m_element.document().completeURL(sourceURL);
+        if (!moduleScriptRootURL.isValid()) {
+            dispatchErrorEvent();
+            return false;
+        }
+
+        m_isExternalScript = true;
+        auto moduleScript = CachedModuleScript::create(nonce, crossOriginMode);
+        m_loadableScript = LoadableModuleScript::create(moduleScript.get());
+        moduleScript->load(m_element, moduleScriptRootURL);
+        return true;
+    }
+
+    TextPosition position = m_element.document().isInDocumentWrite() ? TextPosition() : scriptStartPosition;
+    ScriptSourceCode sourceCode(scriptContent(), m_element.document().url(), position, JSC::SourceProviderSourceType::Module);
+
+    ASSERT(m_element.document().contentSecurityPolicy());
+    const auto& contentSecurityPolicy = *m_element.document().contentSecurityPolicy();
+    bool hasKnownNonce = contentSecurityPolicy.allowScriptWithNonce(nonce, m_element.isInUserAgentShadowTree());
+    if (!contentSecurityPolicy.allowInlineScript(m_element.document().url(), m_startLineNumber, sourceCode.source().toStringWithoutCopying(), hasKnownNonce))
+        return false;
+
+    auto moduleScript = CachedModuleScript::create(nonce, crossOriginMode);
+    m_loadableScript = LoadableModuleScript::create(moduleScript.get());
+    moduleScript->load(m_element, sourceCode);
+    return true;
+}
+
+CachedResourceHandle<CachedScript> ScriptElement::requestScriptWithCacheForModuleScript(const URL& sourceURL)
+{
+    ASSERT(m_loadableScript);
+    ASSERT(is<LoadableModuleScript>(*m_loadableScript));
+    auto& moduleScript = downcast<LoadableModuleScript>(*m_loadableScript);
+    return requestScriptWithCache(sourceURL, moduleScript.moduleScript().nonce(), moduleScript.moduleScript().crossOriginMode());
+}
+
+CachedResourceHandle<CachedScript> ScriptElement::requestScriptWithCache(const URL& sourceURL, const String& nonceAttribute, const String& crossOriginMode)
+{
+    Document& document = m_element.document();
+    auto* settings = document.settings();
+    if (settings && !settings->isScriptEnabled())
+        return nullptr;
+
+    ASSERT(document.contentSecurityPolicy());
+    bool hasKnownNonce = document.contentSecurityPolicy()->allowScriptWithNonce(nonceAttribute, m_element.isInUserAgentShadowTree());
+    ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
+    options.contentSecurityPolicyImposition = hasKnownNonce ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
+
+    CachedResourceRequest request(ResourceRequest(sourceURL), options);
+    request.setAsPotentiallyCrossOrigin(crossOriginMode, document);
+    request.upgradeInsecureRequestIfNeeded(document);
+
+    request.setCharset(scriptCharset());
+    request.setInitiator(&element());
+
+    return document.cachedResourceLoader().requestScript(WTFMove(request));
+}
+
+void ScriptElement::executeClassicScript(const ScriptSourceCode& sourceCode)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::isEventAllowedInMainThread());
     ASSERT(m_alreadyStarted);
 
     if (sourceCode.isEmpty())
@@ -305,72 +410,57 @@ void ScriptElement::executeScript(const ScriptSourceCode& sourceCode)
             return;
     }
 
-#if ENABLE(NOSNIFF)
-    if (m_isExternalScript && m_cachedScript && !m_cachedScript->mimeTypeAllowedByNosniff()) {
-        m_element.document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Refused to execute script from '" + m_cachedScript->url().stringCenterEllipsizedToLength() + "' because its MIME type ('" + m_cachedScript->mimeType() + "') is not executable, and strict MIME type checking is enabled.");
+    auto& document = m_element.document();
+    auto* frame = document.frame();
+    if (!frame)
         return;
-    }
-#endif
 
-    Ref<Document> document(m_element.document());
-    if (Frame* frame = document->frame()) {
-        IgnoreDestructiveWriteCountIncrementer ignoreDesctructiveWriteCountIncrementer(m_isExternalScript ? document.ptr() : nullptr);
-        CurrentScriptIncrementer currentScriptIncrementer(document, m_element);
+    IgnoreDestructiveWriteCountIncrementer ignoreDesctructiveWriteCountIncrementer(m_isExternalScript ? &document : nullptr);
+    CurrentScriptIncrementer currentScriptIncrementer(document, m_element);
 
-        // Create a script from the script element node, using the script
-        // block's source and the script block's type.
-        // Note: This is where the script is compiled and actually executed.
-        frame->script().evaluate(sourceCode);
-    }
+    frame->script().evaluate(sourceCode);
 }
 
-void ScriptElement::stopLoadRequest()
+void ScriptElement::executeModuleScript(CachedModuleScript& moduleScript)
 {
-    if (m_cachedScript) {
-        if (!m_willBeParserExecuted)
-            m_cachedScript->removeClient(this);
-        m_cachedScript = nullptr;
-    }
+    // https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-block
+
+    ASSERT(!moduleScript.error());
+
+    auto& document = m_element.document();
+    auto* frame = document.frame();
+    if (!frame)
+        return;
+
+    IgnoreDestructiveWriteCountIncrementer ignoreDesctructiveWriteCountIncrementer(&document);
+    CurrentScriptIncrementer currentScriptIncrementer(document, m_element);
+
+    frame->script().linkAndEvaluateModuleScript(moduleScript, element());
 }
 
-void ScriptElement::execute(CachedScript* cachedScript)
+void ScriptElement::executeScriptAndDispatchEvent(LoadableScript& loadableScript)
 {
-    ASSERT(!m_willBeParserExecuted);
-    ASSERT(cachedScript);
-    if (cachedScript->errorOccurred())
+    if (std::optional<LoadableScript::Error> error = loadableScript.error()) {
+        if (std::optional<LoadableScript::ConsoleMessage> message = error->consoleMessage)
+            m_element.document().addConsoleMessage(message->source, message->level, message->message);
         dispatchErrorEvent();
-    else if (!cachedScript->wasCanceled()) {
-        executeScript(ScriptSourceCode(cachedScript));
+    } else if (!loadableScript.wasCanceled()) {
+        ASSERT(!loadableScript.error());
+        loadableScript.execute(*this);
         dispatchLoadEvent();
     }
-    cachedScript->removeClient(this);
 }
 
-void ScriptElement::notifyFinished(CachedResource* resource)
+void ScriptElement::executePendingScript(PendingScript& pendingScript)
 {
-    ASSERT(!m_willBeParserExecuted);
-
-    // CachedResource possibly invokes this notifyFinished() more than
-    // once because ScriptElement doesn't unsubscribe itself from
-    // CachedResource here and does it in execute() instead.
-    // We use m_cachedScript to check if this function is already called.
-    ASSERT_UNUSED(resource, resource == m_cachedScript);
-    if (!m_cachedScript)
-        return;
-
-    if (m_requestUsesAccessControl && !m_cachedScript->passesSameOriginPolicyCheck(*m_element.document().securityOrigin())) {
-        dispatchErrorEvent();
-        static NeverDestroyed<String> consoleMessage(ASCIILiteral("Cross-origin script load denied by Cross-Origin Resource Sharing policy."));
-        m_element.document().addConsoleMessage(MessageSource::JS, MessageLevel::Error, consoleMessage);
-        return;
+    if (auto* loadableScript = pendingScript.loadableScript())
+        executeScriptAndDispatchEvent(*loadableScript);
+    else {
+        ASSERT(!pendingScript.error());
+        ASSERT_WITH_MESSAGE(scriptType() == ScriptType::Classic, "Module script always have a loadableScript pointer.");
+        executeClassicScript(ScriptSourceCode(scriptContent(), m_element.document().url(), pendingScript.startingPosition(), JSC::SourceProviderSourceType::Program));
+        dispatchLoadEvent();
     }
-
-    if (m_willExecuteInOrder)
-        m_element.document().scriptRunner()->notifyScriptReady(this, ScriptRunner::IN_ORDER_EXECUTION);
-    else
-        m_element.document().scriptRunner()->notifyScriptReady(this, ScriptRunner::ASYNC_EXECUTION);
-
-    m_cachedScript = nullptr;
 }
 
 bool ScriptElement::ignoresLoadRequest() const

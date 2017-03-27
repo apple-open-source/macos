@@ -550,7 +550,8 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 	}
 
 	// write out all CodeDirectories
-	cdSet.populate(writer);
+	if (!state.mDryRun)
+		cdSet.populate(writer);
 
 	CFRef<CFArrayRef> hashes = cdSet.hashBag();
 	CFTemp<CFDictionaryRef> hashDict("{cdhashes=%O}", hashes.get());

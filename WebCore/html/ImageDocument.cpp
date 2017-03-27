@@ -31,11 +31,11 @@
 #include "DocumentLoader.h"
 #include "EventListener.h"
 #include "EventNames.h"
-#include "ExceptionCodePlaceholder.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameView.h"
 #include "HTMLBodyElement.h"
+#include "HTMLHeadElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
@@ -102,7 +102,7 @@ private:
     }
 
     virtual ~ImageDocumentElement();
-    void didMoveToNewDocument(Document* oldDocument) override;
+    void didMoveToNewDocument(Document& oldDocument) override;
 
     ImageDocument* m_imageDocument;
 };
@@ -164,7 +164,7 @@ void ImageDocument::finishedParsing()
             String name = decodeURLEscapeSequences(url().lastPathComponent());
             if (name.isEmpty())
                 name = url().host();
-            setTitle(imageTitle(name, size), IGNORE_EXCEPTION);
+            setTitle(imageTitle(name, size));
         }
 
         imageUpdated();
@@ -210,16 +210,19 @@ Ref<DocumentParser> ImageDocument::createParser()
 
 void ImageDocument::createDocumentStructure()
 {
-    auto rootElement = Document::createElement(htmlTag, false);
+    auto rootElement = HTMLHtmlElement::create(*this);
     appendChild(rootElement);
-    downcast<HTMLHtmlElement>(rootElement.get()).insertedByParser();
+    rootElement->insertedByParser();
 
     frame()->injectUserScripts(InjectAtDocumentStart);
 
-    auto body = Document::createElement(bodyTag, false);
+    auto head = HTMLHeadElement::create(*this);
+    rootElement->appendChild(head);
+
+    auto body = HTMLBodyElement::create(*this);
     body->setAttribute(styleAttr, "margin: 0px");
     if (MIMETypeRegistry::isPDFMIMEType(document().loader()->responseMIMEType()))
-        downcast<HTMLBodyElement>(body.get()).setInlineStyleProperty(CSSPropertyBackgroundColor, "white", CSSPrimitiveValue::CSS_IDENT);
+        body->setInlineStyleProperty(CSSPropertyBackgroundColor, "white", CSSPrimitiveValue::CSS_IDENT);
     rootElement->appendChild(body);
     
     auto imageElement = ImageDocumentElement::create(*this);
@@ -313,8 +316,8 @@ void ImageDocument::restoreImageSize()
         return;
 
     LayoutSize imageSize = this->imageSize();
-    m_imageElement->setWidth(imageSize.width());
-    m_imageElement->setHeight(imageSize.height());
+    m_imageElement->setWidth(imageSize.width().toUnsigned());
+    m_imageElement->setHeight(imageSize.height().toUnsigned());
 
     if (imageFitsInWindow())
         m_imageElement->removeInlineStyleProperty(CSSPropertyCursor);
@@ -422,7 +425,7 @@ ImageDocumentElement::~ImageDocumentElement()
         m_imageDocument->disconnectImageElement();
 }
 
-void ImageDocumentElement::didMoveToNewDocument(Document* oldDocument)
+void ImageDocumentElement::didMoveToNewDocument(Document& oldDocument)
 {
     if (m_imageDocument) {
         m_imageDocument->disconnectImageElement();

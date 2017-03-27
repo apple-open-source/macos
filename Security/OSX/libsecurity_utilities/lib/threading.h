@@ -152,6 +152,13 @@ public:
 	~RecursiveMutex() {}
 };
 
+class NormalMutex : public Mutex
+{
+public:
+    NormalMutex() : Mutex(normal) {}
+    ~NormalMutex() {}
+};
+
 //
 // Condition variables
 //

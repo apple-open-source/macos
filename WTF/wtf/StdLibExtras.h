@@ -28,10 +28,11 @@
 #define WTF_StdLibExtras_h
 
 #include <chrono>
+#include <cstring>
 #include <memory>
-#include <string.h>
 #include <wtf/Assertions.h>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/Compiler.h>
 
 // This was used to declare and define a static local variable (static T;) so that
 //  it was leaked so that its destructors were not called at exit.
@@ -67,14 +68,16 @@
 // NULL can cause compiler problems, especially in cases of multiple inheritance.
 #define OBJECT_OFFSETOF(class, field) (reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<class*>(0x4000)->field)) - 0x4000)
 
+#define CAST_OFFSET(from, to) (reinterpret_cast<uintptr_t>(static_cast<to>((reinterpret_cast<from>(0x4000)))) - 0x4000)
+
 // STRINGIZE: Can convert any value to quoted string, even expandable macros
 #define STRINGIZE(exp) #exp
 #define STRINGIZE_VALUE_OF(exp) STRINGIZE(exp)
 
-// Make "PRId64" format specifier work for Visual C++ on Windows.
-#if OS(WINDOWS) && !defined(PRId64)
-#define PRId64 "lld"
-#endif
+// WTF_CONCAT: concatenate two symbols into one, even expandable macros
+#define WTF_CONCAT_INTERNAL_DONT_USE(a, b) a ## b
+#define WTF_CONCAT(a, b) WTF_CONCAT_INTERNAL_DONT_USE(a, b)
+
 
 /*
  * The reinterpret_cast<Type1*>([pointer to Type2]) expressions - where
@@ -140,18 +143,20 @@ template<typename ToType, typename FromType>
 inline ToType bitwise_cast(FromType from)
 {
     static_assert(sizeof(FromType) == sizeof(ToType), "bitwise_cast size of FromType and ToType must be equal!");
-    union {
-        FromType from;
-        ToType to;
-    } u;
-    u.from = from;
-    return u.to;
+#if COMPILER_SUPPORTS(BUILTIN_IS_TRIVIALLY_COPYABLE)
+    // Not all recent STL implementations support the std::is_trivially_copyable type trait. Work around this by only checking on toolchains which have the equivalent compiler intrinsic.
+    static_assert(__is_trivially_copyable(ToType), "bitwise_cast of non-trivially-copyable type!");
+    static_assert(__is_trivially_copyable(FromType), "bitwise_cast of non-trivially-copyable type!");
+#endif
+    typename std::remove_const<ToType>::type to { };
+    std::memcpy(&to, &from, sizeof(to));
+    return to;
 }
 
 template<typename ToType, typename FromType>
 inline ToType safeCast(FromType value)
 {
-    ASSERT(isInBounds<ToType>(value));
+    RELEASE_ASSERT(isInBounds<ToType>(value));
     return static_cast<ToType>(value);
 }
 
@@ -176,18 +181,27 @@ template<typename T> char (&ArrayLengthHelperFunction(T (&)[0]))[0];
 #endif
 #define WTF_ARRAY_LENGTH(array) sizeof(::WTF::ArrayLengthHelperFunction(array))
 
+ALWAYS_INLINE constexpr size_t roundUpToMultipleOfImpl0(size_t remainderMask, size_t x)
+{
+    return (x + remainderMask) & ~remainderMask;
+}
+
+ALWAYS_INLINE constexpr size_t roundUpToMultipleOfImpl(size_t divisor, size_t x)
+{
+    return roundUpToMultipleOfImpl0(divisor - 1, x);
+}
+
 // Efficient implementation that takes advantage of powers of two.
 inline size_t roundUpToMultipleOf(size_t divisor, size_t x)
 {
     ASSERT(divisor && !(divisor & (divisor - 1)));
-    size_t remainderMask = divisor - 1;
-    return (x + remainderMask) & ~remainderMask;
+    return roundUpToMultipleOfImpl(divisor, x);
 }
 
-template<size_t divisor> inline size_t roundUpToMultipleOf(size_t x)
+template<size_t divisor> inline constexpr size_t roundUpToMultipleOf(size_t x)
 {
     static_assert(divisor && !(divisor & (divisor - 1)), "divisor must be a power of two!");
-    return roundUpToMultipleOf(divisor, x);
+    return roundUpToMultipleOfImpl(divisor, x);
 }
 
 enum BinarySearchMode {
@@ -309,6 +323,91 @@ bool checkAndSet(T& left, U right)
     return true;
 }
 
+template<typename T>
+bool findBitInWord(T word, size_t& index, size_t endIndex, bool value)
+{
+    static_assert(std::is_unsigned<T>::value, "Type used in findBitInWord must be unsigned");
+    
+    word >>= index;
+    
+    while (index < endIndex) {
+        if ((word & 1) == static_cast<T>(value))
+            return true;
+        index++;
+        word >>= 1;
+    }
+    
+    index = endIndex;
+    return false;
+}
+
+// Visitor adapted from http://stackoverflow.com/questions/25338795/is-there-a-name-for-this-tuple-creation-idiom
+
+template <class A, class... B>
+struct Visitor : Visitor<A>, Visitor<B...> {
+    Visitor(A a, B... b)
+        : Visitor<A>(a)
+        , Visitor<B...>(b...)
+    {
+    }
+
+    using Visitor<A>::operator ();
+    using Visitor<B...>::operator ();
+};
+  
+template <class A>
+struct Visitor<A> : A {
+    Visitor(A a)
+        : A(a)
+    {
+    }
+
+    using A::operator();
+};
+ 
+template <class... F>
+Visitor<F...> makeVisitor(F... f)
+{
+    return Visitor<F...>(f...);
+}
+
+namespace Detail
+{
+    template <typename, template <typename...> class>
+    struct IsTemplate_ : std::false_type
+    {
+    };
+
+    template <typename... Ts, template <typename...> class C>
+    struct IsTemplate_<C<Ts...>, C> : std::true_type
+    {
+    };
+}
+
+template <typename T, template <typename...> class Template>
+struct IsTemplate : public std::integral_constant<bool, Detail::IsTemplate_<T, Template>::value> {};
+
+namespace Detail
+{
+    template <template <typename...> class Base, typename Derived>
+    struct IsBaseOfTemplateImpl
+    {
+        template <typename... Args>
+        static std::true_type test(Base<Args...>*);
+        static std::false_type test(void*);
+
+        static constexpr const bool value = decltype(test(std::declval<typename std::remove_cv<Derived>::type*>()))::value;
+    };
+}
+
+template <template <typename...> class Base, typename Derived>
+struct IsBaseOfTemplate : public std::integral_constant<bool, Detail::IsBaseOfTemplateImpl<Base, Derived>::value> {};
+
+template <class T>
+struct RemoveCVAndReference  {
+    typedef typename std::remove_cv<typename std::remove_reference<T>::type>::type type;
+};
+
 } // namespace WTF
 
 // This version of placement new omits a 0 check.
@@ -378,16 +477,19 @@ ALWAYS_INLINE constexpr typename remove_reference<T>::type&& move(T&& value)
 
 using WTF::KB;
 using WTF::MB;
+using WTF::GB;
 using WTF::approximateBinarySearch;
 using WTF::binarySearch;
 using WTF::bitwise_cast;
 using WTF::callStatelessLambda;
 using WTF::checkAndSet;
+using WTF::findBitInWord;
 using WTF::insertIntoBoundedVector;
 using WTF::isCompilationThread;
 using WTF::isPointerAligned;
 using WTF::isStatelessLambda;
 using WTF::is8ByteAligned;
+using WTF::roundUpToMultipleOf;
 using WTF::safeCast;
 using WTF::tryBinarySearch;
 

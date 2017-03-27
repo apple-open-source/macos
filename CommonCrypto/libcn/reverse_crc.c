@@ -22,16 +22,14 @@
  */
 
 
-
+//reverse_crc.c
 #include "crc.h"
 
 
 uint64_t
 crc_reverse_init(crcInfoPtr crc)
 {
-    dispatch_once(&crc->table_init, ^{
-        gen_std_crc_table(crc);
-    });
+    cc_dispatch_once(&crc->table_init, crc, gen_std_crc_table);
     return crc->descriptor->def.parms.initial_value;
 }
 
@@ -79,9 +77,7 @@ crc_reverse_final(crcInfoPtr crc, uint64_t current)
 uint64_t
 crc_reverse_oneshot(crcInfoPtr crc, uint8_t *p, size_t len)
 {
-    dispatch_once(&crc->table_init, ^{
-        gen_std_crc_table(crc);
-    });
+    cc_dispatch_once(&crc->table_init, crc, gen_std_crc_table);
     uint64_t current = crc->descriptor->def.parms.initial_value;
     while (len--) {
         switch (crc->descriptor->def.parms.width) {

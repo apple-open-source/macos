@@ -46,6 +46,7 @@ try
 }
 catch (...)
 {
+    return;	// Prevent re-throw of exception [function-try-block]
 }
 
 Allocator &CSPDLImpl::allocator() const

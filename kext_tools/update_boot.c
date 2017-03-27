@@ -646,6 +646,7 @@ checkRebuildAllCaches(struct bootCaches *caches,
                       int oodLogSpec,
                       Boolean invalidateKextCache,
                       Boolean earlyBootCheckUpdate,
+                      Boolean startupKextsOk,
                       Boolean *anyUpdates)
 {
     int opres, result = ELAST + 1;  // no pathc() [yet]
@@ -693,10 +694,10 @@ checkRebuildAllCaches(struct bootCaches *caches,
         OSKextLog(nil, oodLogSpec, "rebuilding %s%s",
                   caches->root ? caches->root : "/",
                   caches->kext_boot_cache_file->rpath);
-        if ((opres = rebuild_kext_boot_cache_file(
-                                                  caches, true /*wait*/,
+        if ((opres = rebuild_kext_boot_cache_file(caches,
                                                   caches->kext_boot_cache_file->rpath,
-                                                  caches->kernelpath))) {
+                                                  caches->kernelpath,
+                                                  startupKextsOk))) {
             OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
                       "Error %d rebuilding %s", result,
                       caches->kext_boot_cache_file->rpath);
@@ -731,9 +732,9 @@ checkRebuildAllCaches(struct bootCaches *caches,
                 if (invalidateKextCache ||
                     check_kext_boot_cache_file(caches, cp->rpath, tmpKernelPath)) {
                     if ((opres = rebuild_kext_boot_cache_file(caches,
-                                                              true /*wait*/,
                                                               cp->rpath,
-                                                              tmpKernelPath))) {
+                                                              tmpKernelPath,
+                                                              startupKextsOk))){
                         result = opres; goto finish;
                     }
                 }
@@ -1049,8 +1050,8 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 {
     int opres, result = ELAST + 1;          // try to always set on error
     OSKextLogSpec oodLogSpec = kOSKextLogGeneralFlag | kOSKextLogBasicLevel;
-    Boolean earlyBootCheckUpdate;           // used in several places
-    Boolean anyCacheUpdates = false;
+    Boolean earlyBootCheckUpdate;           // derived from opts
+    Boolean anyCacheUpdates = false;        // so -U can reboot w/o helpers
     Boolean doAny = false, cachesUpToDate = false, doMisc;
     Boolean loggedOOD = false;
     struct updatingVol up = { /*NULL...*/ };
@@ -1095,6 +1096,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
     if ((opres = checkRebuildAllCaches(up.caches, oodLogSpec,
                                        (opts & kBRUInvalidateKextcache),
                                        earlyBootCheckUpdate,
+                                       true /* -all-loaded okay */,
                                        &anyCacheUpdates))) {
         result = opres; goto finish;    // error logged by function
     }
@@ -1189,7 +1191,23 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 
     // request actual helper updates
     if ((opres = updateBootHelpers(&up))) {
-        result = opres; goto finish;        // error logged by function
+        // the root volume gets -all-loaded, so if ENOSPC, try without
+        if (opres == ENOSPC && strcmp(up.caches->root, "/") == 0) {
+            OSKextLog(NULL, kOSKextLogWarningLevel,
+                      "Out of space in helper for '/', trying w/o -all-loaded");
+            if ((opres = checkRebuildAllCaches(up.caches, oodLogSpec,
+                                               true /* invalidate cache */,
+                                               earlyBootCheckUpdate,
+                                               false /* no -all-loaded */,
+                                               &anyCacheUpdates))) {
+                result = opres; goto finish;    // error logged by function
+            }
+            // and try updating helpers again
+            opres = updateBootHelpers(&up);
+        }
+        if (opres) {
+            result = opres; goto finish;        // error logged by function
+        }
     }
 
     if ((opres = updateStamps(up.caches, kBCStampsApplyTimes))) {
@@ -1206,8 +1224,6 @@ doneUpdatingHelpers:
     // from "successfully updated:" the latter exits with EX_OSFILE.  During
     // early boot, there is a restricted set of caches that must be updated.
     // In that case, the exit(EX_OSFILE) informs launchd to force a reboot.
-    // FIXME: anyCacheUpdates is redundant: caches are all part of up.doRPS
-    // so any cache update should cause doAny to be true.
     if ((opts & kBRUExpectUpToDate) && (anyCacheUpdates || doAny)) {
         if (earlyBootCheckUpdate) {
             OSKextLog(NULL, oodLogSpec, "%s updated critical boot files, "
@@ -1418,6 +1434,7 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
     errnum = checkRebuildAllCaches(up.caches, kBRCheckLogSpec, 
                                    (opts & kBRUInvalidateKextcache),
                    (opts & kBRUExpectUpToDate) && (opts & kBRUEarlyBoot),
+                                   true, /* -all-loaded okay */
                                    NULL);
     if (errnum) {
         result = errnum; goto finish;
@@ -2516,7 +2533,7 @@ ucopyRPS(struct updatingVol *up)
             if ((bsderr = _writeFDEPropsToHelper(up, dstpath))) {                      
                 rval = bsderr; goto finish;     // error logged by function
             }
-	    
+
         } else {
             // could deny zero-size cookies, busted Mach-O, etc here
             // scopyitem creates any intermediate directories
@@ -2527,8 +2544,8 @@ ucopyRPS(struct updatingVol *up)
                 rval = bsderr == -1 ? errno : bsderr;
                 // erpropcache, efiloccache are optional
                 if (((curItem == up->caches->erpropcache) || (curItem == up->caches->efiloccache)) && (rval == ENOENT)) {
-                    OSKextLog(0,up->errLogSpec,"Should we continue here? %d copying %s to %s: %s",
-                              rval, srcpath, dstpath, strerror(rval));
+                    // ENOENT for these items is fine
+                    continue;
                 } else {
                     OSKextLog(0,up->errLogSpec,"Error %d copying %s to %s: %s",
                               rval, srcpath, dstpath, strerror(rval));

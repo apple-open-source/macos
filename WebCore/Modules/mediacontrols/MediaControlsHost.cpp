@@ -36,6 +36,7 @@
 #include "MediaControlElements.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "RenderTheme.h"
 #include "TextTrack.h"
 #include "TextTrackList.h"
 #include "UUID.h"
@@ -83,31 +84,25 @@ MediaControlsHost::~MediaControlsHost()
 {
 }
 
-Vector<RefPtr<TextTrack>> MediaControlsHost::sortedTrackListForMenu(TextTrackList* trackList)
+Vector<RefPtr<TextTrack>> MediaControlsHost::sortedTrackListForMenu(TextTrackList& trackList)
 {
-    if (!trackList)
-        return Vector<RefPtr<TextTrack>>();
-
     Page* page = m_mediaElement->document().page();
     if (!page)
-        return Vector<RefPtr<TextTrack>>();
+        return { };
 
-    return page->group().captionPreferences().sortedTrackListForMenu(trackList);
+    return page->group().captionPreferences().sortedTrackListForMenu(&trackList);
 }
 
-Vector<RefPtr<AudioTrack>> MediaControlsHost::sortedTrackListForMenu(AudioTrackList* trackList)
+Vector<RefPtr<AudioTrack>> MediaControlsHost::sortedTrackListForMenu(AudioTrackList& trackList)
 {
-    if (!trackList)
-        return Vector<RefPtr<AudioTrack>>();
-
     Page* page = m_mediaElement->document().page();
     if (!page)
-        return Vector<RefPtr<AudioTrack>>();
+        return { };
 
-    return page->group().captionPreferences().sortedTrackListForMenu(trackList);
+    return page->group().captionPreferences().sortedTrackListForMenu(&trackList);
 }
 
-String MediaControlsHost::displayNameForTrack(TextTrack* track)
+String MediaControlsHost::displayNameForTrack(const std::optional<TextOrAudioTrack>& track)
 {
     if (!track)
         return emptyString();
@@ -116,19 +111,9 @@ String MediaControlsHost::displayNameForTrack(TextTrack* track)
     if (!page)
         return emptyString();
 
-    return page->group().captionPreferences().displayNameForTrack(track);
-}
-
-String MediaControlsHost::displayNameForTrack(AudioTrack* track)
-{
-    if (!track)
-        return emptyString();
-
-    Page* page = m_mediaElement->document().page();
-    if (!page)
-        return emptyString();
-
-    return page->group().captionPreferences().displayNameForTrack(track);
+    return WTF::visit([&page](auto& track) {
+        return page->group().captionPreferences().displayNameForTrack(track.get());
+    }, track.value());
 }
 
 TextTrack* MediaControlsHost::captionMenuOffItem()
@@ -141,7 +126,7 @@ TextTrack* MediaControlsHost::captionMenuAutomaticItem()
     return TextTrack::captionMenuAutomaticItem();
 }
 
-AtomicString MediaControlsHost::captionDisplayMode()
+AtomicString MediaControlsHost::captionDisplayMode() const
 {
     Page* page = m_mediaElement->document().page();
     if (!page)
@@ -205,19 +190,24 @@ bool MediaControlsHost::allowsInlineMediaPlayback() const
     return !m_mediaElement->mediaSession().requiresFullscreenForVideoPlayback(*m_mediaElement);
 }
 
-bool MediaControlsHost::supportsFullscreen()
+bool MediaControlsHost::supportsFullscreen() const
 {
     return m_mediaElement->supportsFullscreen(HTMLMediaElementEnums::VideoFullscreenModeStandard);
 }
 
-bool MediaControlsHost::isVideoLayerInline()
+bool MediaControlsHost::isVideoLayerInline() const
 {
     return m_mediaElement->isVideoLayerInline();
 }
 
-void MediaControlsHost::setPreparedForInline(bool value)
+bool MediaControlsHost::isInMediaDocument() const
 {
-    m_mediaElement->setPreparedForInline(value);
+    return m_mediaElement->document().isMediaDocument();
+}
+
+void MediaControlsHost::setPreparedToReturnVideoLayerToInline(bool value)
+{
+    m_mediaElement->setPreparedToReturnVideoLayerToInline(value);
 }
 
 bool MediaControlsHost::userGestureRequired() const
@@ -281,6 +271,22 @@ void MediaControlsHost::setControlsDependOnPageScaleFactor(bool value)
 String MediaControlsHost::generateUUID() const
 {
     return createCanonicalUUIDString();
+}
+
+String MediaControlsHost::shadowRootCSSText() const
+{
+    Page* page = m_mediaElement->document().page();
+    if (!page)
+        return emptyString();
+    return RenderTheme::themeForPage(page)->mediaControlsStyleSheet();
+}
+
+String MediaControlsHost::base64StringForIconAndPlatform(const String& iconName, const String& platform) const
+{
+    Page* page = m_mediaElement->document().page();
+    if (!page)
+        return emptyString();
+    return RenderTheme::themeForPage(page)->mediaControlsBase64StringForIconAndPlatform(iconName, platform);
 }
 
 }

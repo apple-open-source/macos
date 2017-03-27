@@ -86,6 +86,8 @@ SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef an
 
 void InitializeAnchorTable(void);
 
+/* Return the current best chain */
+SecCertificatePathRef SecPathBuilderGetBestPath(SecPathBuilderRef builder);
 
 __END_DECLS
 

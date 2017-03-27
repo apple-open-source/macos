@@ -31,8 +31,9 @@
 
 namespace WebCore {
 
-Event::Event()
-    : m_createTime(convertSecondsToDOMTimeStamp(currentTime()))
+Event::Event(IsTrusted isTrusted)
+    : m_isTrusted(isTrusted == IsTrusted::Yes)
+    , m_createTime(convertSecondsToDOMTimeStamp(currentTime()))
 {
 }
 
@@ -56,12 +57,13 @@ Event::Event(const AtomicString& eventType, bool canBubbleArg, bool cancelableAr
 {
 }
 
-Event::Event(const AtomicString& eventType, const EventInit& initializer)
+Event::Event(const AtomicString& eventType, const EventInit& initializer, IsTrusted isTrusted)
     : m_type(eventType)
     , m_isInitialized(true)
     , m_canBubble(initializer.bubbles)
     , m_cancelable(initializer.cancelable)
     , m_composed(initializer.composed)
+    , m_isTrusted(isTrusted == IsTrusted::Yes)
     , m_createTime(convertSecondsToDOMTimeStamp(currentTime()))
 {
 }
@@ -72,7 +74,7 @@ Event::~Event()
 
 void Event::initEvent(const AtomicString& eventTypeArg, bool canBubbleArg, bool cancelableArg)
 {
-    if (dispatched())
+    if (isBeingDispatched())
         return;
 
     m_isInitialized = true;
@@ -80,6 +82,7 @@ void Event::initEvent(const AtomicString& eventTypeArg, bool canBubbleArg, bool 
     m_immediatePropagationStopped = false;
     m_defaultPrevented = false;
     m_isTrusted = false;
+    m_target = nullptr;
 
     m_type = eventTypeArg;
     m_canBubble = canBubbleArg;
@@ -103,7 +106,8 @@ bool Event::composed() const
         || isFocusEvent()
         || isKeyboardEvent()
         || isMouseEvent()
-        || isTouchEvent();
+        || isTouchEvent()
+        || isInputEvent();
 }
 
 EventInterface Event::eventInterface() const
@@ -127,6 +131,11 @@ bool Event::isFocusEvent() const
 }
 
 bool Event::isKeyboardEvent() const
+{
+    return false;
+}
+
+bool Event::isInputEvent() const
 {
     return false;
 }
@@ -189,6 +198,11 @@ void Event::setTarget(RefPtr<EventTarget>&& target)
     m_target = WTFMove(target);
     if (m_target)
         receivedTarget();
+}
+
+void Event::setCurrentTarget(EventTarget* currentTarget)
+{
+    m_currentTarget = currentTarget;
 }
 
 Vector<EventTarget*> Event::composedPath() const

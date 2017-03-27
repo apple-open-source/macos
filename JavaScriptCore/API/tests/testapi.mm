@@ -510,33 +510,6 @@ static void* multiVMThreadMain(void* okPtr)
     return nullptr;
 }
 
-// This test is flaky. Since GC marks C stack and registers as roots conservatively,
-// objects not referenced logically can be accidentally marked and alive.
-// To avoid this situation as possible as we can,
-// 1. run this test first before stack is polluted,
-// 2. extract this test as a function to suppress stack height.
-static void testWeakValue()
-{
-    @autoreleasepool {
-        JSVirtualMachine *vm = [[JSVirtualMachine alloc] init];
-        TestObject *testObject = [TestObject testObject];
-        JSManagedValue *weakValue;
-        @autoreleasepool {
-            JSContext *context = [[JSContext alloc] initWithVirtualMachine:vm];
-            context[@"testObject"] = testObject;
-            weakValue = [[JSManagedValue alloc] initWithValue:context[@"testObject"]];
-        }
-
-        @autoreleasepool {
-            JSContext *context = [[JSContext alloc] initWithVirtualMachine:vm];
-            context[@"testObject"] = testObject;
-            JSSynchronousGarbageCollectForDebugging([context JSGlobalContextRef]);
-            checkResult(@"weak value == nil", ![weakValue value]);
-            checkResult(@"root is still alive", !context[@"testObject"].isUndefined);
-        }
-    }
-}
-
 static void testObjectiveCAPIMain()
 {
     @autoreleasepool {
@@ -1209,6 +1182,22 @@ static void testObjectiveCAPIMain()
     }
 
     @autoreleasepool {
+        static const unsigned count = 100;
+        NSMutableArray *array = [NSMutableArray arrayWithCapacity:count];
+        JSContext *context = [[JSContext alloc] init];
+        @autoreleasepool {
+            for (unsigned i = 0; i < count; ++i) {
+                JSValue *object = [JSValue valueWithNewObjectInContext:context];
+                JSManagedValue *managedObject = [JSManagedValue managedValueWithValue:object];
+                [array addObject:managedObject];
+            }
+        }
+        JSSynchronousGarbageCollectForDebugging([context JSGlobalContextRef]);
+        for (unsigned i = 0; i < count; ++i)
+            [context.virtualMachine addManagedReference:array[i] withOwner:array];
+    }
+
+    @autoreleasepool {
         TestObject *testObject = [TestObject testObject];
         JSManagedValue *managedTestObject;
         @autoreleasepool {
@@ -1522,7 +1511,6 @@ void testObjectiveCAPI()
 {
     NSLog(@"Testing Objective-C API");
     checkNegativeNSIntegers();
-    testWeakValue();
     testObjectiveCAPIMain();
 }
 

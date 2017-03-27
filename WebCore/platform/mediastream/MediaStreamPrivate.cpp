@@ -45,23 +45,23 @@
 
 namespace WebCore {
 
-RefPtr<MediaStreamPrivate> MediaStreamPrivate::create(const Vector<RefPtr<RealtimeMediaSource>>& audioSources, const Vector<RefPtr<RealtimeMediaSource>>& videoSources)
+Ref<MediaStreamPrivate> MediaStreamPrivate::create(const Vector<Ref<RealtimeMediaSource>>& audioSources, const Vector<Ref<RealtimeMediaSource>>& videoSources)
 {
     MediaStreamTrackPrivateVector tracks;
-    tracks.reserveCapacity(audioSources.size() + videoSources.size());
+    tracks.reserveInitialCapacity(audioSources.size() + videoSources.size());
 
-    for (auto source : audioSources)
-        tracks.append(MediaStreamTrackPrivate::create(WTFMove(source)));
+    for (auto& source : audioSources)
+        tracks.uncheckedAppend(MediaStreamTrackPrivate::create(source.copyRef()));
 
-    for (auto source : videoSources)
-        tracks.append(MediaStreamTrackPrivate::create(WTFMove(source)));
+    for (auto& source : videoSources)
+        tracks.uncheckedAppend(MediaStreamTrackPrivate::create(source.copyRef()));
 
     return MediaStreamPrivate::create(tracks);
 }
 
-RefPtr<MediaStreamPrivate> MediaStreamPrivate::create(const MediaStreamTrackPrivateVector& tracks)
+Ref<MediaStreamPrivate> MediaStreamPrivate::create(const MediaStreamTrackPrivateVector& tracks)
 {
-    return adoptRef(new MediaStreamPrivate(createCanonicalUUIDString(), tracks));
+    return adoptRef(*new MediaStreamPrivate(createCanonicalUUIDString(), tracks));
 }
 
 MediaStreamPrivate::MediaStreamPrivate(const String& id, const MediaStreamTrackPrivateVector& tracks)
@@ -199,6 +199,24 @@ bool MediaStreamPrivate::hasAudio() const
     return false;
 }
 
+bool MediaStreamPrivate::hasLocalVideoSource() const
+{
+    for (auto& track : m_trackSet.values()) {
+        if (track->type() == RealtimeMediaSource::Type::Video && !track->remote())
+            return true;
+    }
+    return false;
+}
+
+bool MediaStreamPrivate::hasLocalAudioSource() const
+{
+    for (auto& track : m_trackSet.values()) {
+        if (track->type() == RealtimeMediaSource::Type::Audio && !track->remote())
+            return true;
+    }
+    return false;
+}
+
 bool MediaStreamPrivate::muted() const
 {
     for (auto& track : m_trackSet.values()) {
@@ -219,14 +237,6 @@ FloatSize MediaStreamPrivate::intrinsicSize() const
     }
 
     return size;
-}
-
-PlatformLayer* MediaStreamPrivate::platformLayer() const
-{
-    if (!m_activeVideoTrack)
-        return nullptr;
-
-    return m_activeVideoTrack->source().platformLayer();
 }
 
 void MediaStreamPrivate::paintCurrentFrameInContext(GraphicsContext& context, const FloatRect& rect)
@@ -257,7 +267,7 @@ void MediaStreamPrivate::updateActiveVideoTrack()
 {
     m_activeVideoTrack = nullptr;
     for (auto& track : m_trackSet.values()) {
-        if (!track->ended() && track->type() == RealtimeMediaSource::Type::Video && !track->ended()) {
+        if (!track->ended() && track->type() == RealtimeMediaSource::Type::Video) {
             m_activeVideoTrack = track.get();
             break;
         }

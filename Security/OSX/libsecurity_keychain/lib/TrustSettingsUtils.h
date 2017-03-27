@@ -29,7 +29,7 @@
 #define _TRUST_SETTINGS_UTILS_H_
 
 #include <security_keychain/TrustSettings.h>
-#include <security_keychain/SecTrustSettingsPriv.h>
+#include <Security/SecTrustSettingsPriv.h>
 #include <security_utilities/alloc.h>
 #include <string>
 #include <CoreFoundation/CoreFoundation.h>

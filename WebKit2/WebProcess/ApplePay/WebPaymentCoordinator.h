@@ -59,16 +59,16 @@ private:
     void openPaymentSetup(const String& merchantIdentifier, const String& domainName, std::function<void (bool)> completionHandler) override;
     bool showPaymentUI(const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLs, const WebCore::PaymentRequest&) override;
     void completeMerchantValidation(const WebCore::PaymentMerchantSession&) override;
-    void completeShippingMethodSelection(WebCore::PaymentAuthorizationStatus, Optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems) override;
-    void completeShippingContactSelection(WebCore::PaymentAuthorizationStatus, const Vector<WebCore::PaymentRequest::ShippingMethod>&, Optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems) override;
-    void completePaymentMethodSelection(Optional<WebCore::PaymentRequest::TotalAndLineItems>) override;
+    void completeShippingMethodSelection(WebCore::PaymentAuthorizationStatus, std::optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems) override;
+    void completeShippingContactSelection(WebCore::PaymentAuthorizationStatus, const Vector<WebCore::PaymentRequest::ShippingMethod>&, std::optional<WebCore::PaymentRequest::TotalAndLineItems> newTotalAndItems) override;
+    void completePaymentMethodSelection(std::optional<WebCore::PaymentRequest::TotalAndLineItems>) override;
     void completePaymentSession(WebCore::PaymentAuthorizationStatus) override;
     void abortPaymentSession() override;
 
     void paymentCoordinatorDestroyed() override;
 
     // IPC::MessageReceiver.
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Message handlers.
     void validateMerchant(const String& validationURLString);

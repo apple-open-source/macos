@@ -32,8 +32,8 @@
 #include "AnimationBase.h"
 #include "AnimationControllerPrivate.h"
 #include "AnimationEvent.h"
-#include "CSSParser.h"
 #include "CSSPropertyAnimation.h"
+#include "CSSPropertyParser.h"
 #include "CompositeAnimation.h"
 #include "EventNames.h"
 #include "Frame.h"
@@ -112,7 +112,7 @@ bool AnimationControllerPrivate::clear(RenderElement& renderer)
     });
     
     // Return false if we didn't do anything OR we are suspended (so we don't try to
-    // do a setNeedsStyleRecalc() when suspended).
+    // do a invalidateStyleForSubtree() when suspended).
     RefPtr<CompositeAnimation> animation = m_compositeAnimations.take(&renderer);
     ASSERT(animation);
     renderer.setIsCSSAnimating(false);
@@ -137,8 +137,8 @@ double AnimationControllerPrivate::updateAnimations(SetChanged callSetChanged/* 
                     break;
                 Element* element = compositeAnimation.key->element();
                 ASSERT(element);
-                ASSERT(!element->document().inPageCache());
-                element->setNeedsStyleRecalc(SyntheticStyleChange);
+                ASSERT(element->document().pageCacheState() == Document::NotInPageCache);
+                element->invalidateStyleAndLayerComposition();
                 calledSetChanged = true;
             }
         }
@@ -211,7 +211,7 @@ void AnimationControllerPrivate::fireEventsAndUpdateStyle()
     }
 
     for (auto& change : m_elementChangesToDispatch)
-        change->setNeedsStyleRecalc(SyntheticStyleChange);
+        change->invalidateStyleAndLayerComposition();
 
     m_elementChangesToDispatch.clear();
 
@@ -240,7 +240,7 @@ void AnimationControllerPrivate::addEventToDispatch(PassRefPtr<Element> element,
 void AnimationControllerPrivate::addElementChangeToDispatch(Ref<Element>&& element)
 {
     m_elementChangesToDispatch.append(WTFMove(element));
-    ASSERT(!m_elementChangesToDispatch.last()->document().inPageCache());
+    ASSERT(m_elementChangesToDispatch.last()->document().pageCacheState() == Document::NotInPageCache);
     startUpdateStyleIfNeededDispatcher();
 }
 
@@ -358,7 +358,7 @@ bool AnimationControllerPrivate::pauseAnimationAtTime(RenderElement* renderer, c
 
     CompositeAnimation& compositeAnimation = ensureCompositeAnimation(*renderer);
     if (compositeAnimation.pauseAnimationAtTime(name, t)) {
-        renderer->element()->setNeedsStyleRecalc(SyntheticStyleChange);
+        renderer->element()->invalidateStyleAndLayerComposition();
         startUpdateStyleIfNeededDispatcher();
         return true;
     }
@@ -373,7 +373,7 @@ bool AnimationControllerPrivate::pauseTransitionAtTime(RenderElement* renderer, 
 
     CompositeAnimation& compositeAnimation = ensureCompositeAnimation(*renderer);
     if (compositeAnimation.pauseTransitionAtTime(cssPropertyID(property), t)) {
-        renderer->element()->setNeedsStyleRecalc(SyntheticStyleChange);
+        renderer->element()->invalidateStyleAndLayerComposition();
         startUpdateStyleIfNeededDispatcher();
         return true;
     }
@@ -588,9 +588,9 @@ void AnimationController::cancelAnimations(RenderElement& renderer)
         return;
 
     Element* element = renderer.element();
-    ASSERT(!element || !element->document().inPageCache());
+    ASSERT(!element || element->document().pageCacheState() == Document::NotInPageCache);
     if (element)
-        element->setNeedsStyleRecalc(SyntheticStyleChange);
+        element->invalidateStyleAndLayerComposition();
 }
 
 bool AnimationController::updateAnimations(RenderElement& renderer, const RenderStyle& newStyle, std::unique_ptr<RenderStyle>& animatedStyle)
@@ -599,7 +599,7 @@ bool AnimationController::updateAnimations(RenderElement& renderer, const Render
     if ((!oldStyle || (!oldStyle->animations() && !oldStyle->transitions())) && (!newStyle.animations() && !newStyle.transitions()))
         return false;
 
-    if (renderer.document().inPageCache())
+    if (renderer.document().pageCacheState() != Document::NotInPageCache)
         return false;
 
     // Don't run transitions when printing.
@@ -759,5 +759,10 @@ void AnimationController::scrollWasUpdated()
     m_data->scrollWasUpdated();
 }
 #endif
+
+bool AnimationController::hasAnimations() const
+{
+    return m_data->hasAnimations();
+}
 
 } // namespace WebCore

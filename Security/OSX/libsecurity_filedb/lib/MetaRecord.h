@@ -126,7 +126,7 @@ public:
 	}
 
 	// Return the RecordId for the record inRecordSection
-	static const uint32 unpackRecordNumber(const ReadSection &inRecordSection)
+	static uint32 unpackRecordNumber(const ReadSection &inRecordSection)
 	{
 		return inRecordSection[OffsetRecordNumber];
 	}

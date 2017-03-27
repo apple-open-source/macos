@@ -81,6 +81,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		1161A0771DF79B3F00EC5CD5 /* AggdDailyReport.h in Headers */ = {isa = PBXBuildFile; fileRef = 1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */; };
+		1161A0791DF9081800EC5CD5 /* AggdDailyReport.c in Sources */ = {isa = PBXBuildFile; fileRef = 1161A0781DF9081800EC5CD5 /* AggdDailyReport.c */; };
 		220D60601828511000E98262 /* PMAssertionLog.c in Sources */ = {isa = PBXBuildFile; fileRef = 220D605F1828511000E98262 /* PMAssertionLog.c */; };
 		220D60611828511000E98262 /* PMAssertionLog.c in Sources */ = {isa = PBXBuildFile; fileRef = 220D605F1828511000E98262 /* PMAssertionLog.c */; };
 		22996B0018A3B5F7003ACA7D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22996AFF18A3B5F7003ACA7D /* Security.framework */; };
@@ -585,6 +587,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AggdDailyReport.h; sourceTree = "<group>"; };
+		1161A0781DF9081800EC5CD5 /* AggdDailyReport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AggdDailyReport.c; sourceTree = "<group>"; };
 		220D605F1828511000E98262 /* PMAssertionLog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PMAssertionLog.c; sourceTree = "<group>"; };
 		22996AFF18A3B5F7003ACA7D /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.0.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		22B9840516FBA71500BB59FC /* swd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = swd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -938,6 +942,8 @@
 				A9FD4B73047C482B00FA82A6 /* PrivateLib.h */,
 				A9FD4B72047C482B00FA82A6 /* PrivateLib.c */,
 				40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */,
+				1161A0781DF9081800EC5CD5 /* AggdDailyReport.c */,
+				1161A0751DF79B3F00EC5CD5 /* AggdDailyReport.h */,
 				A9D743DA05AF3D4D0075549C /* upsshutdown */,
 				72FE7EA609AE4942003E0C4C /* upsshutdown.8 */,
 				729F44BA12D7DB3600AD49A8 /* com.apple.powerd.plist */,
@@ -1163,6 +1169,7 @@
 				72E8154E0CFE470B00CF547E /* PrivateLib.h in Headers */,
 				72E8154F0CFE470B00CF547E /* IOUPSPrivate.h in Headers */,
 				72E815510CFE470B00CF547E /* TTYKeepAwake.h in Headers */,
+				1161A0771DF79B3F00EC5CD5 /* AggdDailyReport.h in Headers */,
 				72E815520CFE470B00CF547E /* PMSystemEvents.h in Headers */,
 				7266E1700E5BEDAE00F9BC0B /* PMConnection.h in Headers */,
 				723522121117A10A0089FB9F /* HIDEventWatcher.h in Headers */,
@@ -1732,6 +1739,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				72FB64731A9CF650008B6634 /* CommonLib.c in Sources */,
+				1161A0791DF9081800EC5CD5 /* AggdDailyReport.c in Sources */,
 				72E815570CFE470B00CF547E /* pmconfigd.c in Sources */,
 				72E815580CFE470B00CF547E /* BatteryTimeRemaining.c in Sources */,
 				72E815590CFE470B00CF547E /* PMSettings.c in Sources */,

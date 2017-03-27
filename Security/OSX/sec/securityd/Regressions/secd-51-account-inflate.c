@@ -246,12 +246,7 @@ static void tests(void)
     ok(testAccountPersistence(account), "Test Account->DER->Account Equivalence");
     CFReleaseNull(account);
 
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
+    SOSTestCleanup();
     
     test_factory->release(test_factory);
     SOSDataSourceRelease(test_source, NULL);

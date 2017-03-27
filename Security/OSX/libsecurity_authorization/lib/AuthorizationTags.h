@@ -60,7 +60,7 @@
 	@define kAuthorizationRightExecute
 	The name of the AuthorizationItem that should be passed into the rights when preauthorizing for a call to AuthorizationExecuteWithPrivileges().
 	
-	You need to aquire this right to be able to perform a AuthorizationExecuteWithPrivileges() operation.  In addtion to this right you should obtain whatever rights the tool you are executing with privileges need to perform it's operation on your behalf.  Currently no options are supported but you should pass in the full path of the tool you wish to execute in the value and valueLength fields.  In the future we will limit the right to only execute the requested path, and we will display this information to the user.
+	You need to acquire this right to be able to perform a AuthorizationExecuteWithPrivileges() operation.  In addtion to this right you should obtain whatever rights the tool you are executing with privileges need to perform it's operation on your behalf.  Currently no options are supported but you should pass in the full path of the tool you wish to execute in the value and valueLength fields.  In the future we will limit the right to only execute the requested path, and we will display this information to the user.
 */
 #define kAuthorizationRightExecute "system.privilege.admin"
 

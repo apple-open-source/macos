@@ -26,9 +26,11 @@
 #include "config.h"
 #include "InjectedBundleRangeHandle.h"
 
+#include "InjectedBundleNodeHandle.h"
 #include "ShareableBitmap.h"
 #include "WebImage.h"
 #include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/HeapInlines.h>
 #include <WebCore/Document.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/Frame.h>
@@ -95,6 +97,11 @@ Range* InjectedBundleRangeHandle::coreRange() const
     return m_range.get();
 }
 
+Ref<InjectedBundleNodeHandle> InjectedBundleRangeHandle::document()
+{
+    return InjectedBundleNodeHandle::getOrCreate(m_range->ownerDocument());
+}
+
 WebCore::IntRect InjectedBundleRangeHandle::boundingRectInWindowCoordinates() const
 {
     FloatRect boundingRect = m_range->absoluteBoundingRect();
@@ -128,7 +135,7 @@ PassRefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions op
         return nullptr;
 
     auto graphicsContext = backingStore->createGraphicsContext();
-    graphicsContext->scale(FloatSize(scaleFactor, scaleFactor));
+    graphicsContext->scale(scaleFactor);
 
     paintRect.move(frameView->frameRect().x(), frameView->frameRect().y());
     paintRect.moveBy(-frameView->scrollPosition());

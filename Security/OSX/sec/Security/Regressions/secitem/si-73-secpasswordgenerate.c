@@ -527,12 +527,55 @@ static void tests(void)
     
     is(true, SecPasswordIsPasswordWeak2(true, CFSTR("098765")));
     is(true, SecPasswordIsPasswordWeak(CFSTR("0987")));
-    
+
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("122222")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("222221")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("222114")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("221114")));
+    is(false, SecPasswordIsPasswordWeak2(false, CFSTR("221144")));
+
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("123456")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("666666")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("111111")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("520520")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("121212")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("000000")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("654321")));
+
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("123456")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("666666")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("111111")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("520520")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("121212")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("000000")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("654321")));
+
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("030379")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("101471")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("112233")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("123123")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("123321")));
+
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("123654")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("147258")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("159753")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("321654")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("520131")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("520520")));
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("789456")));
+
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("123654")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("147258")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("159753")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("321654")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("520131")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("520520")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("789456")));
 }
 
 int si_73_secpasswordgenerate(int argc, char *const *argv)
 {
-	plan_tests(310);
+	plan_tests(348);
 	tests();
     
 	return 0;

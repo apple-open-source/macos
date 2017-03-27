@@ -111,6 +111,8 @@ extern int dt_probe_define(dt_provider_t *, dt_probe_t *,
 
 extern dt_node_t *dt_probe_tag(dt_probe_t *, uint_t, dt_node_t *);
 
+extern int dt_probe_noprobe_errno(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp);
+
 #ifdef	__cplusplus
 }
 #endif

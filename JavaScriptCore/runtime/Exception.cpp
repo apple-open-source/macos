@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Exception.h"
 
+#include "Interpreter.h"
 #include "JSCInlines.h"
 
 namespace JSC {
@@ -56,7 +57,7 @@ void Exception::visitChildren(JSCell* cell, SlotVisitor& visitor)
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
 
-    visitor.append(&thisObject->m_value);
+    visitor.append(thisObject->m_value);
 }
 
 Exception::Exception(VM& vm)

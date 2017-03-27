@@ -248,20 +248,37 @@ state_append_hosts(struct _krb5_srv_query_ctx *query)
 static void
 dns_query_done(struct _krb5_srv_query_ctx *query)
 {
+    time_t endtimes = time(NULL) + 10; /* wait for max 10 seconds to stranglers to catch up */
     size_t n;
 
     heim_assert(!query->state.srvQueryDone, "DNS-SD invariant not true, canceled but got error message");
     query->state.srvQueryDone = 1;
 
-    /* wait up for all children queries if we had any */
+    _krb5_state_srv_sort(query);
+
+    /* wait up for up to MAX_SRV_ENTRIES children queries if we had any */
     for (n = 0; n < query->len; n++) {
-	if (query->array[n]->sema) {
-	    _krb5_debugx(query->context, 10, "SRV waiting for addrinfo: %s", srv_reply_get_hostname(query->array[n]));
-	    heim_sema_wait(query->array[n]->sema, 10);
+	const char *hostname = srv_reply_get_hostname(query->array[n]);
+	time_t maxWait = endtimes - time(NULL);
+
+	if (query->array[n]->sema && maxWait > 0 && n < query->context->max_srv_entries) {
+	    _krb5_debugx(query->context, 10, "SRV waiting for addrinfo: %s", hostname);
+
+	    if (heim_sema_wait(query->array[n]->sema, maxWait)) {
+		/*
+		 * If we timed out, when mark as cancelled
+		 */
+		dispatch_sync((dispatch_queue_t)query->handle->addrinfo_queue, ^{
+		    query->array[n]->flags.canceled = true;
+		});
+	    }
+	} else if (query->array[n]->sema && query->handle->addrinfo_queue) {
+	    _krb5_debugx(query->context, 10, "SRV timeout waiting for addrinfo: %s", hostname);
+	    dispatch_sync((dispatch_queue_t)query->handle->addrinfo_queue, ^{
+	        query->array[n]->flags.canceled = true;
+	    });
 	}
     }
-
-    _krb5_state_srv_sort(query);
 
     state_append_hosts(query);
 
@@ -453,6 +470,10 @@ dns_getaddrinfo_callback(DNSServiceRef sdRef,
     if (srv_reply->flags.getAddrDone) {
 	return;
     }
+    if (srv_reply->flags.canceled) {
+	failure = 1;
+	goto out;
+    }
 
     /*
      * We get called at least twice, once for each address family, so
@@ -518,6 +539,7 @@ dns_getaddrinfo_callback(DNSServiceRef sdRef,
 	break;
     }
 
+ out:
     _krb5_debugx(query->context, 10, " SRV getaddrinfo end");
 
     /*
@@ -622,10 +644,13 @@ SRVQueryCallback(DNSServiceRef sdRef,
      * Only trigger the A/AAAA query if we are delegating
      */
     if (query->handle->flags & KD_DELEG_UUID) {
+	krb5_af_flags kafs = _krb5_get_supported_af(query->context);
 	struct krb5_krbhst_data *handle = query->handle;
 	DNSServiceFlags dnsFlags =
 	    kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates;
+	DNSServiceProtocol protocol_flags = 0;
 	char sport[10];
+	char *fqdn_host = NULL;
 
 	_krb5_debugx(query->context, 10, "Got delegated query on: %s", srv_reply->hostname);
 
@@ -670,13 +695,39 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	srv_reply->srv_sd = handle->addrinfo_sd;
 	heim_retain(srv_reply); /* retain for callback */
 
+	if (kafs & KRB5_AF_FLAG_INET) {
+	    protocol_flags |= kDNSServiceProtocol_IPv4;
+	} else {
+	    srv_reply->flags.noIPv4 = true;
+	}
+	if (kafs & KRB5_AF_FLAG_INET6) {
+	    protocol_flags |= kDNSServiceProtocol_IPv6;
+	} else {
+	    srv_reply->flags.noIPv6 = true;
+	}
+
+	if (flags == 0) {
+	    _krb5_debugx(query->context, 10, "No support address families: %s", srv_reply->hostname);
+	    heim_release(srv_reply); /* release for the callback that will never happen */
+	    goto end;
+	}
+
+	/*
+	 * Since its a DNS query, add a . at the end to avoid having
+	 * the client iterate over the search field since we know we
+	 * have the FQDN in the first place since that's that the SRV
+	 * RR give us.
+	 */
+	asprintf(&fqdn_host, "%s.", srv_reply->hostname);
+
 	error = DNSServiceGetAddrInfo(&srv_reply->srv_sd,
 				      dnsFlags | kDNSServiceFlagsShareConnection,
 				      dns_service_id,
-				      kDNSServiceProtocol_IPv4 | kDNSServiceProtocol_IPv6,
-				      srv_reply->hostname,
+				      protocol_flags,
+				      fqdn_host,
 				      dns_getaddrinfo_callback,
 				      srv_reply);
+	free(fqdn_host);
 	if (error) {
 	    _krb5_debugx(query->context, 10, "Failed doing A/AAAA lookup: %s: %d", srv_reply->hostname, error);
 	    heim_release(srv_reply); /* release for the callback that will never happen */
@@ -795,7 +846,7 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	    DNSServiceRefDeallocate(client);
 
 	    /*
-	     * If we cancelled the connection, and the callback didn't
+	     * If we canceled the connection, and the callback didn't
 	     * get a chance to any work, now its time to clean up
 	     * since after DNSServiceRefDeallocate() completed, there
 	     * will be no more callbacks.

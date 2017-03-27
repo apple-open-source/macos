@@ -1211,7 +1211,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	    goto out;
 	}
 
-	_gss_mg_log(1, "gss-krb5: seeting source app: %s - %s uuid: "
+	_gss_mg_log(1, "gss-krb5: setting source app: %s - %s uuid: "
 		    "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
 		    type, signingIdentityStr,
 		    uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],

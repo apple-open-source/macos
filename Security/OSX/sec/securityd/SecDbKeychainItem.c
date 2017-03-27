@@ -49,6 +49,7 @@
 #include <coreauthd_spi.h>
 #include <libaks_acl_cf_keys.h>
 #include <securityd/spi.h>
+
 #endif /* USE_KEYSTORE */
 
 pthread_key_t CURRENT_CONNECTION_KEY;
@@ -60,8 +61,8 @@ static keyclass_t kc_parse_keyclass(CFTypeRef value, CFErrorRef *error);
 static CFTypeRef kc_encode_keyclass(keyclass_t keyclass);
 static CFDataRef kc_copy_protection_data(SecAccessControlRef access_control);
 static CFTypeRef kc_copy_protection_from(const uint8_t *der, const uint8_t *der_end);
-static CFMutableDictionaryRef s3dl_item_v2_decode(CFDataRef plain, CFErrorRef *error);
-static CFMutableDictionaryRef s3dl_item_v3_decode(CFDataRef plain, CFErrorRef *error);
+static CF_RETURNS_RETAINED CFMutableDictionaryRef s3dl_item_v2_decode(CFDataRef plain, CFErrorRef *error);
+static CF_RETURNS_RETAINED CFMutableDictionaryRef s3dl_item_v3_decode(CFDataRef plain, CFErrorRef *error);
 #if USE_KEYSTORE
 static CFDataRef kc_create_auth_data(SecAccessControlRef access_control, CFDictionaryRef auth_attributes);
 static bool kc_attribs_key_encrypted_data_from_blob(keybag_handle_t keybag, const SecDbClass *class, const void *blob_data, size_t blob_data_len, SecAccessControlRef access_control, uint32_t version,
@@ -174,7 +175,7 @@ bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control,
     size_t ptLen = CFDataGetLength(plainText);
     size_t ctLen = ptLen;
     size_t tagLen = 16;
-    keyclass_t actual_class;
+    keyclass_t actual_class = 0;
     
     if (SecRandomCopyBytes(kSecRandomDefault, bulkKeySize, bulkKey)) {
         ok = SecError(errSecAllocate, error, CFSTR("ks_encrypt_data: SecRandomCopyBytes failed"));
@@ -203,7 +204,7 @@ bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control,
     key_wrapped_size = (uint32_t)CFDataGetLength(bulkKeyWrapped);
     UInt8 *cursor;
     size_t blobLen = sizeof(version);
-    uint32_t prot_length;
+    uint32_t prot_length = 0;
 
     if (!hasACLConstraints) {
         blobLen += sizeof(actual_class);
@@ -579,26 +580,26 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
 
 out:
     memset(CFDataGetMutableBytePtr(bulkKey), 0, CFDataGetLength(bulkKey));
-    CFReleaseSafe(bulkKey);
-    CFReleaseSafe(plainText);
+    CFReleaseNull(bulkKey);
+    CFReleaseNull(plainText);
     
     // Always copy access control data (if present), because if we fail it may indicate why.
     if (paccess_control)
         *paccess_control = access_control;
     else
-        CFReleaseSafe(access_control);
+        CFReleaseNull(access_control);
     
     if (ok) {
         if (attributes_p)
-            *attributes_p = CFRetainSafe(attributes);
+            CFRetainAssign(*attributes_p, attributes);
         if (version_p)
             *version_p = version;
 	}
-    CFReleaseSafe(attributes);
+    CFReleaseNull(attributes);
 #if USE_KEYSTORE
-    CFReleaseSafe(authenticated_attributes);
-    CFReleaseSafe(caller_access_groups_data);
-    CFReleaseSafe(ed_data);
+    CFReleaseNull(authenticated_attributes);
+    CFReleaseNull(caller_access_groups_data);
+    CFReleaseNull(ed_data);
     if (ref_key) aks_ref_key_free(&ref_key);
 #endif
     return ok;

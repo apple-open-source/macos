@@ -69,7 +69,7 @@ CFDataRef SecOCSPRequestGetDER(SecOCSPRequestRef ocspRequest);
 	@function SecOCSPRequestFinalize
 	@abstract Frees a SecOCSPRequestRef.
 	@param ocspRequest A SecOCSPRequestRef.
-	@result The passed in SecOCSPRequestRef is deallocated
+	@note The passed in SecOCSPRequestRef is deallocated
 */
 void SecOCSPRequestFinalize(SecOCSPRequestRef ocspRequest);
 

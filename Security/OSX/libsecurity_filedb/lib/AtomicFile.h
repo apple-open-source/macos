@@ -40,10 +40,10 @@ public:
 	AtomicFile(const std::string &inPath);
 	~AtomicFile();
 
-    // Aquire the write lock and remove the file.
+    // Acquire the write lock and remove the file.
     void performDelete();
 
-    // Aquire the write lock and rename the file.
+    // Acquire the write lock and rename the file.
     void rename(const std::string &inNewPath);
 
 	// Lock the file for writing and return a newly created AtomicTempFile.

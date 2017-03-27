@@ -79,8 +79,12 @@ echo "Inferred 64-bit architectures: $ARCHS64"
 if [ $testFile -nt $SCRIPT_OUTPUT_FILE_0 -o $testFile -nt $SCRIPT_OUTPUT_FILE_1 \
   -o $testFile -nt $SCRIPT_OUTPUT_FILE_2 -o $testFile -nt $SCRIPT_OUTPUT_FILE_3 ]
 then
-	ARCHS=${ARCHS32}
-    runMig $SCRIPT_INPUT_FILE_0 $SCRIPT_OUTPUT_FILE_0 $SCRIPT_OUTPUT_FILE_1 $OTHER_CFLAGS
+    if [ -n "${ARCHS32}" ]
+    then
+        ARCHS=${ARCHS32}
+        runMig $SCRIPT_INPUT_FILE_0 $SCRIPT_OUTPUT_FILE_0 $SCRIPT_OUTPUT_FILE_1 $OTHER_CFLAGS
+    fi
+
 	if [ -n "${ARCHS64}" ]
 	then
 		ARCHS=${ARCHS64}

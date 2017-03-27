@@ -30,8 +30,9 @@
 
 [
     Conditional=WEB_RTC,
+    EnabledAtRuntime=peerConnection,
 ] interface RTCRtpSender {
     readonly attribute MediaStreamTrack? track;
 
-    [StrictTypeChecking, RaisesException] Promise replaceTrack(MediaStreamTrack withTrack);
+    [MayThrowException] Promise<void> replaceTrack(MediaStreamTrack withTrack);
 };

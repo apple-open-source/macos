@@ -34,7 +34,6 @@
 		18446179146E984400B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		1844617A146E984400B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_cms.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_cms.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CCB008B05800B0B00981D43 /* security_cms.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_cms.exp; sourceTree = "<group>"; };
 		D43B9E7C1D064F0B00B9DDDA /* cms-trust-settings-test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "cms-trust-settings-test.c"; path = "regressions/cms-trust-settings-test.c"; sourceTree = "<group>"; };
 		D43B9E7D1D064F0B00B9DDDA /* cms-trust-settings-test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "cms-trust-settings-test.h"; path = "regressions/cms-trust-settings-test.h"; sourceTree = "<group>"; };
 		D4C334571BE29F5200D8C1EF /* cms_regressions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cms_regressions.h; path = regressions/cms_regressions.h; sourceTree = "<group>"; };
@@ -83,7 +82,6 @@
 				052C07E709894ADA00E7641D /* CMSEncoder.h */,
 				052C07E809894ADA00E7641D /* CMSPrivate.h */,
 				052C07E909894ADA00E7641D /* CMSUtils.h */,
-				4CCB008B05800B0B00981D43 /* security_cms.exp */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -186,7 +184,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0800;
+				LastUpgradeCheck = 0810;
 				TargetAttributes = {
 					D4C3345B1BE2A2B100D8C1EF = {
 						CreatedOnToolsVersion = 7.1;
@@ -259,7 +257,9 @@
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -282,7 +282,9 @@
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

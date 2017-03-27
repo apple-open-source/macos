@@ -105,7 +105,7 @@ struct __SecOCSPSingleResponse {
 /*!
 	@function SecOCSPResponseCreate
 	@abstract Returns a SecOCSPResponseRef from a BER encoded ocsp response.
-	@param berResponse The BER encoded ocsp response.
+	@param ocspResponse The BER encoded ocsp response.
 	@result A SecOCSPResponseRef.
 */
 SecOCSPResponseRef SecOCSPResponseCreate(CFDataRef ocspResponse);
@@ -140,7 +140,6 @@ CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef ocspResponse);
 	@function SecOCSPResponseFinalize
 	@abstract Frees a SecOCSPResponseRef.
 	@param ocspResponse The BER encoded ocsp response.
-	@result A SecOCSPResponseRef.
 */
 void SecOCSPResponseFinalize(SecOCSPResponseRef ocspResponse);
 

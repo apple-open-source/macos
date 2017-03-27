@@ -59,6 +59,7 @@ struct OpaqueSecPVC {
 
     CFStringRef check_revocation;
     bool response_required;
+    bool online_revocation;
     bool optionally_ev;
     bool is_ev;
     bool is_ct;
@@ -76,7 +77,7 @@ SecPolicyRef SecPVCGetPolicy(SecPVCRef pv);
 CFAbsoluteTime SecPVCGetVerifyTime(SecPVCRef pv);
 CFIndex SecPVCGetCertificateCount(SecPVCRef pv);
 SecCertificateRef SecPVCGetCertificateAtIndex(SecPVCRef pv, CFIndex ix);
-bool SecPVCIsCertificateAtIndexSelfSigned(SecPVCRef pvc, CFIndex ix);
+bool SecPVCIsCertificateAtIndexSelfIssued(SecPVCRef pvc, CFIndex ix);
 bool SecPVCIsAnchored(SecPVCRef pvc);
 
 /* Set the string result as the reason for the sub policy check key
@@ -92,6 +93,9 @@ void SecPVCSetCheckRevocation(SecPVCRef pvc, CFStringRef method);
 
 /* Require a revocation response for the leaf certificate. */
 void SecPVCSetCheckRevocationResponseRequired(SecPVCRef pvc);
+
+/* Require a online revocation response for the chain. */
+void SecPVCSetCheckRevocationOnline(SecPVCRef pvc);
 
 /* Run static leaf checks on the path in pvc. */
 bool SecPVCLeafChecks(SecPVCRef pvc);

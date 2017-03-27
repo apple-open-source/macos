@@ -23,13 +23,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RTCDataChannelHandlerMock_h
-#define RTCDataChannelHandlerMock_h
+#pragma once
 
 #if ENABLE(WEB_RTC)
 
 #include "RTCDataChannelHandler.h"
-#include "RTCPeerConnectionHandler.h"
 #include "TimerEventBasedMock.h"
 
 namespace WebCore {
@@ -37,37 +35,20 @@ namespace WebCore {
 class RTCDataChannelHandlerMock final : public RTCDataChannelHandler, public TimerEventBasedMock {
 public:
     RTCDataChannelHandlerMock(const String&, const RTCDataChannelInit&);
-    virtual ~RTCDataChannelHandlerMock() { }
-
-    void setClient(RTCDataChannelHandlerClient*) override;
-
-    String label() override { return m_label; }
-    bool ordered() override { return m_ordered; }
-    unsigned short maxRetransmitTime() override { return m_maxRetransmitTime; }
-    unsigned short maxRetransmits() override { return m_maxRetransmits; }
-    String protocol() override { return m_protocol; }
-    bool negotiated() override { return m_negotiated; }
-    unsigned short id() override { return m_id; }
-    unsigned long bufferedAmount() override { return 0; }
-
-    bool sendStringData(const String&) override;
-    bool sendRawData(const char*, size_t) override;
-    void close() override;
 
 private:
+    void setClient(RTCDataChannelHandlerClient*) final;
+
+    bool sendStringData(const String&) final;
+    bool sendRawData(const char*, size_t) final;
+    void close() final;
+
     RTCDataChannelHandlerClient* m_client;
 
     String m_label;
     String m_protocol;
-    unsigned short m_maxRetransmitTime;
-    unsigned short m_maxRetransmits;
-    unsigned short m_id;
-    bool m_ordered;
-    bool m_negotiated;
 };
 
 } // namespace WebCore
 
 #endif // ENABLE(WEB_RTC)
-
-#endif // RTCDataChannelHandlerMock_h

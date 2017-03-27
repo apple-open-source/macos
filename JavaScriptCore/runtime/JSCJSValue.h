@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef JSCJSValue_h
-#define JSCJSValue_h
+#pragma once
 
 #include "JSExportMacros.h"
 #include "PureNaN.h"
@@ -117,17 +116,6 @@ enum WhichValueWord {
     TagWord,
     PayloadWord
 };
-
-// This implements ToInt32, defined in ECMA-262 9.5.
-JS_EXPORT_PRIVATE int32_t toInt32(double);
-
-// This implements ToUInt32, defined in ECMA-262 9.6.
-inline uint32_t toUInt32(double number)
-{
-    // As commented in the spec, the operation of ToInt32 and ToUint32 only differ
-    // in how the result is interpreted; see NOTEs in sections 9.5 and 9.6.
-    return toInt32(number);
-}
 
 int64_t tryConvertToInt52(double);
 bool isInt52(double);
@@ -261,6 +249,10 @@ public:
     // toNumber conversion is expected to be side effect free if an exception has
     // been set in the ExecState already.
     double toNumber(ExecState*) const;
+
+    // toNumber conversion if it can be done without side effects.
+    std::optional<double> toNumberFromPrimitive() const;
+
     JSString* toString(ExecState*) const; // On exception, this returns the empty string.
     JSString* toStringOrNull(ExecState*) const; // On exception, this returns null, to make exception checks faster.
     Identifier toPropertyKey(ExecState*) const;
@@ -273,6 +265,7 @@ public:
     JS_EXPORT_PRIVATE double toIntegerPreserveNaN(ExecState*) const;
     int32_t toInt32(ExecState*) const;
     uint32_t toUInt32(ExecState*) const;
+    uint32_t toIndex(ExecState*, const char* errorName) const;
     double toLength(ExecState*) const;
 
     // Floating point conversions (this is a convenience function for WebCore;
@@ -602,6 +595,7 @@ inline bool operator!=(const JSCell* a, const JSValue b) { return JSValue(a) != 
 
 bool isThisValueAltered(const PutPropertySlot&, JSObject* baseObject);
 
-} // namespace JSC
+// See section 7.2.9: https://tc39.github.io/ecma262/#sec-samevalue
+bool sameValue(ExecState*, JSValue a, JSValue b);
 
-#endif // JSCJSValue_h
+} // namespace JSC

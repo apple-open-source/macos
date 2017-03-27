@@ -44,6 +44,9 @@ void SecOCSPCacheReplaceResponse(SecOCSPResponseRef old_response,
 SecOCSPResponseRef SecOCSPCacheCopyMatching(SecOCSPRequestRef request,
     CFURLRef localResponderURI /* may be NULL */);
 
+SecOCSPResponseRef SecOCSPCacheCopyMatchingWithMinInsertTime(SecOCSPRequestRef request,
+    CFURLRef localResponderURI, CFAbsoluteTime minInsertTime);
+
 __END_DECLS
 
 #endif /* _SECURITY_SECOCSPCACHE_H_ */

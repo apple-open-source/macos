@@ -162,7 +162,7 @@ OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass, UInt3
     @function SecKeychainItemSetAccessWithPassword
     @abstract Sets the access of a given keychain item.
     @param itemRef A reference to a keychain item.
-    @param access A reference to an access to replace the keychain item's current access.
+    @param accessRef A reference to an access to replace the keychain item's current access.
     @param passwordLength An unsigned 32-bit integer representing the length of the password buffer.
     @param password A buffer containing the password for the keychain. if this password is incorrect, this call might fail---it will not prompt the user.
     @result A result code. See "Security Error Codes" (SecBase.h).

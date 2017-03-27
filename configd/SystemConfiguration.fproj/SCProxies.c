@@ -680,6 +680,25 @@ _SCNetworkProxiesCopyMatchingInternal(CFDictionaryRef	globalConfiguration,
 	return proxies;
 }
 
+CFDataRef
+SCNetworkProxiesCreateProxyAgentData(CFDictionaryRef proxyConfig)
+{
+	CFDataRef result = NULL;
+	CFArrayRef newProxy = NULL;
+
+	if (!isA_CFDictionary(proxyConfig)) {
+		SC_log(LOG_ERR, "Invalid proxy configuration");
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	newProxy = CFArrayCreate(NULL, (const void **)&proxyConfig, 1, &kCFTypeArrayCallBacks);
+	(void)_SCSerialize(newProxy, &result, NULL, NULL);
+	CFRelease(newProxy);
+
+	return result;
+}
+
 CFArrayRef
 SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 			     CFStringRef	server,

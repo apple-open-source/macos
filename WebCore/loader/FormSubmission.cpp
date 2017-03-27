@@ -47,9 +47,9 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "NoEventDispatchAssertion.h"
 #include "TextEncoding.h"
 #include <wtf/CurrentTime.h>
-#include <wtf/RandomNumber.h>
 
 namespace WebCore {
 
@@ -93,10 +93,10 @@ void FormSubmission::Attributes::parseAction(const String& action)
 String FormSubmission::Attributes::parseEncodingType(const String& type)
 {
     if (equalLettersIgnoringASCIICase(type, "multipart/form-data"))
-        return "multipart/form-data";
+        return ASCIILiteral("multipart/form-data");
     if (equalLettersIgnoringASCIICase(type, "text/plain"))
-        return "text/plain";
-    return "application/x-www-form-urlencoded";
+        return ASCIILiteral("text/plain");
+    return ASCIILiteral("application/x-www-form-urlencoded");
 }
 
 void FormSubmission::Attributes::updateEncodingType(const String& type)
@@ -205,18 +205,23 @@ Ref<FormSubmission> FormSubmission::create(HTMLFormElement* form, const Attribut
     Vector<std::pair<String, String>> formValues;
 
     bool containsPasswordData = false;
-    for (auto& control : form->associatedElements()) {
-        HTMLElement& element = control->asHTMLElement();
-        if (!element.isDisabledFormControl())
-            control->appendFormData(*domFormData, isMultiPartForm);
-        if (is<HTMLInputElement>(element)) {
-            HTMLInputElement& input = downcast<HTMLInputElement>(element);
-            if (input.isTextField()) {
-                formValues.append(std::pair<String, String>(input.name().string(), input.value()));
-                input.addSearchResult();
+    {
+        NoEventDispatchAssertion noEventDispatchAssertion;
+
+        for (auto& control : form->associatedElements()) {
+            auto& element = control->asHTMLElement();
+            if (!element.isDisabledFormControl())
+                control->appendFormData(*domFormData, isMultiPartForm);
+            if (is<HTMLInputElement>(element)) {
+                auto& input = downcast<HTMLInputElement>(element);
+                if (input.isTextField()) {
+                    // formValues.append({ input.name().string(), input.value() });
+                    formValues.append(std::pair<String, String>(input.name().string(), input.value()));
+                    input.addSearchResult();
+                }
+                if (input.isPasswordField() && !input.value().isEmpty())
+                    containsPasswordData = true;
             }
-            if (input.isPasswordField() && !input.value().isEmpty())
-                containsPasswordData = true;
         }
     }
 

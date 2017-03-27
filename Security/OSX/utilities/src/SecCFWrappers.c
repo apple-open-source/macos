@@ -261,7 +261,6 @@ CFDataRef CFDataCreateWithInitializer(CFAllocatorRef allocator, CFIndex size, bo
     if(!size) return NULL;
     if((result = CFDataCreateMutableWithScratch(allocator, size)) == NULL) return NULL;
     if (!operation(size, CFDataGetMutableBytePtr(result))) CFReleaseNull(result);
-errOut:
     return result;
 }
 

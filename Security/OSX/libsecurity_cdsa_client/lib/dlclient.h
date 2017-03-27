@@ -270,7 +270,7 @@ public:
 													const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 													CSSM_DATA *data);
 
-	const CSSM_DL_DB_HANDLE &handle() { activate(); return mHandle; }
+    const CSSM_DL_DB_HANDLE &handle() { StLock<Mutex> _(mActivateMutex); activate(); return mHandle; }
 
 	const DbName &dbName() { return mDbName; }
 	void dbName(const DbName &dbName) { mDbName = dbName; }

@@ -151,6 +151,48 @@
     _processPoolConfiguration->setAlwaysRevalidatedURLSchemes(WTFMove(schemes));
 }
 
+- (NSString *)sourceApplicationBundleIdentifier
+{
+    return _processPoolConfiguration->sourceApplicationBundleIdentifier();
+}
+
+- (void)setSourceApplicationBundleIdentifier:(NSString *)sourceApplicationBundleIdentifier
+{
+    _processPoolConfiguration->setSourceApplicationBundleIdentifier(sourceApplicationBundleIdentifier);
+}
+
+- (NSString *)sourceApplicationSecondaryIdentifier
+{
+    return _processPoolConfiguration->sourceApplicationSecondaryIdentifier();
+}
+
+- (void)setSourceApplicationSecondaryIdentifier:(NSString *)sourceApplicationSecondaryIdentifier
+{
+    _processPoolConfiguration->setSourceApplicationSecondaryIdentifier(sourceApplicationSecondaryIdentifier);
+}
+
+#if PLATFORM(IOS)
+- (NSString *)CTDataConnectionServiceType
+{
+    return _processPoolConfiguration->ctDataConnectionServiceType();
+}
+
+- (void)setCTDataConnectionServiceType:(NSString *)ctDataConnectionServiceType
+{
+    _processPoolConfiguration->setCTDataConnectionServiceType(ctDataConnectionServiceType);
+}
+
+- (BOOL)alwaysRunsAtBackgroundPriority
+{
+    return _processPoolConfiguration->alwaysRunsAtBackgroundPriority();
+}
+
+- (void)setAlwaysRunsAtBackgroundPriority:(BOOL)alwaysRunsAtBackgroundPriority
+{
+    _processPoolConfiguration->setAlwaysRunsAtBackgroundPriority(alwaysRunsAtBackgroundPriority);
+}
+#endif
+
 - (NSString *)description
 {
     NSString *description = [NSString stringWithFormat:@"<%@: %p; maximumProcessCount = %lu", NSStringFromClass(self.class), self, static_cast<unsigned long>([self maximumProcessCount])];

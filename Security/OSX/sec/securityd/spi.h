@@ -25,12 +25,13 @@
 
 #include <utilities/SecCFError.h>
 #include <xpc/xpc.h>
+#include <CoreFoundation/CFURL.h>
 
 __BEGIN_DECLS
 
 /* Calling this function initializes the spi interface in the library to call
    directly into the backend. It uses home_dir for root of files if specified. */
-void securityd_init(char* home_dir);
+void securityd_init(CFURLRef home_dir);
 
 // Don't call this function unless you are really securityd
 void securityd_init_server(void);

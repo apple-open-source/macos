@@ -76,8 +76,8 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
-#include <openssl/rsa.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/rsa_legacy.h>
 #include <openssl/rand.h>
 
 /* This is a dummy RSA implementation that just returns errors when called.

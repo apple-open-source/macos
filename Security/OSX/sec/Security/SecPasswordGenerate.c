@@ -37,6 +37,10 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecCFError.h>
+#include <corecrypto/ccdigest.h>
+#include <corecrypto/ccsha2.h>
+#include "SecCFAllocator.h"
+
 
 // Keys for external dictionaries with password generation requirements we read from plist.
 CFStringRef kSecPasswordMinLengthKey = CFSTR("PasswordMinLength");
@@ -61,6 +65,7 @@ CFStringRef kSecPasswordSeparator = CFSTR("SecPasswordSeparator");
 // Keys for internally used dictionaries with password generation parameters (never exposed to external API).
 static CFStringRef kSecUseDefaultPasswordFormatKey = CFSTR("UseDefaultPasswordFormat");
 static CFStringRef kSecNumberOfRequiredRandomCharactersKey = CFSTR("NumberOfRequiredRandomCharacters");
+static CFStringRef kSecNumberOfChecksumCharactersKey = CFSTR("NumberOfChecksumCharacters");
 static CFStringRef kSecAllowedCharactersKey = CFSTR("AllowedCharacters");
 static CFStringRef kSecRequiredCharacterSetsKey = CFSTR("RequiredCharacterSets");
 
@@ -166,6 +171,33 @@ static unsigned int pinhash (const char *str, unsigned int len)
         276, 276, 276, 276, 276
     };
     return len + asso_values[(unsigned char)str[3]+9] + asso_values[(unsigned char)str[2]] + asso_values[(unsigned char)str[1]] + asso_values[(unsigned char)str[0]+3];
+}
+
+///<://problem/29089896> warn against using these common PINs
+static bool isTopTenSixDigitPasscode(CFStringRef passcode){
+    bool result = false;
+    CFMutableArrayRef topTen = CFArrayCreateMutableForCFTypesWith(kCFAllocatorDefault,
+                                                                  CFSTR("030379"),
+                                                                  CFSTR("101471"),
+                                                                  CFSTR("112233"),
+                                                                  CFSTR("123123"),
+                                                                  CFSTR("123321"),
+                                                                  CFSTR("123654"),
+                                                                  CFSTR("147258"),
+                                                                  CFSTR("159753"),
+                                                                  CFSTR("321654"),
+                                                                  CFSTR("520131"),
+                                                                  CFSTR("520520"),
+                                                                  CFSTR("789456"), NULL);
+
+    for(CFIndex i = 0; i < CFArrayGetCount(topTen); i++){
+        if(CFEqualSafe(passcode, CFArrayGetValueAtIndex(topTen, i))){
+            result = true;
+            break;
+        }
+    }
+    CFReleaseNull(topTen);
+    return result;
 }
 
 CFStringRef SecPasswordCreateWithRandomDigits(int n, CFErrorRef *error){
@@ -430,6 +462,106 @@ static bool SecPasswordIsPasswordRepeatingTwoNumbers(CFStringRef passcode){
     return false;
 }
 
+static int SecPasswordNumberOfRepeatedDigits(CFStringRef passcode){
+    int repeating = 1;
+    CFIndex length = CFStringGetLength(passcode);
+    CFNumberRef highest = NULL;
+    CFMutableArrayRef highestRepeatingcount = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+
+    for(int i = 0; i < length; i++){
+
+        if(i+1 == length){
+            CFNumberRef newRepeatingAddition = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &repeating);
+            CFArrayAppendValue(highestRepeatingcount, newRepeatingAddition);
+            CFReleaseNull(newRepeatingAddition);
+            break;
+        }
+        if(CFStringGetCharacterAtIndex(passcode, i) == CFStringGetCharacterAtIndex(passcode,i+1))
+            repeating++;
+        else{
+            if(repeating != 1)
+            {
+                CFNumberRef newRepeatingAddition = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &repeating);
+                CFArrayAppendValue(highestRepeatingcount, newRepeatingAddition);
+                CFReleaseNull(newRepeatingAddition);
+            }
+            repeating = 1;
+
+        }
+    }
+
+    for(int i =0; i< CFArrayGetCount(highestRepeatingcount); i++){
+        if(i == 0){
+            highest = CFArrayGetValueAtIndex(highestRepeatingcount, i);
+            continue;
+        }
+        else{
+            CFNumberRef competitor = CFArrayGetValueAtIndex(highestRepeatingcount, i);
+            if(CFNumberCompare(competitor, highest, NULL) == kCFCompareGreaterThan){
+                highest = competitor;
+            }
+        }
+    }
+    int finalRepeating = 0;
+    if(highest != NULL)
+        CFNumberGetValue(highest, kCFNumberIntType, &finalRepeating);
+    return finalRepeating;
+}
+
+static bool SecPasswordIsPalindrome(CFStringRef passcode){
+    char* pin = CFStringToCString(passcode);
+    long length = CFStringGetLength(passcode);
+    long j = length-1;
+
+    for(int i = 0; i < CFStringGetLength(passcode); i++)
+    {
+        if(length%2 == 1 && i == j){
+            free(pin);
+            return true;
+        }
+        else if(length%2 == 0 && i == j-1){
+            if(pin[i] == pin[j]){
+                free(pin);
+                return true;
+            }
+            else
+                break;
+        }
+        else if(pin[i] == pin[j]){
+            j--;
+            continue;
+        }
+        else
+            break;
+    }
+    free(pin);
+    return false;
+}
+
+static bool SecPasswordHasRepeatingGroups(CFStringRef passcode){
+    char* pin = CFStringToCString(passcode);
+
+    for(int i = 0; i < CFStringGetLength(passcode); i++)
+    {
+        if(i+4 == CFStringGetLength(passcode)){
+            if(pin[i] == pin[i+3]){
+                free(pin);
+                return true;
+            }
+            else
+                break;
+        }
+        else if(pin[i] == pin[i+3])
+            continue;
+        else
+            break;
+    }
+
+    free(pin);
+
+    return false;
+}
+
 bool SecPasswordIsPasswordWeak2(bool isSimple, CFStringRef passcode)
 {
     uppercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetUppercaseLetter);
@@ -508,6 +640,22 @@ bool SecPasswordIsPasswordWeak2(bool isSimple, CFStringRef passcode)
                 else
                     break;
             }
+            //not in the top 10
+            if(isTopTenSixDigitPasscode(passcode)){
+                free(pin);
+                return true;
+            }
+            //palindrome test
+            if(SecPasswordIsPalindrome(passcode)){
+                free(pin);
+                return true;
+            }
+
+            //2 identical groups
+            if(SecPasswordHasRepeatingGroups(passcode)){
+                free(pin);
+                return true;
+            }
             //passcode is incrementing ex 123456 or 654321
             if(SecPasswordIsPasscodeIncrementingOrDecrementingDigits(passcode)) {
                 free(pin);
@@ -525,16 +673,27 @@ bool SecPasswordIsPasswordWeak2(bool isSimple, CFStringRef passcode)
     else if(isPasscodeNumber && !isSimple){ //dealing with a complex numeric passcode
         pin = CFStringToCString(passcode);
         //check if PIN is all the same number
-        for(int i = 0; i < CFStringGetLength(passcode); i++){
-            if(i+1 >= CFStringGetLength(passcode)){
-                free(pin);
-                return true;
-            }
-            else if (pin[i] == pin[i+1])
-                continue;
-            else
-                break;
+        int repeatingDigits = SecPasswordNumberOfRepeatedDigits(passcode);
+        if(repeatingDigits >= (CFStringGetLength(passcode)/2)){
+            free(pin);
+            return true;
         }
+        //palindrome test
+        if(SecPasswordIsPalindrome(passcode)){
+            free(pin);
+            return true;
+        }
+        //not in the top 10
+        if(isTopTenSixDigitPasscode(passcode)){
+            free(pin);
+            return true;
+        }
+        //2 identical groups
+        if(SecPasswordHasRepeatingGroups(passcode) && CFStringGetLength(passcode) >= 6){
+            free(pin);
+            return true;
+        }
+
         if(SecPasswordIsPasscodeIncrementingOrDecrementingDigits(passcode)) {
             free(pin);
             return true;
@@ -773,15 +932,38 @@ fail:
 static CFDictionaryRef passwordGenerateCreateDefaultParametersDictionary(SecPasswordType type, CFDictionaryRef requirements){
 
     CFMutableArrayRef requiredCharacterSets = NULL;
-    CFNumberRef numReqChars = NULL;
+    CFNumberRef numReqChars = NULL, checksumChars = NULL;
     CFStringRef defaultPasswordFormat = NULL;
     requiredCharacterSets = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     defaultPasswordFormat = CFSTR("true");
     CFTypeRef groupSizeRef = NULL, numberOfGroupsRef = NULL;
-    CFIndex groupSize, numberOfGroups;
+    CFIndex groupSize, numberOfGroups, checksumSize = 0;
     CFDictionaryRef returned = NULL;
 
     switch(type){
+        case kSecPasswordTypeiCloudRecoveryKey:
+            groupSize = 4;
+            numberOfGroups = 7;
+            checksumSize = 2;
+            numReqChars = CFNumberCreateWithCFIndex(kCFAllocatorDefault, (groupSize * numberOfGroups) - checksumSize);
+            checksumChars = CFNumberCreateWithCFIndex(kCFAllocatorDefault, checksumSize);
+            groupSizeRef = CFNumberCreate(NULL, kCFNumberCFIndexType, &groupSize);
+            numberOfGroupsRef = CFNumberCreate(NULL, kCFNumberCFIndexType, &numberOfGroups);
+
+            uppercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetUppercaseLetter);
+            decimalDigitCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetDecimalDigit);
+            CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
+            CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
+            returned = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                    kSecUseDefaultPasswordFormatKey,   defaultPasswordFormat,
+                                                    kSecNumberOfRequiredRandomCharactersKey, numReqChars,
+                                                    kSecNumberOfChecksumCharactersKey, checksumChars,
+                                                    kSecAllowedCharactersKey,   defaultiCloudCharacters,
+                                                    kSecRequiredCharacterSetsKey, requiredCharacterSets,
+                                                    kSecPasswordGroupSize, groupSizeRef,
+                                                    kSecPasswordNumberOfGroups, numberOfGroupsRef,
+                                                    NULL);
+            break;
         case(kSecPasswordTypeiCloudRecovery):
             numReqChars = CFNumberCreateWithCFIndex(kCFAllocatorDefault, defaultiCloudPasswordLength);
             groupSize = 4;
@@ -875,6 +1057,7 @@ static CFDictionaryRef passwordGenerateCreateDefaultParametersDictionary(SecPass
     CFReleaseNull(requiredCharacterSets);
     CFReleaseNull(groupSizeRef);
     CFReleaseNull(numberOfGroupsRef);
+    CFReleaseNull(checksumChars);
     return returned;
 }
 static CFDictionaryRef passwordGenerationCreateParametersDictionary(SecPasswordType type, CFDictionaryRef requirements)
@@ -1201,7 +1384,7 @@ static bool doesFinalPasswordPass(bool isSimple, CFStringRef password, CFDiction
 
     CFTypeRef characters, identicalRef = NULL, NRef = NULL, endWith= NULL, startWith= NULL, atLeastCharacters= NULL, atMostCharacters = NULL;
     uint64_t valuePtr;
-    CFIndex N, identicalCount;
+    CFIndex N, identicalCount = 0;
     CFArrayRef requiredCharacterSet = (CFArrayRef)CFDictionaryGetValue(requirements, kSecRequiredCharacterSetsKey);
 
     if(!CFDictionaryGetValueIfPresent(requirements, kSecPasswordCantEndWithChars, &endWith))
@@ -1260,15 +1443,45 @@ static bool doesFinalPasswordPass(bool isSimple, CFStringRef password, CFDiction
     return true;
 }
 
+static CFStringRef
+CreateChecksum(SecPasswordType type, CFStringRef password, CFIndex length, CFStringRef allowedChars)
+{
+    if (type != kSecPasswordTypeiCloudRecoveryKey)
+        return NULL;
+
+    CFMutableStringRef checksum = NULL;
+    uint8_t digest[CCSHA256_OUTPUT_SIZE];
+    if (length > (CFIndex)sizeof(digest))
+        return NULL;
+
+    CFDataRef data = CFStringCreateExternalRepresentation(SecCFAllocatorZeroize(), password, kCFStringEncodingUTF8, 0);
+    if (data == NULL)
+        return NULL;
+
+    ccdigest(ccsha256_di(), CFDataGetLength(data), CFDataGetBytePtr(data), digest);
+    CFReleaseNull(data);
+
+    CFIndex allowedCharLength = CFStringGetLength(allowedChars);
+
+    checksum = CFStringCreateMutable(SecCFAllocatorZeroize(), 0);
+    for (CFIndex n = 0; n < length; n++) {
+        CFIndex selection = digest[n] % allowedCharLength;
+        UniChar c = CFStringGetCharacterAtIndex(allowedChars, selection);
+        CFStringAppendCharacters(checksum, &c, 1);
+    }
+
+    return checksum;
+}
+
 //entry point into password generation
 CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErrorRef *error, CFDictionaryRef passwordRequirements){
     bool check = false, isSimple = false;
     CFTypeRef separator = NULL, defaults = NULL, groupSizeRef = NULL, numberOfGroupsRef = NULL;
     CFDictionaryRef properlyFormattedRequirements = NULL;
     CFErrorRef localError = NULL;
-    uint64_t valuePtr, groupSize, numberOfGroups;
-    CFNumberRef numberOfRequiredRandomCharacters;
-    CFIndex requiredCharactersSize;
+    uint64_t valuePtr, groupSize = 0, numberOfGroups, checksumChars = 0;
+    CFNumberRef numberOfRequiredRandomCharacters, checksumCharacters;
+    CFIndex requiredCharactersSize = 0;
     CFStringRef randomCharacters = NULL, password = NULL, allowedChars = NULL;
     CFMutableStringRef finalPassword = NULL;
 
@@ -1288,8 +1501,13 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
     require_quiet(localError == NULL && properlyFormattedRequirements != NULL, fail);
 
     numberOfRequiredRandomCharacters = (CFNumberRef)CFDictionaryGetValue(properlyFormattedRequirements, kSecNumberOfRequiredRandomCharactersKey);
-    CFNumberGetValue(numberOfRequiredRandomCharacters, kCFNumberSInt64Type, &valuePtr);
-    requiredCharactersSize = (long)valuePtr;
+    if (isNumber(numberOfRequiredRandomCharacters) && CFNumberGetValue(numberOfRequiredRandomCharacters, kCFNumberSInt64Type, &valuePtr))
+        requiredCharactersSize = (long)valuePtr;
+
+    checksumCharacters = (CFNumberRef)CFDictionaryGetValue(properlyFormattedRequirements, kSecNumberOfChecksumCharactersKey);
+    if (isNumber(checksumCharacters) && CFNumberGetValue(checksumCharacters, kCFNumberSInt64Type, &valuePtr))
+        checksumChars = (long)valuePtr;
+
 
     if(!CFDictionaryGetValueIfPresent(properlyFormattedRequirements, kSecPasswordGroupSize, &groupSizeRef)){
         groupSizeRef = NULL;
@@ -1302,6 +1520,8 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
     }
     else
         CFNumberGetValue((CFNumberRef)numberOfGroupsRef, kCFNumberSInt64Type, &numberOfGroups);
+
+    require(requiredCharactersSize, fail);
 
     while (true) {
         allowedChars = CFDictionaryGetValue(properlyFormattedRequirements, kSecAllowedCharactersKey);
@@ -1337,6 +1557,11 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
                     CFReleaseSafe(subString);
                     i+=(requiredCharactersSize - i);
                 }
+            }
+            if (checksumChars) {
+                CFStringRef checksum = CreateChecksum(type, randomCharacters, (CFIndex)checksumChars, allowedChars);
+                CFStringAppend(finalPassword, checksum);
+                CFReleaseNull(checksum);
             }
             password = CFStringCreateCopy(kCFAllocatorDefault, finalPassword);
             CFReleaseNull(finalPassword);
@@ -1414,6 +1639,11 @@ CFDictionaryRef SecPasswordCopyDefaultPasswordLength(SecPasswordType type, CFErr
     CFDictionaryRef result = NULL;
 
     switch(type){
+        case(kSecPasswordTypeiCloudRecoveryKey):
+            tupleLengthInt = 4;
+            numOfTuplesInt = 7;
+            break;
+
         case(kSecPasswordTypeiCloudRecovery):
             tupleLengthInt = 4;
             numOfTuplesInt = 6;
@@ -1448,10 +1678,87 @@ CFDictionaryRef SecPasswordCopyDefaultPasswordLength(SecPasswordType type, CFErr
         CFDictionaryAddValue(passwordLengthDefaults, kSecPasswordGroupSize, tupleLength);
         CFDictionaryAddValue(passwordLengthDefaults, kSecPasswordNumberOfGroups, numOfTuples);
         result = CFDictionaryCreateCopy(kCFAllocatorDefault, passwordLengthDefaults);
-}
+    }
 
     CFReleaseSafe(tupleLength);
     CFReleaseSafe(numOfTuples);
     CFReleaseSafe(passwordLengthDefaults);
     return result;
+}
+
+bool
+SecPasswordValidatePasswordFormat(SecPasswordType type, CFStringRef password, CFErrorRef *error)
+{
+    CFIndex tupleLengthInt = 0, numOfTuplesInt = 0, checkSumChars = 3;
+    CFStringRef checksum = NULL, madeChecksum = NULL, passwordNoChecksum = NULL;
+    CFMutableStringRef randomChars = NULL;
+    CFStringRef allowedChars = NULL;
+    bool res = false;
+
+    if (type != kSecPasswordTypeiCloudRecoveryKey) {
+        return false;
+    }
+
+    tupleLengthInt = 4;
+    numOfTuplesInt = 7;
+    checkSumChars = 2;
+    allowedChars = defaultiCloudCharacters;
+
+    if (numOfTuplesInt < 1)
+        return false;
+    if (checkSumChars > tupleLengthInt)
+        return false;
+
+    CFIndex numberOfChars = numOfTuplesInt * tupleLengthInt + (numOfTuplesInt - 1);
+
+    /*
+     * First check expected length
+     */
+
+    require(CFStringGetLength(password) == numberOfChars, out); /* N groups of M with (N-1) seperator - in-between */
+
+    randomChars = CFStringCreateMutable(SecCFAllocatorZeroize(), 0);
+    require(randomChars, out);
+
+    /*
+     * make sure dash-es are at the expected spots
+     */
+
+    for (CFIndex n = 0; n < numOfTuplesInt; n++) {
+        if (n != 0) {
+            UniChar c = CFStringGetCharacterAtIndex(password, (n * (tupleLengthInt + 1)) - 1);
+            require(c == '-', out);
+        }
+        CFStringRef substr = CFStringCreateWithSubstring(SecCFAllocatorZeroize(), password, CFRangeMake(n * (tupleLengthInt + 1), tupleLengthInt));
+        CFStringAppend(randomChars, substr);
+        CFReleaseNull(substr);
+    }
+
+    /*
+     * Pull apart and password and checksum
+     */
+
+    checksum = CFStringCreateWithSubstring(SecCFAllocatorZeroize(), randomChars, CFRangeMake((numOfTuplesInt * tupleLengthInt) - checkSumChars, checkSumChars));
+    require(checksum, out);
+
+    passwordNoChecksum = CFStringCreateWithSubstring(SecCFAllocatorZeroize(), randomChars, CFRangeMake(0, (numOfTuplesInt * tupleLengthInt) - checkSumChars));
+    require(passwordNoChecksum, out);
+
+    /*
+     * Validate checksum
+     */
+
+    madeChecksum = CreateChecksum(type, passwordNoChecksum, checkSumChars, allowedChars);
+    require(madeChecksum, out);
+
+    require(CFEqual(madeChecksum, checksum), out);
+
+    res = true;
+out:
+    CFReleaseNull(randomChars);
+    CFReleaseNull(madeChecksum);
+    CFReleaseNull(checksum);
+    CFReleaseNull(passwordNoChecksum);
+
+    return res;
 }

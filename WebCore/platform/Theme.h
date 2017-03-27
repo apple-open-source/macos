@@ -84,7 +84,7 @@ public:
     // Methods used to adjust the RenderStyles of controls.
     
     // The font description result should have a zoomed font size.
-    virtual Optional<FontCascadeDescription> controlFont(ControlPart, const FontCascade&, float /*zoomFactor*/) const { return Nullopt; }
+    virtual std::optional<FontCascadeDescription> controlFont(ControlPart, const FontCascade&, float /*zoomFactor*/) const { return std::nullopt; }
     
     // The size here is in zoomed coordinates already. If a new size is returned, it also needs to be in zoomed coordinates.
     virtual LengthSize controlSize(ControlPart, const FontCascade&, const LengthSize& zoomedSize, float /*zoomFactor*/) const { return zoomedSize; }
@@ -109,6 +109,8 @@ public:
     virtual void inflateControlPaintRect(ControlPart, const ControlStates&, FloatRect& /*zoomedRect*/, float /*zoomFactor*/) const { }
 
     virtual void drawNamedImage(const String&, GraphicsContext&, const FloatRect&) const;
+
+    virtual bool userPrefersReducedMotion() const { return false; }
 
     // This method is called once, from RenderTheme::adjustDefaultStyleSheet(), to let each platform adjust
     // the default CSS rules in html.css.

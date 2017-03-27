@@ -23,10 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GraphicsContext3D_h
-#define GraphicsContext3D_h
+#pragma once
 
 #include "ANGLEWebKitBridge.h"
+#include "GraphicsContext3DAttributes.h"
 #include "GraphicsTypes3D.h"
 #include "Image.h"
 #include "IntRect.h"
@@ -712,24 +712,10 @@ public:
         TEXTURE_IMMUTABLE_FORMAT = 0x912F,
         MAX_ELEMENT_INDEX = 0x8D6B,
         NUM_SAMPLE_COUNTS = 0x9380,
-        TEXTURE_IMMUTABLE_LEVELS = 0x82DF
-    };
+        TEXTURE_IMMUTABLE_LEVELS = 0x82DF, 
 
-    // Context creation attributes.
-    struct Attributes {
-        bool alpha { true };
-        bool depth { true };
-        bool stencil { false };
-        bool antialias { true };
-        bool premultipliedAlpha { true };
-        bool preserveDrawingBuffer { false };
-        bool noExtensions { false };
-        bool shareResources { true };
-        bool preferLowPowerToHighPerformance { false };
-        bool forceSoftwareRenderer { false };
-        bool failIfMajorPerformanceCaveat { false };
-        bool useGLES3 { false };
-        float devicePixelRatio { 1 };
+        // OpenGL ES 3 constants
+        MAP_READ_BIT = 0x0001
     };
 
     enum RenderStyle {
@@ -753,8 +739,8 @@ public:
     void setContextLostCallback(std::unique_ptr<ContextLostCallback>);
     void setErrorMessageCallback(std::unique_ptr<ErrorMessageCallback>);
 
-    static RefPtr<GraphicsContext3D> create(Attributes, HostWindow*, RenderStyle = RenderOffscreen);
-    static PassRefPtr<GraphicsContext3D> createForCurrentGLContext();
+    static RefPtr<GraphicsContext3D> create(GraphicsContext3DAttributes, HostWindow*, RenderStyle = RenderOffscreen);
+    static RefPtr<GraphicsContext3D> createForCurrentGLContext();
     ~GraphicsContext3D();
 
 #if PLATFORM(COCOA)
@@ -807,6 +793,8 @@ public:
                                      GC3Dint alignment,
                                      unsigned int* imageSizeInBytes,
                                      unsigned int* paddingInBytes);
+
+    static bool possibleFormatAndTypeForInternalFormat(GC3Denum internalFormat, GC3Denum& format, GC3Denum& type);
 
     // Extracts the contents of the given ImageData into the passed Vector,
     // packing the pixel data according to the given format and type,
@@ -881,45 +869,55 @@ public:
 
     ALWAYS_INLINE static bool hasAlpha(DataFormat format)
     {
-        return format == GraphicsContext3D::DataFormatA8
-            || format == GraphicsContext3D::DataFormatA16F
-            || format == GraphicsContext3D::DataFormatA32F
-            || format == GraphicsContext3D::DataFormatRA8
-            || format == GraphicsContext3D::DataFormatAR8
-            || format == GraphicsContext3D::DataFormatRA16F
-            || format == GraphicsContext3D::DataFormatRA32F
-            || format == GraphicsContext3D::DataFormatRGBA8
-            || format == GraphicsContext3D::DataFormatBGRA8
-            || format == GraphicsContext3D::DataFormatARGB8
-            || format == GraphicsContext3D::DataFormatABGR8
-            || format == GraphicsContext3D::DataFormatRGBA16F
-            || format == GraphicsContext3D::DataFormatRGBA32F
-            || format == GraphicsContext3D::DataFormatRGBA4444
-            || format == GraphicsContext3D::DataFormatRGBA5551;
+        switch (format) {
+        case GraphicsContext3D::DataFormatA8:
+        case GraphicsContext3D::DataFormatA16F:
+        case GraphicsContext3D::DataFormatA32F:
+        case GraphicsContext3D::DataFormatRA8:
+        case GraphicsContext3D::DataFormatAR8:
+        case GraphicsContext3D::DataFormatRA16F:
+        case GraphicsContext3D::DataFormatRA32F:
+        case GraphicsContext3D::DataFormatRGBA8:
+        case GraphicsContext3D::DataFormatBGRA8:
+        case GraphicsContext3D::DataFormatARGB8:
+        case GraphicsContext3D::DataFormatABGR8:
+        case GraphicsContext3D::DataFormatRGBA16F:
+        case GraphicsContext3D::DataFormatRGBA32F:
+        case GraphicsContext3D::DataFormatRGBA4444:
+        case GraphicsContext3D::DataFormatRGBA5551:
+            return true;
+        default:
+            return false;
+        }
     }
 
     ALWAYS_INLINE static bool hasColor(DataFormat format)
     {
-        return format == GraphicsContext3D::DataFormatRGBA8
-            || format == GraphicsContext3D::DataFormatRGBA16F
-            || format == GraphicsContext3D::DataFormatRGBA32F
-            || format == GraphicsContext3D::DataFormatRGB8
-            || format == GraphicsContext3D::DataFormatRGB16F
-            || format == GraphicsContext3D::DataFormatRGB32F
-            || format == GraphicsContext3D::DataFormatBGR8
-            || format == GraphicsContext3D::DataFormatBGRA8
-            || format == GraphicsContext3D::DataFormatARGB8
-            || format == GraphicsContext3D::DataFormatABGR8
-            || format == GraphicsContext3D::DataFormatRGBA5551
-            || format == GraphicsContext3D::DataFormatRGBA4444
-            || format == GraphicsContext3D::DataFormatRGB565
-            || format == GraphicsContext3D::DataFormatR8
-            || format == GraphicsContext3D::DataFormatR16F
-            || format == GraphicsContext3D::DataFormatR32F
-            || format == GraphicsContext3D::DataFormatRA8
-            || format == GraphicsContext3D::DataFormatRA16F
-            || format == GraphicsContext3D::DataFormatRA32F
-            || format == GraphicsContext3D::DataFormatAR8;
+        switch (format) {
+        case GraphicsContext3D::DataFormatRGBA8:
+        case GraphicsContext3D::DataFormatRGBA16F:
+        case GraphicsContext3D::DataFormatRGBA32F:
+        case GraphicsContext3D::DataFormatRGB8:
+        case GraphicsContext3D::DataFormatRGB16F:
+        case GraphicsContext3D::DataFormatRGB32F:
+        case GraphicsContext3D::DataFormatBGR8:
+        case GraphicsContext3D::DataFormatBGRA8:
+        case GraphicsContext3D::DataFormatARGB8:
+        case GraphicsContext3D::DataFormatABGR8:
+        case GraphicsContext3D::DataFormatRGBA5551:
+        case GraphicsContext3D::DataFormatRGBA4444:
+        case GraphicsContext3D::DataFormatRGB565:
+        case GraphicsContext3D::DataFormatR8:
+        case GraphicsContext3D::DataFormatR16F:
+        case GraphicsContext3D::DataFormatR32F:
+        case GraphicsContext3D::DataFormatRA8:
+        case GraphicsContext3D::DataFormatRA16F:
+        case GraphicsContext3D::DataFormatRA32F:
+        case GraphicsContext3D::DataFormatAR8:
+            return true;
+        default:
+            return false;
+        }
     }
 
     // Check if the format is one of the formats from the ImageData or DOM elements.
@@ -965,6 +963,13 @@ public:
     void bufferData(GC3Denum target, GC3Dsizeiptr size, const void* data, GC3Denum usage);
     void bufferSubData(GC3Denum target, GC3Dintptr offset, GC3Dsizeiptr size, const void* data);
 
+    void* mapBufferRange(GC3Denum target, GC3Dintptr offset, GC3Dsizeiptr length, GC3Dbitfield access);
+    GC3Dboolean unmapBuffer(GC3Denum target);
+    void copyBufferSubData(GC3Denum readTarget, GC3Denum writeTarget, GC3Dintptr readOffset, GC3Dintptr writeOffset, GC3Dsizeiptr);
+
+    void texStorage2D(GC3Denum target, GC3Dsizei levels, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height);
+    void texStorage3D(GC3Denum target, GC3Dsizei levels, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dsizei depth);
+
     GC3Denum checkFramebufferStatus(GC3Denum target);
     void clear(GC3Dbitfield mask);
     void clearColor(GC3Dclampf red, GC3Dclampf green, GC3Dclampf blue, GC3Dclampf alpha);
@@ -1004,7 +1009,7 @@ public:
     GC3Dint getAttribLocation(Platform3DObject, const String& name);
     void getBooleanv(GC3Denum pname, GC3Dboolean* value);
     void getBufferParameteriv(GC3Denum target, GC3Denum pname, GC3Dint* value);
-    Attributes getContextAttributes();
+    GraphicsContext3DAttributes getContextAttributes();
     GC3Denum getError();
     void getFloatv(GC3Denum pname, GC3Dfloat* value);
     void getFramebufferAttachmentParameteriv(GC3Denum target, GC3Denum attachment, GC3Denum pname, GC3Dint* value);
@@ -1125,13 +1130,22 @@ public:
     void forceContextLost();
     void recycleContext();
 
+    void dispatchContextChangedNotification();
+    void simulateContextChanged();
+
     void paintRenderingResultsToCanvas(ImageBuffer*);
-    PassRefPtr<ImageData> paintRenderingResultsToImageData();
+    RefPtr<ImageData> paintRenderingResultsToImageData();
     bool paintCompositedResultsToCanvas(ImageBuffer*);
 
 #if PLATFORM(IOS)
     void endPaint();
 #endif
+#if PLATFORM(MAC)
+    void updateCGLContext();
+#endif
+    void setContextVisibility(bool);
+
+    GraphicsContext3DPowerPreference powerPreferenceUsedForCreation() const { return m_powerPreferenceUsedForCreation; }
 
     // Support for buffer creation and deletion
     Platform3DObject createBuffer();
@@ -1166,7 +1180,7 @@ public:
     // all methods it contains may necessarily be supported on the
     // current hardware. Must call Extensions3D::supports() to
     // determine this.
-    Extensions3D* getExtensions();
+    Extensions3D& getExtensions();
 
     IntSize getInternalFramebufferSize() const;
 
@@ -1250,7 +1264,7 @@ public:
     };
 
 private:
-    GraphicsContext3D(Attributes, HostWindow*, RenderStyle = RenderOffscreen);
+    GraphicsContext3D(GraphicsContext3DAttributes, HostWindow*, RenderStyle = RenderOffscreen);
     static int GPUCheckCounter;
 
     // Helper for packImageData/extractImageData/extractTextureData which implement packing of pixel
@@ -1287,7 +1301,6 @@ private:
 #endif
 
     int m_currentWidth, m_currentHeight;
-    bool isResourceSafe();
 
 #if PLATFORM(COCOA)
     RetainPtr<WebGLLayer> m_webGLLayer;
@@ -1298,37 +1311,7 @@ private:
     RefPtr<PlatformCALayer> m_webGLLayer;
 #endif
 
-    struct SymbolInfo {
-        SymbolInfo()
-            : type(0)
-            , size(0)
-            , precision(GL_NONE) // Invalid precision.
-            , staticUse(0)
-        {
-        }
-
-        SymbolInfo(GC3Denum type, int size, const String& mappedName, sh::GLenum precision, int staticUse)
-            : type(type)
-            , size(size)
-            , mappedName(mappedName)
-            , precision(precision)
-            , staticUse(staticUse)
-        {
-        }
-
-        bool operator==(SymbolInfo& other) const
-        {
-            return type == other.type && size == other.size && mappedName == other.mappedName;
-        }
-
-        GC3Denum type;
-        int size;
-        String mappedName;
-        sh::GLenum precision;
-        int staticUse;
-    };
-
-    typedef HashMap<String, SymbolInfo> ShaderSymbolMap;
+    typedef HashMap<String, sh::ShaderVariable> ShaderSymbolMap;
 
     struct ShaderSourceEntry {
         GC3Denum type;
@@ -1399,7 +1382,8 @@ private:
 #endif
     friend class Extensions3DOpenGLCommon;
 
-    Attributes m_attrs;
+    GraphicsContext3DAttributes m_attrs;
+    GraphicsContext3DPowerPreference m_powerPreferenceUsedForCreation { GraphicsContext3DPowerPreference::Default };
     RenderStyle m_renderStyle;
     Vector<Vector<float>> m_vertexArray;
 
@@ -1407,7 +1391,7 @@ private:
     GC3Duint m_compositorTexture;
     GC3Duint m_fbo;
 #if USE(COORDINATED_GRAPHICS_THREADED)
-    GC3Duint m_compositorFBO;
+    GC3Duint m_intermediateTexture;
 #endif
 
     GC3Duint m_depthBuffer;
@@ -1441,10 +1425,16 @@ private:
 
     friend class GraphicsContext3DPrivate;
     std::unique_ptr<GraphicsContext3DPrivate> m_private;
-    
+
+    // FIXME: Layering violation.
     WebGLRenderingContextBase* m_webglContext;
+
+    bool m_isForWebGL2 { false };
+
+#if USE(CAIRO)
+    Platform3DObject m_vao { 0 };
+#endif
+
 };
 
 } // namespace WebCore
-
-#endif // GraphicsContext3D_h

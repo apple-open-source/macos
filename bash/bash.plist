@@ -16,7 +16,8 @@
 		<string>Fix off-by-1 error in compact_jobs_list</string>
 		<string>Do not rl_forward_char past rl_end</string>
 		<string>Do not echo \e as ESC when in posix mode</string>
-		<string>Update to patchlevel 57 for CVE-2014-6271 & friends</string>	
+		<string>Update to patchlevel 57 for CVE-2014-6271 and friends</string>
+		<string>Unblock all signals before running exit trap</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>bash</string>

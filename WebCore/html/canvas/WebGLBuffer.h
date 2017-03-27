@@ -23,11 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebGLBuffer_h
-#define WebGLBuffer_h
+#pragma once
 
 #include "WebGLSharedObject.h"
-
 #include <wtf/Forward.h>
 
 namespace JSC {
@@ -41,13 +39,14 @@ class WebGLBuffer final : public WebGLSharedObject {
 public:
     virtual ~WebGLBuffer();
 
-    static Ref<WebGLBuffer> create(WebGLRenderingContextBase*);
+    static Ref<WebGLBuffer> create(WebGLRenderingContextBase&);
 
     bool associateBufferData(GC3Dsizeiptr size);
     bool associateBufferData(JSC::ArrayBuffer*);
     bool associateBufferData(JSC::ArrayBufferView*);
     bool associateBufferSubData(GC3Dintptr offset, JSC::ArrayBuffer*);
     bool associateBufferSubData(GC3Dintptr offset, JSC::ArrayBufferView*);
+    bool associateCopyBufferSubData(const WebGLBuffer& readBuffer, GC3Dintptr readOffset, GC3Dintptr writeOffset, GC3Dsizeiptr);
 
     void disassociateBufferData();
 
@@ -61,12 +60,12 @@ public:
     void setCachedMaxIndex(GC3Denum type, int value);
 
     GC3Denum getTarget() const { return m_target; }
-    void setTarget(GC3Denum);
+    void setTarget(GC3Denum, bool forWebGL2);
 
     bool hasEverBeenBound() const { return object() && m_target; }
 
 protected:
-    WebGLBuffer(WebGLRenderingContextBase*);
+    WebGLBuffer(WebGLRenderingContextBase&);
 
     void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 
@@ -105,5 +104,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // WebGLBuffer_h

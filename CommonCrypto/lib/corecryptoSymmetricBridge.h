@@ -75,7 +75,7 @@ typedef struct modes_t {
     ccm_p   ccm;
 } modeList;
 
-const modeList ccmodeList[CC_SUPPORTED_CIPHERS][CC_DIRECTIONS];
+extern const modeList ccmodeList[CC_SUPPORTED_CIPHERS][CC_DIRECTIONS];
 
 typedef struct cbc_with_iv_t {
     uint8_t iv[16];

@@ -2,14 +2,17 @@ set(WTF_HEADERS
     ASCIICType.h
     Assertions.h
     Atomics.h
+    AutomaticThread.h
     BackwardsGraph.h
     Bag.h
     BagToHashMap.h
     BitVector.h
     Bitmap.h
+    Brigand.h
     BubbleSort.h
     BumpPointerAllocator.h
     ByteOrder.h
+    ClockType.h
     CompilationThread.h
     Compiler.h
     Condition.h
@@ -45,19 +48,27 @@ set(WTF_HEADERS
     HashTable.h
     HashTraits.h
     HexNumber.h
+    IndexMap.h
+    IndexSet.h
+    IndexSparseSet.h
+    IndexedContainerIterator.h
     IteratorAdaptors.h
     IteratorRange.h
     ListHashSet.h
     Lock.h
+    LockAlgorithm.h
+    LockedPrintStream.h
     Locker.h
     MD5.h
     MainThread.h
     MallocPtr.h
     MathExtras.h
     MediaTime.h
+    MemoryFootprint.h
     MessageQueue.h
     MetaAllocator.h
     MetaAllocatorHandle.h
+    MonotonicTime.h
     Noncopyable.h
     NumberOfCores.h
     OSAllocator.h
@@ -83,6 +94,7 @@ set(WTF_HEADERS
     RandomNumberSeed.h
     RangeSet.h
     RawPointer.h
+    RecursiveLockAdapter.h
     RedBlackTree.h
     Ref.h
     RefCounted.h
@@ -95,8 +107,10 @@ set(WTF_HEADERS
     SharedTask.h
     SaturatedArithmetic.h
     ScopedLambda.h
+    Seconds.h
     SegmentedVector.h
     SmallPtrSet.h
+    SplitTest.h
     StackBounds.h
     StackStats.h
     StaticConstructors.h
@@ -110,13 +124,16 @@ set(WTF_HEADERS
     ThreadSpecific.h
     Threading.h
     ThreadingPrimitives.h
+    TimeWithDynamicClockType.h
     TinyPtrSet.h
     UniqueRef.h
     VMTags.h
     ValueCheck.h
+    Variant.h
     Vector.h
     VectorTraits.h
     WTFThreadData.h
+    WallTime.h
     WeakPtr.h
     WordLock.h
     WorkQueue.h
@@ -167,7 +184,9 @@ set(WTF_HEADERS
 set(WTF_SOURCES
     Assertions.cpp
     Atomics.cpp
+    AutomaticThread.cpp
     BitVector.cpp
+    ClockType.cpp
     CompilationThread.cpp
     CrossThreadCopier.cpp
     CryptographicUtilities.cpp
@@ -183,10 +202,13 @@ set(WTF_SOURCES
     GregorianDateTime.cpp
     HashTable.cpp
     Lock.cpp
+    LockedPrintStream.cpp
     MD5.cpp
     MainThread.cpp
     MediaTime.cpp
+    MemoryFootprint.cpp
     MetaAllocator.cpp
+    MonotonicTime.cpp
     NumberOfCores.cpp
     OSRandomSource.cpp
     PageBlock.cpp
@@ -199,12 +221,16 @@ set(WTF_SOURCES
     RefCountedLeakCounter.cpp
     RunLoop.cpp
     SHA1.cpp
+    Seconds.cpp
     SixCharacterHash.cpp
+    SplitTest.cpp
     StackBounds.cpp
     StackStats.cpp
     StringPrintStream.cpp
     Threading.cpp
+    TimeWithDynamicClockType.cpp
     WTFThreadData.cpp
+    WallTime.cpp
     WordLock.cpp
     WorkQueue.cpp
     dtoa.cpp
@@ -227,6 +253,7 @@ set(WTF_SOURCES
     text/StringImpl.cpp
     text/StringStatics.cpp
     text/StringView.cpp
+    text/SymbolImpl.cpp
     text/SymbolRegistry.cpp
     text/TextBreakIterator.cpp
     text/WTFString.cpp
@@ -278,6 +305,7 @@ set(WTF_SYSTEM_INCLUDE_DIRECTORIES
     ${ICU_INCLUDE_DIRS}
 )
 list(APPEND WTF_LIBRARIES
+    ${ICU_DATA_LIBRARIES}
     ${ICU_I18N_LIBRARIES}
     ${ICU_LIBRARIES}
 )

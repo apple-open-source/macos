@@ -31,13 +31,22 @@
 
 [
     Conditional=WEB_RTC,
-    Constructor(Dictionary dictionary),
-    ConstructorRaisesException,
+    Constructor(RTCIceCandidateInit candidateInitDict),
+    ConstructorMayThrowException,
+    EnabledAtRuntime=peerConnection,
+    ImplementationLacksVTable,
     PrivateIdentifier,
     PublicIdentifier
 ] interface RTCIceCandidate {
     readonly attribute DOMString candidate;
     readonly attribute DOMString? sdpMid;
     readonly attribute unsigned short? sdpMLineIndex;
+
+    serializer = {candidate, sdpMid, sdpMLineIndex};
 };
 
+dictionary RTCIceCandidateInit {
+    required DOMString candidate;
+    DOMString? sdpMid = null;
+    unsigned short? sdpMLineIndex = null;
+};

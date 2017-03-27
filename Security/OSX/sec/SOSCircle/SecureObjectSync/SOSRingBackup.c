@@ -28,87 +28,14 @@
 
 #include "SOSRingUtils.h"
 #include "SOSRingTypes.h"
+#include "SOSRingBasic.h"
 
 // MARK: Backup Ring Ops
 
 static SOSRingRef SOSRingCreate_Backup(CFStringRef name, CFStringRef myPeerID, CFErrorRef *error) {
-    SOSRingRef retval = NULL;
-    retval = SOSRingCreate_Internal(name, kSOSRingBackup, error);
-    if(!retval) return NULL;
-    SOSRingSetLastModifier(retval, myPeerID);
-    return retval;
+    return SOSRingCreate_ForType(name, kSOSRingBackup, myPeerID, error);
 }
 
-static bool SOSRingResetToEmpty_Backup(SOSRingRef ring, CFStringRef myPeerID, CFErrorRef *error) {
-    return SOSRingResetToEmpty_Internal(ring, error) && SOSRingSetLastModifier(ring, myPeerID);
-}
-
-static bool SOSRingResetToOffering_Backup(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    bool retval = priv && myPeerID &&
-    SOSRingResetToEmpty_Internal(ring, error) &&
-    SOSRingAddPeerID(ring, myPeerID) &&
-    SOSRingSetLastModifier(ring, myPeerID) &&
-    SOSRingGenerationSign_Internal(ring, priv, error);
-    if(user_privkey) SOSRingConcordanceSign_Internal(ring, user_privkey, error);
-    CFReleaseNull(priv);
-    return retval;
-}
-
-static SOSRingStatus SOSRingDeviceIsInRing_Backup(SOSRingRef ring, CFStringRef peerID) {
-    if(SOSRingHasPeerID(ring, peerID)) return kSOSRingMember;
-    if(SOSRingHasApplicant(ring, peerID)) return kSOSRingApplicant;
-    if(SOSRingHasRejection(ring, peerID)) return kSOSRingReject;
-    return kSOSRingNotInRing;
-}
-
-static bool SOSRingApply_Backup(SOSRingRef ring, SecKeyRef user_pubkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    bool retval = false;
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    require_action_quiet(SOSRingDeviceIsInRing_Backup(ring, myPeerID) == kSOSRingNotInRing, errOut, secnotice("ring", "Already associated with ring"));
-    retval = priv && myPeerID &&
-        SOSRingAddPeerID(ring, myPeerID) &&
-        SOSRingSetLastModifier(ring, myPeerID) &&
-        SOSRingGenerationSign_Internal(ring, priv, error);
-    CFReleaseNull(priv);
-errOut:
-    return retval;
-
-}
-
-static bool SOSRingWithdraw_Backup(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
-    if(SOSRingHasPeerID(ring, myPeerID)) {
-        SOSRingRemovePeerID(ring, myPeerID);
-    } else if(SOSRingHasApplicant(ring, myPeerID)) {
-        SOSRingRemoveApplicant(ring, myPeerID);
-    } else if(SOSRingHasRejection(ring, myPeerID)) {
-        SOSRingRemoveRejection(ring, myPeerID);
-    } else {
-        SOSCreateError(kSOSErrorPeerNotFound, CFSTR("Not associated with Ring"), NULL, error);
-        return false;
-    }
-    SOSRingSetLastModifier(ring, myPeerID);
-
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    SOSRingGenerationSign_Internal(ring, priv, error);
-    if(user_privkey) SOSRingConcordanceSign_Internal(ring, user_privkey, error);
-    CFReleaseNull(priv);
-    return true;
-}
-
-static bool SOSRingGenerationSign_Backup(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    bool retval = priv && myPeerID &&
-    SOSRingSetLastModifier(ring, myPeerID) &&
-    SOSRingGenerationSign_Internal(ring, priv, error);
-    if(user_privkey) SOSRingConcordanceSign_Internal(ring, user_privkey, error);
-    CFReleaseNull(priv);
-    return retval;
-}
 
 // Make sure all the peers in the ring have access to the ring views
 static bool SOSBackupRingPeersInViews(CFSetRef peers, SOSRingRef ring) {
@@ -183,33 +110,6 @@ static SOSConcordanceStatus SOSRingPeerKeyConcordanceTrust_Backup(SOSFullPeerInf
     return GetSignersStatus_Transitive(peers, knownRing, proposedRing, userPubkey, excludePeerID, error);
 }
 
-
-static bool SOSRingConcordanceSign_Backup(SOSRingRef ring, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    bool retval = priv && myPeerID &&
-    SOSRingSetLastModifier(ring, myPeerID) &&
-    SOSRingConcordanceSign_Internal(ring, priv, error);
-    CFReleaseNull(priv);
-    return retval;
-}
-
-static bool SOSRingSetPayload_Backup(SOSRingRef ring, SecKeyRef user_privkey, CFDataRef payload, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    bool retval = priv && myPeerID &&
-    SOSRingSetLastModifier(ring, myPeerID) &&
-    SOSRingSetPayload_Internal(ring, payload) &&
-    SOSRingGenerationSign_Internal(ring, priv, error);
-    if(user_privkey) SOSRingConcordanceSign_Internal(ring, user_privkey, error);
-    CFReleaseNull(priv);
-    return retval;
-}
-
-static CFDataRef SOSRingGetPayload_Backup(SOSRingRef ring, CFErrorRef *error) {
-    return SOSRingGetPayload_Internal(ring);
-}
-
 bool SOSBackupRingSetViews(SOSRingRef ring, SOSFullPeerInfoRef requestor, CFSetRef viewSet, CFErrorRef *error) {
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
@@ -229,16 +129,16 @@ ringFuncStruct backup = {
     "Backup",
     1,
     SOSRingCreate_Backup,
-    SOSRingResetToEmpty_Backup,
-    SOSRingResetToOffering_Backup,
-    SOSRingDeviceIsInRing_Backup,
-    SOSRingApply_Backup,
-    SOSRingWithdraw_Backup,
-    SOSRingGenerationSign_Backup,
-    SOSRingConcordanceSign_Backup,
+    SOSRingResetToEmpty_Basic,
+    SOSRingResetToOffering_Basic,
+    SOSRingDeviceIsInRing_Basic,
+    SOSRingApply_Basic,
+    SOSRingWithdraw_Basic,
+    SOSRingGenerationSign_Basic,
+    SOSRingConcordanceSign_Basic,
     SOSRingPeerKeyConcordanceTrust_Backup,
     NULL,
     NULL,
-    SOSRingSetPayload_Backup,
-    SOSRingGetPayload_Backup,
+    SOSRingSetPayload_Basic,
+    SOSRingGetPayload_Basic,
 };

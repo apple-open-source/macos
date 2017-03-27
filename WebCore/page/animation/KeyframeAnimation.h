@@ -26,8 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef KeyframeAnimation_h
-#define KeyframeAnimation_h
+#pragma once
 
 #include "AnimationBase.h"
 #include "Document.h"
@@ -84,6 +83,7 @@ protected:
     bool computeExtentOfAnimationForMatchingTransformLists(const FloatRect& rendererBox, LayoutRect&) const;
 
     void computeStackingContextImpact();
+    void resolveKeyframeStyles();
     void validateTransformFunctionList();
     void checkForMatchingFilterFunctionLists();
 #if ENABLE(FILTERS_LEVEL_2)
@@ -105,5 +105,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // KeyframeAnimation_h

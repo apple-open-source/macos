@@ -96,7 +96,7 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
         self.textLabel.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
         
         NSString *title = [dict objectForKey:SWC_ACCOUNT_KEY];
-        self.textLabel.text = title ? title : @"--";
+        self.textLabel.text = title ? title : NSLocalizedString(@"--", nil);
         
         self.detailTextLabel.textColor = [UIColor darkGrayColor];
         self.detailTextLabel.textAlignment = NSTextAlignmentLeft;
@@ -104,7 +104,7 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
         self.detailTextLabel.baselineAdjustment = UIBaselineAdjustmentAlignCenters;
         
         NSString *subtitle = [dict objectForKey:SWC_SERVER_KEY];
-        self.detailTextLabel.text = subtitle ? subtitle : @"--";
+        self.detailTextLabel.text = subtitle ? subtitle : NSLocalizedString(@"--", nil);
         
         self.backgroundView = [[UIView alloc] init];
         self.backgroundView.backgroundColor = self.backgroundColor;

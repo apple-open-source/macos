@@ -21,8 +21,7 @@
  *
  */
 
-#ifndef StyleGeneratedImage_h
-#define StyleGeneratedImage_h
+#pragma once
 
 #include "StyleImage.h"
 
@@ -41,10 +40,14 @@ public:
     CSSImageGeneratorValue& imageValue() { return m_imageGeneratorValue; }
 
 private:
+    bool operator==(const StyleImage& other) const override { return data() == other.data(); }
+
     WrappedImagePtr data() const override { return m_imageGeneratorValue.ptr(); }
 
-    PassRefPtr<CSSValue> cssValue() const override;
+    Ref<CSSValue> cssValue() const override;
 
+    bool isPending() const override;
+    void load(CachedResourceLoader&, const ResourceLoaderOptions&) override;
     FloatSize imageSize(const RenderElement*, float multiplier) const override;
     bool imageHasRelativeWidth() const override { return !m_fixedSize; }
     bool imageHasRelativeHeight() const override { return !m_fixedSize; }
@@ -66,5 +69,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_STYLE_IMAGE(StyleGeneratedImage, isGeneratedImage)
-
-#endif // StyleGeneratedImage_h

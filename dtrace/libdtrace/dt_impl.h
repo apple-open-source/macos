@@ -20,7 +20,7 @@
  */
 
 /*
- * Portions copyright (c) 2012 by Delphix. All rights reserved.
+ * Portions copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 /*
@@ -355,6 +355,7 @@ struct dtrace_hdl {
 	cpu_type_t dt_arch;	/* CPU architecture to generate objects for */
 	dt_strtab_t *dt_apple_ids; /* IDs generated during apple_define actions */
 	uint64_t dt_last_timestamp;	/* most recently consumed timestamp */
+	boolean_t dt_has_sugar; /* syntactic sugar used? */
 };
 
 /*
@@ -572,8 +573,11 @@ enum {
 	EDT_BADAGGVAR,		/* invalid aggregation variable identifier */
 	EDT_ENABLING_ERR,	/* failed to enable probe */
 	EDT_OVERSION,		/* client is requesting deprecated version */
-    EDT_BADPID,			/* invalid pid in pid or objc probe */
-    EDT_NOSYMBOLICATOR,	        /* no kernel symbols found */
+	EDT_BADPID,		/* invalid pid in pid or objc probe */
+	EDT_NOSYMBOLICATOR,	 /* no kernel symbols found */
+	EDT_PROBE_RESTRICTED,	/* probe not found because system is restricted */
+	EDT_BOOTARGS,		/* failed to retrieve boot-args */
+	EDT_OPTUNSUPPORTED,	/* option value not supported on current OS */
 };
 
 /*
@@ -646,6 +650,8 @@ extern void dt_buffered_destroy(dtrace_hdl_t *);
 extern int dt_rw_read_held(pthread_rwlock_t *);
 extern int dt_rw_write_held(pthread_rwlock_t *);
 extern int dt_mutex_held(pthread_mutex_t *);
+
+extern dt_ident_t* dt_macro_lookup(dt_idhash_t*, const char *);
 
 extern uint64_t dt_stddev(uint64_t *, uint64_t);
 

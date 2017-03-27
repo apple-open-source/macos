@@ -806,7 +806,7 @@ hfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 			hfs_free(fp->ff_symlinkptr, fp->ff_size);
 		}
 		rl_remove_all(&fp->ff_invalidranges);
-		hfs_free(fp, sizeof(struct filefork));
+		hfs_zfree(fp, HFS_FILEFORK_ZONE);
 	}
 
 	/* 
@@ -938,8 +938,12 @@ hfs_getnewvnode(
 	issystemfile = (descp->cd_flags & CD_ISMETA) && (vtype == VREG);
 	wantrsrc = flags & GNV_WANTRSRC;
 
-	/* Sanity check the vtype and mode */
-	if (vtype == VBAD) {
+	/* Sanity checks: */
+	if (vtype == VBAD ||
+		(vtype != VDIR && forkp &&
+			(attrp->ca_blocks < forkp->cf_blocks ||
+			 howmany((uint64_t)forkp->cf_size, hfsmp->blockSize) > forkp->cf_blocks ||
+			 (vtype == VLNK && (uint64_t)forkp->cf_size > MAXPATHLEN)))) {
 		/* Mark the FS as corrupt and bail out */
 		hfs_mark_inconsistent(hfsmp, HFS_INCONSISTENCY_DETECTED);
 		retval = EINVAL;
@@ -1215,12 +1219,10 @@ hfs_getnewvnode(
 		        panic("hfs_getnewvnode: orphaned vnode (data)");
 		cvpp = &cp->c_vp;
 	} else {
-		if (forkp && attrp->ca_blocks < forkp->cf_blocks)
-			panic("hfs_getnewvnode: bad ca_blocks (too small)");
 		/*
 		 * Allocate and initialize a file fork...
 		 */
-		fp = hfs_malloc(sizeof(struct filefork));
+		fp = hfs_zalloc(HFS_FILEFORK_ZONE);
 		fp->ff_cp = cp;
 		if (forkp)
 			bcopy(forkp, &fp->ff_data, sizeof(struct cat_fork));
@@ -1381,7 +1383,7 @@ hfs_getnewvnode(
 			else
 				cp->c_rsrcfork = NULL;
 
-			hfs_free(fp, sizeof(struct filefork));
+			hfs_zfree(fp, HFS_FILEFORK_ZONE);
 		}
 		/*
 		 * If this is a newly created cnode or a vnode reclaim
@@ -1524,7 +1526,7 @@ hfs_reclaim_cnode(hfsmount_t *hfsmp, struct cnode *cp)
 	(void)hfsmp;	// Prevent compiler warning
 #endif
 
-	hfs_cnode_free(hfsmp, cp);
+	hfs_zfree(cp, HFS_CNODE_ZONE);
 }
 
 

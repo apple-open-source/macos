@@ -24,9 +24,9 @@
 #define _OPENSSL_ASN1_H_
 
 
-#include <openssl/rsa.h>
-#include <openssl/dsa.h>
-#include <openssl/dh.h>
+#include <openssl/rsa_legacy.h>
+#include <openssl/dsa_legacy.h>
+#include <openssl/dh_legacy.h>
 #include <Security/osKeyTemplates.h>
 #include <Security/cssmtype.h>
 #include <security_cdsa_utilities/cssmdata.h>

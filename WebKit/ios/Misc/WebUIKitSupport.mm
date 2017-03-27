@@ -33,14 +33,14 @@
 #import "WebPlatformStrategies.h"
 #import "WebSystemInterface.h"
 #import "WebViewPrivate.h"
+#import <WebCore/BreakLines.h>
 #import <WebCore/PathUtilities.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/Settings.h>
+#import <WebCore/WebBackgroundTaskController.h>
 #import <WebCore/WebCoreSystemInterface.h>
 #import <WebCore/WebCoreThreadSystemInterface.h>
-#import <WebCore/break_lines.h>
 #import <wtf/spi/darwin/dyldSPI.h>
-#import <wtf/text/TextBreakIterator.h>
 
 #import <runtime/InitializeThreading.h>
 
@@ -89,12 +89,12 @@ float WebKitGetMinimumZoomFontSize(void)
 
 int WebKitGetLastLineBreakInBuffer(UChar *characters, int position, int length)
 {
-    int lastBreakPos = position;
-    int breakPos = 0;
-    LazyLineBreakIterator breakIterator(String(characters, length));
-    while ((breakPos = nextBreakablePosition(breakIterator, breakPos)) < position)
+    unsigned lastBreakPos = position;
+    unsigned breakPos = 0;
+    LazyLineBreakIterator breakIterator(StringView(characters, length));
+    while (static_cast<int>(breakPos = nextBreakablePosition(breakIterator, breakPos)) < position)
         lastBreakPos = breakPos++;
-    return lastBreakPos < position ? (NSUInteger)lastBreakPos : INT_MAX;
+    return static_cast<int>(lastBreakPos) < position ? lastBreakPos : INT_MAX;
 }
 
 const char *WebKitPlatformSystemRootDirectory(void)
@@ -116,44 +116,19 @@ void WebKitSetBackgroundAndForegroundNotificationNames(NSString *didEnterBackgro
     // FIXME: Remove this function.
 }
 
-static WebBackgroundTaskIdentifier invalidTaskIdentifier = 0;
-static StartBackgroundTaskBlock startBackgroundTaskBlock = 0;
-static EndBackgroundTaskBlock endBackgroundTaskBlock = 0;
-
 void WebKitSetInvalidWebBackgroundTaskIdentifier(WebBackgroundTaskIdentifier taskIdentifier)
 {
-    invalidTaskIdentifier = taskIdentifier;
+    [[WebBackgroundTaskController sharedController] setInvalidBackgroundTaskIdentifier:taskIdentifier];
 }
 
 void WebKitSetStartBackgroundTaskBlock(StartBackgroundTaskBlock startBlock)
 {
-    Block_release(startBackgroundTaskBlock);
-    startBackgroundTaskBlock = Block_copy(startBlock);    
+    [[WebBackgroundTaskController sharedController] setBackgroundTaskStartBlock:startBlock];
 }
 
 void WebKitSetEndBackgroundTaskBlock(EndBackgroundTaskBlock endBlock)
 {
-    Block_release(endBackgroundTaskBlock);
-    endBackgroundTaskBlock = Block_copy(endBlock);    
-}
-
-WebBackgroundTaskIdentifier invalidWebBackgroundTaskIdentifier()
-{
-    return invalidTaskIdentifier;
-}
-
-WebBackgroundTaskIdentifier startBackgroundTask(VoidBlock expirationHandler)
-{
-    if (!startBackgroundTaskBlock)
-        return invalidTaskIdentifier;
-    return startBackgroundTaskBlock(expirationHandler);
-}
-
-void endBackgroundTask(WebBackgroundTaskIdentifier taskIdentifier)
-{
-    if (!endBackgroundTaskBlock)
-        return;
-    endBackgroundTaskBlock(taskIdentifier);
+    [[WebBackgroundTaskController sharedController] setBackgroundTaskEndBlock:endBlock];
 }
 
 CGPathRef WebKitCreatePathWithShrinkWrappedRects(NSArray* cgRects, CGFloat radius)

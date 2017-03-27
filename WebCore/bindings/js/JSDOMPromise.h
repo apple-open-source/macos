@@ -23,244 +23,221 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JSDOMPromise_h
-#define JSDOMPromise_h
+#pragma once
 
-#include "JSDOMBinding.h"
+#include "ActiveDOMCallback.h"
+#include "JSDOMConvert.h"
 #include <heap/StrongInlines.h>
 #include <runtime/JSPromiseDeferred.h>
-#include <wtf/Optional.h>
 
 namespace WebCore {
 
-template<typename DOMClass>
-struct TypeInspector {
-private:
-    template<typename T> static constexpr auto testIsVector(int) -> decltype(std::declval<T>().shrinkToFit(), bool()) { return true; }
-    template<typename T> static constexpr bool testIsVector(...) { return false; }
-
-    template<typename T> static constexpr auto testIsRef(int) -> decltype(T::isRef) { return true; }
-    template<typename T> static constexpr bool testIsRef(...) { return false; }
-
-    template<typename T> static constexpr auto testIsRefPtr(int) -> decltype(T::isRefPtr) { return true; }
-    template<typename T> static constexpr bool testIsRefPtr(...) { return false; }
-
+class DeferredPromise : public RefCounted<DeferredPromise>, public ActiveDOMCallback {
 public:
-    static constexpr bool isRefOrRefPtr = testIsRef<DOMClass>(0) || testIsRefPtr<DOMClass>(0);
-    static constexpr bool isPassByValueType = std::is_pointer<DOMClass>::value
-        || std::is_same<DOMClass, std::nullptr_t>::value
-        || std::is_same<DOMClass, JSC::JSValue>::value
-        || std::is_same<DOMClass, bool>::value;
-    static constexpr bool isPassByConstRefType = testIsVector<DOMClass>(0)
-        || std::is_same<DOMClass, String>::value;
-};
+    static Ref<DeferredPromise> create(JSDOMGlobalObject& globalObject, JSC::JSPromiseDeferred& deferred)
+    {
+        return adoptRef(*new DeferredPromise(globalObject, deferred));
+    }
 
-template<typename DOMClass, typename Enable = void>
-struct PromiseResultInspector {
-public:
-    static constexpr bool passByValue = false;
-    static constexpr bool passByRef = true;
-    static constexpr bool passByURef = false;
-    static constexpr bool passByConstRef = false;
+    ~DeferredPromise();
 
-    typedef DOMClass& Type;
-};
+    template<class IDLType> 
+    void resolve(typename IDLType::ParameterType value)
+    {
+        if (isSuspended())
+            return;
+        ASSERT(m_deferred);
+        ASSERT(m_globalObject);
+        JSC::ExecState* exec = m_globalObject->globalExec();
+        JSC::JSLockHolder locker(exec);
+        resolve(*exec, toJS<IDLType>(*exec, *m_globalObject.get(), std::forward<typename IDLType::ParameterType>(value)));
+    }
 
-template<typename DOMClass>
-struct PromiseResultInspector<DOMClass, typename std::enable_if<TypeInspector<DOMClass>::isPassByValueType>::type> {
-public:
-    static constexpr bool passByValue = true;
-    static constexpr bool passByRef = false;
-    static constexpr bool passByURef = false;
-    static constexpr bool passByConstRef = false;
+    void resolve()
+    {
+        if (isSuspended())
+            return;
+        ASSERT(m_deferred);
+        ASSERT(m_globalObject);
+        JSC::ExecState* exec = m_globalObject->globalExec();
+        JSC::JSLockHolder locker(exec);
+        resolve(*exec, JSC::jsUndefined());
+    }
 
-    typedef DOMClass Type;
-};
+    template<class IDLType>
+    void resolveWithNewlyCreated(typename IDLType::ParameterType value)
+    {
+        if (isSuspended())
+            return;
+        ASSERT(m_deferred);
+        ASSERT(m_globalObject);
+        JSC::ExecState* exec = m_globalObject->globalExec();
+        JSC::JSLockHolder locker(exec);
+        resolve(*exec, toJSNewlyCreated<IDLType>(*exec, *m_globalObject.get(), std::forward<typename IDLType::ParameterType>(value)));
+    }
 
-template<typename DOMClass>
-struct PromiseResultInspector<DOMClass, typename std::enable_if<TypeInspector<DOMClass>::isPassByConstRefType>::type> {
-public:
-    static constexpr bool passByValue = false;
-    static constexpr bool passByRef = false;
-    static constexpr bool passByURef = false;
-    static constexpr bool passByConstRef = true;
+    template<class IDLType> 
+    void reject(typename IDLType::ParameterType value)
+    {
+        if (isSuspended())
+            return;
+        ASSERT(m_deferred);
+        ASSERT(m_globalObject);
+        JSC::ExecState* exec = m_globalObject->globalExec();
+        JSC::JSLockHolder locker(exec);
+        reject(*exec, toJS<IDLType>(*exec, *m_globalObject.get(), std::forward<typename IDLType::ParameterType>(value)));
+    }
 
-    typedef const DOMClass& Type;
-};
-
-template<typename DOMClass>
-struct PromiseResultInspector<DOMClass, typename std::enable_if<TypeInspector<DOMClass>::isRefOrRefPtr>::type> {
-    static constexpr bool passByValue = false;
-    static constexpr bool passByRef = false;
-    static constexpr bool passByURef = true;
-    static constexpr bool passByConstRef = false;
-};
-
-class DeferredWrapper {
-public:
-    DeferredWrapper(JSC::ExecState*, JSDOMGlobalObject*, JSC::JSPromiseDeferred*);
-
-    template<class ResolveResultType> typename std::enable_if<PromiseResultInspector<ResolveResultType>::passByValue, void>::type
-    resolve(ResolveResultType result) { resolveWithValue(result); }
-    template<class ResolveResultType> typename std::enable_if<PromiseResultInspector<ResolveResultType>::passByRef, void>::type
-    resolve(ResolveResultType& result) { resolveWithValue(result); }
-    template<class ResolveResultType> typename std::enable_if<PromiseResultInspector<ResolveResultType>::passByURef, void>::type
-    resolve(ResolveResultType&& result) { resolveWithValue(std::forward<ResolveResultType>(result)); }
-    template<class ResolveResultType> typename std::enable_if<PromiseResultInspector<ResolveResultType>::passByConstRef, void>::type
-    resolve(const ResolveResultType& result) { resolveWithValue(result); }
-
-    template<class RejectResultType> typename std::enable_if<PromiseResultInspector<RejectResultType>::passByValue, void>::type
-    reject(RejectResultType result) { rejectWithValue(result); }
-    template<class RejectResultType> typename std::enable_if<PromiseResultInspector<RejectResultType>::passByRef, void>::type
-    reject(RejectResultType& result) { rejectWithValue(result); }
-    template<class RejectResultType> typename std::enable_if<PromiseResultInspector<RejectResultType>::passByURef, void>::type
-    reject(RejectResultType&& result) { rejectWithValue(std::forward<RejectResultType>(result)); }
-    template<class RejectResultType> typename std::enable_if<PromiseResultInspector<RejectResultType>::passByConstRef, void>::type
-    reject(const RejectResultType& result) { rejectWithValue(result); }
-
+    void reject();
+    void reject(std::nullptr_t);
+    void reject(Exception&&);
     void reject(ExceptionCode, const String& = { });
+    void reject(const JSC::PrivateName&);
 
-    JSDOMGlobalObject& globalObject() const;
     JSC::JSValue promise() const;
 
+    bool isSuspended() { return !m_deferred || !canInvokeCallback(); } // The wrapper world has gone away or active DOM objects have been suspended.
+    JSDOMGlobalObject* globalObject() { return m_globalObject.get(); }
+
+    void visitAggregate(JSC::SlotVisitor& visitor) { visitor.append(m_deferred); }
+
 private:
+    DeferredPromise(JSDOMGlobalObject&, JSC::JSPromiseDeferred&);
+
+    void clear();
+    void contextDestroyed() override;
+
     void callFunction(JSC::ExecState&, JSC::JSValue function, JSC::JSValue resolution);
     void resolve(JSC::ExecState& state, JSC::JSValue resolution) { callFunction(state, m_deferred->resolve(), resolution); }
     void reject(JSC::ExecState& state, JSC::JSValue resolution) { callFunction(state, m_deferred->reject(), resolution); }
 
-    template<class RejectResultType> void rejectWithValue(RejectResultType&&);
-    template<class ResolveResultType> void resolveWithValue(ResolveResultType&&);
-
-    JSC::Strong<JSDOMGlobalObject> m_globalObject;
-    JSC::Strong<JSC::JSPromiseDeferred> m_deferred;
+    JSC::Weak<JSC::JSPromiseDeferred> m_deferred;
+    JSC::Weak<JSDOMGlobalObject> m_globalObject;
 };
 
-void fulfillPromiseWithJSON(DeferredWrapper&, const String&);
-void fulfillPromiseWithArrayBuffer(DeferredWrapper&, ArrayBuffer*);
-void fulfillPromiseWithArrayBuffer(DeferredWrapper&, const void*, size_t);
-void rejectPromiseWithExceptionIfAny(JSC::ExecState&, JSDOMGlobalObject&, JSC::JSPromiseDeferred&);
-
-inline JSC::JSValue callPromiseFunction(JSC::ExecState& state, JSC::EncodedJSValue promiseFunction(JSC::ExecState*, JSC::JSPromiseDeferred*))
-{
-    JSDOMGlobalObject& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(state.lexicalGlobalObject());
-    JSC::JSPromiseDeferred& promiseDeferred = *JSC::JSPromiseDeferred::create(&state, &globalObject);
-    promiseFunction(&state, &promiseDeferred);
-
-    rejectPromiseWithExceptionIfAny(state, globalObject, promiseDeferred);
-    ASSERT(!state.hadException());
-    return promiseDeferred.promise();
-}
-
-// At the moment, Value cannot be a Ref<T> or RefPtr<T>, it should be a DOM class.
-template <typename Value>
-class DOMPromise {
+class DOMPromiseBase {
 public:
-    DOMPromise(DeferredWrapper&& wrapper) : m_wrapper(WTFMove(wrapper)) { }
-    DOMPromise(DOMPromise&& promise) : m_wrapper(WTFMove(promise.m_wrapper)) { }
+    DOMPromiseBase(Ref<DeferredPromise>&& genericPromise)
+        : m_promiseDeferred(WTFMove(genericPromise))
+    {
+    }
 
-    DOMPromise(const DOMPromise&) = default;
-    DOMPromise& operator=(DOMPromise const&) = default;
+    DOMPromiseBase(DOMPromiseBase&& promise)
+        : m_promiseDeferred(WTFMove(promise.m_promiseDeferred))
+    {
+    }
 
-    void resolve(typename PromiseResultInspector<Value>::Type value) { m_wrapper.resolve(value); }
+    DOMPromiseBase(const DOMPromiseBase& other)
+        : m_promiseDeferred(other.m_promiseDeferred.copyRef())
+    {
+    }
 
-    template<typename... ErrorType> void reject(ErrorType&&... error) { m_wrapper.reject(std::forward<ErrorType>(error)...); }
+    DOMPromiseBase& operator=(const DOMPromiseBase& other)
+    {
+        m_promiseDeferred = other.m_promiseDeferred.copyRef();
+        return *this;
+    }
 
-    DeferredWrapper& deferredWrapper() { return m_wrapper; }
+    DOMPromiseBase& operator=(DOMPromiseBase&& other)
+    {
+        m_promiseDeferred = WTFMove(other.m_promiseDeferred);
+        return *this;
+    }
 
-private:
-    DeferredWrapper m_wrapper;
+    void reject()
+    {
+        m_promiseDeferred->reject();
+    }
+
+    template<typename... ErrorType> 
+    void reject(ErrorType&&... error)
+    {
+        m_promiseDeferred->reject(std::forward<ErrorType>(error)...);
+    }
+
+    template<typename IDLType>
+    void rejectType(typename IDLType::ParameterType value)
+    {
+        m_promiseDeferred->reject<IDLType>(std::forward<typename IDLType::ParameterType>(value));
+    }
+
+    JSC::JSValue promise() const { return m_promiseDeferred->promise(); };
+
+protected:
+    Ref<DeferredPromise> m_promiseDeferred;
 };
 
-template<class ResolveResultType>
-inline void DeferredWrapper::resolveWithValue(ResolveResultType&& result)
+template<typename IDLType> 
+class DOMPromise : public DOMPromiseBase {
+public:
+    using DOMPromiseBase::DOMPromiseBase;
+    using DOMPromiseBase::operator=;
+    using DOMPromiseBase::promise;
+    using DOMPromiseBase::reject;
+
+    void resolve(typename IDLType::ParameterType value)
+    { 
+        m_promiseDeferred->resolve<IDLType>(std::forward<typename IDLType::ParameterType>(value));
+    }
+};
+
+template<> class DOMPromise<void> : public DOMPromiseBase {
+public:
+    using DOMPromiseBase::DOMPromiseBase;
+    using DOMPromiseBase::operator=;
+    using DOMPromiseBase::promise;
+    using DOMPromiseBase::reject;
+
+    void resolve()
+    { 
+        m_promiseDeferred->resolve();
+    }
+};
+
+
+Ref<DeferredPromise> createDeferredPromise(JSC::ExecState&, JSDOMWindow&);
+
+void fulfillPromiseWithJSON(Ref<DeferredPromise>&&, const String&);
+void fulfillPromiseWithArrayBuffer(Ref<DeferredPromise>&&, ArrayBuffer*);
+void fulfillPromiseWithArrayBuffer(Ref<DeferredPromise>&&, const void*, size_t);
+void rejectPromiseWithExceptionIfAny(JSC::ExecState&, JSDOMGlobalObject&, JSC::JSPromiseDeferred&);
+JSC::EncodedJSValue createRejectedPromiseWithTypeError(JSC::ExecState&, const String&);
+
+using PromiseFunction = void(JSC::ExecState&, Ref<DeferredPromise>&&);
+
+enum class PromiseExecutionScope { WindowOnly, WindowOrWorker };
+
+template<PromiseFunction promiseFunction, PromiseExecutionScope executionScope>
+inline JSC::JSValue callPromiseFunction(JSC::ExecState& state)
 {
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    resolve(*exec, toJS(exec, m_globalObject.get(), std::forward<ResolveResultType>(result)));
+    JSC::VM& vm = state.vm();
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+
+    JSDOMGlobalObject& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(state.lexicalGlobalObject());
+    JSC::JSPromiseDeferred* promiseDeferred = JSC::JSPromiseDeferred::create(&state, &globalObject);
+
+    // promiseDeferred can be null when terminating a Worker abruptly.
+    if (executionScope == PromiseExecutionScope::WindowOrWorker && !promiseDeferred)
+        return JSC::jsUndefined();
+
+    promiseFunction(state, DeferredPromise::create(globalObject, *promiseDeferred));
+
+    rejectPromiseWithExceptionIfAny(state, globalObject, *promiseDeferred);
+    ASSERT_UNUSED(scope, !scope.exception());
+    return promiseDeferred->promise();
 }
 
-template<class RejectResultType>
-inline void DeferredWrapper::rejectWithValue(RejectResultType&& result)
+using BindingPromiseFunction = JSC::EncodedJSValue(JSC::ExecState*, Ref<DeferredPromise>&&);
+template<BindingPromiseFunction bindingFunction>
+inline void bindingPromiseFunctionAdapter(JSC::ExecState& state, Ref<DeferredPromise>&& promise)
 {
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    reject(*exec, toJS(exec, m_globalObject.get(), std::forward<RejectResultType>(result)));
+    bindingFunction(&state, WTFMove(promise));
 }
 
-template<>
-inline void DeferredWrapper::resolve(bool result)
+template<BindingPromiseFunction bindingPromiseFunction, PromiseExecutionScope executionScope>
+inline JSC::JSValue callPromiseFunction(JSC::ExecState& state)
 {
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    resolve(*exec, JSC::jsBoolean(result));
+    return callPromiseFunction<bindingPromiseFunctionAdapter<bindingPromiseFunction>, executionScope>(state);
 }
 
-template<>
-inline void DeferredWrapper::resolve(JSC::JSValue value)
-{
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    resolve(*exec, value);
-}
-
-template<>
-inline void DeferredWrapper::reject(JSC::JSValue value)
-{
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    reject(*exec, value);
-}
-
-template<>
-inline void DeferredWrapper::resolve(std::nullptr_t)
-{
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    resolve(*exec, JSC::jsUndefined());
-}
-
-template<>
-inline void DeferredWrapper::reject(std::nullptr_t)
-{
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    reject(*exec, JSC::jsNull());
-}
-
-template<>
-inline void DeferredWrapper::resolve(const String& result)
-{
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    resolve(*exec, jsString(exec, result));
-}
-
-template<>
-inline void DeferredWrapper::reject(const String& result)
-{
-    ASSERT(m_deferred);
-    ASSERT(m_globalObject);
-    JSC::ExecState* exec = m_globalObject->globalExec();
-    JSC::JSLockHolder locker(exec);
-    reject(*exec, jsString(exec, result));
-}
-
-}
-
-#endif // JSDOMPromise_h
+} // namespace WebCore

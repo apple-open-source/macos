@@ -26,18 +26,19 @@
 
 #include <Security/SecureObjectSync/SOSFullPeerInfo.h>
 #include <Security/SecureObjectSync/SOSPeerInfoV2.h>
+#include <Security/SecureObjectSync/SOSPeerInfoDER.h>
 
 #include <Security/SecureObjectSync/SOSCircle.h>
 
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSAccountPriv.h>
+#include <Security/SecureObjectSync/SOSPeerInfoDER.h>
 
 #include <Security/SecKeyPriv.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecOTR.h>
 #include <CoreFoundation/CFArray.h>
 #include <dispatch/dispatch.h>
-#include <SOSPeerInfoDER.h>
 #include <Security/SecFramework.h>
 
 #include <stdlib.h>
@@ -133,10 +134,11 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
     CFStringRef transportType =SOSTransportMessageTypeIDSV2;
     CFBooleanRef preferIDS = kCFBooleanFalse;
     CFBooleanRef preferIDSFragmentation = kCFBooleanTrue;
-    
+    CFBooleanRef preferACKModel = kCFBooleanTrue;
+
     fpi->peer_info = SOSPeerInfoCreateWithTransportAndViews(allocator, gestalt, backupKey,
                                                             IDSID, transportType, preferIDS,
-                                                            preferIDSFragmentation, initialViews,
+                                                            preferIDSFragmentation, preferACKModel, initialViews,
                                                             signingKey, error);
     require_quiet(fpi->peer_info, exit);
 
@@ -192,6 +194,11 @@ bool SOSFullPeerInfoUpdateTransportFragmentationPreference(SOSFullPeerInfoRef pe
     });
 }
 
+bool SOSFullPeerInfoUpdateTransportAckModelPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error){
+    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
+        return SOSPeerInfoSetIDSACKModelPreference(kCFAllocatorDefault, peer, preference, key, error);
+    });
+}
 
 SOSFullPeerInfoRef SOSFullPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, SOSPeerInfoRef peer, CFErrorRef* error) {
     SOSFullPeerInfoRef fpi = CFTypeAllocate(SOSFullPeerInfo, struct __OpaqueSOSFullPeerInfo, allocator);
@@ -299,6 +306,14 @@ bool SOSFullPeerInfoUpdateGestalt(SOSFullPeerInfoRef peer, CFDictionaryRef gesta
     });
 }
 
+bool SOSFullPeerInfoUpdateV2Dictionary(SOSFullPeerInfoRef peer, CFDictionaryRef newv2dict, CFErrorRef* error)
+{
+    return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
+        return SOSPeerInfoCopyWithV2DictionaryUpdate(kCFAllocatorDefault, peer,
+                                                newv2dict, key, error);
+    });
+}
+
 bool SOSFullPeerInfoUpdateBackupKey(SOSFullPeerInfoRef peer, CFDataRef backupKey, CFErrorRef* error)
 {
     return SOSFullPeerInfoUpdate(peer, error, ^SOSPeerInfoRef(SOSPeerInfoRef peer, SecKeyRef key, CFErrorRef *error) {
@@ -365,6 +380,7 @@ static bool sosFullPeerInfoRequiresUpdate(SOSFullPeerInfoRef peer, CFSetRef mini
     if(!(SOSPeerInfoV2DictionaryHasString(peer->peer_info, sTransportType))) return true;
     if(!(SOSPeerInfoV2DictionaryHasBoolean(peer->peer_info, sPreferIDS))) return true;
     if(!(SOSPeerInfoV2DictionaryHasBoolean(peer->peer_info, sPreferIDSFragmentation))) return true;
+    if(!(SOSPeerInfoV2DictionaryHasBoolean(peer->peer_info, sPreferIDSACKModel))) return true;
     if(SOSFullPeerInfoNeedsViewUpdate(peer, minimumViews, excludedViews)) return true;
 
     return false;
@@ -388,7 +404,7 @@ bool SOSFullPeerInfoUpdateToCurrent(SOSFullPeerInfoRef peer, CFSetRef minimumVie
                          secnotice("upgrade", "SOSFullPeerInfoCopyDeviceKey failed: %@", copyError));
     
     SOSPeerInfoRef newPeer = SOSPeerInfoCreateCurrentCopy(kCFAllocatorDefault, peer->peer_info,
-                                                          NULL, NULL, kCFBooleanFalse, kCFBooleanTrue, newViews,
+                                                          NULL, NULL, kCFBooleanFalse, kCFBooleanTrue, kCFBooleanTrue, newViews,
                                                           device_key, &createError);
     require_action_quiet(newPeer, errOut,
                          secnotice("upgrade", "Peer info v2 create copy failed: %@", createError));

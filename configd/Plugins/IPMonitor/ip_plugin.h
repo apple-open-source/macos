@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2012-2017 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -74,10 +74,10 @@ const char *
 my_if_indextoname(unsigned int idx, char if_name[IFNAMSIZ]);
 
 boolean_t
-service_contains_protocol(CFDictionaryRef service, int af);
+service_contains_protocol(CFDictionaryRef service_dict, int af);
 
 boolean_t
-service_is_scoped_only(CFDictionaryRef service);
+service_is_scoped_only(CFDictionaryRef service_dict);
 
 boolean_t
 check_if_service_expensive(CFStringRef serviceID);

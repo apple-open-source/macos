@@ -26,6 +26,10 @@
  *
  */
 
+#if defined (_WIN32)
+#define __unused
+#endif
+
 #if defined(COMMON_DIGEST_FUNCTIONS) || defined(COMMON_CMAC_FUNCTIONS) || defined(COMMON_GCM_FUNCTIONS) \
     || defined (COMMON_AESSHOEFLY_FUNCTIONS) || defined(COMMON_CASTSHOEFLY_FUNCTIONS) \
     || defined (COMMON_CRYPTOR_FUNCTIONS) || defined(COMMON_HMAC_FUNCTIONS) \
@@ -33,54 +37,37 @@
     || defined(COMMON_RSA_FUNCTIONS) || defined(COMMON_EC_FUNCTIONS) || defined(COMMON_DH_FUNCTIONS) \
     || defined(COMMON_BIGNUM_FUNCTIONS) || defined(COMMON_RANDOM_FUNCTIONS)
 
-#define DIAGNOSTIC
+    #define DIAGNOSTIC
 #endif
 
 #ifdef KERNEL
-#include <stdarg.h>
+    #include <stdarg.h>
 
-#define	CC_DEBUG		 1
-#define	CC_DEBUG_BUG		2
-#define	CC_DEBUG_FAILURE	3
+       #if DIAGNOSTIC
+        #define CC_DEBUG_LOG(lvl, fmt, ...) do {				      \
+            const char *lvl_type[] = { "INVALID", "DEBUG", "ERROR", "FAILURE" };  \
+            char fmtbuffer[256]; 						      \
+            int l = lvl;							      \
+                                                \
+            if (l < 0 || l > 3) l = 0;					      \
+            snprintf(fmtbuffer, sizeof(fmtbuffer),				      \
+                "CommonCrypto Function: %s:%d (%s) - %s", __FILE__, __LINE__,     \
+                lvl_type[l], fmt);					              \
+            printf(fmtbuffer, __VA_ARGS__);		      			      \
+        } while (0)
 
-#if DIAGNOSTIC
-#define CC_DEBUG_LOG(lvl, fmt, ...) do {				      \
-	const char *lvl_type[] = { "INVALID", "DEBUG", "ERROR", "FAILURE" };  \
-	char fmtbuffer[256]; 						      \
-	int l = lvl;							      \
-									      \
-	if (l < 0 || l > 3) l = 0;					      \
-	snprintf(fmtbuffer, sizeof(fmtbuffer),				      \
-	    "CommonCrypto Function: %s:%d (%s) - %s", __FILE__, __LINE__,     \
-	    lvl_type[l], fmt);					              \
-	printf(fmtbuffer, __VA_ARGS__);		      			      \
-} while (0)
+    #else
+        #define CC_DEBUG_LOG(lvl,fmt,...) {}
+    #endif /* DIAGNOSTIC */
 
-#else
+#else //KERNEL
 
-#define CC_DEBUG_LOG(lvl,fmt,...) {}
-
-#endif /* DIAGNOSTIC */
-
-#else
-
-#include <asl.h>
-#include <stdarg.h>
-
-#define CC_DEBUG_FAILURE		ASL_LEVEL_EMERG
-#define CC_DEBUG_BUG			ASL_LEVEL_ERR
-#define CC_DEBUG			ASL_LEVEL_ERR
-
-void ccdebug_imp(int level, const char *funcname, const char *format, ...);
-
-#ifdef DIAGNOSTIC
-
-#define CC_DEBUG_LOG(lvl,...) ccdebug_imp(lvl, __FUNCTION__, __VA_ARGS__)
-
-#else
-
-#define CC_DEBUG_LOG(lvl,...) {}
-#endif /* DEBUG */
+    #ifdef DIAGNOSTIC
+    #include <os/log.h>
+    #define CC_DEBUG_LOG(lvl,fmt, ...)      os_log(OS_LOG_TYPE_DEBUG, __FUNCTION__ ## "  " ## fmt , __VA_ARGS__)
+    #else
+    #define CC_DEBUG_LOG(lvl,...) {}
+    #endif /* DEBUG */
 
 #endif /* KERNEL */
 

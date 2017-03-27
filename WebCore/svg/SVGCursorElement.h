@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGCursorElement_h
-#define SVGCursorElement_h
+#pragma once
 
 #include "SVGAnimatedBoolean.h"
 #include "SVGAnimatedLength.h"
@@ -33,10 +32,7 @@ namespace WebCore {
 
 class CSSCursorImageValue;
 
-class SVGCursorElement final : public SVGElement,
-                               public SVGTests,
-                               public SVGExternalResourcesRequired,
-                               public SVGURIReference {
+class SVGCursorElement final : public SVGElement, public SVGTests, public SVGExternalResourcesRequired, public SVGURIReference {
 public:
     static Ref<SVGCursorElement> create(const QualifiedName&, Document&);
 
@@ -45,18 +41,23 @@ public:
     void addClient(CSSCursorImageValue&);
     void removeClient(CSSCursorImageValue&);
 
+    // SVGTests
+    Ref<SVGStringList> requiredFeatures();
+    Ref<SVGStringList> requiredExtensions();
+    Ref<SVGStringList> systemLanguage();
+
 private:
     SVGCursorElement(const QualifiedName&, Document&);
 
-    bool isValid() const override { return SVGTests::isValid(); }
+    bool isValid() const final { return SVGTests::isValid(); }
 
     static bool isSupportedAttribute(const QualifiedName&);
-    void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    void svgAttributeChanged(const QualifiedName&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    void svgAttributeChanged(const QualifiedName&) final;
 
-    bool rendererIsNeeded(const RenderStyle&) override { return false; }
+    bool rendererIsNeeded(const RenderStyle&) final { return false; }
 
-    void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
+    void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
     BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGCursorElement)
         DECLARE_ANIMATED_LENGTH(X, x)
@@ -66,13 +67,11 @@ private:
     END_DECLARE_ANIMATED_PROPERTIES
 
     // SVGTests
-    void synchronizeRequiredFeatures() override { SVGTests::synchronizeRequiredFeatures(this); }
-    void synchronizeRequiredExtensions() override { SVGTests::synchronizeRequiredExtensions(this); }
-    void synchronizeSystemLanguage() override { SVGTests::synchronizeSystemLanguage(this); }
+    void synchronizeRequiredFeatures() final { SVGTests::synchronizeRequiredFeatures(*this); }
+    void synchronizeRequiredExtensions() final { SVGTests::synchronizeRequiredExtensions(*this); }
+    void synchronizeSystemLanguage() final { SVGTests::synchronizeSystemLanguage(*this); }
 
     HashSet<CSSCursorImageValue*> m_clients;
 };
 
 } // namespace WebCore
-
-#endif

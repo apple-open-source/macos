@@ -39,7 +39,6 @@
 #import <WebCore/PlatformCALayerCocoa.h>
 #import <WebCore/TiledBacking.h>
 #import <wtf/CurrentTime.h>
-#import <wtf/RetainPtr.h>
 
 using namespace WebCore;
 
@@ -167,7 +166,7 @@ void PlatformCALayerRemote::recursiveBuildTransaction(RemoteLayerTreeContext& co
         }
 
         if (isPlatformCALayerRemoteCustom()) {
-            RemoteLayerTreePropertyApplier::applyProperties(platformLayer(), nullptr, m_properties, RemoteLayerTreePropertyApplier::RelatedLayerMap());
+            RemoteLayerTreePropertyApplier::applyProperties(platformLayer(), nullptr, m_properties, RemoteLayerTreePropertyApplier::RelatedLayerMap(), RemoteLayerBackingStore::LayerContentsType::CAMachPort);
             didCommit();
             return;
         }

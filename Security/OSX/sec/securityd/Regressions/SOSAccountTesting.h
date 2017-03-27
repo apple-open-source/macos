@@ -30,6 +30,8 @@
 #include <Security/SecureObjectSync/SOSAccountPriv.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
+#include <Security/SecureObjectSync/SOSPeerInfo.h>
+#include <Security/SecureObjectSync/SOSPeerInfoV2.h>
 
 #include "SOSTestDataSource.h"
 #include "SOSRegressionUtilities.h"
@@ -105,6 +107,15 @@ static inline SOSViewResultCode SOSAccountUpdateView_wTxn(SOSAccountRef account,
     __block SOSViewResultCode result = false;
     SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
         result = SOSAccountUpdateView(account, viewname, actionCode, error);
+    });
+    return result;
+}
+
+static inline bool SOSAccountSetMyDSID_wTxn(SOSAccountRef account, CFStringRef dsid, CFErrorRef* error)
+{
+    __block bool result = false;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        result = SOSAccountSetMyDSID(txn, dsid, error);
     });
     return result;
 }
@@ -512,7 +523,7 @@ static inline void FeedChangesTo(CFMutableDictionaryRef changes, SOSAccountRef a
     __block CFMutableArrayRef handled = NULL;
     SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
         __block CFErrorRef error = NULL;
-        ok(handled = SOSTransportDispatchMessages(account, account_pending_messages, &error), "SOSTransportHandleMessages failed (%@)", error);
+        ok(handled = SOSTransportDispatchMessages(txn, account_pending_messages, &error), "SOSTransportHandleMessages failed (%@)", error);
         CFReleaseNull(error);
     });
 
@@ -610,21 +621,84 @@ static inline int ProcessChangesUntilNoChange(CFMutableDictionaryRef changes, ..
 // MARK: Account creation
 //
 
+static CFStringRef modelFromType(SOSPeerInfoDeviceClass cls) {
+    switch(cls) {
+        case SOSPeerInfo_macOS: return CFSTR("Mac Pro");
+        case SOSPeerInfo_iOS: return CFSTR("iPhone");
+        case SOSPeerInfo_iCloud: return CFSTR("iCloud");
+        case SOSPeerInfo_watchOS: return CFSTR("needWatchOSDeviceName");
+        case SOSPeerInfo_tvOS: return CFSTR("needTVOSDeviceName");
+        default: return CFSTR("GENERICOSTHING");
+    }
+}
 
-static inline SOSAccountRef CreateAccountForLocalChanges(CFStringRef name, CFStringRef data_source_name)
-{
+static inline SOSAccountRef CreateAccountForLocalChangesWithStartingAttributes(CFStringRef name, CFStringRef data_source_name, SOSPeerInfoDeviceClass devclass, CFStringRef serial, CFBooleanRef preferIDS, CFBooleanRef preferIDSFragmentation, CFBooleanRef preferIDSACKModel, CFStringRef transportType, CFStringRef deviceID) {
+    
     SOSDataSourceFactoryRef factory = SOSTestDataSourceFactoryCreate();
     SOSDataSourceRef ds = SOSTestDataSourceCreate();
     SOSTestDataSourceFactorySetDataSource(factory, data_source_name, ds);
     SOSEngineRef engine = SOSEngineCreate(ds, NULL);
     ds->engine = engine;
-    CFDictionaryRef gestalt = SOSCreatePeerGestaltFromName(name);
-
-    SOSAccountRef result = SOSAccountCreateTest(kCFAllocatorDefault, name, gestalt, factory);
     
-    CFReleaseNull(gestalt);
+    CFMutableDictionaryRef gestalt = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFDictionaryAddValue(gestalt, kPIUserDefinedDeviceNameKey, name);
+    CFDictionaryAddValue(gestalt, kPIDeviceModelNameKey, modelFromType(devclass));
+    CFDictionaryAddValue(gestalt, kPIOSVersionKey, CFSTR("TESTRUN"));
+    
+    CFMutableDictionaryRef testV2dict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFDictionaryAddValue(testV2dict, sSerialNumberKey, serial);
+    CFDictionaryAddValue(testV2dict, sPreferIDS, preferIDS);
+    CFDictionaryAddValue(testV2dict, sPreferIDSFragmentation, preferIDSFragmentation);
+    CFDictionaryAddValue(testV2dict, sPreferIDSACKModel, preferIDSACKModel);
+    CFDictionaryAddValue(testV2dict, sTransportType, transportType);
+    CFDictionaryAddValue(testV2dict, sDeviceID, deviceID);
+    SOSAccountRef result = SOSAccountCreateTest(kCFAllocatorDefault, name, gestalt, factory);
+    SOSAccountUpdateV2Dictionary(result, testV2dict);
 
+    CFReleaseSafe(SOSAccountCopyUUID(result));
+
+    CFReleaseNull(gestalt);
+    CFReleaseNull(testV2dict);
+    
     return result;
+}
+
+static CFStringRef sGestaltTest    = CFSTR("GestaltTest");
+static CFStringRef sV2Test         = CFSTR("V2Test");
+static inline CFDictionaryRef SOSTestSaveStaticAccountState(SOSAccountRef account) {
+    CFMutableDictionaryRef retval = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFDictionaryRef gestalt = SOSAccountCopyGestalt(account);
+    CFDictionaryRef v2dictionary = SOSAccountCopyV2Dictionary(account);
+    CFDictionaryAddValue(retval, sGestaltTest, gestalt);
+    CFDictionaryAddValue(retval, sV2Test, v2dictionary);
+    CFReleaseNull(gestalt);
+    CFReleaseNull(v2dictionary);
+    return retval;
+}
+
+static inline void SOSTestRestoreAccountState(SOSAccountRef account, CFDictionaryRef saved) {
+    SOSAccountUpdateGestalt(account, CFDictionaryGetValue(saved, sGestaltTest));
+    SOSAccountUpdateV2Dictionary(account, CFDictionaryGetValue(saved, sV2Test));
+}
+
+static CFStringRef CFStringCreateRandomHexWithLength(size_t len) {
+    if(len%2) len++;
+    CFDataRef data = CFDataCreateWithRandomBytes(len/2);
+    CFMutableStringRef retval = CFStringCreateMutable(kCFAllocatorDefault, len);
+    CFStringAppendHexData(retval, data);
+    CFReleaseNull(data);
+    return retval;
+}
+
+static inline SOSAccountRef CreateAccountForLocalChanges(CFStringRef name, CFStringRef data_source_name)
+{
+    CFStringRef randomSerial = CFStringCreateRandomHexWithLength(8);
+    CFStringRef randomDevID = CFStringCreateRandomHexWithLength(16);
+    SOSAccountRef retval = CreateAccountForLocalChangesWithStartingAttributes(name, data_source_name, SOSPeerInfo_iOS, randomSerial,
+                                                              kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeIDSV2, randomDevID);
+    CFReleaseNull(randomSerial);
+    CFReleaseNull(randomDevID);
+    return retval;
 }
 
 static inline SOSAccountRef CreateAccountForLocalChangesFromData(CFDataRef flattenedData, CFStringRef name, CFStringRef data_source_name)
@@ -748,5 +822,114 @@ errOut:
     CFReleaseNull(accountDER);
     return retval;
 }
+
+static inline bool SOSTestStartCircleWithAccount(SOSAccountRef account, CFMutableDictionaryRef changes, CFStringRef cfaccount, CFDataRef cfpassword) {
+    bool retval = false;
+    require(SOSAccountAssertUserCredentialsAndUpdate(account, cfaccount, cfpassword, NULL), retOut);
+    is(ProcessChangesUntilNoChange(changes, account, NULL), 1, "updates");
+    require(SOSAccountResetToOffering_wTxn(account, NULL), retOut);
+    is(ProcessChangesUntilNoChange(changes, account, NULL), 1, "updates");
+    retval = true;
+retOut:
+    return retval;
+}
+
+static inline bool SOSTestApproveRequest(SOSAccountRef approver, CFIndex napplicants) {
+    bool retval = false;
+    CFErrorRef error = NULL;
+    CFArrayRef applicants = SOSAccountCopyApplicants(approver, &error);
+    
+    ok(applicants && CFArrayGetCount(applicants) == napplicants, "See %ld applicant(s) %@ (%@)", napplicants, applicants, error);
+    CFStringRef approvername = SOSAccountCopyName(approver);
+    ok((retval = SOSAccountAcceptApplicants(approver, applicants, &error)), "%@ accepts (%@)", approvername, error);
+    CFReleaseNull(error);
+    CFReleaseNull(applicants);
+    CFReleaseNull(approvername);
+    
+    return retval;
+}
+
+#define DROP_USERKEY true
+#define KEEP_USERKEY false
+
+static inline bool SOSTestJoinWith(CFDataRef cfpassword, CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccountRef joiner) {
+    CFErrorRef error = NULL;
+    // retval will return op failures, not count failures - we'll still report those from in here.
+    bool retval = false;
+    
+    FeedChangesTo(changes, joiner);
+    
+    ok(SOSAccountAssertUserCredentialsAndUpdate(joiner, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
+    CFReleaseNull(error);
+    
+    ProcessChangesUntilNoChange(changes, joiner, NULL);
+    
+    ok(retval = SOSAccountJoinCircles_wTxn(joiner, &error), "Applying (%@)", error);
+    CFReleaseNull(error);
+    return retval;
+}
+
+static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccountRef approver, SOSAccountRef joiner, bool dropUserKey, int expectedCount, bool expectCleanup) {
+    //CFErrorRef error = NULL;
+    // retval will return op failures, not count failures - we'll still report those from in here.
+    bool retval = false;
+    
+    ok(retval = SOSTestJoinWith(cfpassword, cfaccount, changes, joiner), "Applyication Made");
+    
+    is(ProcessChangesUntilNoChange(changes, approver, joiner, NULL), 2, "updates");
+    
+    int nrounds = 2;
+    if(dropUserKey) SOSAccountPurgePrivateCredential(joiner);  // lose the userKey so we don't "fix" the ghost problem yet.
+    else nrounds = 3;
+    
+    if(expectCleanup) nrounds++;
+    
+    ok(retval &= SOSTestApproveRequest(approver, 1), "Accepting Request to Join");
+    is(ProcessChangesUntilNoChange(changes, approver, joiner, NULL), nrounds, "updates");
+    
+    accounts_agree_internal("Successful join shows same circle view", joiner, approver, false);
+    is(countPeers(joiner), expectedCount, "There should be %d valid peers", expectedCount);
+    return retval;
+}
+
+
+static inline SOSAccountRef SOSTestCreateAccountAsSerialClone(CFStringRef name, SOSPeerInfoDeviceClass devClass, CFStringRef serial, CFStringRef idsID) {
+    return CreateAccountForLocalChangesWithStartingAttributes(name, CFSTR("TestSource"), devClass, serial, kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue, SOSTransportMessageTypeIDSV2, idsID);
+}
+
+static inline bool SOSTestMakeGhostInCircle(CFStringRef name, SOSPeerInfoDeviceClass devClass, CFStringRef serial, CFStringRef idsID,
+                                     CFDataRef cfpassword, CFStringRef cfaccount, CFMutableDictionaryRef changes,
+                                     SOSAccountRef approver, int expectedCount) {
+    bool retval = false;
+    SOSAccountRef ghostAccount = SOSTestCreateAccountAsSerialClone(name, devClass, serial, idsID);
+    ok(ghostAccount, "Created Ghost Account");
+    require_quiet(ghostAccount, retOut);
+    if(!ghostAccount) return false;
+    ok(retval = SOSTestJoinWithApproval(cfpassword, cfaccount, changes, approver, ghostAccount, DROP_USERKEY, expectedCount, true), "Ghost Joined Circle with expected result");
+    CFReleaseNull(ghostAccount);
+retOut:
+    return retval;
+}
+
+static inline bool SOSTestChangeAccountDeviceName(SOSAccountRef account, CFStringRef name) {
+    bool retval = false;
+    CFMutableDictionaryRef mygestalt = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, SOSPeerGetGestalt(SOSAccountGetMyPeerInfo(account)));
+    require_quiet(mygestalt, retOut);
+    CFDictionarySetValue(mygestalt, kPIUserDefinedDeviceNameKey, name);
+    retval = SOSAccountUpdateGestalt(account, mygestalt);
+retOut:
+    CFReleaseNull(mygestalt);
+    return retval;
+}
+
+static inline void SOSTestCleanup() {
+    SOSUnregisterAllTransportMessages();
+    SOSUnregisterAllTransportCircles();
+    SOSUnregisterAllTransportKeyParameters();
+    CFArrayRemoveAllValues(key_transports);
+    CFArrayRemoveAllValues(circle_transports);
+    CFArrayRemoveAllValues(message_transports);
+}
+
 
 #endif

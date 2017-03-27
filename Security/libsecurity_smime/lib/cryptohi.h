@@ -39,33 +39,7 @@
 #include <security_asn1/seccomon.h>
 #include <Security/SecCmsBase.h>
 
-
 SEC_BEGIN_PROTOS
-
-
-/****************************************/
-/*
-** DER encode/decode DSA signatures
-*/
-
-/* ANSI X9.57 defines DSA signatures as DER encoded data.  Our DSA code (and
- * most of the rest of the world) just generates 40 bytes of raw data.  These
- * functions convert between formats.
- */
-//extern SECStatus DSAU_EncodeDerSig(SecAsn1Item *dest, SecAsn1Item *src);
-//extern SecAsn1Item *DSAU_DecodeDerSig(SecAsn1Item *item);
-
-#if USE_CDSA_CRYPTO
-/*
- * Return a csp handle able to deal with algorithm
- */
-extern CSSM_CSP_HANDLE SecCspHandleForAlgorithm(CSSM_ALGORITHMS algorithm);
-
-/*
- * Return a CSSM_ALGORITHMS for a given SECOidTag or 0 if there is none
- */
-extern CSSM_ALGORITHMS SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag);
-#endif
 
 /****************************************/
 /*

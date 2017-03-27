@@ -124,10 +124,13 @@ public:
     void dumpContentsToFile();
 
     String recordsPath() const;
+    bool canUseSharedMemoryForBodyData() const { return m_storage && m_storage->canUseSharedMemoryForBodyData(); }
 
 private:
     Cache() = default;
     ~Cache() = delete;
+
+    Key makeCacheKey(const WebCore::ResourceRequest&);
 
     String dumpFilePath() const;
     void deleteDumpFile();

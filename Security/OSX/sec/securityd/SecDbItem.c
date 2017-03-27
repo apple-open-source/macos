@@ -496,6 +496,20 @@ CFTypeRef SecDbItemGetValue(SecDbItemRef item, const SecDbAttr *desc, CFErrorRef
     return value;
 }
 
+CFTypeRef SecDbItemGetValueKind(SecDbItemRef item, SecDbAttrKind descKind, CFErrorRef *error) {
+    CFTypeRef result = NULL;
+
+    const SecDbClass * itemClass = SecDbItemGetClass(item);
+    const SecDbAttr * desc = SecDbClassAttrWithKind(itemClass, descKind, error);
+
+    if (desc) {
+        result = SecDbItemGetValue(item, desc, error);
+    }
+
+    return result;
+}
+
+
 // Similar as SecDbItemGetValue, but if attr represents attribute stored into DB field as hash, returns
 // hashed value for the attribute.
 static CFTypeRef SecDbItemCopyValueForDb(SecDbItemRef item, const SecDbAttr *desc, CFErrorRef *error) {

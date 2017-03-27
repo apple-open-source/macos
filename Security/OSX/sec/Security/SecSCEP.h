@@ -101,7 +101,7 @@ SecSCEPGetCertInitial(SecCertificateRef ca_certificate, CFArrayRef subject, CFDi
     @param certs a PKCS#7 GetCACert response
     @param ca_fingerprint CFDataRef with CA fingerprint.  Size indicates hash type.  Recognises SHA-1 and MD5.
     @param ca_certificate SecCertificateRef CA certificate
-    @param ra_certificate SecCertificateRef RA certificate.  Use both for signing and encryption unless ra_encryption_certificate is also returned.
+    @param ra_signing_certificate SecCertificateRef RA certificate.  Use both for signing and encryption unless ra_encryption_certificate is also returned.
     @param ra_encryption_certificate SecCertificateRef RA encryption certificate.  Returned if there isn't an RA certificate that can both sign and encrypt.
     @result status errSecSuccess on success.
 */

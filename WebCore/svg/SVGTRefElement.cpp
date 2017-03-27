@@ -24,7 +24,6 @@
 
 #include "EventListener.h"
 #include "EventNames.h"
-#include "ExceptionCodePlaceholder.h"
 #include "MutationEvent.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGInlineText.h"
@@ -72,8 +71,8 @@ public:
 private:
     explicit SVGTRefTargetEventListener(SVGTRefElement& trefElement);
 
-    void handleEvent(ScriptExecutionContext*, Event*) override;
-    bool operator==(const EventListener&) const override;
+    void handleEvent(ScriptExecutionContext*, Event*) final;
+    bool operator==(const EventListener&) const final;
 
     SVGTRefElement& m_trefElement;
     RefPtr<Element> m_target;
@@ -146,10 +145,10 @@ void SVGTRefElement::updateReferencedText(Element* target)
     ASSERT(shadowRoot());
     ShadowRoot* root = shadowRoot();
     if (!root->firstChild())
-        root->appendChild(Text::create(document(), textContent), ASSERT_NO_EXCEPTION);
+        root->appendChild(Text::create(document(), textContent));
     else {
         ASSERT(root->firstChild()->isTextNode());
-        root->firstChild()->setTextContent(textContent, ASSERT_NO_EXCEPTION);
+        root->firstChild()->setTextContent(textContent);
     }
 }
 
@@ -163,7 +162,7 @@ void SVGTRefElement::detachTarget()
     ASSERT(shadowRoot());
     Node* container = shadowRoot()->firstChild();
     if (container)
-        container->setTextContent(emptyContent, IGNORE_EXCEPTION);
+        container->setTextContent(emptyContent);
 
     if (!inDocument())
         return;

@@ -31,58 +31,32 @@
  */
 
 #include "config.h"
+#include "RTCIceCandidate.h"
 
 #if ENABLE(WEB_RTC)
 
-#include "RTCIceCandidate.h"
-
-#include "Dictionary.h"
 #include "ExceptionCode.h"
 
 namespace WebCore {
 
-RefPtr<RTCIceCandidate> RTCIceCandidate::create(const Dictionary& dictionary, ExceptionCode& ec)
-{
-    String candidate;
-    if (!dictionary.get("candidate", candidate)) {
-        ec = TypeError;
-        return nullptr;
-    }
-
-    String sdpMid;
-    dictionary.getWithUndefinedOrNullCheck("sdpMid", sdpMid);
-
-    Optional<unsigned short> sdpMLineIndex;
-    String sdpMLineIndexString;
-
-    if (dictionary.getWithUndefinedOrNullCheck("sdpMLineIndex", sdpMLineIndexString)) {
-        bool intConversionOk;
-        unsigned result = sdpMLineIndexString.toUIntStrict(&intConversionOk);
-        if (!intConversionOk || result > USHRT_MAX) {
-            ec = TypeError;
-            return nullptr;
-        }
-        sdpMLineIndex = result;
-    }
-
-    if (sdpMid.isNull() && !sdpMLineIndex) {
-        ec = TypeError;
-        return nullptr;
-    }
-
-    return adoptRef(new RTCIceCandidate(candidate, sdpMid, sdpMLineIndex));
-}
-
-Ref<RTCIceCandidate> RTCIceCandidate::create(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex)
-{
-    return adoptRef(*new RTCIceCandidate(candidate, sdpMid, sdpMLineIndex));
-}
-
-RTCIceCandidate::RTCIceCandidate(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex)
+inline RTCIceCandidate::RTCIceCandidate(const String& candidate, const String& sdpMid, std::optional<unsigned short> sdpMLineIndex)
     : m_candidate(candidate)
     , m_sdpMid(sdpMid)
     , m_sdpMLineIndex(sdpMLineIndex)
 {
+    ASSERT(!sdpMid.isNull() || sdpMLineIndex);
+}
+
+ExceptionOr<Ref<RTCIceCandidate>> RTCIceCandidate::create(const Init& dictionary)
+{
+    if (dictionary.sdpMid.isNull() && !dictionary.sdpMLineIndex)
+        return Exception { TypeError };
+    return create(dictionary.candidate, dictionary.sdpMid, dictionary.sdpMLineIndex);
+}
+
+Ref<RTCIceCandidate> RTCIceCandidate::create(const String& candidate, const String& sdpMid, std::optional<unsigned short> sdpMLineIndex)
+{
+    return adoptRef(*new RTCIceCandidate(candidate, sdpMid, sdpMLineIndex));
 }
 
 } // namespace WebCore

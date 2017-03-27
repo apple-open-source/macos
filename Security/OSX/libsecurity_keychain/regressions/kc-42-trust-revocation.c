@@ -29,12 +29,6 @@
 #include "utilities/SecCFRelease.h"
 #include "utilities/SecCFWrappers.h"
 
-// TBD: ensure that this symbol is defined in every build context.
-// Currently forcing this to be enabled if we do not have it defined.
-#ifndef SECTRUST_OSX
-#define SECTRUST_OSX 1
-#endif
-
 /* s:/jurisdictionC=US/jurisdictionST=Delaware/businessCategory=Private Organization/serialNumber=3014267/C=US/postalCode=95131-2021/ST=California/L=San Jose/street=2211 N 1st St/O=PayPal, Inc./OU=CDN Support/CN=www.paypal.com */
 /* i:/C=US/O=Symantec Corporation/OU=Symantec Trust Network/CN=Symantec Class 3 EV SSL CA - G3 */
 /* SHA1 Fingerprint=A5:AF:1D:73:96:A7:74:F8:8B:B7:43:FD:07:7A:97:47:D3:FA:EF:2F */
@@ -590,16 +584,12 @@ static void tests(void)
         CFDictionaryRef TrustResultsDict = SecTrustCopyResult(trust);
         CFBooleanRef ev = (CFBooleanRef)CFDictionaryGetValue(TrustResultsDict,
                                                              kSecTrustExtendedValidation);
-#if SECTRUST_OSX
         // With SecTrust Unification, the OCSP response is cached by the previous evaluation.
         // FIXME The semantics of the input to SecPolicyCreateRevocation are technically not honored,
         // since if neither the OCSP or CRL bits are set, we should not be using either. Unfortunately,
         // the iOS implementation treats this as a no-op, which for EV certs means an OCSP check by default.
 
         ok(ev && CFEqual(kCFBooleanTrue, ev), "Expect success even if unable to use network, due to caching");
-#else
-        ok(!ev || (ev && CFEqual(kCFBooleanFalse, ev)), "Expect no extended validation because of lack of revocation");
-#endif
 
         CFReleaseNull(TrustResultsDict);
         CFReleaseNull(trust);
@@ -644,15 +634,10 @@ static void tests(void)
         ok_status(status = SecTrustEvaluate(trust, &trust_result), "SecTrustEvaluate");
 
         // Check results
-#if SECTRUST_OSX
         // with SecTrust Unification, the issuing cert may or may not be cached from the previous test
         if (trust_result == kSecTrustResultUnspecified)
             trust_result = kSecTrustResultRecoverableTrustFailure;
         is_status(trust_result, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
-#else
-        // previously, no automatic caching of intermediates fetched from the network
-        is_status(trust_result, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
-#endif
 
         CFReleaseNull(trust);
     }

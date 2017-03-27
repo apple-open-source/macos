@@ -316,6 +316,7 @@ timezoneTypes:table(nofallback){
             "America:Port_of_Spain"{"ttpos"}
             "America:Porto_Velho"{"brpvh"}
             "America:Puerto_Rico"{"prsju"}
+            "America:Punta_Arenas"{"clpuq"}
             "America:Rainy_River"{"caffs"}
             "America:Rankin_Inlet"{"cayek"}
             "America:Recife"{"brrec"}
@@ -366,6 +367,7 @@ timezoneTypes:table(nofallback){
             "Asia:Aqtau"{"kzaau"}
             "Asia:Aqtobe"{"kzakx"}
             "Asia:Ashgabat"{"tmasb"}
+            "Asia:Atyrau"{"kzguw"}
             "Asia:Baghdad"{"iqbgw"}
             "Asia:Bahrain"{"bhbah"}
             "Asia:Baku"{"azbak"}
@@ -532,6 +534,7 @@ timezoneTypes:table(nofallback){
             "Europe:Samara"{"rukuf"}
             "Europe:San_Marino"{"smsai"}
             "Europe:Sarajevo"{"basjj"}
+            "Europe:Saratov"{"rurtw"}
             "Europe:Simferopol"{"uasip"}
             "Europe:Skopje"{"mkskp"}
             "Europe:Sofia"{"bgsof"}

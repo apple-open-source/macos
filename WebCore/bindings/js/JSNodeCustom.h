@@ -65,12 +65,7 @@ inline void willCreatePossiblyOrphanedTreeByRemoval(Node* root)
 
 inline void* root(Node* node)
 {
-    if (node->inDocument())
-        return &node->document();
-
-    while (node->parentOrShadowHostNode())
-        node = node->parentOrShadowHostNode();
-    return node;
+    return node->opaqueRoot();
 }
 
 inline void* root(Node& node)
@@ -78,11 +73,15 @@ inline void* root(Node& node)
     return root(&node);
 }
 
-ALWAYS_INLINE JSNode* jsNodeCast(JSC::JSValue value)
+template<typename From>
+ALWAYS_INLINE JSDynamicCastResult<JSNode, From> jsNodeCast(From* value)
 {
-    if (UNLIKELY(!value.isCell()))
-        return nullptr;
-    return value.asCell()->type() >= JSNodeType ? JSC::jsCast<JSNode*>(value) : nullptr;
+    return value->type() >= JSNodeType ? JSC::jsCast<JSDynamicCastResult<JSNode, From>>(value) : nullptr;
+}
+
+ALWAYS_INLINE JSC::JSValue JSNode::nodeType(JSC::ExecState&) const
+{
+    return JSC::jsNumber(static_cast<uint8_t>(type()) & JSNodeTypeMask);
 }
 
 } // namespace WebCore

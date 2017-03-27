@@ -34,10 +34,6 @@
 #include <WebKit/WKBaseGtk.h>
 #endif
 
-#if defined(USE_SOUP)
-#include <WebKit/WKBaseSoup.h>
-#endif
-
 #if defined(BUILDING_EFL__)
 #include <WebKit/WKBaseEfl.h>
 #endif
@@ -89,12 +85,11 @@ typedef const struct OpaqueWKAuthenticationChallenge* WKAuthenticationChallengeR
 typedef const struct OpaqueWKAuthenticationDecisionListener* WKAuthenticationDecisionListenerRef;
 typedef const struct OpaqueWKBackForwardList* WKBackForwardListRef;
 typedef const struct OpaqueWKBackForwardListItem* WKBackForwardListItemRef;
-typedef const struct OpaqueWKBatteryManager* WKBatteryManagerRef;
-typedef const struct OpaqueWKBatteryStatus* WKBatteryStatusRef;
 typedef const struct OpaqueWKResourceCacheManager* WKResourceCacheManagerRef;
 typedef const struct OpaqueWKColorPickerResultListener* WKColorPickerResultListenerRef;
 typedef const struct OpaqueWKContext* WKContextRef;
 typedef const struct OpaqueWKContextConfiguration* WKContextConfigurationRef;
+typedef const struct OpaqueWKContextMenuListener* WKContextMenuListenerRef;
 typedef const struct OpaqueWKCookieManager* WKCookieManagerRef;
 typedef const struct OpaqueWKCredential* WKCredentialRef;
 typedef const struct OpaqueWKDownload* WKDownloadRef;
@@ -144,6 +139,7 @@ typedef const struct OpaqueWKUserScript* WKUserScriptRef;
 typedef const struct OpaqueWKVibration* WKVibrationRef;
 typedef const struct OpaqueWKViewportAttributes* WKViewportAttributesRef;
 typedef const struct OpaqueWKWebsiteDataStore* WKWebsiteDataStoreRef;
+typedef const struct OpaqueWKWebsitePolicies* WKWebsitePoliciesRef;
 typedef const struct OpaqueWKWindowFeatures* WKWindowFeaturesRef;
 
 /* WebKit2 Bundle types */

@@ -148,7 +148,7 @@ TimeZoneTest::TestGenericAPI()
     const char* tzver = TimeZone::getTZDataVersion(status);
     if (U_FAILURE(status)) {
         errcheckln(status, "FAIL: getTZDataVersion failed - %s", u_errorName(status));
-    } else if (uprv_strlen(tzver) != 5 /* 4 digits + 1 letter */) {
+    } else if (uprv_strlen(tzver) < 5 || uprv_strlen(tzver) > 7 /*4 digits + 1-3 letters*/) {
         errln((UnicodeString)"FAIL: getTZDataVersion returned " + tzver);
     } else {
         logln((UnicodeString)"tzdata version: " + tzver);

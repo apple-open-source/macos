@@ -100,10 +100,10 @@ static void runOneLeafTest(SecPolicyRef policy,
     }
 
     certArray = [NSMutableArray arrayWithArray:intermediates];
-    [certArray insertObject:(id)certRef atIndex:0]; //The certificate to be verified must be the first in the array.
+    [certArray insertObject:(__bridge id)certRef atIndex:0]; //The certificate to be verified must be the first in the array.
 
     OSStatus err;
-    err = SecTrustCreateWithCertificates(certArray, policy, &trustRef);
+    err = SecTrustCreateWithCertificates((__bridge CFTypeRef _Nonnull)(certArray), policy, &trustRef);
     if (err) {
         ok_status(err, "SecTrustCreateWithCertificates");
         goto exit;
@@ -162,22 +162,23 @@ static void runCertificateTestFor(SecPolicyRef policy,
 
 void runCertificateTestForDirectory(SecPolicyRef policy, CFStringRef resourceSubDirectory, CFDateRef date)
 {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	NSMutableArray* allRoots = [NSMutableArray array];
 	NSMutableArray* allCAs = [NSMutableArray array];
 	NSMutableArray* certTests = [NSMutableArray array];
     NSDictionary* expect = NULL;
 
     /* Iterate though the nist-certs resources dir. */
-    NSURL* filesDirectory = [[[NSBundle mainBundle] resourceURL] URLByAppendingPathComponent:(NSString*)resourceSubDirectory];
+    NSURL* filesDirectory = [[[NSBundle mainBundle] resourceURL] URLByAppendingPathComponent:(__bridge NSString*)resourceSubDirectory];
     for (NSURL* fileURL in [[NSFileManager defaultManager] contentsOfDirectoryAtURL:filesDirectory includingPropertiesForKeys:[NSArray array] options:NSDirectoryEnumerationSkipsSubdirectoryDescendants error:nil]) {
         NSString* path = [fileURL path];
 		if ([path hasSuffix:@"Cert.crt"]) {
             SecCertificateRef certRef = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
-            [allCAs addObject:(id)certRef];
+            [allCAs addObject:(__bridge id)certRef];
+            CFReleaseNull(certRef);
         } else if ([path hasSuffix:@"RootCertificate.crt"]) {
             SecCertificateRef certRef = SecCertificateCreateWithData(NULL, (CFDataRef)[NSData dataWithContentsOfFile:path]);
-            [allRoots addObject:(id)certRef];
+            [allRoots addObject:(__bridge id)certRef];
+            CFReleaseNull(certRef);
         } else if ([path hasSuffix:@".crt"]) {
                 [certTests addObject:path];
         } else if ([path hasSuffix:@".plist"]) {
@@ -190,6 +191,4 @@ void runCertificateTestForDirectory(SecPolicyRef policy, CFStringRef resourceSub
 	}
 
     runCertificateTestFor(policy, allRoots, allCAs, certTests, expect, date);
-
-    [pool release];
 }

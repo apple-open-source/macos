@@ -22,8 +22,11 @@
 #include "HTMLDetailsElement.h"
 
 #if ENABLE(DETAILS_ELEMENT)
+
 #include "AXObjectCache.h"
 #include "ElementIterator.h"
+#include "EventNames.h"
+#include "EventSender.h"
 #include "HTMLSlotElement.h"
 #include "HTMLSummaryElement.h"
 #include "LocalizedStrings.h"
@@ -37,6 +40,12 @@
 namespace WebCore {
 
 using namespace HTMLNames;
+
+static DetailEventSender& detailToggleEventSender()
+{
+    static NeverDestroyed<DetailEventSender> sharedToggleEventSender(eventNames().toggleEvent);
+    return sharedToggleEventSender;
+}
 
 static const AtomicString& summarySlotName()
 {
@@ -55,9 +64,9 @@ void DetailsSlotAssignment::hostChildElementDidChange(const Element& childElemen
     if (is<HTMLSummaryElement>(childElement)) {
         // Don't check whether this is the first summary element
         // since we don't know the answer when this function is called inside Element::removedFrom.
-        didChangeSlot(summarySlotName(), ChangeType::DirectChild, shadowRoot);
+        didChangeSlot(summarySlotName(), shadowRoot);
     } else
-        didChangeSlot(SlotAssignment::defaultSlotName(), ChangeType::DirectChild, shadowRoot);
+        didChangeSlot(SlotAssignment::defaultSlotName(), shadowRoot);
 }
 
 const AtomicString& DetailsSlotAssignment::slotNameForHostChild(const Node& child) const
@@ -87,6 +96,11 @@ HTMLDetailsElement::HTMLDetailsElement(const QualifiedName& tagName, Document& d
     ASSERT(hasTagName(detailsTag));
 }
 
+HTMLDetailsElement::~HTMLDetailsElement()
+{
+    detailToggleEventSender().cancelEvent(*this);
+}
+
 RenderPtr<RenderElement> HTMLDetailsElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     return createRenderer<RenderBlockFlow>(*this, WTFMove(style));
@@ -99,7 +113,7 @@ void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot* root)
     m_summarySlot = summarySlot.ptr();
 
     auto defaultSummary = HTMLSummaryElement::create(summaryTag, document());
-    defaultSummary->appendChild(Text::create(document(), defaultDetailsSummaryText()), ASSERT_NO_EXCEPTION);
+    defaultSummary->appendChild(Text::create(document(), defaultDetailsSummaryText()));
     m_defaultSummary = defaultSummary.ptr();
 
     summarySlot->appendChild(defaultSummary);
@@ -123,6 +137,12 @@ bool HTMLDetailsElement::isActiveSummary(const HTMLSummaryElement& summary) cons
     return slot == m_summarySlot;
 }
 
+void HTMLDetailsElement::dispatchPendingEvent(DetailEventSender* eventSender)
+{
+    ASSERT_UNUSED(eventSender, eventSender == &detailToggleEventSender());
+    dispatchEvent(Event::create(eventNames().toggleEvent, false, false));
+}
+
 void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == openAttr) {
@@ -135,6 +155,10 @@ void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicS
                 root->appendChild(*m_defaultSlot);
             else
                 root->removeChild(*m_defaultSlot);
+
+            // https://html.spec.whatwg.org/#details-notification-task-steps.
+            detailToggleEventSender().cancelEvent(*this);
+            detailToggleEventSender().dispatchEventSoon(*this);
         }
     } else
         HTMLElement::parseAttribute(name, value);

@@ -48,7 +48,12 @@
 
 #include <fcntl.h>
 
-#include "Security_regressions.h"
+#if TARGET_OS_OSX
+#include <security_asn1/plarenas.h>
+#include <security_asn1/secport.h>
+#endif
+
+#include "shared_regressions.h"
 #include "si-66-smime/signed-receipt.h"
 
 uint8_t message_hash[] = {
@@ -2507,12 +2512,13 @@ static void tests(void)
 
     SecKeyRef publicKey = NULL, privateKey = NULL;
     const void *keygen_keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits };
-    const void *keygen_vals[] = { kSecAttrKeyTypeRSA, CFSTR("512") };
+    const void *keygen_vals[] = { kSecAttrKeyTypeRSA, CFSTR("2048") };
     CFDictionaryRef parameters = CFDictionaryCreate(kCFAllocatorDefault,
             keygen_keys, keygen_vals, array_size(keygen_vals),
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 
     ok_status(SecKeyGeneratePair(parameters, &publicKey, &privateKey), "generate key pair");
+    CFReleaseNull(parameters);
 
     CFMutableDictionaryRef subject_alt_names = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(subject_alt_names, CFSTR("rfc822name"), CFSTR("xey@nl"));
@@ -2528,8 +2534,11 @@ static void tests(void)
     CFArrayRef rdns = CFArrayCreate(kCFAllocatorDefault, (const void **)&cn_dn, 1, NULL);
     SecCertificateRef cert = SecGenerateSelfSignedCertificate(rdns,
                          self_signed_parameters, publicKey, privateKey);
+    CFReleaseNull(subject_alt_names);
+    CFReleaseNull(key_usage_num);
 
     CFReleaseSafe(rdns);
+    CFReleaseNull(cn_dn);
     CFReleaseSafe(self_signed_parameters);
     SECOidTag algorithmTag;
     int keySize;
@@ -2550,20 +2559,53 @@ static void tests(void)
     CFMutableDataRef signed_data = CFDataCreateMutable(kCFAllocatorDefault, 0);
     SecIdentityRef signer;
 
+    // Bear with us here: the function parameters are slightly different on macOS
     ok(signer = SecIdentityCreate(kCFAllocatorDefault, cert, privateKey), "identity");
+#if TARGET_OS_IPHONE
     ok(cmsg = SecCmsMessageCreate(), "create message");
+#else
+    ok(cmsg = SecCmsMessageCreate(NULL), "create message");
+#endif
     ok(sigd = SecCmsSignedDataCreate(cmsg), "create signed message");
     ok(cinfo = SecCmsMessageGetContentInfo(cmsg), "get content info");
+#if TARGET_OS_IPHONE
     ok_status(SecCmsContentInfoSetContentSignedData(cinfo, sigd), "signed message into message");
+#else
+    ok_status(SecCmsContentInfoSetContentSignedData(cmsg, cinfo, sigd), "signed message into message");
+#endif
     ok(cinfo = SecCmsSignedDataGetContentInfo(sigd), "reset content info");
+#if TARGET_OS_IPHONE
     ok_status(SecCmsContentInfoSetContentData(cinfo, NULL, false), "attached");
     ok(signerinfo = SecCmsSignerInfoCreate(sigd, signer, SEC_OID_SHA1), "set up signer");
+#else
+    ok_status(SecCmsContentInfoSetContentData(cmsg, cinfo, NULL, false), "attached");
+    ok(signerinfo = SecCmsSignerInfoCreate(cmsg, signer, SEC_OID_SHA1), "set up signer");
+#endif
     // ok_status(SecCmsSignerInfoIncludeCerts(signerinfo, SecCmsCMCertChain, certUsageAnyCA), out);
     ok_status(SecCmsSignerInfoAddSigningTime(signerinfo, CFAbsoluteTimeGetCurrent()), "set current time");
     ok_status(SecCmsSignerInfoAddSMIMEEncKeyPrefs(signerinfo, cert, NULL), "set signing cert as preferred encryption cert");
     //SecCmsSignerInfoAddMSSMIMEEncKeyPrefs
+    CFReleaseNull(cert);
 
+#if TARGET_OS_IPHONE
+    pass();
     ok_status(SecCmsMessageEncode(cmsg, NULL, signed_data), "encode signed message");
+#else
+    // This is implicit in the SignerInfoCreate on iOS
+    ok_status(SecCmsSignedDataAddSignerInfo(sigd, signerinfo), "add signer to signed data");
+    CSSM_DATA cssm_signed_data = {0, NULL};
+    // macOS doesn't support empty data
+    uint8_t string_to_sign[] = "This message is signed. Ain't it pretty?";
+    CSSM_DATA cssm_data_to_sign = { sizeof(string_to_sign), string_to_sign };
+    // make an encoder context
+    PLArenaPool *arena = NULL;
+    arena = PORT_NewArena(1024);
+    ok_status(SecCmsMessageEncode(cmsg, &cssm_data_to_sign, (SecArenaPoolRef)arena, &cssm_signed_data), "encode signed message");
+    if (signed_data && cssm_signed_data.Data) {
+        CFDataAppendBytes(signed_data, cssm_signed_data.Data, cssm_signed_data.Length);
+    }
+    if (arena) PORT_FreeArena(arena, PR_FALSE);
+#endif
     if (cmsg) SecCmsMessageDestroy(cmsg);
 
     int data_file = open("/var/tmp/smime", O_CREAT|O_WRONLY|O_TRUNC, 0644);
@@ -2586,6 +2628,7 @@ static void tests(void)
     CFReleaseNull(eml);
     CFReleaseNull(sig);
     CFReleaseNull(policy);
+    CFReleaseNull(trust);
 
     CFDataRef msg = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, __9639569_bin, __9639569_bin_len, kCFAllocatorNull);
     CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
@@ -2603,22 +2646,17 @@ static void tests(void)
     CFDictionaryRef item_dict = CFArrayGetValueAtIndex(items, 0);
     SecIdentityRef local_identity = (SecIdentityRef)CFDictionaryGetValue(item_dict, kSecImportItemIdentity);
     CFDictionaryRef	dict = CFDictionaryCreate(NULL, (const void **)&kSecValueRef, (const void **)&local_identity, 1, NULL, NULL);
+
+#if TARGET_OS_IPHONE
+    // SecPKCS12Import doesn't add items to the keychain on iOS
     ok_status(SecItemAdd(dict, NULL), "add p12 identy");
+#else
+    pass("skip test on macOS");
+#endif
 
     const uint8_t foo[] = "here's something";
     CFDataRef sample = CFDataCreate(kCFAllocatorDefault, foo, strlen((char *)foo));
-
-#if 0
-    SecCertificateRef local_cert = NULL;
-    ok_status(SecIdentityCopyCertificate(local_identity, &local_cert), "get cert");
-    CFDataSetLength(data, 0);
-    ok_status(SecCMSCreateEnvelopedData(local_cert, NULL, sample, data), "envelope data (should use signer identifier)");
-    int data_file = open("/var/tmp/smime", O_CREAT|O_WRONLY|O_TRUNC, 0644);
-    write(data_file, CFDataGetBytePtr(data), CFDataGetLength(data));
-    close(data_file);
-#else
     CFReleaseNull(data);
-#endif
 
     msg = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, smime_skid, smime_skid_len, kCFAllocatorNull);
     CFMutableDataRef dec = CFDataCreateMutable(kCFAllocatorDefault, 0);
@@ -2637,14 +2675,20 @@ static void tests(void)
     // parse signed-receipt
     msg = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, signed_receipt_bin, signed_receipt_bin_len, kCFAllocatorNull);
     policy = SecPolicyCreateBasicX509();
+#if TARGET_OS_IPHONE
     ok(errSecDecode == SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
+#else
+    // macOS can handle undefined OIDs.
+    ok_status(SecCMSVerifySignedData(msg, NULL, policy, &trust, NULL, NULL, NULL), "decode signed receipt w/ special oid");
+#endif
+    CFReleaseNull(trust);
     CFReleaseNull(policy);
     CFReleaseNull(msg);
 }
 
 int si_66_smime(int argc, char *const *argv)
 {
-	plan_tests(32);
+	plan_tests(33);
 
 	tests();
 

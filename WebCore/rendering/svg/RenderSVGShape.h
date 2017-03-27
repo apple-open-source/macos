@@ -23,8 +23,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef RenderSVGShape_h
-#define RenderSVGShape_h
+#pragma once
 
 #include "AffineTransform.h"
 #include "FloatRect.h"
@@ -69,7 +68,7 @@ protected:
     void element() const = delete;
 
     virtual void updateShapeFromElement();
-    bool isEmpty() const override;
+    virtual bool isEmpty() const;
     virtual bool shapeDependentStrokeContains(const FloatPoint&);
     virtual bool shapeDependentFillContains(const FloatPoint&, const WindRule) const;
     float strokeWidth() const;
@@ -135,5 +134,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGShape, isSVGShape())
-
-#endif // RenderSVGShape_h

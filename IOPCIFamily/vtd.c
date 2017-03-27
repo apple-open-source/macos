@@ -36,7 +36,7 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define FREE_ON_FREE		0
+#define FREE_ON_FREE	0
 
 #define KP				0
 #define	VTASRT			0
@@ -117,6 +117,12 @@ struct qi_descriptor_t
 {
     uint64_t command;
     uint64_t address;
+};
+
+struct ir_descriptor_t
+{
+    uint64_t data;
+    uint64_t source;
 };
 
 // address_space_root
@@ -214,6 +220,8 @@ struct vtd_fault_registers_t
 
 typedef char vtd_registers_t_check[(sizeof(vtd_registers_t) == 0xc0) ? 1 : -1];
 
+#define kIRPageCount 		(atop(256 * sizeof(ir_descriptor_t)))
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 struct vtd_unit_t
@@ -232,6 +240,8 @@ struct vtd_unit_t
     uint64_t qi_address;
     uint64_t qi_stamp_address;
 
+    uint64_t ir_address;
+
 	uint32_t qi_tail;
 	uint32_t qi_mask;
     volatile
@@ -243,9 +253,12 @@ struct vtd_unit_t
     uint32_t rounding;
     uint32_t domains;
 
-    uint8_t  global:1;
-    uint8_t  caching:1;
-    uint8_t  selective:1;
+    uint8_t  global:1,
+             caching:1,
+             translating:1,
+             selective:1,
+             qi:1,
+             intmapper:1;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -271,6 +284,8 @@ static inline void clflush(uintptr_t addr, unsigned int count, uintptr_t linesiz
 	}
 	__mfence();
 }
+
+static void unit_quiesce(vtd_unit_t * unit);
 
 static
 vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
@@ -302,15 +317,22 @@ vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
 	unit->global = (ACPI_DMAR_INCLUDE_ALL & dmar->Flags);
 	unit->domains = (1 << (4 + (14 & (unit->regs->capability << 1))));
 
+	unit->intmapper = (1 & (unit->regs->extended_capability >> 3));
+	unit->qi = (1 & (unit->regs->extended_capability >> 1));
+
 	VTLOG("cap 0x%llx extcap 0x%llx glob %d cache sel %d mode %d iotlb %p nfault[%d] %p\n", 
 			unit->regs->capability, unit->regs->extended_capability,
 			unit->global, unit->selective, unit->caching, 
 			unit->iotlb, unit->num_fault, unit->faults);
 
+	// enable translation on non-IG unit
+	if (unit->global || (kIOPCIConfiguratorIGIsMapped & gIOPCIFlags))
+	{
+		unit->translating = 1;
+	}
+
 	// caching is only allowed for VMs
-	if (unit->caching
-	// disable IG unit
-	|| ((!unit->global) && (!(kIOPCIConfiguratorIGIsMapped & gIOPCIFlags))))
+	if (unit->caching || !unit->qi)
 	{
 		IODelete(unit, vtd_unit_t, 1);
 		unit = NULL;
@@ -348,34 +370,55 @@ unit_faults(vtd_unit_t * unit, bool log)
 }
 
 static void 
-unit_enable(vtd_unit_t * unit)
+unit_quiesce(vtd_unit_t * unit)
+{
+	VTLOG("unit %p quiesce status 0x%x\n", unit, unit->regs->global_status);
+
+	// disable DMA translation, interrupt remapping, invalidation queue.
+	// it is not expected for any DMA to be inflight at the time of this call.
+	// invalidation completions will be halted, considered complete, since the
+	// tlbs will be flushed on enable.
+	unit->regs->global_command = 0;
+	__mfence();
+	while (((1UL<<26)|(1<<31)|(1<<25)) & unit->regs->global_status) {}
+}
+
+static void
+unit_enable(vtd_unit_t * unit, uint32_t qi_stamp)
 {
     uint32_t command;
 
-	VTLOG("unit %p global status 0x%x\n", unit, unit->regs->global_status);
+	// unit may already be enabled if EFI left it that way, disable.
+	unit_quiesce(unit);
 
-	unit->regs->root_entry_table = unit->root;
-	__mfence();
+	VTLOG("unit %p enable status 0x%x\n", unit, unit->regs->global_status);
+	if (unit->translating)
+	{
+		unit->regs->root_entry_table = unit->root;
+		__mfence();
 
-	unit->regs->global_command = (1UL<<30);
-	__mfence();
-	while (!((1UL<<30) & unit->regs->global_status)) {}
-//	VTLOG("did set root\n");
+		unit->regs->global_command = (1UL<<30);
+		__mfence();
+		while (!((1UL<<30) & unit->regs->global_status)) {}
+		//	VTLOG("did set root\n");
 
-	unit->regs->context_command = (1ULL<<63) | (1ULL<<61);
-	__mfence();
-	while ((1ULL<<63) & unit->regs->context_command) {}
-//	VTLOG("did context inval\n");
+		unit->regs->context_command = (1ULL<<63) | (1ULL<<61);
+		__mfence();
+		while ((1ULL<<63) & unit->regs->context_command) {}
+		//	VTLOG("did context inval\n");
 
-	// global & rw drain
-	unit->iotlb->command = (1ULL<<63) | (1ULL<<60) | (1ULL<<49) | (1ULL<<48);
-	__mfence();
-	while ((1ULL<<63) & unit->iotlb->command) {}
-//	VTLOG("did iotlb inval\n");
+		// global & rw drain
+		unit->iotlb->command = (1ULL<<63) | (1ULL<<60) | (1ULL<<49) | (1ULL<<48);
+		__mfence();
+		while ((1ULL<<63) & unit->iotlb->command) {}
+		//	VTLOG("did iotlb inval\n");
+	}
 
+	// hw resets head on disable
 	unit->qi_tail = 0;
 	unit->regs->invalidation_queue_tail = 0;
     unit->regs->invalidation_queue_address = unit->qi_address;
+    unit->qi_stamp = qi_stamp;
 
 	command = 0;
 
@@ -386,12 +429,32 @@ unit_enable(vtd_unit_t * unit)
 	while (!((1UL<<26) & unit->regs->global_status)) {}
 	VTLOG("did ena qi p 0x%qx v %p\n", unit->qi_address, unit->qi_table);
 
-	// enable
-	command |= (1UL<<31);
-	unit->regs->global_command = command;
-	__mfence();
-	while (!((1UL<<31) & unit->regs->global_status)) {}
-	VTLOG("did ena\n");
+	if (unit->intmapper && unit->ir_address)
+	{
+        unit->regs->interrupt_remapping_table = unit->ir_address;
+		unit->regs->global_command = (1UL<<24);
+		__mfence();
+		while (!((1UL<<24) & unit->regs->global_status)) {}
+		VTLOG("did set ir p 0x%qx\n", unit->ir_address);
+
+		// enable IR
+		command |= (1UL<<25);
+//		command |= (1UL<<23);                      // Compatibility Format Interrupt ok
+		unit->regs->global_command = command;
+		__mfence();
+		while (!((1UL<<25) & unit->regs->global_status)) {}
+		VTLOG("did ena ir\n");
+	}
+
+	if (unit->translating)
+	{
+		 // enable translation
+		 command |= (1UL<<31);
+		 unit->regs->global_command = command;
+		 __mfence();
+		 while (!((1UL<<31) & unit->regs->global_status)) {}
+		 VTLOG("did ena trans\n");
+	}
 
 	if (unit->msi_address)
 	{
@@ -410,13 +473,6 @@ unit_enable(vtd_unit_t * unit)
 		unit->regs->invalidation_completion_event_control = 0;	// ints ena
 		unit->regs->invalidation_completion_status = 1;
 	}
-}
-
-static void 
-unit_quiesce(vtd_unit_t * unit)
-{
-	VTLOG("unit %p quiesce\n", unit);
-	// completion stamps will continue after wake
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -716,10 +772,11 @@ vtd_space_set(vtd_space_t * bf, vtd_vaddr_t start, vtd_vaddr_t size,
 			  uint32_t mapOptions, const upl_page_info_t * pageList)
 {
 	ppnum_t idx;
-	uint8_t access = kReadAccess | 0*kWriteAccess;
+	uint8_t access = 0*kReadAccess | 0*kWriteAccess;
 
 	if (kIODMAMapPhysicallyContiguous & mapOptions) VTLOG("map phys %x, %x\n", pageList[0].phys_addr, size);
 
+	if (mapOptions & kIODMAMapReadAccess)  access |= kReadAccess;
 	if (mapOptions & kIODMAMapWriteAccess) access |= kWriteAccess;
 
 	vtassert((start + size) <= bf->vsize);
@@ -762,27 +819,25 @@ public:
     IOTimerEventSource     * fTimerES;
 
 	enum { kMaxUnits = 8 };
-	vtd_unit_t * units[kMaxUnits];
+	vtd_unit_t *      units[kMaxUnits];
 
-	uint32_t fTreeBits;
-	uint32_t fMaxRoundSize;
-	uint64_t fContextWidth;
-
-	uint32_t fCacheLineSize;
-
+	uint32_t          fTreeBits;
+	uint32_t          fMaxRoundSize;
+	uint64_t          fContextWidth;
+	uint32_t          fCacheLineSize;
+    uint32_t          fQIStamp;
 	IOMemoryMap     * fTableMap;
 	IOMemoryMap     * fGlobalContextMap;
 	IOMemoryMap    ** fContextMaps;
-
     root_entry_t    * fRootEntryTable;
-
-	ppnum_t  fRootEntryPage;
-
-	uint32_t       fDomainSize;
-	vtd_bitmap_t * fDomainBitmap;
-	vtd_space_t  * fSpace;
-
-    uint32_t       fQIStamp;
+	ppnum_t           fRootEntryPage;
+	uint32_t          fDomainSize;
+	vtd_bitmap_t    * fDomainBitmap;
+	vtd_space_t     * fSpace;
+    IOMemoryMap     * fIRMap;
+    uint64_t          fIRAddress;
+    ir_descriptor_t * fIRTable;
+    uint8_t           fDisabled;
 
 	static void install(IOWorkLoop * wl, uint32_t flags, 
 						IOService * provider, const OSData * data);
@@ -813,6 +868,7 @@ public:
 
     void checkFree(vtd_space_t * space, uint32_t queue);
 	void contextInvalidate(uint16_t domainID);
+    void interruptInvalidate(uint16_t index, uint16_t count);
 
 	IOReturn deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options);
     IOReturn newContextPage(uint32_t idx);
@@ -934,8 +990,6 @@ AppleVTD::install(IOWorkLoop * wl, uint32_t flags,
 	AppleVTD * mapper = 0;
 	bool ok = false;
 
-	if (!IOService::getPlatform()->getProperty(kIOPlatformMapperPresentKey)) return;
-
 	VTLOG("DMAR %p\n", data);
 	if (data) 
 	{
@@ -950,7 +1004,7 @@ AppleVTD::install(IOWorkLoop * wl, uint32_t flags,
 			mapper->release();
 		}
 	}
-	if (!ok)
+	if (!ok || mapper->fDisabled)
 	{
 		IOService::getPlatform()->removeProperty(kIOPlatformMapperPresentKey);
 		IOMapper::setMapperRequired(false);
@@ -1041,6 +1095,18 @@ AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 
 void AppleVTD::free()
 {
+	uint32_t idx;
+	vtd_unit_t * unit;
+
+	for (idx = 0; (unit = units[idx]); idx++)
+	{
+		IODelete(unit, vtd_unit_t, 1);
+		units[idx] = NULL;
+	}
+
+	OSSafeReleaseNULL(fDMARData);
+	OSSafeReleaseNULL(fWorkLoop);
+
 	super::free();
 }
 
@@ -1447,27 +1513,37 @@ AppleVTD::initHardware(IOService *provider)
     ppnum_t		stamp_page;
 	uint64_t	msiAddress;
 	uint32_t	msiData;
+	bool        mapInterrupts;
 
-    fIsSystem = true;
+	fDisabled     = (!IOService::getPlatform()->getProperty(kIOPlatformMapperPresentKey));
+	fIsSystem     = !fDisabled;
+	mapInterrupts = (fIsSystem && (0 != (kIOPCIConfiguratorMapInterrupts & gIOPCIFlags)));
 
 	fTreeBits = 0;
-	unit = units[0];
 	// prefer smallest tree?
-	for (fContextWidth = kAddressWidth30;
-			(fContextWidth <= kAddressWidth64);
-			fContextWidth++)
+	for (idx = 0; (unit = units[idx]); idx++)
 	{
-		if ((0x100 << fContextWidth) & unit->regs->capability)
+		if (!unit->intmapper)   mapInterrupts = false;
+		if (!unit->translating) continue;
+
+		for (fContextWidth = kAddressWidth30;
+				(fContextWidth <= kAddressWidth64);
+				fContextWidth++)
 		{
-			fTreeBits = (30 + 9 * fContextWidth);  // (57+9) for 64
-			break;
+			if ((0x100 << fContextWidth) & unit->regs->capability)
+			{
+				fTreeBits = (30 + 9 * fContextWidth);  // (57+9) for 64
+				break;
+			}
 		}
+		break;
 	}
 
     fDomainSize = 512;
 
 	for (idx = 0; (unit = units[idx]); idx++)
 	{	
+		if (!unit->translating) continue;
 		if (unit->domains < fDomainSize) fDomainSize = unit->domains;
 
 		if (!((0x100 << fContextWidth) & unit->regs->capability))
@@ -1583,6 +1659,35 @@ AppleVTD::initHardware(IOService *provider)
 		unit->root = ptoa_64(fRootEntryPage);
 	}
 
+    if (mapInterrupts)
+    {
+		md = IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
+							kIOMemoryHostPhysicallyContiguous |
+							kIOMapWriteCombineCache |
+							kIOMemoryMapperNone,
+							kIRPageCount * page_size, page_size);
+		vtassert(md);
+		if (!md) return (kIOReturnNoMemory);
+
+		kr = md->prepare(kIODirectionOutIn);
+		vtassert(KERN_SUCCESS == kr);
+
+		fIRMap = md->map();
+		vtassert(fIRMap);
+		md->release();
+
+		fIRTable = (typeof(fIRTable)) (fIRMap->getAddress());
+		fIRAddress = (vtd_log2down(256) - 1)
+						 | md->getPhysicalSegment(0, NULL, kIOMemoryMapperNone);
+		VTLOG("ir p 0x%qx v %p\n", fIRAddress, fIRTable);
+		for (idx = 0; (unit = units[idx]); idx++)
+		{
+			unit->ir_address = fIRAddress;
+		}
+		bzero(fIRTable, kIRPageCount * page_size);
+		__mfence();
+    }
+
 	// QI
 
 	fQIStamp = 0x100;
@@ -1650,8 +1755,12 @@ AppleVTD::initHardware(IOService *provider)
 	{
 		unit->msi_data    = msiData & 0xff;
 		unit->msi_address = msiAddress;
-		unit_enable(unit);
+		unit_enable(unit, fQIStamp);
 	}
+	contextInvalidate(0);
+	interruptInvalidate(0, 256);
+	if (fDisabled) for (idx = 0; (unit = units[idx]); idx++) unit_quiesce(unit);
+
 	if (fIntES)   fIntES->enable();
 	if (fFaultES) fFaultES->enable();
 	
@@ -1660,9 +1769,165 @@ AppleVTD::initHardware(IOService *provider)
 	setProperty(kIOPlatformQuiesceActionKey, INT32_MAX - 1000, 64);
 	setProperty(kIOPlatformActiveActionKey, INT32_MAX - 1000, 64);
 
-	registerService();
+	if (!fDisabled)	registerService();
 
 	return (true);
+}
+
+enum
+{
+    /* Redirection Table Entries */
+    kRTLOVectorNumberMask           = 0x000000FF,
+    kRTLOVectorNumberShift          = 0,
+
+    kRTLODeliveryModeMask           = 0x00000700,
+    kRTLODeliveryModeShift          = 8,
+    kRTLODeliveryModeFixed          = 0 << kRTLODeliveryModeShift,
+    kRTLODeliveryModeLowestPriority = 1 << kRTLODeliveryModeShift,
+    kRTLODeliveryModeSMI            = 2 << kRTLODeliveryModeShift,
+    kRTLODeliveryModeNMI            = 4 << kRTLODeliveryModeShift,
+    kRTLODeliveryModeINIT           = 5 << kRTLODeliveryModeShift,
+    kRTLODeliveryModeExtINT         = 7 << kRTLODeliveryModeShift,
+
+    kRTLODestinationModeMask        = 0x00000800,
+    kRTLODestinationModeShift       = 11,
+    kRTLODestinationModePhysical    = 0 << kRTLODestinationModeShift,
+    kRTLODestinationModeLogical     = 1 << kRTLODestinationModeShift,
+
+    kRTLODeliveryStatusMask         = 0x00001000,
+    kRTLODeliveryStatusShift        = 12,
+
+    kRTLOInputPolarityMask          = 0x00002000,
+    kRTLOInputPolarityShift         = 13,
+    kRTLOInputPolarityHigh          = 0 << kRTLOInputPolarityShift,
+    kRTLOInputPolarityLow           = 1 << kRTLOInputPolarityShift,
+
+    kRTLORemoteIRRMask              = 0x00004000,
+    kRTLORemoteIRRShift             = 14,
+
+    kRTLOTriggerModeMask            = 0x00008000,
+    kRTLOTriggerModeShift           = 15,
+    kRTLOTriggerModeEdge            = 0 << kRTLOTriggerModeShift,
+    kRTLOTriggerModeLevel           = 1 << kRTLOTriggerModeShift,
+
+    kRTLOMaskMask                   = 0x00010000,
+    kRTLOMaskShift                  = 16,
+    kRTLOMaskEnabled                = 0,
+    kRTLOMaskDisabled               = kRTLOMaskMask,
+
+    kRTHIExtendedDestinationIDMask  = 0x00FF0000,
+    kRTHIExtendedDestinationIDShift = 16,
+
+    kRTHIDestinationMask            = 0xFF000000,
+    kRTHIDestinationShift           = 24
+};
+
+uint64_t
+IOPCISetAPICInterrupt(uint64_t entry)
+{
+	AppleVTD * vtd;
+	uint64_t   vector;
+	uint64_t   destID;
+	uint64_t   destMode;
+	uint64_t   triggerMode;
+	uint64_t   irte;
+	uint64_t   prior;
+
+	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem))) return (entry);
+	if (!vtd->fIRTable)                                      return (entry);
+
+	vector      = (kRTLOVectorNumberMask & entry);
+	destMode    = ((kRTLODestinationModeMask & entry) >> kRTLODestinationModeShift);
+	triggerMode = ((kRTLOTriggerModeMask & entry) >> kRTLOTriggerModeShift);
+	destID      = ((kRTHIDestinationMask & (entry >> 32)) >> kRTHIDestinationShift);
+
+	irte = (destID << 40)     // destID
+		 | (vector << 16)	  // vector
+		 | (0 << 5)           // fixed delivery mode
+		 | (triggerMode << 4) // trigger
+		 | (0 << 3)           // redir
+		 | (destMode << 2)    // dest
+		 | (1 << 1)           // faults ena
+		 | (1 << 0);	      // present
+
+    prior = vtd->fIRTable[vector].data;
+	VTLOG("ir[0x%x] 0x%qx -> 0x%qx\n", vector, prior, irte);
+	if (irte != prior)
+	{
+		vtd->fIRTable[vector].data = irte;
+		__mfence();
+		vtd->interruptInvalidate(vector, 1);
+    }
+
+	entry &= ~(kRTLODeliveryModeMask
+			 | kRTLODestinationModeMask
+			 | (((uint64_t) kRTHIExtendedDestinationIDMask) << 32)
+			 | (((uint64_t) kRTHIDestinationMask) << 32));
+	entry |= (1ULL << 48);
+	entry |= (vector << 49);
+
+	return (entry);
+}
+
+IOReturn
+IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData)
+{
+	AppleVTD * vtd;
+	uint64_t   present;
+	uint64_t   destID;
+	uint64_t   levelTrigger;
+	uint64_t   irte;
+	uint64_t   prior;
+    uint32_t   idx;
+    bool       inval;
+
+	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem))) return (kIOReturnUnsupported);
+	if (!vtd->fIRTable)                                      return (kIOReturnUnsupported);
+
+    inval = false;
+    for (idx = vector; idx < (vector + count); idx++)
+    {
+		levelTrigger = 0;
+		destID       = 0;
+		present      = (msiData != 0);
+		irte = (destID << 40)      // destID
+			 | (idx << 16)	       // vector
+			 | (0 << 5)            // fixed delivery mode
+			 | (levelTrigger << 4) // trigger
+			 | (0 << 3)            // redir
+			 | (0 << 2)            // phys dest
+			 | (1 << 1)            // faults ena
+			 | (present << 0);	   // present
+
+		prior = vtd->fIRTable[idx].data;
+		VTLOG("ir[0x%x] 0x%qx -> 0x%qx\n", idx, prior, irte);
+
+		// msi should only be set once and removed
+		if (!(1 & (prior ^ irte))) panic("msi irte 0x%qx prior 0x%qx", irte, prior);
+
+		if (irte != prior)
+		{
+			vtd->fIRTable[idx].data = irte;
+			__mfence();
+			if (1 & prior) inval = true;
+		}
+    }
+
+    if (inval) vtd->interruptInvalidate(vector, count);
+
+    if (msiData)
+    {
+		msiData[0] = 0xfee00000                 // addr lo
+				   | ((vector & 0x7fff) << 5)	// handle[14:0]
+				   | (1 << 4)  					// remap format
+				   | (1 << 3)  					// SHV (add subhandle to vector)
+				   | ((vector & 0x8000) >> 13); // b2 handle[15]
+
+		msiData[1] = 0;         // addr hi
+		msiData[2] = 0;			// data (subhandle)
+    }
+
+    return (kIOReturnSuccess);
 }
 
 IOReturn
@@ -1721,8 +1986,13 @@ AppleVTD::callPlatformFunction(const OSSymbol * functionName,
 		{
 			for (idx = 0; (unit = units[idx]); idx++) 
 			{
-				unit_enable(unit);
+				unit_enable(unit, fQIStamp);
 			}
+			contextInvalidate(0);
+			interruptInvalidate(0, 256);
+
+			if (fDisabled) for (idx = 0; (unit = units[idx]); idx++) unit_quiesce(unit);
+
 			return (kIOReturnSuccess);
 		}
 		else if (functionName->isEqualTo(gIOPlatformQuiesceActionKey))
@@ -1942,6 +2212,7 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
 
 	for (unitIdx = 0; (unit = units[unitIdx]); unitIdx++)
 	{
+		if (!unit->translating) continue;
 		unitAddr = addr;
 		unitPages = pages;
 		idx = unit->qi_tail;
@@ -2022,6 +2293,7 @@ AppleVTD::checkFree(vtd_space_t * space, uint32_t isLarge)
 		if (idx == space->free_tail[isLarge]) break;
 		for (unitIdx = 0, ok = true; ok && (unit = units[unitIdx]); unitIdx++)
 		{
+			if (!unit->translating) continue;
 			ok &= stampPassed(unit->qi_stamp, space->free_queue[isLarge][idx].stamp);
 		}
 	
@@ -2052,6 +2324,7 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 	unsigned int unitIdx;
 	uint32_t     idx;
 	uint32_t     next;
+	uint32_t     gran;
 	uint64_t     stamp;
 	uint64_t     deadline;
 	bool         ok;
@@ -2059,8 +2332,11 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 	IOSimpleLockLock(fHWLock);
 
 	stamp = ++fQIStamp;
+	gran = (domainID != 0) ? 2 : 1;		// global or domain selective
+
 	for (unitIdx = 0; (unit = units[unitIdx]); unitIdx++)
 	{
+		if (!unit->translating) continue;
 		idx = unit->qi_tail;
 
 		// fence
@@ -2075,7 +2351,7 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 		next = (idx + 1) & kQIIndexMask;
 		WAIT_QI_FREE(unit, idx);
 		unit->qi_table[idx].address = 0;
-		unit->qi_table[idx].command = (domainID << 16) | (2<<4) | (1);
+		unit->qi_table[idx].command = (domainID << 16) | (gran << 4) | (1);
 		unit->qi_table_stamps[idx] = stamp;
 
 		// fence
@@ -2091,7 +2367,65 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 		next = (idx + 1) & kQIIndexMask;
 		WAIT_QI_FREE(unit, idx);
 		unit->qi_table[idx].address = 0;
-		unit->qi_table[idx].command = (domainID << 16) | (kTlbDrainReads<<7) | (kTlbDrainWrites<<6) | (2<<4) | (2);
+		unit->qi_table[idx].command = (domainID << 16) | (kTlbDrainReads<<7) | (kTlbDrainWrites<<6) | (gran << 4) | (2);
+		unit->qi_table_stamps[idx] = stamp;
+
+		// stamp
+		idx = next;
+		next = (idx + 1) & kQIIndexMask;
+		WAIT_QI_FREE(unit, idx);
+		unit->qi_table[idx].address = unit->qi_stamp_address;
+		unit->qi_table[idx].command = (stamp<<32) | (1<<5) | (5);
+		unit->qi_table_stamps[idx] = stamp;
+
+		__mfence();
+		unit->regs->invalidation_queue_tail = (next << 4);
+		unit->qi_tail = next;
+	}
+
+	IOSimpleLockUnlock(fHWLock);
+
+	clock_interval_to_deadline(200, kMillisecondScale, &deadline);
+	while (true)
+	{
+		for (unitIdx = 0, ok = true; ok && (unit = units[unitIdx]); unitIdx++)
+		{
+			if (!unit->translating) continue;
+			ok &= stampPassed(unit->qi_stamp, stamp);
+		}
+		if (ok) break;
+		if (mach_absolute_time() >= deadline) panic("context qi");
+	}
+}
+
+void
+AppleVTD::interruptInvalidate(uint16_t index, uint16_t count)
+{
+	vtd_unit_t * unit;
+	unsigned int unitIdx;
+	uint32_t     idx;
+	uint32_t     next;
+	uint64_t     stamp;
+	uint64_t     deadline;
+	bool         ok;
+
+	if (!fIRTable) return;
+
+	count = vtd_log2up(count);
+
+	IOSimpleLockLock(fHWLock);
+
+	stamp = ++fQIStamp;
+	for (unitIdx = 0; (unit = units[unitIdx]); unitIdx++)
+	{
+		if (!unit->ir_address) continue;
+		idx = unit->qi_tail;
+		next = (idx + 1) & kQIIndexMask;
+
+		// int invalidate
+		WAIT_QI_FREE(unit, idx);
+		unit->qi_table[idx].address = 0;
+		unit->qi_table[idx].command = (((uint64_t) index) << 32) | (count << 27) | (0<<4) | (4);
 		unit->qi_table_stamps[idx] = stamp;
 
 		// stamp
@@ -2117,10 +2451,9 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 			ok &= stampPassed(unit->qi_stamp, stamp);
 		}
 		if (ok) break;
-		if (mach_absolute_time() >= deadline) panic("context qi");
+		if (mach_absolute_time() >= deadline) panic("interrupt qi");
 	}
 }
-
 
 uint64_t
 AppleVTD::spaceMapToPhysicalAddress(vtd_space_t * space, uint64_t addr)
@@ -2341,6 +2674,7 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 	mapper = OSTypeAlloc(AppleVTDDeviceMapper);
 	if (!mapper) return (0);
 
+	mapper->fVTD      = OSDynamicCast(AppleVTD, IOMapper::gSystem);
 	mapper->fDevice   = device;
 	mapper->fSourceID = ((pciDevice->space.s.busNum      << 8)
 					   | (pciDevice->space.s.deviceNum   << 3)
@@ -2385,7 +2719,6 @@ AppleVTDDeviceMapper::iovmMapMemory(
 
 	if (!fSpace)
 	{
-        fVTD = OSDynamicCast(AppleVTD, IOMapper::gSystem);
 		ret = fVTD->deviceMapperActivate(this, kDeviceMapperActivate);
 		if (kIOReturnSuccess != ret) return (ret);
 	}

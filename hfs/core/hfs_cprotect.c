@@ -38,6 +38,7 @@
 #include <sys/kauth.h>
 #include <sys/sysctl.h>
 #include <sys/ubc.h>
+#include <uuid/uuid.h>
 
 #include "hfs.h"
 #include "hfs_cnode.h"
@@ -2499,19 +2500,37 @@ cpnew_fail:
 	return error;
 }
 
+
 /* Initialize the aks_cred_t structure passed to AKS */
 static void cp_init_access(aks_cred_t access, struct cnode *cp)
 {
 	vfs_context_t context = vfs_context_current();
 	kauth_cred_t cred = vfs_context_ucred(context);
 	proc_t proc = vfs_context_proc(context);
+	struct hfsmount *hfsmp;
+	struct vnode *vp;
+	uuid_t hfs_uuid;
 
 	bzero(access, sizeof(*access));
+
+	vp = CTOV(cp, 0);
+	if (vp == NULL) {
+		/* is it a rsrc */
+		vp = CTOV(cp,1);
+		if (vp == NULL) {
+			//leave the struct bzeroed. 
+			return;
+		}
+	}
+
+	hfsmp = VTOHFS(vp);
+	hfs_getvoluuid(hfsmp, hfs_uuid);
 
 	/* Note: HFS uses 32-bit fileID, even though inode is a 64-bit value */
 	access->inode = cp->c_fileid;
 	access->pid = proc_pid(proc);
 	access->uid = kauth_cred_getuid(cred);
+	uuid_copy (access->volume_uuid, hfs_uuid);	
 
 	if (cp->c_cpentry)
 		access->key_revision = cp->c_cpentry->cp_key_revision;

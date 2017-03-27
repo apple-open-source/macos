@@ -41,9 +41,6 @@
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
 #include <os/state_private.h>
 
-#include "SOSAccountPriv.h"
-#define kSecServerPeerInfoAvailable "com.apple.security.fpiAvailable"
-
 
 static SOSAccountRef SOSAccountCreateFromRemainingDER_v6(CFAllocatorRef allocator,
                                                          SOSDataSourceFactoryRef factory,
@@ -325,20 +322,7 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
 
     SOSPeerInfoRef myPI = SOSAccountGetMyPeerInfo(account);
     if (myPI) {
-        if(SOSAccountHasCompletedInitialSync(account)) {
-            CFMutableSetRef viewsToEnsure = SOSViewCopyViewSet(kViewSetAlwaysOn);
-
-            // Previous version PeerInfo if we were syncing legacy keychain, ensure we include those legacy views.
-            if(!SOSPeerInfoVersionIsCurrent(myPI) && SOSAccountIsInCircle(account, NULL)) {
-                CFSetRef V0toAdd = SOSViewCopyViewSet(kViewSetV0);
-                CFSetUnion(viewsToEnsure, V0toAdd);
-                CFReleaseNull(V0toAdd);
-            }
-            
-            SOSAccountUpdateFullPeerInfo(account, viewsToEnsure, SOSViewsGetV0ViewSet()); // We don't permit V0 view proper, only sub-views
-            CFReleaseNull(viewsToEnsure);
-        }
-        
+        SOSAccountCheckForAlwaysOnViews(account);
         SOSPeerInfoRef oldPI = myPI;
         // if UpdateFullPeerInfo did something - we need to make sure we have the right Ref
         myPI = SOSAccountGetMyPeerInfo(account);
@@ -350,9 +334,13 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
         CFReleaseNull(transportTypeInflatedFromDER);
     }
 
+    SOSAccountEnsureRecoveryRing(account);
+    
     SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
         account->key_interests_need_updating = true;
     });
+
+    SOSAccountEnsureUUID(account);
 
     result = CFRetainSafe(account);
 

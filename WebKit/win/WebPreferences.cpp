@@ -101,6 +101,8 @@ static bool booleanValueForPreferencesValue(CFPropertyListRef value)
 
 static CFDictionaryRef defaultSettings;
 
+RetainPtr<CFStringRef> WebPreferences::m_applicationId = kCFPreferencesCurrentApplication;
+
 static HashMap<WTF::String, COMPtr<WebPreferences>>& webPreferencesInstances()
 {
     static NeverDestroyed<HashMap<WTF::String, COMPtr<WebPreferences>>> webPreferencesInstances;
@@ -183,6 +185,11 @@ void WebPreferences::removeReferenceForIdentifier(BSTR identifier)
         webPreferencesInstances().remove(identifierString);
 }
 
+CFStringRef WebPreferences::applicationId()
+{
+    return m_applicationId.get();
+}
+
 void WebPreferences::initializeDefaultSettings()
 {
     if (defaultSettings)
@@ -255,6 +262,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebGrammarCheckingEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(AllowContinuousSpellCheckingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitUsesPageCachePreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitAllowsPageCacheWithWindowOpenerKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageDatabasePathPreferenceKey), CFSTR(""));
 
     RetainPtr<CFStringRef> cacheModelRef = adoptCF(CFStringCreateWithFormat(0, 0, CFSTR("%d"), WebCacheModelDocumentViewer));
@@ -306,7 +314,7 @@ RetainPtr<CFPropertyListRef> WebPreferences::valueForKey(CFStringRef key)
     if (value)
         return value;
 
-    value = adoptCF(CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication));
+    value = adoptCF(CFPreferencesCopyAppValue(key, applicationId()));
     if (value)
         return value;
 
@@ -317,7 +325,7 @@ void WebPreferences::setValueForKey(CFStringRef key, CFPropertyListRef value)
 {
     CFDictionarySetValue(m_privatePrefs.get(), key, value);
     if (m_autoSaves) {
-        CFPreferencesSetAppValue(key, value, kCFPreferencesCurrentApplication);
+        CFPreferencesSetAppValue(key, value, applicationId());
         save();
     }
 }
@@ -448,7 +456,7 @@ BSTR WebPreferences::webPreferencesRemovedNotification()
 
 void WebPreferences::save()
 {
-    CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
+    CFPreferencesAppSynchronize(applicationId());
 }
 
 void WebPreferences::load()
@@ -540,6 +548,8 @@ HRESULT WebPreferences::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppv
         *ppvObject = static_cast<IWebPreferencesPrivate2*>(this);
     else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate3))
         *ppvObject = static_cast<IWebPreferencesPrivate3*>(this);
+    else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate4))
+        *ppvObject = static_cast<IWebPreferencesPrivate4*>(this);
     else if (IsEqualGUID(riid, CLSID_WebPreferences))
         *ppvObject = this;
     else
@@ -1595,6 +1605,20 @@ HRESULT WebPreferences::experimentalNotificationsEnabled(_Out_ BOOL* enabled)
     return S_OK;
 }
 
+HRESULT WebPreferences::setAllowsPageCacheWithWindowOpener(BOOL value)
+{
+    setBoolValue(WebKitAllowsPageCacheWithWindowOpenerKey, value);
+    return S_OK;
+}
+
+HRESULT WebPreferences::allowsPageCacheWithWindowOpener(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitAllowsPageCacheWithWindowOpenerKey);
+    return S_OK;
+}
+
 HRESULT WebPreferences::setZoomsTextOnly(BOOL zoomsTextOnly)
 {
     setBoolValue(WebKitZoomsTextOnlyPreferenceKey, zoomsTextOnly);
@@ -1938,20 +1962,6 @@ HRESULT WebPreferences::setFetchAPIEnabled(BOOL enabled)
     return S_OK;
 }
 
-HRESULT WebPreferences::setDOMIteratorEnabled(BOOL enabled)
-{
-    setBoolValue(WebKitDOMIteratorEnabledPreferenceKey, enabled);
-    return S_OK;
-}
-
-HRESULT WebPreferences::domIteratorEnabled(_Out_ BOOL* enabled)
-{
-    if (!enabled)
-        return E_POINTER;
-    *enabled = boolValueForKey(WebKitDOMIteratorEnabledPreferenceKey);
-    return S_OK;
-}
-
 HRESULT WebPreferences::shadowDOMEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
@@ -1977,5 +1987,39 @@ HRESULT WebPreferences::customElementsEnabled(_Out_ BOOL* enabled)
 HRESULT WebPreferences::setCustomElementsEnabled(BOOL enabled)
 {
     setBoolValue(WebKitCustomElementsEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setModernMediaControlsEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitModernMediaControlsEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::modernMediaControlsEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitModernMediaControlsEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setES6ModulesEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitES6ModulesEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::es6ModulesEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitES6ModulesEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setApplicationId(BSTR applicationId)
+{
+    m_applicationId = String(applicationId).createCFString();
     return S_OK;
 }

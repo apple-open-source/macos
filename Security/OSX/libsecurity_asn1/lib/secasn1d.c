@@ -389,7 +389,7 @@ sec_asn1d_push_state (SEC_ASN1DecoderContext *cx,
 		      const SecAsn1Template *theTemplate,
 		      void *dest, PRBool new_depth)
 {
-    sec_asn1d_state *state, *new_state;
+    sec_asn1d_state *state, *new_state = NULL;
 
     state = cx->current;
 
@@ -433,6 +433,9 @@ loser:
     if (state != NULL) {
         PORT_ArenaRelease(cx->our_pool, state->our_mark);
         state->our_mark = NULL;
+    }
+    if (new_state != NULL) {
+        PORT_Free(new_state);
     }
     return NULL;
 }
@@ -1431,8 +1434,10 @@ regular_string_type:
 		    alloc_len += subitem->len;
 	    }
 
-	    item->Data = (unsigned char*)sec_asn1d_zalloc (poolp, alloc_len);
-	    if (item->Data == NULL) {
+        if (item) {
+            item->Data = (unsigned char*)sec_asn1d_zalloc (poolp, alloc_len);
+        }
+        if (item == NULL || item->Data == NULL) {
 		    dprintf("decodeError: prepare for contents zalloc\n");
 			state->top->status = decodeError;
 			break;

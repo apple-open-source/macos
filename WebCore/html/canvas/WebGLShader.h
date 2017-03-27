@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebGLShader_h
-#define WebGLShader_h
+#pragma once
 
 #include "WebGLSharedObject.h"
 
@@ -34,7 +33,7 @@ class WebGLShader final : public WebGLSharedObject {
 public:
     virtual ~WebGLShader();
 
-    static Ref<WebGLShader> create(WebGLRenderingContextBase*, GC3Denum);
+    static Ref<WebGLShader> create(WebGLRenderingContextBase&, GC3Denum);
 
     GC3Denum getType() const { return m_type; }
     const String& getSource() const { return m_source; }
@@ -45,7 +44,7 @@ public:
     void setValid(bool valid) { m_isValid = valid; }
 
 private:
-    WebGLShader(WebGLRenderingContextBase*, GC3Denum);
+    WebGLShader(WebGLRenderingContextBase&, GC3Denum);
 
     void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 
@@ -57,5 +56,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // WebGLShader_h

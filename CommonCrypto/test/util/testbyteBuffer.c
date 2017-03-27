@@ -9,7 +9,7 @@
 
 #include "testbyteBuffer.h"
 #include <CommonCrypto/CommonRandomSPI.h>
-#include "ccMemory.h"
+#include "../../lib/ccMemory.h"
 
 void printBytes(uint8_t *buff, size_t len, char *name)
 {

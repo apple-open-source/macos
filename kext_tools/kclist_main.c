@@ -42,6 +42,10 @@ static void createKCMap(const uint8_t *kernelcacheImage, Boolean verbose, struct
 static void printKernelCacheLayoutMap(KclistArgs *toolArgs, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress,
                                       uint64_t prelinkTextSourceSize,struct kcmap *kcmap, CFPropertyListRef kcInfoPlist,
                                       const UInt8 *kcImagePtr, CFIndex kcImageSize);
+static void printJSON(KclistArgs *toolArgs, const char *prelinkTextBytes, uint64_t prelinkTextSourceAddress,
+                      uint64_t prelinkTextSourceSize, struct kcmap *kcmap, CFPropertyListRef kcInfoPlist,
+                      const UInt8 *kcImagePtr, CFIndex kcImageSize);
+static void printJSONSegments(KclistArgs *toolArgs, void *mhpv, bool mh_is_64);
 static off_t getKCFileOffset(struct kcmap *kcmap, uint8_t *kextStart, uint64_t va_ofst, uint64_t fileoff);
 
 static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize);
@@ -252,6 +256,13 @@ int main(int argc, char * const argv[])
                                       prelinkInfoPlist,
                                       kernelcacheStart,
                                       CFDataGetLength(kernelcacheImage));
+        } else if (toolArgs.printJSON) {
+            printJSON(&toolArgs, prelinkTextBytes,
+                      prelinkTextSourceAddress,
+                      prelinkTextSourceSize, kcmap,
+                      prelinkInfoPlist,
+                      kernelcacheStart,
+                      CFDataGetLength(kernelcacheImage));
         } else {
             listPrelinkedKexts(&toolArgs, prelinkInfoPlist, prelinkTextBytes,
                            prelinkTextSourceAddress, prelinkTextSourceSize,
@@ -361,6 +372,10 @@ ExitStatus readArgs(
                 toolArgs->printMap = true;
                 break;
 
+            case kOptJSON:
+                toolArgs->printJSON = true;
+                break;
+
             default:
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -368,6 +383,16 @@ ExitStatus readArgs(
                 goto finish;
                 break;
 
+        }
+
+        if (toolArgs->printJSON && toolArgs->printMap) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "cannot print map as human-readable and JSON simultaneously "
+                "(-%c and -%c are mutually exclusive)", kOptJSON,
+                kOptLayoutMap);
+            goto finish;
+            break;
         }
 
        /* Reset longindex, because getopt_long_only() is stupid and doesn't.
@@ -855,7 +880,7 @@ static void printKernelCacheLayoutMap(KclistArgs *toolArgs,
         CFNumberRef kextSourceSize = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey));
         const char *kextTextBytes = NULL;
 
-	if (kextSourceAddress && CFNumberGetTypeID() == CFGetTypeID(kextSourceAddress) &&
+        if (kextSourceAddress && CFNumberGetTypeID() == CFGetTypeID(kextSourceAddress) &&
             kextSourceSize && CFNumberGetTypeID() == CFGetTypeID(kextSourceSize)) {
             uint64_t sourceAddress;
             uint64_t sourceSize;
@@ -945,7 +970,7 @@ static void printKernelCacheLayoutMap(KclistArgs *toolArgs,
                                                                         && !strstr(seg_cmd->segname, "__PRELINK")))) {
                 printf(KCLAYOUTFORMATSTR, seg_cmd->segname,
                        seg_cmd->vmaddr, seg_cmd->vmsize,
-                       uuid_string ? uuid_string : "",
+                       uuid_string[0] ? uuid_string : "",
                        "xnu");
             }
 
@@ -954,6 +979,180 @@ static void printKernelCacheLayoutMap(KclistArgs *toolArgs,
     }
 
     return;
+}
+
+static void printJSONSegments(KclistArgs *toolArgs, void *mhpv, bool mh_is_64)
+{
+    struct mach_header_64 *mhp64 = NULL;
+    struct mach_header *mhp = NULL;
+    struct load_command *lcp;
+    uint32_t ncmds, cmd_i;
+    uuid_string_t uuid_string = {};
+
+    if (mh_is_64) {
+        struct segment_command_64 * seg_cmd;
+        bool printed_seg = false;
+
+        mhp64 = (struct mach_header_64 *)mhpv;
+        ncmds = mhp64->ncmds;
+        lcp = (struct load_command *)(void *)(mhp64 + 1);
+
+        seg_cmd = (struct segment_command_64 *) ((uintptr_t)mhp64 + sizeof(*mhp64));
+
+        for (cmd_i = 0; cmd_i < mhp64->ncmds; cmd_i++) {
+            if (seg_cmd->cmd == LC_SEGMENT_64) {
+                if (printed_seg) {
+                    printf(", ");
+                } else {
+                    printed_seg = true;
+                }
+                printf("{\"name\": \"%s\", ", seg_cmd->segname);
+                if (toolArgs->verbose) {
+                    printf("\"commands_size\": %d, ", seg_cmd->cmdsize);
+                }
+                printf("\"size\": %llu, ", seg_cmd->vmsize);
+
+                struct section_64 *sect = NULL;
+                u_int j = 0;
+                sect = (struct section_64 *) (&seg_cmd[1]);
+                printf("\"sections\": [");
+                for (j = 0; j < seg_cmd->nsects; ++j, ++sect) {
+                    if (j != 0) {
+                        printf(", ");
+                    }
+                    printf("{\"name\": \"%s\", ", sect->sectname);
+                    printf("\"size\": %llu, ", sect->size);
+                    printf("\"offset\": %u}", sect->offset);
+                }
+                printf("]}");
+            }
+            seg_cmd = (struct segment_command_64 *) ((uintptr_t)seg_cmd + seg_cmd->cmdsize);
+        }
+    } else {
+        struct segment_command *    seg_cmd;
+        bool printed_seg = false;
+
+        mhp = (struct mach_header *)mhpv;
+        ncmds = mhp->ncmds;
+        lcp = (struct load_command *)(void *)(mhp + 1);
+
+        seg_cmd = (struct segment_command *) ((uintptr_t)mhp + sizeof(*mhp));
+
+        for (cmd_i = 0; cmd_i < mhp->ncmds; cmd_i++) {
+            if (seg_cmd->cmd == LC_SEGMENT) {
+                if (printed_seg) {
+                    printf(", ");
+                } else {
+                    printed_seg = true;
+                }
+                printf("{\"name\": \"%s\", ", seg_cmd->segname);
+                printf("\"commands_size\": %d, ", seg_cmd->cmdsize);
+                printf("\"size\": %u, ", seg_cmd->vmsize);
+
+                struct section *sect = NULL;
+                u_int j = 0;
+                sect = (struct section *) (&seg_cmd[1]);
+                printf("\"sections\": [");
+                for (j = 0; j < seg_cmd->nsects; ++j, ++sect) {
+                    if (j != 0) {
+                        printf(", ");
+                    }
+                    printf("{\"name\": \"%s\", ", sect->sectname);
+                    printf("\"size\": %u, ", sect->size);
+                    printf("\"offset\": %u}", sect->offset);
+                }
+                printf("]}");
+            }
+            seg_cmd = (struct segment_command *) ((uintptr_t)seg_cmd + seg_cmd->cmdsize);
+        }
+    }
+}
+
+static void printJSON(KclistArgs *toolArgs,
+                      const char *prelinkTextBytes,
+                      uint64_t prelinkTextSourceAddress,
+                      uint64_t prelinkTextSourceSize,
+                      struct kcmap *kcmap,
+                      CFPropertyListRef kcInfoPlist,
+                      const UInt8 *kcImagePtr,
+                      CFIndex kcImageSize)
+{
+    CFIndex i, count = 0;
+    CFArrayRef kextPlistArray = NULL;
+    struct mach_header_64 *mhp64 = NULL;
+    struct mach_header *mhp = NULL;
+    struct load_command *lcp;
+    uint32_t ncmds, cmd_i;
+    uuid_string_t uuid_string = {};
+    (void)kcImageSize;
+
+    if (CFDictionaryGetTypeID() == CFGetTypeID(kcInfoPlist)){
+        kextPlistArray = (CFArrayRef)CFDictionaryGetValue(kcInfoPlist,
+                                                          CFSTR(kPrelinkInfoDictionaryKey));
+    } else {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                  "Unrecognized kernelcache plist data -- type is %lu.",
+                  CFGetTypeID(kcInfoPlist));
+        return;
+    }
+    printf("[");
+
+    /* Print out the KEXT map */
+    count = CFArrayGetCount(kextPlistArray);
+    for (i = 0; i < count; i++) {
+        CFDictionaryRef kextPlist = (CFDictionaryRef)CFArrayGetValueAtIndex(kextPlistArray, i);
+        CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
+        CFNumberRef kextSourceAddress = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey));
+        CFNumberRef kextSourceSize = (CFNumberRef)CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey));
+        const char *kextTextBytes = NULL;
+
+        if (kextSourceAddress && CFNumberGetTypeID() == CFGetTypeID(kextSourceAddress) &&
+            kextSourceSize && CFNumberGetTypeID() == CFGetTypeID(kextSourceSize)) {
+            uint64_t sourceAddress;
+            uint64_t sourceSize;
+
+            CFNumberGetValue(kextSourceAddress, kCFNumberSInt64Type, &sourceAddress);
+            CFNumberGetValue(kextSourceSize, kCFNumberSInt64Type, &sourceSize);
+            if ((sourceAddress >= prelinkTextSourceAddress) &&
+                ((sourceAddress+sourceSize) <= (prelinkTextSourceAddress + prelinkTextSourceSize))) {
+                kextTextBytes = prelinkTextBytes + (ptrdiff_t)(sourceAddress - prelinkTextSourceAddress);
+            }
+        }
+
+        if (i != 0) {
+            printf(", ");
+        }
+        printKextInfo(toolArgs, kextPlist, kextTextBytes, kcmap);
+    }
+
+    /* First look for the kernel UUID */
+    if (ISMACHO64(MAGIC32(kcImagePtr))) {
+        mhp64 = (struct mach_header_64 *)kcImagePtr;
+        ncmds = mhp64->ncmds;
+        lcp = (struct load_command *)(void *)(mhp64 + 1);
+    } else {
+        mhp = (struct mach_header *)kcImagePtr;
+        ncmds = mhp->ncmds;
+        lcp = (struct load_command *)(void *)(mhp + 1);
+    }
+
+    printf(", {\"name\": \"xnu\", ");
+
+    for (cmd_i = 0; cmd_i < ncmds; cmd_i++) {
+        if (lcp->cmd == LC_UUID) {
+            uuid_unparse(((struct uuid_command *)lcp)->uuid, uuid_string);
+            printf("\"uuid\": \"%s\", ", uuid_string);
+            break;
+        }
+
+        lcp = (struct load_command *)((uintptr_t)lcp + lcp->cmdsize);
+    }
+
+    printf("\"segments\": [");
+    printJSONSegments(toolArgs, (void *)kcImagePtr, ISMACHO64(MAGIC32(kcImagePtr)));
+    printf("]}");
+    printf("]");
 }
 
 /*******************************************************************************
@@ -986,6 +1185,7 @@ void printKextInfo(KclistArgs *toolArgs,
     Boolean beVerbose = toolArgs->verbose;
     Boolean printUUIDs = toolArgs->printUUIDs;
     Boolean layoutMap  = toolArgs->printMap;
+    Boolean json = toolArgs->printJSON;
     Boolean shouldExtractKext = toolArgs->extractedKextPath != NULL;
 
     if (!kextIdentifier || !kextVersion || !kextPath) {
@@ -1038,6 +1238,16 @@ void printKextInfo(KclistArgs *toolArgs,
         } else {
             printf("%s\t%s\t\t\t\t%s\n", idBuffer, versionBuffer, pathBuffer);
         }
+    } else if (json) {
+        printf("{\"name\": \"%s\", ", idBuffer);
+        printf("\"version\": \"%s\", ", versionBuffer);
+        if (uuid_cmd) {
+            uuid_string_t uuidBuffer;
+            uuid_unparse(*(uuid_t *)uuid_cmd->uuid, uuidBuffer);
+            printf("\"uuid\": \"%s\", ", uuidBuffer);
+        }
+        printf("\"path\": \"%s\", ", pathBuffer);
+        printf("\"load_address\": \"%#llx\"", kextLoadAddress);
     } else if (!layoutMap) {
         printf("%s\t%s\t%s\n", idBuffer, versionBuffer, pathBuffer);
     }
@@ -1076,6 +1286,17 @@ void printKextInfo(KclistArgs *toolArgs,
                 seg_cmd = (struct segment_command *) ((uintptr_t)seg_cmd + seg_cmd->cmdsize);
             }
         }
+    } else if (json) {
+        if (mhp64) {
+            printf(", \"segments\": [");
+            printJSONSegments(toolArgs, mhp64, true);
+            printf("]");
+        } else if (mhp) {
+            printf(", \"segments\": [");
+            printJSONSegments(toolArgs, mhp, false);
+            printf("]");
+        }
+        printf("}");
     } else if (beVerbose) {
         printf("\t-> load address:   0x%0.8llx, "
                "size              = 0x%0.8llx,\n"
@@ -1213,7 +1434,7 @@ void printKextInfo(KclistArgs *toolArgs,
                 seg_cmd = (struct segment_command *) ((uintptr_t)seg_cmd + seg_cmd->cmdsize);
             } // for loop...
         }
-    } // beVerbose
+    }
 
     /* extract the kext from the kernel cache */
     if (shouldExtractKext && kextTextBytes && kextExecutableSize != 0) {
@@ -1284,7 +1505,7 @@ CFComparisonResult compareIdentifiers(const void * val1, const void * val2, void
 void usage(UsageLevel usageLevel)
 {
     fprintf(stderr,
-      "usage: %1$s [-arch archname] [-M] [-u] [-v] [-x prefix] [--] kernelcache [bundle-id ...]\n"
+      "usage: %1$s [-arch archname] [-j] [-l] [-M] [-u] [-v] [-x prefix] [--] kernelcache [bundle-id ...]\n"
       "usage: %1$s -help\n"
       "\n",
       progname);
@@ -1314,8 +1535,11 @@ void usage(UsageLevel usageLevel)
         "        emit additional information about kext load addresses and sizes\n",
             kOptNameVerbose, kOptVerbose);
     fprintf(stderr, "-%s (-%c):\n"
-        "        emit layout map of kernelcache\n",
+        "        print the kernelcache layout map in a human-readable format\n",
             kOptNameLayoutMap, kOptLayoutMap);
+    fprintf(stderr, "-%s (-%c):\n"
+        "        print the kernelcache layout map as JSON\n",
+            kOptNameJSON, kOptJSON);
     fprintf(stderr, "\n");
 
     fprintf(stderr, "-%s (-%c): print this message and exit\n",

@@ -1,0 +1,4 @@
+./test/errors/769855-1.xml:1: parser error : Extra content at the end of the document
+<!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
+          ^
+./test/errors/769855-1.xml : failed to parse

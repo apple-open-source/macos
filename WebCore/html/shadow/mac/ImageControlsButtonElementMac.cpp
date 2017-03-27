@@ -50,7 +50,7 @@ public:
 
 private:
     void updateLogicalWidth() override;
-    void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const override;
+    LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
 
     const char* renderName() const override { return "RenderImageControlsButton"; }
     bool requiresForcedStyleRecalcPropagation() const override { return true; }
@@ -73,12 +73,12 @@ void RenderImageControlsButton::updateLogicalWidth()
     setLogicalWidth(isHorizontalWritingMode() ? frameSize.width() : frameSize.height());
 }
 
-void RenderImageControlsButton::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues& computedValues) const
+RenderBox::LogicalExtentComputedValues RenderImageControlsButton::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const
 {
-    RenderBox::computeLogicalHeight(logicalHeight, logicalTop, computedValues);
-
+    auto computedValues = RenderBox::computeLogicalHeight(logicalHeight, logicalTop);
     IntSize frameSize = theme().imageControlsButtonSize(*this);
     computedValues.m_extent = isHorizontalWritingMode() ? frameSize.height() : frameSize.width();
+    return computedValues;
 }
 
 ImageControlsButtonElementMac::ImageControlsButtonElementMac(Document& document)
@@ -107,9 +107,9 @@ RefPtr<ImageControlsButtonElementMac> ImageControlsButtonElementMac::tryCreate(D
     return WTFMove(button);
 }
 
-void ImageControlsButtonElementMac::defaultEventHandler(Event* event)
+void ImageControlsButtonElementMac::defaultEventHandler(Event& event)
 {
-    if (event->type() == eventNames().clickEvent) {
+    if (event.type() == eventNames().clickEvent) {
         Frame* frame = document().frame();
         if (!frame)
             return;
@@ -118,8 +118,8 @@ void ImageControlsButtonElementMac::defaultEventHandler(Event* event)
         if (!page)
             return;
 
-        page->contextMenuController().showImageControlsMenu(event);
-        event->setDefaultHandled();
+        page->contextMenuController().showImageControlsMenu(&event);
+        event.setDefaultHandled();
         return;
     }
 

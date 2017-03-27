@@ -43,7 +43,7 @@ const uint8_t* der_decode_number(CFAllocatorRef allocator, CFOptionFlags mutabil
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_INTEGER, &payload_size, der, der_end);
 
-    if (NULL == payload || (der_end - payload) < payload_size) {
+    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size) {
         SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown number encoding"), NULL, error);
         return NULL;
     }
@@ -122,11 +122,11 @@ uint8_t* der_encode_number(CFNumberRef number, CFErrorRef *error,
     
     size_t first_byte_to_include = bytes_when_encoded(value);
     
-    if (!der_end || der_end - der < first_byte_to_include)
+    if (!der_end || (ssize_t) (der_end - der) < (ssize_t) first_byte_to_include)
         return NULL;
 
     // Put the bytes we should include on the end.
-    for(int bytes_included = 0; bytes_included < first_byte_to_include; ++bytes_included)
+    for(size_t bytes_included = 0; bytes_included < first_byte_to_include; ++bytes_included)
     {
         --der_end;
         *der_end = value & 0xFF;

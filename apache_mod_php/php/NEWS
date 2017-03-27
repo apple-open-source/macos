@@ -1,5 +1,69 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+19 Jan 2017, PHP 5.6.30
+
+- EXIF:
+  . Fixed bug #73737 (FPE when parsing a tag format). (Stas)
+
+- GD:
+  . Fixed bug #73549 (Use after free when stream is passed to imagepng). (cmb)
+  . Fixed bug #73868 (DOS vulnerability in gdImageCreateFromGd2Ctx()). (cmb)
+  . Fixed bug #73869 (Signed Integer Overflow gd_io.c). (cmb)
+
+- Intl:
+  . Fixed bug #68447 (grapheme_extract take an extra trailing character). 
+    (SATŌ Kentarō)
+
+- Phar:
+  . Fixed bug #73764 (Crash while loading hostile phar archive). (Stas)
+  . Fixed bug #73768 (Memory corruption when loading hostile phar). (Stas)
+  . Fixed bug #73773 (Seg fault when loading hostile phar). (Stas)
+
+- SQLite3:
+  . Reverted fix for bug #73530	(Unsetting result set may reset other result
+    set). (cmb)
+
+- Standard:
+  . Fixed bug #70213 (Unserialize context shared on double class lookup).
+    (Taoguang Chen)
+  . Fixed bug #73825 (Heap out of bounds read on unserialize in
+    finish_nested_data()). (Stas)
+
+08 Dec 2016, PHP 5.6.29
+
+- Mbstring:
+  . Fixed bug #73505 (string length overflow in mbfl_memory_device_output
+    function). (Stas)
+
+- Mysqlnd:
+  . Fixed bug #64526 (Add missing mysqlnd.* parameters to php.ini-*). (cmb)
+
+- Opcache:
+  . Fixed bug #73402 (Opcache segfault when using class constant to call a
+    method). (Laruence)
+  . Fixed bug #69090 (check cached files permissions)
+
+- OpenSSL
+  . Fixed bug #72776 (Invalid parameter in memcpy function trough
+    openssl_pbkdf2). (Jakub Zelenka)
+
+- Postgres:
+  . Fixed bug #73498 (Incorrect SQL generated for pg_copy_to()). (Craig Duncan)
+
+- SOAP:
+  . Fixed bug #73452 (Segfault (Regression for #69152)). (Dmitry)
+
+- SQLite3:
+  . Fixed bug #73530 (Unsetting result set may reset other result set). (cmb)
+
+- Standard:
+   . Fixed bug #73297 (HTTP stream wrapper should ignore HTTP 100 Continue).
+     (rowan dot collins at gmail dot com)
+
+- WDDX:
+  . Fixed bug #73631 (Memory leak due to invalid wddx stack processing). 
+    (bughunter at fosec dot vn).
+
 10 Nov 2016, PHP 5.6.28
 
 - Core:
@@ -35,6 +99,7 @@ PHP                                                                        NEWS
 - Standard:
   . Fixed bug #73203 (passing additional_parameters causes mail to fail). (cmb)
   . Fixed bug #73188 (use after free in userspace streams). (Sara)
+  . Fixed bug #73192 (parse_url return wrong hostname). (Nikita)
 
 - Wddx:
   . Fixed bug #73331 (NULL Pointer Dereference in WDDX Packet Deserialization

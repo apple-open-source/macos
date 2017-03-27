@@ -25,13 +25,17 @@
 
 #include "config.h"
 #include "LowLevelInterpreter.h"
+
 #include "LLIntOfflineAsmConfig.h"
 #include <wtf/InlineASM.h>
 
 #if !ENABLE(JIT)
+#include "CLoopStackInlines.h"
 #include "CodeBlock.h"
 #include "CommonSlowPaths.h"
+#include "Interpreter.h"
 #include "LLIntCLoop.h"
+#include "LLIntData.h"
 #include "LLIntSlowPaths.h"
 #include "JSCInlines.h"
 #include <wtf/Assertions.h>
@@ -483,7 +487,7 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 
 } // namespace JSC
 
-#elif !OS(WINDOWS)
+#elif !COMPILER(MSVC)
 
 //============================================================================
 // Define the opcode dispatch mechanism when using an ASM loop:

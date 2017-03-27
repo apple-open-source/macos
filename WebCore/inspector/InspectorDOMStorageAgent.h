@@ -27,18 +27,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorDOMStorageAgent_h
-#define InspectorDOMStorageAgent_h
+#pragma once
 
 #include "InspectorWebAgentBase.h"
 #include "StorageArea.h"
 #include <inspector/InspectorBackendDispatchers.h>
-#include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
 class DOMStorageFrontendDispatcher;
-class InspectorArray;
 }
 
 namespace WebCore {
@@ -71,8 +68,8 @@ public:
     String storageId(Storage*);
     RefPtr<Inspector::Protocol::DOMStorage::StorageId> storageId(SecurityOrigin*, bool isLocalStorage);
 
-    // Called from InspectorInstrumentation
-    void didDispatchDOMStorageEvent(const String& key, const String& oldValue, const String& newValue, StorageType, SecurityOrigin*, Page*);
+    // InspectorInstrumentation
+    void didDispatchDOMStorageEvent(const String& key, const String& oldValue, const String& newValue, StorageType, SecurityOrigin*);
 
 private:
     RefPtr<StorageArea> findStorageArea(ErrorString&, const Inspector::InspectorObject&, Frame*&);
@@ -85,5 +82,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // !defined(InspectorDOMStorageAgent_h)

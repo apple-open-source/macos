@@ -59,6 +59,9 @@ void SendReset()
   struct IPPacket *p;
   int i;
 
+  if (session.dont_send_reset)
+	  return;
+
   if ((p = (struct IPPacket *)calloc(1, sizeof(struct IPPacket))) == NULL) {
     perror("ERROR: Could not allocate RST packet:") ;
     Quit(ERR_MEM_ALLOC) ; 

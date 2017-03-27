@@ -201,7 +201,7 @@ int propertyGetServicesProperty (IOHIDEventSystemClientRef client, NSString* key
     return STATUS_SUCCESS;
 }
 
-int property (int argc __unused, const char * argv[] __unused) {
+int property (int argc, const char * argv[]) {
     int                         arg;
     int                         status = STATUS_SUCCESS;
     IOHIDEventSystemClientRef   client = NULL;

@@ -25,17 +25,16 @@
  * SUCH DAMAGE.
  */
 
-#ifndef DOMPath_h
-#define DOMPath_h
+#pragma once
 
-#include "CanvasPathMethods.h"
+#include "CanvasPath.h"
 #include "SVGMatrix.h"
 #include "SVGPathUtilities.h"
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-class WEBCORE_EXPORT DOMPath final : public RefCounted<DOMPath>, public CanvasPathMethods {
+class WEBCORE_EXPORT DOMPath final : public RefCounted<DOMPath>, public CanvasPath {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~DOMPath();
@@ -53,6 +52,7 @@ public:
 
 #if ENABLE(CANVAS_PATH)
     void addPath(const DOMPath* path) { addPath(path, AffineTransform()); }
+    void addPath(const DOMPath* path, SVGMatrix& matrix) { addPath(path, matrix.propertyReference()); }
     void addPath(const DOMPath* path, const AffineTransform& transform)
     {
         if (!path || !transform.isInvertible())
@@ -65,8 +65,9 @@ public:
 
 private:
     DOMPath() { }
-    DOMPath(const Path& path) : CanvasPathMethods(path) { }
+    DOMPath(const Path& path)
+        : CanvasPath(path)
+    { }
 };
 
-}
-#endif
+} // namespace WebCore

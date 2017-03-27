@@ -1158,17 +1158,19 @@ bool SecItemAuthDo(SecCFDictionaryCOW *auth_params, CFErrorRef *error, SecItemAu
     bool ok = false;
     CFArrayRef ac_pairs = NULL;
     SecCFDictionaryCOW auth_options = { NULL };
-    //We need to create shared LAContext for Mail to reduce popups with Auth UI.
-    //This app-hack will be removed by:<rdar://problem/28305552>
+    // We need to create shared LAContext for Mail to reduce popups with Auth UI.
+    // This app-hack will be removed by:<rdar://problem/28305552>
+    // Similar workaround is for Safari, will be removed by fixing <rdar://problem/29683072>
     static CFTypeRef sharedLAContext = NULL;
     static CFDataRef sharedACMContext = NULL;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         CFBundleRef bundle = CFBundleGetMainBundle();
-        CFStringRef bundleName = (bundle != NULL)?CFBundleGetIdentifier(bundle):NULL;
-        if (bundleName && CFEqual(bundleName, CFSTR("com.apple.mail"))) {
+        CFStringRef bundleName = (bundle != NULL) ? CFBundleGetIdentifier(bundle) : NULL;
+        if (CFEqualSafe(bundleName, CFSTR("com.apple.mail")) ||
+            CFEqualSafe(bundleName, CFSTR("com.apple.WebKit.Networking"))) {
             sharedLAContext = LACreateNewContextWithACMContext(NULL, error);
-            sharedACMContext = (sharedLAContext != NULL)?LACopyACMContext(sharedLAContext, error):NULL;
+            sharedACMContext = (sharedLAContext != NULL) ? LACopyACMContext(sharedLAContext, error) : NULL;
         }
     });
     if (sharedLAContext && sharedACMContext &&
@@ -1834,18 +1836,17 @@ OSStatus
 SecItemDeleteAll(void)
 {
     return SecOSStatusWith(^bool (CFErrorRef *error) {
-        bool ok;
+        bool ok = true;
         if (gSecurityd) {
-            ok = true;
 #ifndef SECITEM_SHIM_OSX
             SecTrustStoreRef ts = SecTrustStoreForDomain(kSecTrustStoreDomainUser);
             if (!gSecurityd->sec_truststore_remove_all(ts, error))
-                ok = SecError(errSecInternal, error, CFSTR("sec_truststore_remove_all is NULL"));
+                ok &= SecError(errSecInternal, error, CFSTR("sec_truststore_remove_all is NULL"));
 #endif // *** END SECITEM_SHIM_OSX ***
             if (!gSecurityd->sec_item_delete_all(error))
-                ok = SecError(errSecInternal, error, CFSTR("sec_item_delete_all is NULL"));
+                ok &= SecError(errSecInternal, error, CFSTR("sec_item_delete_all is NULL"));
         } else {
-            ok = securityd_send_sync_and_do(sec_delete_all_id, error, NULL, NULL);
+            ok &= securityd_send_sync_and_do(sec_delete_all_id, error, NULL, NULL);
         }
         return ok;
     });

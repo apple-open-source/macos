@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,15 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef StructureStubInfo_h
-#define StructureStubInfo_h
+#pragma once
 
+#include "CodeBlock.h"
 #include "CodeOrigin.h"
 #include "Instruction.h"
 #include "JITStubRoutine.h"
 #include "MacroAssembler.h"
 #include "ObjectPropertyConditionSet.h"
-#include "Opcode.h"
 #include "Options.h"
 #include "RegisterSet.h"
 #include "Structure.h"
@@ -87,7 +86,7 @@ public:
     // This returns true if it has marked everything that it will ever mark.
     bool propagateTransitions(SlotVisitor&);
         
-    ALWAYS_INLINE bool considerCaching(Structure* structure)
+    ALWAYS_INLINE bool considerCaching(CodeBlock* codeBlock, Structure* structure)
     {
         // We never cache non-cells.
         if (!structure)
@@ -139,7 +138,12 @@ public:
             // we don't already have a case buffered for. Note that if this returns true but the
             // bufferingCountdown is not zero then we will buffer the access case for later without
             // immediately generating code for it.
-            return bufferedStructures.add(structure);
+            bool isNewlyAdded = bufferedStructures.add(structure);
+            if (isNewlyAdded) {
+                VM& vm = *codeBlock->vm();
+                vm.heap.writeBarrier(codeBlock);
+            }
+            return isNewlyAdded;
         }
         countdown--;
         return false;
@@ -223,5 +227,3 @@ class StructureStubInfo;
 typedef HashMap<CodeOrigin, StructureStubInfo*, CodeOriginApproximateHash> StubInfoMap;
 
 } // namespace JSC
-
-#endif // StructureStubInfo_h

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DiagnosticLoggingKeys_h
-#define DiagnosticLoggingKeys_h
+#pragma once
 
 #include <wtf/text/WTFString.h>
 
@@ -32,6 +31,8 @@ namespace WebCore {
 
 class DiagnosticLoggingKeys {
 public:
+    WEBCORE_EXPORT static String activeInForegroundTabKey();
+    WEBCORE_EXPORT static String activeInBackgroundTabOnlyKey();
     static String applicationCacheKey();
     static String audioKey();
     WEBCORE_EXPORT static String backNavigationKey();
@@ -39,6 +40,7 @@ public:
     static String cachedResourceRevalidationKey();
     static String canCacheKey();
     static String cannotSuspendActiveDOMObjectsKey();
+    WEBCORE_EXPORT static String cpuUsageKey();
     WEBCORE_EXPORT static String createSharedBufferFailedKey();
     WEBCORE_EXPORT static String deltaKey();
     static String deniedByClientKey();
@@ -53,10 +55,13 @@ public:
     WEBCORE_EXPORT static String entryWronglyNotWarmedUpKey();
     static String expiredKey();
     static String fontKey();
+    static String hasCalledWindowOpenKey();
+    static String hasOpenerKey();
     static String hasPluginsKey();
     static String httpsNoStoreKey();
     static String imageKey();
     static String inMemoryCacheKey();
+    WEBCORE_EXPORT static String inactiveKey();
     WEBCORE_EXPORT static String internalErrorKey();
     WEBCORE_EXPORT static String invalidSessionIDKey();
     WEBCORE_EXPORT static String isAttachmentKey();
@@ -80,11 +85,13 @@ public:
     static String networkKey();
     WEBCORE_EXPORT static String networkProcessCrashedKey();
     WEBCORE_EXPORT static String neverSeenBeforeKey();
+    static String noKey();
     static String noCacheKey();
     static String noCurrentHistoryItemKey();
     static String noDocumentLoaderKey();
     WEBCORE_EXPORT static String noLongerInCacheKey();
     static String noStoreKey();
+    WEBCORE_EXPORT static String nonVisibleStateKey();
     WEBCORE_EXPORT static String notHTTPFamilyKey();
     WEBCORE_EXPORT static String notInCacheKey();
     static String notInMemoryCacheKey();
@@ -94,10 +101,15 @@ public:
     static String pageContainsAtLeastOnePluginKey();
     static String pageContainsMediaEngineKey();
     static String pageContainsPluginKey();
+    static String pageHandlesWebGLContextLossKey();
     static String pageLoadedKey();
     static String playedKey();
     static String pluginLoadedKey();
     static String pluginLoadingFailedKey();
+    static String postPageBackgroundingCPUUsageKey();
+    static String postPageBackgroundingMemoryUsageKey();
+    static String postPageLoadCPUUsageKey();
+    static String postPageLoadMemoryUsageKey();
     static String provisionalLoadKey();
     static String prunedDueToMaxSizeReached();
     static String prunedDueToMemoryPressureKey();
@@ -144,16 +156,22 @@ public:
     WEBCORE_EXPORT static String userKey();
     WEBCORE_EXPORT static String varyingHeaderMismatchKey();
     static String videoKey();
+    WEBCORE_EXPORT static String visibleNonActiveStateKey();
+    WEBCORE_EXPORT static String visibleAndActiveStateKey();
     WEBCORE_EXPORT static String wastedSpeculativeWarmupWithRevalidationKey();
     WEBCORE_EXPORT static String wastedSpeculativeWarmupWithoutRevalidationKey();
+    WEBCORE_EXPORT static String webGLStateKey();
     WEBCORE_EXPORT static String webViewKey();
+    static String yesKey();
     WEBCORE_EXPORT static String zoomedKey();
+
+    WEBCORE_EXPORT static String memoryUsageToDiagnosticLoggingKey(uint64_t memoryUsage);
+    WEBCORE_EXPORT static String foregroundCPUUsageToDiagnosticLoggingKey(double cpuUsage);
+    WEBCORE_EXPORT static String backgroundCPUUsageToDiagnosticLoggingKey(double cpuUsage);
 
     // Success / Failure keys.
     static String successKey();
     static String failureKey();
 };
 
-}
-
-#endif // DiagnosticLoggingKeys_h
+} // namespace WebCore

@@ -167,6 +167,7 @@ void SecDbItemSetCallerAccessGroups(SecDbItemRef item, CFArrayRef caller_access_
 
 CFTypeRef SecDbItemGetCachedValueWithName(SecDbItemRef item, CFStringRef name);
 CFTypeRef SecDbItemGetValue(SecDbItemRef item, const SecDbAttr *desc, CFErrorRef *error);
+CFTypeRef SecDbItemGetValueKind(SecDbItemRef item, SecDbAttrKind desc, CFErrorRef *error);
 
 bool SecDbItemSetValue(SecDbItemRef item, const SecDbAttr *desc, CFTypeRef value, CFErrorRef *error);
 bool SecDbItemSetValues(SecDbItemRef item, CFDictionaryRef values, CFErrorRef *error);

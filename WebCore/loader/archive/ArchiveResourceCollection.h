@@ -26,16 +26,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ArchiveResourceCollection_h
-#define ArchiveResourceCollection_h
+#pragma once
 
 #include "Archive.h"
 #include "ArchiveResource.h"
 #include "URL.h"
-#include <wtf/text/WTFString.h>
-
 #include <wtf/HashMap.h>
-#include <wtf/RefCounted.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -55,6 +52,4 @@ private:
     HashMap<String, RefPtr<Archive>> m_subframes;
 };
 
-}
-
-#endif
+} // namespace WebCore

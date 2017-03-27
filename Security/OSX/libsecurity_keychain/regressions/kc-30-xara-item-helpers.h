@@ -68,9 +68,10 @@ static void testCopyMatchingItem(CFStringRef itemclass, CFStringRef expectedHash
     SecKeychainRef kc = newKeychain(name);
     makeItemWithIntegrity(name, kc, itemclass, expectedHash);
 
-    SecKeychainItemRef item = checkN(name, makeQueryItemDictionary(kc, itemclass), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, itemclass), 1);
     checkIntegrityHash(name, item, expectedHash);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
+    CFReleaseNull(item);
     CFReleaseNull(kc);
 }
 #define testCopyMatchingItemTests (newKeychainTests + makeItemWithIntegrityTests + checkNTests + checkIntegrityHashTests + 1)
@@ -83,7 +84,7 @@ static void testUpdateItem(CFStringRef itemclass, CFStringRef expectedHashOrig, 
     SecKeychainRef kc = newKeychain(name);
     makeItemWithIntegrity(name, kc, itemclass, expectedHashOrig);
 
-    CFMutableDictionaryRef query = makeQueryItemDictionary(kc, itemclass);
+    CFMutableDictionaryRef query = createQueryItemDictionary(kc, itemclass);
     CFMutableDictionaryRef update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(update, kSecAttrComment, CFSTR("a modification"));
     CFDictionarySetValue(update, kSecAttrAccount, CFSTR("a account modification"));
@@ -92,21 +93,24 @@ static void testUpdateItem(CFStringRef itemclass, CFStringRef expectedHashOrig, 
 
     CFReleaseNull(update);
 
-    SecKeychainItemRef item = checkN(name, makeQueryItemDictionary(kc, itemclass), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, itemclass), 1);
     checkIntegrityHash(name, item, expectedHashAfter);
     CFReleaseNull(item);
 
     // Check that updating data works
     update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(update, kSecValueData, CFDataCreate(NULL, (void*)"data", 4));
+    CFDataRef data = CFDataCreate(NULL, (void*)"data", 4);
+    CFDictionarySetValue(update, kSecValueData, data);
+    CFReleaseNull(data);
     ok_status(SecItemUpdate(query, update), "%s: SecItemUpdate", name);
 
-    item = checkN(name, makeQueryItemDictionary(kc, itemclass), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, itemclass), 1);
     checkIntegrityHash(name, item, expectedHashAfter);
     checkPartitionIDs(name, item, 1);
 
     CFReleaseNull(query);
     CFReleaseNull(update);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -139,13 +143,14 @@ static void testDeleteItem(CFStringRef itemclass, CFStringRef expectedHash) {
     SecKeychainRef kc = newKeychain(name);
     makeItemWithIntegrity(name, kc, itemclass, expectedHash);
 
-    SecKeychainItemRef item = checkN(name, makeQueryItemDictionary(kc, itemclass), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, itemclass), 1);
     checkIntegrityHash(name, item, expectedHash);
 
     ok_status(SecKeychainItemDelete(item), "%s: SecKeychainItemDelete", name);
-    checkN(name, makeQueryItemDictionary(kc, itemclass), 0);
+    checkN(name, createQueryItemDictionary(kc, itemclass), 0);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
+    CFReleaseNull(item);
 }
 #define testDeleteItemTests (newKeychainTests + makeItemWithIntegrityTests + checkNTests + checkIntegrityHashTests + 1 + checkNTests + 1)
 
@@ -169,33 +174,33 @@ static void testUpdateRetainedItem(CFStringRef itemclass) {
     writeEmptyV512Keychain(name, keychainDbFile);
     SecKeychainRef kc = openCustomKeychain(name, keychainName, "password");
 
-    SecKeychainItemRef item = makeCustomItem(name, kc, makeAddCustomItemDictionary(kc, itemclass, CFSTR("test_label"), CFSTR("account1")));
+    SecKeychainItemRef item = createCustomItem(name, kc, createAddCustomItemDictionary(kc, itemclass, CFSTR("test_label"), CFSTR("account1")));
 
-    CFRelease(checkN(name, makeQueryCustomItemDictionary(kc, itemclass, CFSTR("test_label")), 1));
+    checkN(name, createQueryCustomItemDictionary(kc, itemclass, CFSTR("test_label")), 1);
 
     cmp_ok(CFGetRetainCount(item), >=, 1, "%s: CFGetRetainCount(item)", name);
 
     // Bump our local database version number a few times, so we'll re-read the database when we reset it later
-    CFReleaseSafe(makeCustomItem(name, kc, makeAddCustomItemDictionary(kc, itemclass, CFSTR("version"), CFSTR("version"))));
-    CFReleaseSafe(makeCustomItem(name, kc, makeAddCustomItemDictionary(kc, itemclass, CFSTR("bump"), CFSTR("bump"))));
+    CFReleaseSafe(createCustomItem(name, kc, createAddCustomItemDictionary(kc, itemclass, CFSTR("version"), CFSTR("version"))));
+    CFReleaseSafe(createCustomItem(name, kc, createAddCustomItemDictionary(kc, itemclass, CFSTR("bump"), CFSTR("bump"))));
 
     // Simulate another process deleting the items we just made, and us not receiving the notification
     writeEmptyV512Keychain(name, keychainDbFile);
 
     // Generate some keychain notifications on a different keychain so the AppleDatabase will reload test.keychain
     SecKeychainRef kc2 = newCustomKeychain(name, "unrelated.keychain", "password");
-    CFReleaseSafe(makeCustomItem(name, kc2, makeAddCustomItemDictionary(kc, itemclass, CFSTR("unrelated1_label"), CFSTR("unrelated1"))));
+    CFReleaseSafe(createCustomItem(name, kc2, createAddCustomItemDictionary(kc, itemclass, CFSTR("unrelated1_label"), CFSTR("unrelated1"))));
     ok_status(SecKeychainDelete(kc2), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc2);
 
     secnotice("integrity", "************************************* should reload database\n");
 
-    SecKeychainItemRef item2 = makeCustomItem(name, kc, makeAddCustomItemDictionary(kc, itemclass, CFSTR("not_a_test_label"), CFSTR("account2")));
-    CFReleaseSafe(checkN(name, makeQueryCustomItemDictionary(kc, itemclass, CFSTR("not_a_test_label")), 1));
+    SecKeychainItemRef item2 = createCustomItem(name, kc, createAddCustomItemDictionary(kc, itemclass, CFSTR("not_a_test_label"), CFSTR("account2")));
+    checkN(name, createQueryCustomItemDictionary(kc, itemclass, CFSTR("not_a_test_label")), 1);
     cmp_ok(CFGetRetainCount(item2), >=, 1, "%s: CFGetRetainCount(item2)", name);
 
     // Now, update the second item so it would collide with the first
-    CFMutableDictionaryRef query = makeQueryCustomItemDictionary(kc, itemclass, CFSTR("not_a_test_label"));
+    CFMutableDictionaryRef query = createQueryCustomItemDictionary(kc, itemclass, CFSTR("not_a_test_label"));
     CFMutableDictionaryRef update = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(update, kSecAttrAccount, CFSTR("account1"));
     CFDictionarySetValue(update, kSecAttrLabel, CFSTR("test_label"));
@@ -204,18 +209,17 @@ static void testUpdateRetainedItem(CFStringRef itemclass) {
     cmp_ok(CFGetRetainCount(item), >=, 1, "%s: CFGetRetainCount(item)", name);
     CFReleaseNull(item);
 
-    SecKeychainItemRef result = checkN(name, makeQueryCustomItemDictionary(kc, itemclass, CFSTR("test_label")), 1);
-    CFReleaseNull(result);
+    checkN(name, createQueryCustomItemDictionary(kc, itemclass, CFSTR("test_label")), 1);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
 }
-#define testUpdateRetainedItemTests (openCustomKeychainTests + makeCustomItemTests + checkNTests \
-        + 1 + makeCustomItemTests + makeCustomItemTests \
-        + newCustomKeychainTests + makeCustomItemTests + 1 \
-        + makeCustomItemTests + checkNTests + 1 \
+#define testUpdateRetainedItemTests (openCustomKeychainTests + createCustomItemTests + checkNTests \
+        + 1 + createCustomItemTests + createCustomItemTests \
+        + newCustomKeychainTests + createCustomItemTests + 1 \
+        + createCustomItemTests + checkNTests + 1 \
         + 1 + 1 + checkNTests + 1)
 
-#pragma clang pop
+#pragma clang diagnostic pop
 #else
 
 #endif /* TARGET_OS_MAC */

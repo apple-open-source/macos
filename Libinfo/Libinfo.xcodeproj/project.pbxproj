@@ -836,6 +836,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CFLAGS = "";
 				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wno-error=deprecated-declarations";
 				WARNING_LDFLAGS = "-Wall";
 			};
 			name = Release;
@@ -870,6 +871,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CFLAGS = "-DDEBUG=1";
 				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wno-error=deprecated-declarations";
 				WARNING_LDFLAGS = "-Wall";
 			};
 			name = Debug;

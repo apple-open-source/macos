@@ -70,7 +70,6 @@ static SecTransformInstanceBlock StreamTransformImplementation(CFStringRef name,
 				{
 					return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "The read stream is in an error state");
 				}
-				break;
 
 				default:
 					// The assumption is that the stream is ready to go as is.

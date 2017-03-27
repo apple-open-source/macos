@@ -121,10 +121,8 @@ string Dumper::dump(const BlobCore *req, bool debug /* = false */)
 	switch (req->magic()) {
 	case Requirement::typeMagic:
 		return dump(static_cast<const Requirement *>(req), debug);
-		break;
 	case Requirements::typeMagic:
 		return dump(static_cast<const Requirements *>(req), debug);
-		break;
 	default:
 		return "invalid data type";
 	}

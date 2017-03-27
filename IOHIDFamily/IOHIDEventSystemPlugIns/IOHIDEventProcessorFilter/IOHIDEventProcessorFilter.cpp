@@ -392,14 +392,30 @@ SInt32 IOHIDEventProcessor::match(void * self, IOHIDServiceRef service, IOOption
 }
 
 
-SInt32 IOHIDEventProcessor::match(IOHIDServiceRef service __unused, IOOptionBits options __unused)
+SInt32 IOHIDEventProcessor::match(IOHIDServiceRef service, IOOptionBits options __unused)
 {
-    // This function currently matches against all services. In future we need a light weight
-    // passive matching mechanism to match only those services that need this support
+    SInt32 score = 0;
     
+#if TARGET_OS_EMBEDDED
+    CFNumberRef queueSize = (CFNumberRef)IOHIDServiceCopyProperty(service, CFSTR(kIOHIDEventServiceQueueSize));
+    if (queueSize) {
+        uint32_t value = 0;
+        CFNumberGetValue (queueSize, kCFNumberSInt32Type, &value);
+        if (value != 0) {
+            score = 1;
+            _service = service;
+        }
+        CFRelease(queueSize);
+    } else {
+        score = 1;
+        _service = service;
+    }
+#else
+    score = 1;
     _service = service;
-
-    return 1;
+#endif
+    
+    return score;
 }
 
 

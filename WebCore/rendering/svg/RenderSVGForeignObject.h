@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef RenderSVGForeignObject_h
-#define RenderSVGForeignObject_h
+#pragma once
 
 #include "AffineTransform.h"
 #include "FloatPoint.h"
@@ -63,7 +62,7 @@ private:
     const char* renderName() const override { return "RenderSVGForeignObject"; }
 
     void updateLogicalWidth() override;
-    void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const override;
+    LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
 
     const AffineTransform& localToParentTransform() const override;
     AffineTransform localTransform() const override { return m_localTransform; }
@@ -74,6 +73,4 @@ private:
     mutable AffineTransform m_localToParentTransform;
 };
 
-}
-
-#endif
+} // namespace WebCore

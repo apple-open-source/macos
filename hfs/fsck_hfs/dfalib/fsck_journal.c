@@ -506,8 +506,11 @@ journal_open(int jfd,
 				 * XXX
 				 * I am not sure about this; this behaviour is not in TN1150 at all,
 				 * but I _think_ this is what the kernel is doing.
-				 */
-				plog("Journal sequence number is 0, is going into the end okay?\n");
+                 */
+#if DEBUG_JOURNAL
+                if (debug)
+                    plog("Journal sequence number is 0, is going into the end okay?\n");
+#endif
 			}
 			into_the_weeds = 1;
 #if DEBUG_JOURNAL

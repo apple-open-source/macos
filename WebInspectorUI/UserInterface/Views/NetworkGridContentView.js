@@ -37,7 +37,7 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
         this._contentTreeOutline = this._networkSidebarPanel.contentTreeOutline;
         this._contentTreeOutline.addEventListener(WebInspector.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
 
-        var columns = {domain: {}, type: {}, method: {}, scheme: {}, statusCode: {}, cached: {}, size: {}, transferSize: {}, requestSent: {}, latency: {}, duration: {}};
+        var columns = {domain: {}, type: {}, method: {}, scheme: {}, statusCode: {}, cached: {}, size: {}, transferSize: {}, requestSent: {}, latency: {}, duration: {}, graph: {}};
 
         columns.domain.title = WebInspector.UIString("Domain");
         columns.domain.width = "10%";
@@ -80,6 +80,14 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
         for (var column in columns)
             columns[column].sortable = true;
 
+        this._timelineRuler = new WebInspector.TimelineRuler;
+        this._timelineRuler.allowsClippedLabels = true;
+
+        columns.graph.title = WebInspector.UIString("Timeline");
+        columns.graph.width = "15%";
+        columns.graph.headerView = this._timelineRuler;
+        columns.graph.sortable = false;
+
         this._dataGrid = new WebInspector.TimelineDataGrid(columns, this._contentTreeOutline);
         this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SelectedNodeChanged, this._dataGridNodeSelected, this);
         this._dataGrid.sortColumnIdentifier = "requestSent";
@@ -94,12 +102,24 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
         networkTimeline.addEventListener(WebInspector.Timeline.Event.Reset, this._networkTimelineReset, this);
 
         this._clearNetworkItemsNavigationItem = new WebInspector.ButtonNavigationItem("clear-network-items", WebInspector.UIString("Clear Network Items"), "Images/NavigationItemTrash.svg", 15, 15);
-        this._clearNetworkItemsNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._clearNetworkItems, this);
+        this._clearNetworkItemsNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, () => this.reset());
 
         this._pendingRecords = [];
+        this._loadingResourceCount = 0;
+        this._lastRecordEndTime = NaN;
+        this._lastUpdateTimestamp = NaN;
+        this._startTime = NaN;
+        this._endTime = NaN;
+        this._scheduledCurrentTimeUpdateIdentifier = undefined;
     }
 
     // Public
+
+    get secondsPerPixel() { return this._timelineRuler.secondsPerPixel; }
+    get startTime() { return this._startTime; }
+    get currentTime() { return this.endTime || this.startTime; }
+    get endTime() { return this._endTime; }
+    get zeroTime() { return this.startTime; }
 
     get selectionPathComponents()
     {
@@ -109,11 +129,6 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
         var pathComponent = new WebInspector.GeneralTreeElementPathComponent(this._contentTreeOutline.selectedTreeElement);
         pathComponent.addEventListener(WebInspector.HierarchicalPathComponent.Event.SiblingWasSelected, this._treeElementPathComponentSelected, this);
         return [pathComponent];
-    }
-
-    get zeroTime()
-    {
-        return WebInspector.timelineManager.persistentNetworkTimeline.startTime;
     }
 
     get navigationItems()
@@ -126,17 +141,27 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
         super.shown();
 
         this._dataGrid.shown();
+
+        this._dataGrid.updateLayout(WebInspector.View.LayoutReason.Resize);
+
+        if (this._loadingResourceCount && !this._scheduledCurrentTimeUpdateIdentifier)
+            this._startUpdatingCurrentTime();
     }
 
     hidden()
     {
         this._dataGrid.hidden();
 
+        if (this._scheduledCurrentTimeUpdateIdentifier)
+            this._stopUpdatingCurrentTime();
+
         super.hidden();
     }
 
     closed()
     {
+        super.closed();
+
         this._dataGrid.closed();
     }
 
@@ -144,12 +169,51 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
     {
         this._contentTreeOutline.removeChildren();
         this._dataGrid.reset();
+
+        if (this._scheduledCurrentTimeUpdateIdentifier)
+            this._stopUpdatingCurrentTime();
+
+        this._pendingRecords = [];
+        this._loadingResourceCount = 0;
+        this._lastRecordEndTime = NaN;
+        this._lastUpdateTimestamp = NaN;
+        this._startTime = NaN;
+        this._endTime = NaN;
+
+        this._timelineRuler.startTime = 0;
+        this._timelineRuler.endTime = 0;
     }
 
     // Protected
 
     layout()
     {
+        if (isNaN(this.startTime) || isNaN(this.endTime))
+            return;
+
+        let oldZeroTime = this._timelineRuler.zeroTime;
+        let oldStartTime = this._timelineRuler.startTime;
+        let oldEndTime = this._timelineRuler.endTime;
+
+        this._timelineRuler.zeroTime = this.zeroTime;
+        this._timelineRuler.startTime = this.startTime;
+
+        if (this.startTime >= this.endTime)
+            return;
+
+        if (!this._scheduledCurrentTimeUpdateIdentifier) {
+            this._timelineRuler.endTime = this.endTime;
+            this._endTime = this._lastRecordEndTime + WebInspector.TimelineRecordBar.MinimumWidthPixels * this.secondsPerPixel;
+        }
+
+        this._timelineRuler.endTime = this.endTime;
+
+        // We only need to refresh the graphs when the any of the times change.
+        if (this.zeroTime !== oldZeroTime || this.startTime !== oldStartTime || this.endTime !== oldEndTime) {
+            for (let dataGridNode of this._dataGrid.children)
+                dataGridNode.refreshGraph();
+        }
+
         this._processPendingRecords();
     }
 
@@ -167,7 +231,10 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
                 continue;
 
             treeElement = new WebInspector.ResourceTreeElement(resourceTimelineRecord.resource);
-            var dataGridNode = new WebInspector.ResourceTimelineDataGridNode(resourceTimelineRecord, false, this);
+
+            const includesGraph = false;
+            const shouldShowPopover = true;
+            let dataGridNode = new WebInspector.ResourceTimelineDataGridNode(resourceTimelineRecord, includesGraph, this, shouldShowPopover);
 
             this._dataGrid.addRowInSortOrder(treeElement, dataGridNode);
         }
@@ -182,12 +249,51 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
 
     _networkTimelineRecordAdded(event)
     {
-        var resourceTimelineRecord = event.data.record;
+        let resourceTimelineRecord = event.data.record;
         console.assert(resourceTimelineRecord instanceof WebInspector.ResourceTimelineRecord);
+
+        let update = (event) => {
+            if (event.target[WebInspector.NetworkGridContentView.ResourceDidFinishOrFail])
+                return;
+
+            event.target.removeEventListener(null, null, this);
+            event.target[WebInspector.NetworkGridContentView.ResourceDidFinishOrFail] = true;
+
+            this._loadingResourceCount--;
+            if (this._loadingResourceCount)
+                return;
+
+            this._lastRecordEndTime = resourceTimelineRecord.endTime;
+            this._endTime = Math.max(this._lastRecordEndTime, this._endTime);
+
+            if (this._scheduledCurrentTimeUpdateIdentifier)
+                this.debounce(150)._stopUpdatingCurrentTime();
+        };
 
         this._pendingRecords.push(resourceTimelineRecord);
 
         this.needsLayout();
+
+        let resource = resourceTimelineRecord.resource;
+        if (resource.finished || resource.failed || resource.canceled)
+            return;
+
+        resource[WebInspector.NetworkGridContentView.ResourceDidFinishOrFail] = false;
+        resource.addEventListener(WebInspector.Resource.Event.LoadingDidFinish, update, this);
+        resource.addEventListener(WebInspector.Resource.Event.LoadingDidFail, update, this);
+
+        this._loadingResourceCount++;
+        if (this._scheduledCurrentTimeUpdateIdentifier)
+            return;
+
+        if (isNaN(this._startTime))
+            this._startTime = this._endTime = resourceTimelineRecord.startTime;
+
+        // FIXME: <https://webkit.org/b/153634> Web Inspector: some background tabs think they are the foreground tab and do unnecessary work
+        if (!(WebInspector.tabBrowser.selectedTabContentView instanceof WebInspector.NetworkTabContentView))
+            return;
+
+        this._startUpdatingCurrentTime();
     }
 
     _treeElementPathComponentSelected(event)
@@ -219,7 +325,50 @@ WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebIn
         this.dispatchEventToListeners(WebInspector.ContentView.Event.SelectionPathComponentsDidChange);
     }
 
-    _clearNetworkItems(event) {
-        this.reset();
+    _update(timestamp)
+    {
+        console.assert(this._scheduledCurrentTimeUpdateIdentifier);
+
+        if (!isNaN(this._lastUpdateTimestamp)) {
+            let timespanSinceLastUpdate = (timestamp - this._lastUpdateTimestamp) / 1000 || 0;
+            this._endTime += timespanSinceLastUpdate;
+
+            this.updateLayout();
+        }
+
+        this._lastUpdateTimestamp = timestamp;
+        this._scheduledCurrentTimeUpdateIdentifier = requestAnimationFrame(this._updateCallback);
+    }
+
+    _startUpdatingCurrentTime()
+    {
+        console.assert(!this._scheduledCurrentTimeUpdateIdentifier);
+        if (this._scheduledCurrentTimeUpdateIdentifier)
+            return;
+
+        // Don't update the current time if the Inspector is not visible, as the requestAnimationFrames won't work.
+        if (!WebInspector.visible)
+            return;
+
+        if (!this._updateCallback)
+            this._updateCallback = this._update.bind(this);
+
+        this._scheduledCurrentTimeUpdateIdentifier = requestAnimationFrame(this._updateCallback);
+    }
+
+    _stopUpdatingCurrentTime()
+    {
+        console.assert(this._scheduledCurrentTimeUpdateIdentifier);
+        if (!this._scheduledCurrentTimeUpdateIdentifier)
+            return;
+
+        this._stopUpdatingCurrentTime.cancelDebounce();
+
+        cancelAnimationFrame(this._scheduledCurrentTimeUpdateIdentifier);
+        this._scheduledCurrentTimeUpdateIdentifier = undefined;
+
+        this.needsLayout();
     }
 };
+
+WebInspector.NetworkGridContentView.ResourceDidFinishOrFail = Symbol("ResourceDidFinishOrFail");

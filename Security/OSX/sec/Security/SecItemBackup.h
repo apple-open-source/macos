@@ -59,7 +59,7 @@ bool SecItemBackupWithRegisteredBackups(CFErrorRef *error, void(^backup)(CFStrin
  items for each of the built in dataSources to.
  @param backupName Name of this backup set.
  @param error Returned if there is a failure.
- @param result bool standard CFError contract.
+ @result bool standard CFError contract.
  @discussion CloudServices is expected to call this SPI to stream out changes already spooled into a backup file by securityd.  */
 bool SecItemBackupWithChanges(CFStringRef backupName, CFErrorRef *error, void (^event)(SecBackupEventType et, CFTypeRef key, CFTypeRef item));
 
@@ -69,7 +69,7 @@ bool SecItemBackupWithChanges(CFStringRef backupName, CFErrorRef *error, void (^
  @param backupName Name of this backup set.
  @param keybagDigest The SHA1 hash of the last received keybag.
  @param manifest Manifest of the backup.
- @param result bool standard CFError contract.
+ @result bool standard CFError contract.
  @discussion cloudsvc is expected to call this SPI to whenever it thinks securityd might not be in sync with backupd of whenever it reads a backup from or writes a backup to kvs.  */
 bool SecItemBackupSetConfirmedManifest(CFStringRef backupName, CFDataRef keybagDigest, CFDataRef manifest, CFErrorRef *error);
 
@@ -81,7 +81,6 @@ bool SecItemBackupSetConfirmedManifest(CFStringRef backupName, CFDataRef keybagD
  @param secret Credential to unlock keybag
  @param keybag keybag for this backup
  @param backup backup to be restored
- @result Return true iff successful, return false and sets error to a suitable error if not.
  @discussion CloudServices iterates over all the backups, calling this for each backup with peer infos matching the chosen device. */
 void SecItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDataRef keybag, CFDataRef secret, CFTypeRef backup, void (^completion)(CFErrorRef error));
 
@@ -95,7 +94,7 @@ void SecItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDataRef 
  optional attributes for controlling the search. See the "Keychain
  Search Attributes" section of SecItemCopyMatching for a description of
  currently defined search attributes.
- @param result CFTypeRef reference to the found item(s). The
+ @result CFTypeRef reference to the found item(s). The
  exact type of the result is based on the search attributes supplied
  in the query.  Returns NULL and sets *error if there is a failure.
  @discussion This allows clients to "restore" a backup and fetch an item from

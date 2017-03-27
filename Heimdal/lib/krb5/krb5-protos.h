@@ -9426,6 +9426,9 @@ krb5_write_safe_message (
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_xfree (void *ptr);
 
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_enctype_warning(krb5_context context, krb5_enctype enctype);
+
 #ifdef __cplusplus
 }
 #endif

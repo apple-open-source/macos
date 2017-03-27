@@ -26,10 +26,10 @@
 #include <opensslUtils/opensslUtils.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/debugging.h>
-#include <openssl/bn.h>
-#include <openssl/rsa.h>
-#include <openssl/dsa.h>
-#include <openssl/err.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/rsa_legacy.h>
+#include <openssl/dsa_legacy.h>
+#include <openssl/opensslerr.h>
 #include <security_utilities/simpleprefs.h>
 #include <security_utilities/threading.h>
 #include <security_utilities/globalizer.h>

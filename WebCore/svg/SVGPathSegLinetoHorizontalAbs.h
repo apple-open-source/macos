@@ -19,8 +19,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGPathSegLinetoHorizontalAbs_h
-#define SVGPathSegLinetoHorizontalAbs_h
+#pragma once
 
 #include "SVGPathSegLinetoHorizontal.h"
 
@@ -39,10 +38,8 @@ private:
     {
     }
 
-    unsigned short pathSegType() const override { return PATHSEG_LINETO_HORIZONTAL_ABS; }
-    String pathSegTypeAsLetter() const override { return "H"; }
+    unsigned short pathSegType() const final { return PATHSEG_LINETO_HORIZONTAL_ABS; }
+    String pathSegTypeAsLetter() const final { return "H"; }
 };
 
 } // namespace WebCore
-
-#endif

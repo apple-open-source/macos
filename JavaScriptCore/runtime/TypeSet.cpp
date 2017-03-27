@@ -27,8 +27,7 @@
 #include "TypeSet.h"
 
 #include "InspectorProtocolObjects.h"
-#include "JSCJSValue.h"
-#include "JSCJSValueInlines.h"
+#include "JSCInlines.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 #include <wtf/text/StringBuilder.h>
@@ -50,7 +49,7 @@ void TypeSet::addTypeInformation(RuntimeType type, PassRefPtr<StructureShape> pr
     if (structure && newShape && !runtimeTypeIsPrimitive(type)) {
         if (!m_structureSet.contains(structure)) {
             {
-                ConcurrentJITLocker locker(m_lock);
+                ConcurrentJSLocker locker(m_lock);
                 m_structureSet.add(structure);
             }
             // Make one more pass making sure that: 
@@ -84,7 +83,7 @@ void TypeSet::addTypeInformation(RuntimeType type, PassRefPtr<StructureShape> pr
 
 void TypeSet::invalidateCache()
 {
-    ConcurrentJITLocker locker(m_lock);
+    ConcurrentJSLocker locker(m_lock);
     auto keepMarkedStructuresFilter = [] (Structure* structure) -> bool { return Heap::isMarked(structure); };
     m_structureSet.genericFilter(keepMarkedStructuresFilter);
 }
@@ -590,4 +589,4 @@ void StructureShape::enterDictionaryMode()
     m_isInDictionaryMode = true;
 }
 
-} //namespace JSC
+} // namespace JSC

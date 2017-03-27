@@ -19,8 +19,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGPathSegLinetoRel_h
-#define SVGPathSegLinetoRel_h
+#pragma once
 
 #include "SVGPathSegWithContext.h"
 
@@ -39,10 +38,8 @@ private:
     {
     }
 
-    unsigned short pathSegType() const override { return PATHSEG_LINETO_REL; }
-    String pathSegTypeAsLetter() const override { return "l"; }
+    unsigned short pathSegType() const final { return PATHSEG_LINETO_REL; }
+    String pathSegTypeAsLetter() const final { return "l"; }
 };
 
 } // namespace WebCore
-
-#endif

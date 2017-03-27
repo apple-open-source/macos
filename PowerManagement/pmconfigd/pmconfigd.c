@@ -66,8 +66,13 @@
 #include "ExternalMedia.h"
 #include "Platform.h"
 
+#if TARGET_OS_EMBEDDED
+#include "AggdDailyReport.h"
+#endif
+
 // To support importance donation across IPCs
 #include <libproc_internal.h>
+
 
 #define kIOPMAppName        "Power Management configd plugin"
 #define kIOPMPrefsPath      "com.apple.PowerManagement.xml"
@@ -352,6 +357,8 @@ int main(int argc __unused, char *argv[] __unused)
 #if TARGET_OS_EMBEDDED
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED,0);
     pthread_set_fixedpriority_self();
+    initializeAggdDailyReport();
+
 #endif
     CFRunLoopRun();
     return 0;
@@ -2184,7 +2191,6 @@ exit:
 }
 
 #endif
-
 static void initializeSleepWakeNotifications(void)
 {
     IONotificationPortRef           notify;
@@ -2199,4 +2205,3 @@ static void initializeSleepWakeNotifications(void)
                             kCFRunLoopDefaultMode);
     }
 }
-

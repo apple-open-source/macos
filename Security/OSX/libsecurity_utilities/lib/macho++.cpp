@@ -206,19 +206,28 @@ void MachO::validateStructure()
 		struct symtab_command *symtab = NULL;
 
 		if (cmd_type ==  LC_SEGMENT) {
+			if(flip(cmd->cmdsize) < sizeof(struct segment_command)) {
+				UnixError::throwMe(ENOEXEC);
+			}
 			seg = (struct segment_command *)cmd;
-			if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
+			if (strncmp(seg->segname, SEG_LINKEDIT, sizeof(seg->segname)) == 0) {
 				isValid = flip(seg->fileoff) + flip(seg->filesize) == this->length();
 				break;
 			}
 		} else if (cmd_type == LC_SEGMENT_64) {
+			if(flip(cmd->cmdsize) < sizeof(struct segment_command_64)) {
+				UnixError::throwMe(ENOEXEC);
+			}
 			seg64 = (struct segment_command_64 *)cmd;
-			if (strcmp(seg64->segname, SEG_LINKEDIT) == 0) {
+			if (strncmp(seg64->segname, SEG_LINKEDIT, sizeof(seg64->segname)) == 0) {
 				isValid = flip(seg64->fileoff) + flip(seg64->filesize) == this->length();
 				break;
 			}
 		/* PPC binaries have a SYMTAB section */
 		} else if (cmd_type == LC_SYMTAB) {
+			if(flip(cmd->cmdsize) < sizeof(struct symtab_command)) {
+				UnixError::throwMe(ENOEXEC);
+			}
 			symtab = (struct symtab_command *)cmd;
 			isValid = flip(symtab->stroff) + flip(symtab->strsize) == this->length();
 			break;
@@ -322,8 +331,11 @@ const segment_command *MachOBase::findSegment(const char *segname) const
 		case LC_SEGMENT:
 		case LC_SEGMENT_64:
 			{
+				if(flip(command->cmdsize) < sizeof(struct segment_command)) {
+					UnixError::throwMe(ENOEXEC);
+				}
 				const segment_command *seg = reinterpret_cast<const segment_command *>(command);
-				if (!strcmp(seg->segname, segname))
+				if (!strncmp(seg->segname, segname, sizeof(seg->segname)))
 					return seg;
 				break;
 			}
@@ -339,20 +351,23 @@ const section *MachOBase::findSection(const char *segname, const char *sectname)
 	using LowLevelMemoryUtilities::increment;
 	if (const segment_command *seg = findSegment(segname)) {
 		if (is64()) {
+			if(flip(seg->cmdsize) < sizeof(segment_command_64)) {
+				UnixError::throwMe(ENOEXEC);
+			}
 			const segment_command_64 *seg64 = reinterpret_cast<const segment_command_64 *>(seg);
-			// As a sanity check, if the reported number of sections is not consistent
-			// with the reported size, return NULL
-			if (sizeof(*seg64) + (seg64->nsects * sizeof(section_64)) > seg64->cmdsize)
+			if (sizeof(*seg64) + (seg64->nsects * sizeof(section_64)) > flip(seg64->cmdsize))		// too many segments; doesn't fit (malformed Mach-O)
 				return NULL;    
 			const section_64 *sect = increment<const section_64>(seg64 + 1, 0);
 			for (unsigned n = flip(seg64->nsects); n > 0; n--, sect++) {
-				if (!strcmp(sect->sectname, sectname))
+				if (!strncmp(sect->sectname, sectname, sizeof(sect->sectname)))
 					return reinterpret_cast<const section *>(sect);
 			}
 		} else {
+			if (sizeof(*seg) + (seg->nsects * sizeof(section)) > flip(seg->cmdsize))		// too many segments; doesn't fit (malformed Mach-O)
+				return NULL;
 			const section *sect = increment<const section>(seg + 1, 0);
 			for (unsigned n = flip(seg->nsects); n > 0; n--, sect++) {
-				if (!strcmp(sect->sectname, sectname))
+				if (!strncmp(sect->sectname, sectname, sizeof(sect->sectname)))
 					return sect;
 			}
 		}
@@ -385,8 +400,12 @@ const char *MachOBase::string(const load_command *cmd, const lc_str &str) const
 //
 const linkedit_data_command *MachOBase::findCodeSignature() const
 {
-	if (const load_command *cmd = findCommand(LC_CODE_SIGNATURE))
+	if (const load_command *cmd = findCommand(LC_CODE_SIGNATURE)) {
+		if(flip(cmd->cmdsize) < sizeof(linkedit_data_command)) {
+			UnixError::throwMe(ENOEXEC);
+		}
 		return reinterpret_cast<const linkedit_data_command *>(cmd);
+	}
 	return NULL;		// not found
 }
 
@@ -408,8 +427,12 @@ size_t MachOBase::signingLength() const
 
 const linkedit_data_command *MachOBase::findLibraryDependencies() const
 {
-	if (const load_command *cmd = findCommand(LC_DYLIB_CODE_SIGN_DRS))
+	if (const load_command *cmd = findCommand(LC_DYLIB_CODE_SIGN_DRS)) {
+		if(flip(cmd->cmdsize) < sizeof(linkedit_data_command)) {
+			UnixError::throwMe(ENOEXEC);
+		}
 		return reinterpret_cast<const linkedit_data_command *>(cmd);
+	}
 	return NULL;		// not found
 }
 	
@@ -421,6 +444,9 @@ const version_min_command *MachOBase::findMinVersion() const
 		case LC_VERSION_MIN_IPHONEOS:
 		case LC_VERSION_MIN_WATCHOS:
 		case LC_VERSION_MIN_TVOS:
+			if(flip(command->cmdsize) < sizeof(version_min_command)) {
+				UnixError::throwMe(ENOEXEC);
+			}
 			return reinterpret_cast<const version_min_command *>(command);
 		}
 	return NULL;
@@ -466,11 +492,11 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 	union {
 		fat_header header;		// if this is a fat file
 		mach_header mheader;	// if this is a thin file
-	};
-	const size_t size = max(sizeof(header), sizeof(mheader));
-	if (fd.read(&header, size, offset) != size)
+	} unionHeader;
+
+	if (fd.read(&unionHeader, sizeof(unionHeader), offset) != sizeof(unionHeader))
 		UnixError::throwMe(ENOEXEC);
-	switch (header.magic) {
+	switch (unionHeader.header.magic) {
 	case FAT_MAGIC:
 	case FAT_CIGAM:
 		{
@@ -481,7 +507,7 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 			// We always read an extra entry; in the situations where this might hit end-of-file,
 			// we are content to fail.
 			//
-			mArchCount = ntohl(header.nfat_arch);
+			mArchCount = ntohl(unionHeader.header.nfat_arch);
 
 			if (mArchCount > MAX_ARCH_COUNT)
 				UnixError::throwMe(ENOEXEC);
@@ -490,7 +516,7 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 			mArchList = (fat_arch *)malloc(archSize);
 			if (!mArchList)
 				UnixError::throwMe();
-			if (fd.read(mArchList, archSize, mBase + sizeof(header)) != archSize) {
+			if (fd.read(mArchList, archSize, mBase + sizeof(unionHeader.header)) != archSize) {
 				::free(mArchList);
 				UnixError::throwMe(ENOEXEC);
 			}
@@ -517,7 +543,7 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 
 			sortedList.sort(^ bool (const struct fat_arch *arch1, const struct fat_arch *arch2) { return arch1->offset < arch2->offset; });
 
-			const size_t universalHeaderEnd = mBase + sizeof(header) + (sizeof(fat_arch) * mArchCount);
+			const size_t universalHeaderEnd = mBase + sizeof(unionHeader.header) + (sizeof(fat_arch) * mArchCount);
 			size_t prevHeaderEnd = universalHeaderEnd;
 			size_t prevArchSize = 0, prevArchStart = 0;
 
@@ -578,14 +604,14 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 	case MH_MAGIC_64:
 		mArchList = NULL;
 		mArchCount = 0;
-		mThinArch = Architecture(mheader.cputype, mheader.cpusubtype);
+		mThinArch = Architecture(unionHeader.mheader.cputype, unionHeader.mheader.cpusubtype);
 		secinfo("macho", "%p is a thin file (%s)", this, mThinArch.name());
 		break;
 	case MH_CIGAM:
 	case MH_CIGAM_64:
 		mArchList = NULL;
 		mArchCount = 0;
-		mThinArch = Architecture(flip(mheader.cputype), flip(mheader.cpusubtype));
+		mThinArch = Architecture(flip(unionHeader.mheader.cputype), flip(unionHeader.mheader.cpusubtype));
 		secinfo("macho", "%p is a thin file (%s)", this, mThinArch.name());
 		break;
 	default:
@@ -598,7 +624,7 @@ Universal::~Universal()
 	::free(mArchList);
 }
 
-const size_t Universal::lengthOfSlice(size_t offset) const
+size_t Universal::lengthOfSlice(size_t offset) const
 {
 	auto ret = mSizes.find(offset);
 	if (ret == mSizes.end())
@@ -769,11 +795,9 @@ uint32_t Universal::typeOf(FileDesc fd)
 		case MH_MAGIC:
 		case MH_MAGIC_64:
 			return header.filetype;
-			break;
 		case MH_CIGAM:
 		case MH_CIGAM_64:
 			return flip(header.filetype);
-			break;
 		case FAT_MAGIC:
 		case FAT_CIGAM:
 			{

@@ -205,9 +205,9 @@ Boolean check_kext_boot_cache_file(
 // build the mkext; waiting for the kextcache child if instructed
 int rebuild_kext_boot_cache_file(
     struct bootCaches *caches,
-    Boolean wait,
     const char * cache_path,
-    const char * kernel_file);
+    const char * kernel_file,
+    Boolean startup_kexts_ok);
 
 // check/rebuild CSFDE caches
 Boolean check_csfde(struct bootCaches *caches);

@@ -37,7 +37,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 #include <fcntl.h>
 __unused static inline void write_data(const char * path, CFDataRef data)
@@ -52,12 +52,15 @@ static void tests(void)
 {
     SecKeyRef phone_publicKey = NULL, phone_privateKey = NULL;
     SecKeyRef ca_publicKey = NULL, ca_privateKey = NULL;
+
+    int keysize = 2048;
+    CFNumberRef key_size_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &keysize);
     const void *keygen_keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits };
-    const void *keygen_vals[] = { kSecAttrKeyTypeRSA, CFSTR("512") };
+    const void *keygen_vals[] = { kSecAttrKeyTypeRSA, key_size_num };
     CFDictionaryRef parameters = CFDictionaryCreate(kCFAllocatorDefault,
         keygen_keys, keygen_vals, array_size(keygen_vals),
         &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
+    CFReleaseNull(key_size_num);
 
     CFMutableDictionaryRef subject_alt_names = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(subject_alt_names, CFSTR("dnsname"), CFSTR("xey.nl"));
@@ -131,8 +134,12 @@ static void tests(void)
     CFDictionaryRef dict = CFDictionaryCreate(NULL, (const void **)&kSecValueRef, (const void **)&ca_identity, 1, NULL, NULL);
     ok_status(SecItemAdd(dict, NULL), "add ca identity");
     CFReleaseSafe(dict);
+#if TARGET_OS_IPHONE
     TODO: {
         todo("Adding a cert with the same issuer/serial but a different key should return something other than errSecDuplicateItem");
+#else
+    {
+#endif
         dict = CFDictionaryCreate(NULL, (const void **)&kSecValueRef, (const void **)&ca_identity_phone_key, 1, NULL, NULL);
         is_status(errSecDuplicateItem, SecItemAdd(dict, NULL), "add ca identity");
         CFReleaseSafe(dict);
@@ -197,10 +204,12 @@ static void tests(void)
     CFReleaseNull(subject_alt_names);
     CFDictionaryRemoveAllValues(random_extensions);
 
+#if TARGET_OS_IPHONE
     CFDataRef scep_request = SecSCEPGenerateCertificateRequest(rdns,
         csr_parameters, phone_publicKey, phone_privateKey, NULL, ca_cert);
     isnt(scep_request, NULL, "got scep blob");
     //write_data("/tmp/scep_request.der", scep_request);
+#endif
 
     CFReleaseNull(email_dn);
     CFReleaseNull(cn_dn);
@@ -208,6 +217,7 @@ static void tests(void)
     CFReleaseNull(dn_array[1]);
     CFReleaseNull(rdns);
 
+#if TARGET_OS_IPHONE
     CFDataRef scep_reply = SecSCEPCertifyRequest(scep_request, ca_identity, serialno, false);
     isnt(scep_reply, NULL, "produced scep reply");
     //write_data("/tmp/scep_reply.der", scep_reply);
@@ -227,6 +237,15 @@ static void tests(void)
     ok(CFArrayContainsValue(issued_certs, CFRangeMake(0, CFArrayGetCount(issued_certs)), ra_signing_certificate), "found ra");
     ok(!ra_encryption_certificate, "no separate encryption cert");
 
+    CFReleaseSafe(ca_certificate);
+    CFReleaseSafe(ra_signing_certificate);
+    CFReleaseSafe(scep_certs);
+
+    CFReleaseSafe(scep_request);
+    CFReleaseSafe(scep_reply);
+    CFReleaseSafe(issued_certs);
+#endif
+
     // cleanups
     dict = CFDictionaryCreate(NULL, (const void **)&kSecValueRef, (const void **)&ca_identity, 1, NULL, NULL);
     ok_status(SecItemDelete(dict), "delete ca identity");
@@ -235,14 +254,6 @@ static void tests(void)
     ok_status(SecItemDelete(dict), "delete phone private key");
 	CFReleaseSafe(dict);
 
-
-    CFReleaseSafe(ca_certificate);
-    CFReleaseSafe(ra_signing_certificate);
-    CFReleaseSafe(scep_certs);
-
-    CFReleaseSafe(scep_request);
-    CFReleaseSafe(scep_reply);
-    CFReleaseSafe(issued_certs);
     CFReleaseSafe(serialno);
 
     CFReleaseSafe(cert);
@@ -259,12 +270,73 @@ static void tests(void)
     CFReleaseSafe(phone_privateKey);
 }
 
+static void test_ec_csr(void) {
+    SecKeyRef ecPublicKey = NULL, ecPrivateKey = NULL;
+
+    int keysize = 256;
+    CFNumberRef key_size_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &keysize);
+
+    const void *keyParamsKeys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits };
+    const void *keyParamsValues[] = { kSecAttrKeyTypeECSECPrimeRandom,  key_size_num};
+    CFDictionaryRef keyParameters = CFDictionaryCreate(NULL, keyParamsKeys, keyParamsValues, 2,
+                                                       &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    ok_status(SecKeyGeneratePair(keyParameters, &ecPublicKey, &ecPrivateKey),
+              "unable to generate EC key");
+
+    SecATV cn_phone[] = { { kSecOidCommonName, SecASN1PrintableString, CFSTR("My iPhone") }, {} };
+    SecATV c[]  = { { kSecOidCountryName, SecASN1PrintableString, CFSTR("US") }, {} };
+    SecATV st[] = { { kSecOidStateProvinceName, SecASN1PrintableString, CFSTR("CA") }, {} };
+    SecATV l[]  = { { kSecOidLocalityName, SecASN1PrintableString, CFSTR("Cupertino") }, {} };
+    SecATV o[]  = { { CFSTR("2.5.4.10"), SecASN1PrintableString, CFSTR("Apple Inc.") }, {} };
+    SecATV ou[] = { { kSecOidOrganizationalUnit, SecASN1PrintableString, CFSTR("iPhone") }, {} };
+
+    SecRDN atvs_phone[] = { cn_phone, c, st, l, o, ou, NULL };
+
+    CFMutableDictionaryRef subject_alt_names = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(subject_alt_names, CFSTR("dnsname"), CFSTR("xey.nl"));
+
+    int key_usage = kSecKeyUsageDigitalSignature | kSecKeyUsageKeyEncipherment;
+    CFNumberRef key_usage_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &key_usage);
+
+    CFMutableDictionaryRef random_extensions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    const void *key[] = { kSecCSRChallengePassword, kSecSubjectAltName, kSecCertificateKeyUsage, kSecCertificateExtensions };
+    const void *val[] = { CFSTR("magic"), subject_alt_names, key_usage_num, random_extensions };
+    CFDictionaryRef csr_parameters = CFDictionaryCreate(kCFAllocatorDefault,
+                                                        key, val, array_size(key), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+
+    CFDataRef csr = SecGenerateCertificateRequestWithParameters(atvs_phone, csr_parameters, ecPublicKey, ecPrivateKey);
+    isnt(csr, NULL, "csr w/ params");
+    //write_data("/tmp/csr", csr);
+    CFDataRef subject, extensions;
+    CFStringRef challenge;
+    ok(SecVerifyCertificateRequest(csr, NULL, &challenge, &subject, &extensions), "verify csr");
+
+    CFReleaseNull(csr);
+    CFReleaseNull(key_size_num);
+    CFReleaseNull(keyParameters);
+    CFReleaseNull(ecPublicKey);
+    CFReleaseNull(ecPrivateKey);
+    CFReleaseNull(subject_alt_names);
+    CFReleaseNull(key_usage_num);
+    CFReleaseNull(random_extensions);
+    CFReleaseNull(csr_parameters);
+    CFReleaseNull(subject);
+    CFReleaseNull(extensions);
+    CFReleaseNull(challenge);
+}
+
 int si_62_csr(int argc, char *const *argv)
 {
-	plan_tests(24);
-
+#if TARGET_OS_IPHONE
+	plan_tests(27);
+#else
+    plan_tests(20);
+#endif
 
 	tests();
+    test_ec_csr();
 
 	return 0;
 }

@@ -1,7 +1,8 @@
 /*
- * Copyright (c) 2006-2010,2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010,2012-2016 Apple Inc. All Rights Reserved.
  */
 
+#include <AssertMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
@@ -42,7 +43,7 @@ static void basic_tests(void)
 	};
     policy = SecPolicyCreateSSL(false, NULL);
     certs = CFArrayCreate(NULL, v_certs,
-		array_size(v_certs), NULL);
+		array_size(v_certs), &kCFTypeArrayCallBacks);
 
     /* SecTrustCreateWithCertificates failures. */
     is_status(SecTrustCreateWithCertificates(kCFBooleanTrue, policy, &trust),
@@ -152,7 +153,7 @@ SKIP: {
 	CFReleaseNull(certs);
 	isnt(cert_xedge2 = SecCertificateCreateWithBytes(NULL, xedge2_certificate,
         sizeof(xedge2_certificate)), NULL, "create cert_xedge2");
-    certs = CFArrayCreate(NULL, (const void **)&cert_xedge2, 1, NULL);
+    certs = CFArrayCreate(NULL, (const void **)&cert_xedge2, 1, &kCFTypeArrayCallBacks);
 
 	CFReleaseNull(trust);
 	CFReleaseNull(policy);
@@ -168,7 +169,7 @@ SKIP: {
     isnt(_root = SecCertificateCreateWithBytes(NULL, entrust1024RootCA, sizeof(entrust1024RootCA)),
          NULL, "create root");
     const void *v_roots[] = { _root };
-    isnt(_anchors = CFArrayCreate(NULL, v_roots, array_size(v_roots), NULL),
+    isnt(_anchors = CFArrayCreate(NULL, v_roots, array_size(v_roots), &kCFTypeArrayCallBacks),
          NULL, "create anchors");
     if (!_anchors) { goto errOut; }
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
@@ -251,7 +252,7 @@ SKIP: {
     server = true;
 	isnt(garthc2 = SecCertificateCreateWithBytes(NULL, garthc2_certificate,
         sizeof(garthc2_certificate)), NULL, "create garthc2");
-    certs = CFArrayCreate(NULL, (const void **)&garthc2, 1, NULL);
+    certs = CFArrayCreate(NULL, (const void **)&garthc2, 1, &kCFTypeArrayCallBacks);
     policy = SecPolicyCreateSSL(server, CFSTR("garthc2.apple.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
         "create trust for ip server garthc2.apple.com");
@@ -290,7 +291,7 @@ static void negative_integer_tests(void)
     isnt(negIntSigLeaf = SecCertificateCreateWithBytes(NULL, _leaf_NegativeIntInSig,
                                                        sizeof(_leaf_NegativeIntInSig)), NULL, "create negIntSigLeaf");
     CFArrayRef certs = NULL;
-    isnt(certs = CFArrayCreate(NULL, &negIntSigLeaf, 1, NULL), NULL, "failed to create certs array");
+    isnt(certs = CFArrayCreate(NULL, &negIntSigLeaf, 1, &kCFTypeArrayCallBacks), NULL, "failed to create certs array");
     SecPolicyRef policy = NULL;
     isnt(policy = SecPolicyCreateiAP(), NULL, "failed to create policy");
     SecTrustRef trust = NULL;
@@ -301,7 +302,7 @@ static void negative_integer_tests(void)
     isnt(rootAACA2 = SecCertificateCreateWithBytes(NULL, _root_AACA2,
                                                    sizeof(_root_AACA2)), NULL, "create rootAACA2");
     CFArrayRef anchors = NULL;
-    isnt(anchors = CFArrayCreate(NULL, &rootAACA2, 1, NULL), NULL, "failed to create anchors array");
+    isnt(anchors = CFArrayCreate(NULL, &rootAACA2, 1, &kCFTypeArrayCallBacks), NULL, "failed to create anchors array");
     if (!anchors) { goto errOut; }
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchor certificates");
 
@@ -325,7 +326,7 @@ static void rsa8k_tests(void)
     isnt(prt_forest_fi = SecCertificateCreateWithBytes(NULL, prt_forest_fi_certificate,
                                                        sizeof(prt_forest_fi_certificate)), NULL, "create prt_forest_fi");
     CFArrayRef certs = NULL;
-    isnt(certs = CFArrayCreate(NULL, &prt_forest_fi, 1, NULL), NULL, "failed to create cert array");
+    isnt(certs = CFArrayCreate(NULL, &prt_forest_fi, 1, &kCFTypeArrayCallBacks), NULL, "failed to create cert array");
     SecPolicyRef policy = NULL;
     isnt(policy = SecPolicyCreateSSL(false, CFSTR("owa.prt-forest.fi")), NULL, "failed to create policy");
     SecTrustRef trust = NULL;
@@ -355,9 +356,9 @@ static void date_tests(void)
     isnt(root = SecCertificateCreateWithBytes(NULL, longroot, sizeof(longroot)), NULL, "create root");
 
     CFArrayRef certs = NULL;
-    isnt(certs = CFArrayCreate(NULL, &leaf, 1, NULL), NULL, "failed to create cert array");
+    isnt(certs = CFArrayCreate(NULL, &leaf, 1, &kCFTypeArrayCallBacks), NULL, "failed to create cert array");
     CFArrayRef anchors = NULL;
-    isnt(anchors = CFArrayCreate(NULL, &root, 1, NULL), NULL, "failed to create anchors array");
+    isnt(anchors = CFArrayCreate(NULL, &root, 1, &kCFTypeArrayCallBacks), NULL, "failed to create anchors array");
 
     SecPolicyRef policy = NULL;
     isnt(policy = SecPolicyCreateBasicX509(), NULL, "failed to create policy");
@@ -422,10 +423,10 @@ static bool test_chain_of_three(uint8_t *cert0, size_t cert0len,
 
     const void *v_certs[] = { secCert0, secCert1 };
     CFArrayRef certs = NULL;
-    isnt(certs = CFArrayCreate(NULL, v_certs, sizeof(v_certs)/sizeof(*v_certs), NULL),
+    isnt(certs = CFArrayCreate(NULL, v_certs, sizeof(v_certs)/sizeof(*v_certs), &kCFTypeArrayCallBacks),
          NULL, "failed to create cert array");
     CFArrayRef anchors = NULL;
-    isnt(anchors = CFArrayCreate(NULL, &secRoot, 1, NULL), NULL, "failed to create anchors array");
+    isnt(anchors = CFArrayCreate(NULL, &secRoot, 1, &kCFTypeArrayCallBacks), NULL, "failed to create anchors array");
 
     SecPolicyRef policy = NULL;
     isnt(policy = SecPolicyCreateBasicX509(), NULL, "failed to create policy");
@@ -502,12 +503,94 @@ static void ec_key_size_tests() {
 
 }
 
+static void test_input_certificates() {
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certificates = NULL;
+
+    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    require(policy = SecPolicyCreateBasicX509(), errOut);
+    require_noerr(SecTrustCreateWithCertificates(cert0, policy, &trust), errOut);
+
+    ok_status(SecTrustCopyInputCertificates(trust, &certificates), "SecTrustCopyInputCertificates failed");
+    is(CFArrayGetCount(certificates), 1, "got too many input certs back");
+    is(CFArrayGetValueAtIndex(certificates, 0), cert0, "wrong input cert");
+    CFReleaseNull(certificates);
+
+    ok_status(SecTrustAddToInputCertificates(trust, cert1), "SecTrustAddToInputCertificates failed");
+    ok_status(SecTrustCopyInputCertificates(trust, &certificates), "SecTrustCopyInputCertificates failed");
+    is(CFArrayGetCount(certificates), 2, "got wrong number of input certs back");
+    is(CFArrayGetValueAtIndex(certificates, 0), cert0, "wrong input cert0");
+    is(CFArrayGetValueAtIndex(certificates, 1), cert1, "wrong input cert1");
+    is(SecTrustGetCertificateCount(trust), 3, "output number of certs is 3");
+
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+    CFReleaseNull(certificates);
+}
+
+static void test_async_trust() {
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certificates = NULL;
+    CFDateRef date = NULL;
+
+    require(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)), errOut);
+    require(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)), errOut);
+    const void *v_certs[] = {
+        cert0,
+        cert1
+    };
+    certificates = CFArrayCreate(NULL, v_certs,
+                                 array_size(v_certs),
+                                 &kCFTypeArrayCallBacks);
+
+    require(policy = SecPolicyCreateBasicX509(), errOut);
+    require_noerr(SecTrustCreateWithCertificates(certificates, policy, &trust), errOut);
+
+    /* Jul 30 2014. */
+    require(date = CFDateCreateForGregorianZuluMoment(NULL, 2014, 7, 30, 12, 0, 0), errOut);
+    require_noerr(SecTrustSetVerifyDate(trust, date), errOut);
+
+    /* This shouldn't crash. */
+    ok_status(SecTrustEvaluateAsync(trust, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+                                    ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
+        if ((trustResult == kSecTrustResultProceed) ||
+            (trustResult == kSecTrustResultUnspecified))
+        {
+            // Evaluation succeeded!
+            SecKeyRef publicKey = SecTrustCopyPublicKey(trustRef);
+
+            CFReleaseSafe(publicKey);
+
+        } else if (trustResult == kSecTrustResultRecoverableTrustFailure) {
+            // Evaluation failed, but may be able to recover . . .
+        } else {
+            // Evaluation failed
+        }
+    }), "evaluate trust asynchronously");
+    CFReleaseNull(trust);
+
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(policy);
+    CFReleaseNull(certificates);
+    CFReleaseNull(date);
+}
+
 int si_20_sectrust(int argc, char *const *argv)
 {
 #if TARGET_OS_IPHONE
-	plan_tests(101+9+(8*13));
+	plan_tests(101+9+(8*13)+9+1);
 #else
-    plan_tests(97+9+(8*13));
+    plan_tests(97+9+(8*13)+9+1);
 #endif
 
 	basic_tests();
@@ -516,6 +599,8 @@ int si_20_sectrust(int argc, char *const *argv)
     date_tests();
     rsa_key_size_tests();
     ec_key_size_tests();
+    test_input_certificates();
+    test_async_trust();
 
 	return 0;
 }

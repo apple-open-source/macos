@@ -131,22 +131,6 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     return wrapper;
 }
 
-template<typename MatchFunction>
-static AccessibilityObject* matchedParent(AccessibilityObject* object, bool includeSelf, const MatchFunction& matches)
-{
-    if (!object)
-        return nullptr;
-
-    AccessibilityObject* parent = includeSelf ? object : object->parentObject();
-    for (; parent; parent = parent->parentObject()) {
-        if (matches(parent))
-            return parent;
-    }
-    
-    return nullptr;
-}
-
-
 #pragma mark Accessibility Text Marker
 
 @interface WebAccessibilityTextMarker : NSObject
@@ -547,47 +531,54 @@ static AccessibilityObject* matchedParent(AccessibilityObject* object, bool incl
     }    
 }
 
+- (AccessibilityObjectWrapper*)_accessibilityTreeAncestor
+{
+    auto matchFunc = [] (const AccessibilityObject& object) {
+        AccessibilityRole role = object.roleValue();
+        return role == TreeRole;
+    };
+    
+    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, matchFunc))
+        return parent->wrapper();
+    return nil;
+}
+
 - (AccessibilityObjectWrapper*)_accessibilityListAncestor
 {
-    auto matchFunc = [] (AccessibilityObject* object) {
-        AccessibilityRole role = object->roleValue();
+    auto matchFunc = [] (const AccessibilityObject& object) {
+        AccessibilityRole role = object.roleValue();
         return role == ListRole || role == ListBoxRole;
     };
     
-    if (AccessibilityObject* parent = matchedParent(m_object, false, matchFunc))
+    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, matchFunc))
         return parent->wrapper();
     return nil;
 }
 
 - (AccessibilityObjectWrapper*)_accessibilityLandmarkAncestor
 {
-    auto matchFunc = [self] (AccessibilityObject* object) {
-        return [self _accessibilityIsLandmarkRole:object->roleValue()];
-    };
-    
-    if (AccessibilityObject* parent = matchedParent(m_object, false, matchFunc))
+    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [self] (const AccessibilityObject& object) {
+        return [self _accessibilityIsLandmarkRole:object.roleValue()];
+    }))
         return parent->wrapper();
     return nil;
 }
 
 - (AccessibilityObjectWrapper*)_accessibilityTableAncestor
 {
-    auto matchFunc = [] (AccessibilityObject* object) {
-        return object->roleValue() == TableRole || object->roleValue() == GridRole;
-    };
     
-    if (AccessibilityObject* parent = matchedParent(m_object, false, matchFunc))
+    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+        return object.roleValue() == TableRole || object.roleValue() == GridRole;
+    }))
         return parent->wrapper();
     return nil;
 }
 
 - (AccessibilityObjectWrapper*)_accessibilityFieldsetAncestor
 {
-    auto matchFunc = [] (AccessibilityObject* object) {
-        return object->isFieldset();
-    };
-    
-    if (AccessibilityObject* parent = matchedParent(m_object, false, matchFunc))
+    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+        return object.isFieldset();
+    }))
         return parent->wrapper();
     return nil;
 }
@@ -621,7 +612,7 @@ static AccessibilityObject* matchedParent(AccessibilityObject* object, bool incl
                 if (role == StaticTextRole) {
                     // We should only set the text value as the label when there's no
                     // alternate text on the heading parent.
-                    NSString *headingLabel = [wrapper accessibilityLabel];
+                    NSString *headingLabel = [wrapper baseAccessibilityDescription];
                     if (![headingLabel length])
                         [self setAccessibilityLabel:m_object->stringValue()];
                     else
@@ -718,9 +709,11 @@ static AccessibilityObject* matchedParent(AccessibilityObject* object, bool incl
             break;
         case MenuButtonRole:
         case MenuItemRole:
+            traits |= [self _axMenuItemTrait];
+            break;
         case MenuItemCheckboxRole:
         case MenuItemRadioRole:
-            traits |= [self _axMenuItemTrait];
+            traits |= ([self _axMenuItemTrait] | [self _axToggleTrait]);
             break;
         default:
             break;
@@ -876,6 +869,7 @@ static AccessibilityObject* matchedParent(AccessibilityObject* object, bool incl
         case ListRole:
         case ListBoxRole:
         case ListItemRole:
+        case MarkRole:
         case MathElementRole:
         case MatteRole:
         case MenuRole:
@@ -1015,6 +1009,10 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     NSString *axTitle = [self baseAccessibilityTitle];
     NSString *axDescription = [self baseAccessibilityDescription];
     NSString *landmarkDescription = [self ariaLandmarkRoleDescription];
+    
+    // We should expose the value of the input type date or time through AXValue instead of AXTitle.
+    if (m_object->isInputTypePopupButton() && [axTitle isEqualToString:[self accessibilityValue]])
+        axTitle = nil;
 
     // Footer is not considered a landmark, but we want the role description.
     if (m_object->roleValue() == FooterRole)
@@ -1039,11 +1037,9 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 - (AccessibilityTableCell*)tableCellParent
 {
     // Find if this element is in a table cell.
-    auto matchFunc = [] (AccessibilityObject* object) {
-        return object->isTableCell();
-    };
-    
-    if (AccessibilityObject* parent = matchedParent(m_object, true, matchFunc))
+    if (AccessibilityObject* parent = const_cast<AccessibilityObject*>(AccessibilityObject::matchedParent(*m_object, true, [] (const AccessibilityObject& object) {
+        return object.isTableCell();
+    })))
         return static_cast<AccessibilityTableCell*>(parent);
     return nil;
 }
@@ -1051,11 +1047,9 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 - (AccessibilityTable*)tableParent
 {
     // Find if the parent table for the table cell.
-    auto matchFunc = [] (AccessibilityObject* object) {
-        return is<AccessibilityTable>(*object) && downcast<AccessibilityTable>(*object).isExposableThroughAccessibility();
-    };
-    
-    if (AccessibilityObject* parent = matchedParent(m_object, true, matchFunc))
+    if (AccessibilityObject* parent = const_cast<AccessibilityObject*>(AccessibilityObject::matchedParent(*m_object, true, [] (const AccessibilityObject& object) {
+        return is<AccessibilityTable>(object) && downcast<AccessibilityTable>(object).isExposableThroughAccessibility();
+    })))
         return static_cast<AccessibilityTable*>(parent);
     return nil;
 }
@@ -1265,7 +1259,8 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (value)
         return value;
     
-    if (m_object->isCheckboxOrRadio()) {
+    AccessibilityRole role = m_object->roleValue();
+    if (m_object->isCheckboxOrRadio() || role == MenuItemCheckboxRole || role == MenuItemRadioRole) {
         switch (m_object->checkboxOrRadioValue()) {
         case ButtonStateOff:
             return [NSString stringWithFormat:@"%d", 0];
@@ -1294,7 +1289,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self stringValueShouldBeUsedInLabel])
         return m_object->stringValue();
     
-    if (m_object->isProgressIndicator() || m_object->isSlider()) {
+    if (m_object->isRangeControl()) {
         // Prefer a valueDescription if provided by the author (through aria-valuetext).
         String valueDescription = m_object->valueDescription();
         if (!valueDescription.isEmpty())
@@ -1423,12 +1418,10 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     }
     else {
         // Find the appropriate scroll view to use to convert the contents to the window.
-        auto matchFunc = [] (AccessibilityObject* object) {
-            return is<AccessibilityScrollView>(*object);
-        };
-        
         ScrollView* scrollView = nullptr;
-        AccessibilityObject* parent = matchedParent(m_object, false, matchFunc);
+        const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+            return is<AccessibilityScrollView>(object);
+        });
         if (parent)
             scrollView = downcast<AccessibilityScrollView>(*parent).scrollView();
         
@@ -1477,12 +1470,10 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         
     } else {
         // Find the appropriate scroll view to use to convert the contents to the window.
-        auto matchFunc = [] (AccessibilityObject* object) {
-            return is<AccessibilityScrollView>(*object);
-        };
-
         ScrollView* scrollView = nullptr;
-        AccessibilityObject* parent = matchedParent(m_object, false, matchFunc);
+        const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+            return is<AccessibilityScrollView>(object);
+        });
         if (parent)
             scrollView = downcast<AccessibilityScrollView>(*parent).scrollView();
         
@@ -1852,11 +1843,9 @@ static RenderObject* rendererForView(WAKView* view)
 {
     // Use this to check if an object is the child of a summary object.
     // And return the summary's parent, which is the expandable details object.
-    auto matchFunc = [] (AccessibilityObject* object) {
-        return object->hasTagName(summaryTag);
-    };
-    
-    if (AccessibilityObject* summary = matchedParent(object, true, matchFunc))
+    if (const AccessibilityObject* summary = AccessibilityObject::matchedParent(*object, true, [] (const AccessibilityObject& object) {
+        return object.hasTagName(summaryTag);
+    }))
         return summary->parentObject();
     return nil;
 }
@@ -1864,12 +1853,20 @@ static RenderObject* rendererForView(WAKView* view)
 - (AccessibilityObject*)detailParentForObject:(AccessibilityObject*)object
 {
     // Use this to check if an object is inside a details object.
-    auto matchFunc = [] (AccessibilityObject* object) {
-        return object->hasTagName(detailsTag);
-    };
-    
-    if (AccessibilityObject* details = matchedParent(object, true, matchFunc))
-        return details;
+    if (const AccessibilityObject* details = AccessibilityObject::matchedParent(*object, true, [] (const AccessibilityObject& object) {
+        return object.hasTagName(detailsTag);
+    }))
+        return const_cast<AccessibilityObject*>(details);
+    return nil;
+}
+
+- (AccessibilityObject*)treeItemParentForObject:(AccessibilityObject*)object
+{
+    // Use this to check if an object is inside a treeitem object.
+    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*object, true, [] (const AccessibilityObject& object) {
+        return object.roleValue() == TreeItemRole;
+    }))
+        return const_cast<AccessibilityObject*>(parent);
     return nil;
 }
 
@@ -2089,14 +2086,8 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
     AXAttributeStringSetFont(attrString, style.fontCascade().primaryFont().getCTFont(), range);
                 
     int decor = style.textDecorationsInEffect();
-    if ((decor & (TextDecorationUnderline | TextDecorationLineThrough)) != 0) {
-        Color underlineColor, overlineColor, linethroughColor;
-        TextDecorationStyle underlineStyle, overlineStyle, linethroughStyle;
-        renderer->getTextDecorationColorsAndStyles(decor, underlineColor, overlineColor, linethroughColor, underlineStyle, overlineStyle, linethroughStyle);
-        
-        if (decor & TextDecorationUnderline)
-            AXAttributeStringSetNumber(attrString, UIAccessibilityTokenUnderline, [NSNumber numberWithBool:YES], range);
-    }
+    if (decor & TextDecorationUnderline)
+        AXAttributeStringSetNumber(attrString, UIAccessibilityTokenUnderline, [NSNumber numberWithBool:YES], range);
 }
 
 static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, Node* node, NSString *text)
@@ -2206,11 +2197,11 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
 {
     if (!range)
         return NSMakeRange(NSNotFound, 0);
-    
+
     Document* document = m_object->document();
     Element* selectionRoot = document->frame()->selection().selection().rootEditableElement();
     Element* scope = selectionRoot ? selectionRoot : document->documentElement();
-    
+
     // Mouse events may cause TSM to attempt to create an NSRange for a portion of the view
     // that is not inside the current editable region.  These checks ensure we don't produce
     // potentially invalid data when responding to such requests.
@@ -2218,13 +2209,11 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
         return NSMakeRange(NSNotFound, 0);
     if (&range->endContainer() != scope && !range->endContainer().isDescendantOf(scope))
         return NSMakeRange(NSNotFound, 0);
-    
+
     RefPtr<Range> testRange = Range::create(scope->document(), scope, 0, &range->startContainer(), range->startOffset());
     ASSERT(&testRange->startContainer() == scope);
     int startPosition = TextIterator::rangeLength(testRange.get());
-    
-    ExceptionCode ec;
-    testRange->setEnd(range->endContainer(), range->endOffset(), ec);
+    testRange->setEnd(range->endContainer(), range->endOffset());
     ASSERT(&testRange->startContainer() == scope);
     int endPosition = TextIterator::rangeLength(testRange.get());
     return NSMakeRange(startPosition, endPosition - startPosition);
@@ -2644,6 +2633,13 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     return [NSArray arrayWithObjects:start, end, nil];
 }
 
+- (NSString *)accessibilityExpandedTextValue
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+    return m_object->expandedTextValue();
+}
+
 - (NSString *)accessibilityIdentifier
 {
     if (![self _prepareAccessibilityCall])
@@ -2681,7 +2677,7 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     if (![self _prepareAccessibilityCall])
         return NO;
 
-    return m_object->ariaLiveRegionBusy();
+    return m_object->isBusy();
 }
 
 - (NSString *)accessibilityARIALiveRegionStatus
@@ -2734,6 +2730,9 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     if (AccessibilityObject* detailParent = [self detailParentForSummaryObject:m_object])
         return detailParent->supportsExpanded();
     
+    if (AccessibilityObject* treeItemParent = [self treeItemParentForObject:m_object])
+        return treeItemParent->supportsExpanded();
+    
     return m_object->supportsExpanded();
 }
 
@@ -2746,6 +2745,9 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     // summary's accessible children.
     if (AccessibilityObject* detailParent = [self detailParentForSummaryObject:m_object])
         return detailParent->isExpanded();
+    
+    if (AccessibilityObject* treeItemParent = [self treeItemParentForObject:m_object])
+        return treeItemParent->isExpanded();
     
     return m_object->isExpanded();
 }
@@ -2779,6 +2781,24 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     default:
     case ARIACurrentTrue:
         return @"true";
+    }
+}
+
+- (NSString *)accessibilitySortDirection
+{
+    if (![self _prepareAccessibilityCall])
+        return nil;
+    
+    switch (m_object->sortDirection()) {
+    case SortDirectionAscending:
+        return @"ascending";
+    case SortDirectionDescending:
+        return @"descending";
+    case SortDirectionOther:
+        return @"other";
+    default:
+    case SortDirectionNone:
+        return nil;
     }
 }
 

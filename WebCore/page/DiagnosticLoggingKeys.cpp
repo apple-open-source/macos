@@ -53,6 +53,31 @@ String DiagnosticLoggingKeys::pluginLoadingFailedKey()
     return ASCIILiteral("pluginFailedLoading");
 }
 
+String DiagnosticLoggingKeys::postPageBackgroundingCPUUsageKey()
+{
+    return ASCIILiteral("postPageBackgroundingCPUUsage");
+}
+
+String DiagnosticLoggingKeys::postPageBackgroundingMemoryUsageKey()
+{
+    return ASCIILiteral("postPageBackgroundingMemoryUsage");
+}
+
+String DiagnosticLoggingKeys::pageHandlesWebGLContextLossKey()
+{
+    return ASCIILiteral("pageHandlesWebGLContextLoss");
+}
+
+String DiagnosticLoggingKeys::postPageLoadCPUUsageKey()
+{
+    return ASCIILiteral("postPageLoadCPUUsage");
+}
+
+String DiagnosticLoggingKeys::postPageLoadMemoryUsageKey()
+{
+    return ASCIILiteral("postPageLoadMemoryUsage");
+}
+
 String DiagnosticLoggingKeys::provisionalLoadKey()
 {
     return ASCIILiteral("provisionalLoad");
@@ -143,6 +168,11 @@ String DiagnosticLoggingKeys::neverSeenBeforeKey()
     return ASCIILiteral("neverSeenBefore");
 }
 
+String DiagnosticLoggingKeys::noKey()
+{
+    return ASCIILiteral("no");
+}
+
 String DiagnosticLoggingKeys::noCacheKey()
 {
     return ASCIILiteral("noCache");
@@ -151,6 +181,11 @@ String DiagnosticLoggingKeys::noCacheKey()
 String DiagnosticLoggingKeys::noStoreKey()
 {
     return ASCIILiteral("noStore");
+}
+
+String DiagnosticLoggingKeys::nonVisibleStateKey()
+{
+    return ASCIILiteral("nonVisibleState");
 }
 
 String DiagnosticLoggingKeys::notInMemoryCacheKey()
@@ -238,6 +273,11 @@ String DiagnosticLoggingKeys::inMemoryCacheKey()
     return ASCIILiteral("inMemoryCache");
 }
 
+String DiagnosticLoggingKeys::inactiveKey()
+{
+    return ASCIILiteral("inactive");
+}
+
 String DiagnosticLoggingKeys::internalErrorKey()
 {
     return ASCIILiteral("internalError");
@@ -303,6 +343,11 @@ String DiagnosticLoggingKeys::cannotSuspendActiveDOMObjectsKey()
     return ASCIILiteral("cannotSuspendActiveDOMObjects");
 }
 
+String DiagnosticLoggingKeys::cpuUsageKey()
+{
+    return ASCIILiteral("cpuUsage");
+}
+
 String DiagnosticLoggingKeys::createSharedBufferFailedKey()
 {
     return ASCIILiteral("createSharedBufferFailed");
@@ -311,6 +356,16 @@ String DiagnosticLoggingKeys::createSharedBufferFailedKey()
 String DiagnosticLoggingKeys::deltaKey()
 {
     return ASCIILiteral("delta");
+}
+
+String DiagnosticLoggingKeys::activeInForegroundTabKey()
+{
+    return ASCIILiteral("activeInForegroundTab");
+}
+
+String DiagnosticLoggingKeys::activeInBackgroundTabOnlyKey()
+{
+    return ASCIILiteral("activeInBackgroundTabOnly");
 }
 
 String DiagnosticLoggingKeys::applicationCacheKey()
@@ -563,6 +618,16 @@ String DiagnosticLoggingKeys::videoKey()
     return ASCIILiteral("video");
 }
 
+String DiagnosticLoggingKeys::visibleNonActiveStateKey()
+{
+    return ASCIILiteral("visibleNonActiveState");
+}
+
+String DiagnosticLoggingKeys::visibleAndActiveStateKey()
+{
+    return ASCIILiteral("visibleAndActiveState");
+}
+
 String DiagnosticLoggingKeys::wastedSpeculativeWarmupWithRevalidationKey()
 {
     return ASCIILiteral("wastedSpeculativeWarmupWithRevalidation");
@@ -578,6 +643,11 @@ String DiagnosticLoggingKeys::webViewKey()
     return ASCIILiteral("webView");
 }
 
+String DiagnosticLoggingKeys::yesKey()
+{
+    return ASCIILiteral("yes");
+}
+
 String DiagnosticLoggingKeys::zoomedKey()
 {
     return ASCIILiteral("zoomed");
@@ -591,6 +661,16 @@ String DiagnosticLoggingKeys::expiredKey()
 String DiagnosticLoggingKeys::fontKey()
 {
     return ASCIILiteral("font");
+}
+
+String DiagnosticLoggingKeys::hasCalledWindowOpenKey()
+{
+    return ASCIILiteral("hasCalledWindowOpen");
+}
+
+String DiagnosticLoggingKeys::hasOpenerKey()
+{
+    return ASCIILiteral("hasOpener");
 }
 
 String DiagnosticLoggingKeys::prunedDueToMemoryPressureKey()
@@ -616,6 +696,70 @@ String WebCore::DiagnosticLoggingKeys::notHTTPFamilyKey()
 String DiagnosticLoggingKeys::notInCacheKey()
 {
     return ASCIILiteral("notInCache");
+}
+
+String WebCore::DiagnosticLoggingKeys::webGLStateKey()
+{
+    return ASCIILiteral("webGLState");
+}
+
+String DiagnosticLoggingKeys::memoryUsageToDiagnosticLoggingKey(uint64_t memoryUsage)
+{
+    if (memoryUsage < 32 * MB)
+        return ASCIILiteral("below32");
+    if (memoryUsage < 64 * MB)
+        return ASCIILiteral("32to64");
+    if (memoryUsage < 128 * MB)
+        return ASCIILiteral("64to128");
+    if (memoryUsage < 256 * MB)
+        return ASCIILiteral("128to256");
+    if (memoryUsage < 512 * MB)
+        return ASCIILiteral("256to512");
+    if (memoryUsage < 1024 * MB)
+        return ASCIILiteral("512to1024");
+    if (memoryUsage < 2048 * MB)
+        return ASCIILiteral("1024to2048");
+    if (memoryUsage < 4096llu * MB)
+        return ASCIILiteral("2048to4096");
+    if (memoryUsage < 8192llu * MB)
+        return ASCIILiteral("4096to8192");
+    if (memoryUsage < 16384llu * MB)
+        return ASCIILiteral("8192to16384");
+    if (memoryUsage < 32768llu * MB)
+        return ASCIILiteral("16384to32768");
+    return ASCIILiteral("over32768");
+}
+
+String DiagnosticLoggingKeys::foregroundCPUUsageToDiagnosticLoggingKey(double cpuUsage)
+{
+    if (cpuUsage < 10)
+        return ASCIILiteral("below10");
+    if (cpuUsage < 20)
+        return ASCIILiteral("10to20");
+    if (cpuUsage < 40)
+        return ASCIILiteral("20to40");
+    if (cpuUsage < 60)
+        return ASCIILiteral("40to60");
+    if (cpuUsage < 80)
+        return ASCIILiteral("60to80");
+    return ASCIILiteral("over80");
+}
+
+String DiagnosticLoggingKeys::backgroundCPUUsageToDiagnosticLoggingKey(double cpuUsage)
+{
+    if (cpuUsage < 1)
+        return ASCIILiteral("below1");
+    if (cpuUsage < 5)
+        return ASCIILiteral("1to5");
+    if (cpuUsage < 10)
+        return ASCIILiteral("5to10");
+    if (cpuUsage < 30)
+        return ASCIILiteral("10to30");
+    if (cpuUsage < 50)
+        return ASCIILiteral("30to50");
+    if (cpuUsage < 70)
+        return ASCIILiteral("50to70");
+    return ASCIILiteral("over70");
 }
 
 } // namespace WebCore

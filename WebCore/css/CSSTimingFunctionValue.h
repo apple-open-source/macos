@@ -23,15 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSTimingFunctionValue_h
-#define CSSTimingFunctionValue_h
+#pragma once
 
 #include "CSSValue.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-class CSSCubicBezierTimingFunctionValue : public CSSValue {
+class CSSCubicBezierTimingFunctionValue final : public CSSValue {
 public:
     static Ref<CSSCubicBezierTimingFunctionValue> create(double x1, double y1, double x2, double y2)
     {
@@ -63,7 +61,7 @@ private:
     double m_y2;
 };
 
-class CSSStepsTimingFunctionValue : public CSSValue {
+class CSSStepsTimingFunctionValue final : public CSSValue {
 public:
     static Ref<CSSStepsTimingFunctionValue> create(int steps, bool stepAtStart)
     {
@@ -89,7 +87,7 @@ private:
     bool m_stepAtStart;
 };
 
-class CSSSpringTimingFunctionValue : public CSSValue {
+class CSSSpringTimingFunctionValue final : public CSSValue {
 public:
     static Ref<CSSSpringTimingFunctionValue> create(double mass, double stiffness, double damping, double initialVelocity)
     {
@@ -126,5 +124,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCubicBezierTimingFunctionValue, isCubicBezierTimingFunctionValue())
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSStepsTimingFunctionValue, isStepsTimingFunctionValue())
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSSpringTimingFunctionValue, isSpringTimingFunctionValue())
-
-#endif // CSSTimingFunctionValue_h

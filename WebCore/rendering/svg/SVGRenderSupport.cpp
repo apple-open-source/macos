@@ -370,7 +370,7 @@ void SVGRenderSupport::intersectRepaintRectWithShadows(const RenderElement& rend
     if (localToRootTransform.isIdentity())
         return;
 
-    AffineTransform rootToLocalTransform = localToRootTransform.inverse().valueOr(AffineTransform());
+    AffineTransform rootToLocalTransform = localToRootTransform.inverse().value_or(AffineTransform());
     repaintRect = rootToLocalTransform.mapRect(repaintRect);
 }
 
@@ -433,16 +433,24 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext* context, const
     if (svgStyle.joinStyle() == MiterJoin)
         context->setMiterLimit(svgStyle.strokeMiterLimit());
 
-    const Vector<SVGLength>& dashes = svgStyle.strokeDashArray();
+    const Vector<SVGLengthValue>& dashes = svgStyle.strokeDashArray();
     if (dashes.isEmpty())
         context->setStrokeStyle(SolidStroke);
     else {
         DashArray dashArray;
         dashArray.reserveInitialCapacity(dashes.size());
-        for (auto& dash : dashes)
-            dashArray.uncheckedAppend(dash.value(lengthContext));
+        bool canSetLineDash = false;
 
-        context->setLineDash(dashArray, lengthContext.valueForLength(svgStyle.strokeDashOffset()));
+        for (auto& dash : dashes) {
+            dashArray.uncheckedAppend(dash.value(lengthContext));
+            if (dashArray.last() > 0)
+                canSetLineDash = true;
+        }
+
+        if (canSetLineDash)
+            context->setLineDash(dashArray, lengthContext.valueForLength(svgStyle.strokeDashOffset()));
+        else
+            context->setStrokeStyle(SolidStroke);
     }
 }
 

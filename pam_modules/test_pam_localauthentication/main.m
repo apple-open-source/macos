@@ -38,7 +38,7 @@ int main(int argc, const char * argv[]) {
         if (!econtext)
             goto cleanup;
 
-        if (PAM_SUCCESS != (pam_res = pam_set_data(pamh, "token", (void *)&econtext, NULL)))
+        if (PAM_SUCCESS != (pam_res = pam_set_data(pamh, "token_la", (void *)&econtext, NULL)))
             goto cleanup;
 
         if (PAM_SUCCESS != (pam_res = pam_authenticate(pamh, 0)))

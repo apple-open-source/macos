@@ -25,27 +25,44 @@
 
 WebInspector.StackTrace = class StackTrace extends WebInspector.Object
 {
-    constructor(callFrames)
+    constructor(callFrames, topCallFrameIsBoundary, truncated, parentStackTrace)
     {
         super();
 
         console.assert(callFrames && callFrames.every((callFrame) => callFrame instanceof WebInspector.CallFrame));
 
         this._callFrames = callFrames;
+        this._topCallFrameIsBoundary = topCallFrameIsBoundary || false;
+        this._truncated = truncated || false;
+        this._parentStackTrace = parentStackTrace || null;
     }
 
     // Static
 
-    static fromPayload(payload)
+    static fromPayload(target, payload)
     {
-        var callFrames = payload.map(WebInspector.CallFrame.fromPayload);
-        return new WebInspector.StackTrace(callFrames);
+        let result = null;
+        let previousStackTrace = null;
+
+        while (payload) {
+            let callFrames = payload.callFrames.map((x) => WebInspector.CallFrame.fromPayload(target, x));
+            let stackTrace = new WebInspector.StackTrace(callFrames, payload.topCallFrameIsBoundary, payload.truncated);
+            if (!result)
+                result = stackTrace;
+            if (previousStackTrace)
+                previousStackTrace._parentStackTrace = stackTrace;
+
+            previousStackTrace = stackTrace;
+            payload = payload.parentStackTrace;
+        }
+
+        return result;
     }
 
-    static fromString(stack)
+    static fromString(target, stack)
     {
-        var payload = WebInspector.StackTrace._parseStackTrace(stack);
-        return WebInspector.StackTrace.fromPayload(payload);
+        let callFrames = WebInspector.StackTrace._parseStackTrace(stack);
+        return WebInspector.StackTrace.fromPayload(target, {callFrames});
     }
 
     // May produce false negatives; must not produce any false positives.
@@ -151,5 +168,8 @@ WebInspector.StackTrace = class StackTrace extends WebInspector.Object
 
         return null;
     }
-    
+
+    get topCallFrameIsBoundary() { return this._topCallFrameIsBoundary; }
+    get truncated() { return this._truncated; }
+    get parentStackTrace() { return this._parentStackTrace; }
 };

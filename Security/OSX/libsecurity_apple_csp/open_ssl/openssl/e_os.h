@@ -77,10 +77,10 @@
 #ifndef HEADER_E_OS_H
 #define HEADER_E_OS_H
 
-#include <openssl/opensslconf.h>
+#include <openssl/opensslconf_legacy.h>
 
-#include <openssl/e_os2.h>
-/* <openssl/e_os2.h> contains what we can justify to make visible
+#include <openssl/e_os2_legacy.h>
+/* <openssl/e_os2_legacy.h> contains what we can justify to make visible
  * to the outside; this file e_os.h is not part of the exported
  * interface. */
 

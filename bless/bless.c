@@ -59,6 +59,7 @@ struct clarg actargs[klast];
 
 /* options descriptor */
 static struct option longopts[] = {
+{ "apfsdriver",     required_argument,      0,              kapfsdriver},
 { "alternateos",    required_argument,      0,              kalternateos},
 { "alternateOS",    required_argument,      0,              kalternateos},
 { "bootinfo",       optional_argument,      0,              kbootinfo},

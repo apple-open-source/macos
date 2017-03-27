@@ -21,8 +21,7 @@
  *
  */
 
-#ifndef HTMLLinkElement_h
-#define HTMLLinkElement_h
+#pragma once
 
 #include "CSSStyleSheet.h"
 #include "CachedStyleSheetClient.h"
@@ -54,10 +53,7 @@ public:
 
     const AtomicString& type() const;
 
-    Optional<LinkIconType> iconType() const;
-
-    // the icon size string as parsed from the HTML attribute
-    String iconSizes();
+    std::optional<LinkIconType> iconType() const;
 
     CSSStyleSheet* sheet() const { return m_sheet.get(); }
 
@@ -67,13 +63,13 @@ public:
     bool isEnabledViaScript() const { return m_disabledState == EnabledViaScript; }
     DOMTokenList& sizes();
 
-    void setCrossOrigin(const AtomicString&);
-    String crossOrigin() const;
+    WEBCORE_EXPORT void setCrossOrigin(const AtomicString&);
+    WEBCORE_EXPORT String crossOrigin() const;
 
     void dispatchPendingEvent(LinkEventSender*);
     static void dispatchPendingLoadEvents();
 
-    DOMTokenList& relList();
+    WEBCORE_EXPORT DOMTokenList& relList();
 
 private:
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
@@ -85,6 +81,8 @@ private:
 
     InsertionNotificationRequest insertedInto(ContainerNode&) final;
     void removedFrom(ContainerNode&) final;
+
+    void initializeStyleSheet(Ref<StyleSheetContents>&&, const CachedCSSStyleSheet&);
 
     // from CachedResourceClient
     void setCSSStyleSheet(const String& href, const URL& baseURL, const String& charset, const CachedCSSStyleSheet*) final;
@@ -101,7 +99,7 @@ private:
 
     bool isURLAttribute(const Attribute&) const final;
 
-    void defaultEventHandler(Event*) final;
+    void defaultEventHandler(Event&) final;
     void handleClick(Event&);
 
     HTMLLinkElement(const QualifiedName&, Document&, bool createdByParser);
@@ -121,6 +119,7 @@ private:
     void removePendingSheet(RemovePendingSheetNotificationType = RemovePendingSheetNotifyImmediately);
 
     LinkLoader m_linkLoader;
+    Style::Scope* m_styleScope { nullptr };
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
     enum DisabledState {
@@ -136,9 +135,8 @@ private:
     LinkRelAttribute m_relAttribute;
     bool m_loading;
     bool m_createdByParser;
-    bool m_isInShadowTree;
     bool m_firedLoad;
-    bool m_loadedSheet;
+    bool m_loadedResource;
 
     PendingSheetType m_pendingSheetType;
 
@@ -146,5 +144,3 @@ private:
 };
 
 } //namespace
-
-#endif

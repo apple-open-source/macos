@@ -179,6 +179,7 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 
 
 
+
 /*!
 	@group
  */
@@ -710,6 +711,18 @@ SCNetworkProxiesCopyMatchingWithOptions		(CFDictionaryRef	globalConfiguration,
 extern const CFStringRef	kSCProxiesNoGlobal;
 
 /*!
+ @function SCNetworkProxiesCreateProxyAgentData
+ @discussion
+
+	@param proxyConfig A dictionary representing a proxy configuration
+	@result returns a CFData representing a proxy configuration. This data is readable by all
+ "config-agents" (Agents with domain as "SystemConfig") via config_agent_copy_proxy_information().
+ You must release the returned value.
+ */
+CFDataRef
+SCNetworkProxiesCreateProxyAgentData(CFDictionaryRef proxyConfig)	__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+
+/*!
  @function SCDynamicStoreCopyProxiesWithOptions
  @discussion
 
@@ -729,7 +742,6 @@ extern const CFStringRef	kSCProxiesNoGlobal;
 */
 CFDictionaryRef
 SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef options)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
-
 
 #pragma mark -
 #pragma mark Reachability

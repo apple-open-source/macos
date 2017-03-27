@@ -123,9 +123,9 @@ class Endian {
 public:
     typedef Type Value;
     Endian() : mValue(Type(0)) { }
-    Endian(Value v) : mValue(h2n(v)) { }
+    Endian(Value v) : mValue((Type) h2n(v)) { }
     
-    Type get ()	const			{ return n2h(mValue); }
+    Type get ()	const			{ return (Type) n2h(mValue); }
     operator Value () const		{ return this->get(); }
     Endian &operator = (Value v)	{ mValue = h2n(v); return *this; }
 

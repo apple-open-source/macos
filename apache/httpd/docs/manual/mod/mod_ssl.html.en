@@ -1722,7 +1722,8 @@ proxy handshake</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
 </table>
-<p>Equivalent to <code>SSLCipherSuite</code>, but for the proxy connection.
+<p>Equivalent to <code class="directive"><a href="#sslciphersuite">SSLCipherSuite</a></code>, but
+for the proxy connection.
 Please refer to <code class="directive"><a href="#sslciphersuite">SSLCipherSuite</a></code>
 for additional information.</p>
 
@@ -1743,11 +1744,12 @@ is usually used inside a <code class="directive"><a href="../mod/core.html#virtu
 usage in a particular virtual host. By default the SSL/TLS Protocol Engine is
 disabled for proxy both for the main server and all configured virtual hosts.</p>
 
-<p>Note that the SSLProxyEngine directive should not, in
+<p>Note that the <code class="directive">SSLProxyEngine</code> directive should not, in
 general, be included in a virtual host that will be acting as a
-forward proxy (using &lt;Proxy&gt; or &lt;ProxyRequest&gt; directives.
-SSLProxyEngine is not required to enable a forward proxy server to
-proxy SSL/TLS requests.</p>
+forward proxy (using <code class="directive"><a href="../mod/mod_proxy.html#proxy">&lt;Proxy&gt;</a></code>
+or <code class="directive"><a href="../mod/mod_proxy.html#proxyrequests">ProxyRequests</a></code> directives).
+<code class="directive">SSLProxyEngine</code> is not required to enable a forward proxy
+server to proxy SSL/TLS requests.</p>
 
 <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">&lt;VirtualHost _default_:443&gt;
     SSLProxyEngine on
@@ -2674,13 +2676,9 @@ The following levels are available for <em>level</em>:</p>
      the client <em>has to</em> present a valid Certificate</li>
 <li><strong>optional_no_ca</strong>:
      the client may present a valid Certificate<br />
-     but it need not to be (successfully) verifiable.</li>
+     but it need not to be (successfully) verifiable. This option
+     cannot be relied upon for client authentication.  </li>
 </ul>
-<p>In practice only levels <strong>none</strong> and
-<strong>require</strong> are really interesting, because level
-<strong>optional</strong> doesn't work with all browsers and level
-<strong>optional_no_ca</strong> is actually against the idea of
-authentication (but can be used to establish SSL test pages, etc.)</p>
 <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLVerifyClient require</pre>
 </div>
 

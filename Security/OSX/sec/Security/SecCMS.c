@@ -394,7 +394,8 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
     SecCmsContentInfoRef cinfo;
     SecCmsSignedDataRef sigd = NULL;
     OSStatus status = errSecParam;
-    
+
+    require(message, out);
     SecAsn1Item encoded_message = { CFDataGetLength(message), (uint8_t*)CFDataGetBytePtr(message) };
     require_noerr_action_quiet(SecCmsMessageDecode(&encoded_message, NULL, NULL, NULL, NULL, NULL, NULL, &cmsg), 
         out, status = errSecDecode);

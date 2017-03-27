@@ -28,18 +28,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef Blob_h
-#define Blob_h
+#pragma once
 
-#include "BlobPart.h"
+#include "BlobPropertyBag.h"
 #include "ScriptWrappable.h"
+#include "URL.h"
 #include "URLRegistry.h"
-#include <wtf/RefCounted.h>
-#include <wtf/text/WTFString.h>
+#include <wtf/Variant.h>
+
+namespace JSC {
+class ArrayBufferView;
+class ArrayBuffer;
+}
 
 namespace WebCore {
 
+class Blob;
 class ScriptExecutionContext;
+
+using BlobPartVariant = Variant<RefPtr<JSC::ArrayBufferView>, RefPtr<JSC::ArrayBuffer>, RefPtr<Blob>, String>;
 
 class Blob : public ScriptWrappable, public URLRegistrable, public RefCounted<Blob> {
 public:
@@ -48,14 +55,14 @@ public:
         return adoptRef(*new Blob);
     }
 
-    static Ref<Blob> create(Vector<uint8_t> data, const String& contentType)
+    static Ref<Blob> create(Vector<BlobPartVariant>&& blobPartVariants, const BlobPropertyBag& propertyBag)
     {
-        return adoptRef(*new Blob(WTFMove(data), contentType));
+        return adoptRef(*new Blob(WTFMove(blobPartVariants), propertyBag));
     }
 
-    static Ref<Blob> create(Vector<BlobPart> blobParts, const String& contentType)
+    static Ref<Blob> create(Vector<uint8_t>&& data, const String& contentType)
     {
-        return adoptRef(*new Blob(WTFMove(blobParts), contentType));
+        return adoptRef(*new Blob(WTFMove(data), contentType));
     }
 
     static Ref<Blob> deserialize(const URL& srcURL, const String& type, long long size, const String& fileBackedPath)
@@ -69,7 +76,7 @@ public:
     const URL& url() const { return m_internalURL; }
     const String& type() const { return m_type; }
 
-    unsigned long long size() const;
+    WEBCORE_EXPORT unsigned long long size() const;
     virtual bool isFile() const { return false; }
 
     // The checks described in the File API spec.
@@ -91,8 +98,8 @@ public:
 
 protected:
     Blob();
-    Blob(Vector<uint8_t>, const String& contentType);
-    Blob(Vector<BlobPart>, const String& contentType);
+    Blob(Vector<BlobPartVariant>&&, const BlobPropertyBag&);
+    Blob(Vector<uint8_t>&&, const String& contentType);
 
     enum UninitializedContructor { uninitializedContructor };
     Blob(UninitializedContructor);
@@ -113,6 +120,3 @@ protected:
 };
 
 } // namespace WebCore
-
-#endif // Blob_h
-

@@ -89,7 +89,7 @@ static OSStatus GenerateRSAKeyPair(
 	CFDictionaryAddValue( params, kSecUseKeychain, keychain );
 	CFDictionaryAddValue( params, kSecAttrAccess, access );
 	CFDictionaryAddValue( params, kSecAttrKeyType, kSecAttrKeyTypeRSA );
-	CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize );
+    CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize ); CFReleaseNull(keySize);
     CFDictionaryAddValue( params, kSecAttrIsPermanent, kCFBooleanTrue );
 
 	if (extractable)

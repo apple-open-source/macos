@@ -137,19 +137,20 @@ CFDataRef get_key_hash_wrap(CFDictionaryRef context, CFStringRef keys, CFStringR
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	char prompt[PATH_MAX * 2];
-	char card_name[PATH_MAX];
+	char certificate_name[PATH_MAX];
 	int retval = PAM_AUTH_ERR;
 	const char *user = NULL;
 	const char *pin = NULL;
-	CFStringRef cfPin = NULL;
+	CFStringRef cf_pin = NULL;
 	OSStatus status;
 	ODRecordRef od_record = NULL;
 	CFDataRef *token_context = NULL;
 	CFDataRef pub_key_hash = NULL;
 	CFDataRef pub_key_hash_wrap = NULL;
 	CFStringRef token_id = NULL;
-	CFStringRef kerberosPrincipal = NULL;
+	CFStringRef kerberos_principal = NULL;
 	CFPropertyListRef context = NULL;
+	CFStringRef cf_user = NULL;
 	CFErrorRef error = NULL;
 	Boolean interactive;
 	uid_t agent_uid = 0;
@@ -157,9 +158,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	SecKeychainRef keychain = NULL;
 	SecIdentityRef identity = NULL;
 	SecCertificateRef certificate = NULL;
-	SecKeyRef pubKey = NULL;
-	SecKeyRef privateKey = NULL;
-	Boolean keychainUnlocked = FALSE;
+	SecKeyRef pub_key = NULL;
+	SecKeyRef private_key = NULL;
+	Boolean keychain_unlocked = FALSE;
 // legacy support block end
 
 	retval = pam_get_user(pamh, &user, "Username: ");
@@ -184,10 +185,11 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		openpam_log(PAM_LOG_ERROR, "%s - Unable to get user record %d.", PM_DISPLAY_NAME, retval);
 		goto cleanup;
 	}
+	cf_user = CFStringCreateWithCString(kCFAllocatorDefault, user, kCFStringEncodingUTF8);
 
 	if (openpam_get_option(pamh, PAM_OPT_PKINIT)) {
-		pam_get_data(pamh, "kerberos", (void *)&kerberosPrincipal);
-		if (kerberosPrincipal) {
+		pam_get_data(pamh, "kerberos", (void *)&kerberos_principal);
+		if (kerberos_principal) {
 			openpam_log(PAM_LOG_DEBUG, "%s - Will ask for kerberos ticket", PM_DISPLAY_NAME);
 		}
 	}
@@ -201,15 +203,30 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	openpam_log(PAM_LOG_DEBUG, "%s - using %d as agent id", PM_DISPLAY_NAME, agent_uid);
 
 	// get the token context
-	pam_get_data(pamh, "token", (void *)&token_context); // we do not need to check status as token_id presence reveals success
+	pam_get_data(pamh, "token_ctk", (void *)&token_context); // we do not need to check status as token_id presence reveals success
 	if (token_context) {
 		interactive = FALSE;
+		Boolean valid_user = FALSE;
+		// verify that current user is still paired
+		CFDictionaryRef all_tokens_data = TKCopyAvailableTokensInfo(agent_uid, NULL);
+		if (all_tokens_data) {
+			CFArrayRef mappedUsers = CFDictionaryGetValue(all_tokens_data, CFSTR("0")); // 0 is APEventHintUsers from AuthenticationHintsProvider
+			if (mappedUsers && CFArrayContainsValue(mappedUsers, CFRangeMake(0, CFArrayGetCount(mappedUsers)), cf_user)) {
+				valid_user = TRUE;
+			}
+			CFReleaseSafe(all_tokens_data);
+		}
+
+		if (!valid_user) {
+			openpam_log(PAM_LOG_ERROR, "%s - User is not paired with any smartcard.", PM_DISPLAY_NAME);
+			retval = PAM_AUTH_ERR;
+			goto cleanup;
+		}
 		context = CFPropertyListCreateWithData(kCFAllocatorDefault, *token_context, 0, NULL, NULL);
 	} else {
 		interactive = TRUE;
 		CFIndex number_of_tokens;
 		CFMutableDictionaryRef hints = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		CFStringRef cf_user = CFStringCreateWithCString(kCFAllocatorDefault, user, kCFStringEncodingUTF8);
 		if (hints && cf_user) {
 			CFDictionaryAddValue(hints, CFSTR(kTKXpcKeyUserName), cf_user);
 			CFDictionaryRef all_tokens_data = TKCopyAvailableTokensInfo(agent_uid, hints);
@@ -222,7 +239,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			}
 			CFReleaseSafe(all_tokens_data);
 		}
-		CFReleaseSafe(cf_user);
 		CFReleaseSafe(hints);
 	}
 
@@ -256,24 +272,25 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 				}
 			}
 			if (interactive) { // prepare prompt for interactive password request
-				CFDictionaryRef friendlyNames = CFDictionaryGetValue(context, CFSTR(kTkHintFriendlyTokenNames));
-				Boolean nameSet = FALSE;
-				if (friendlyNames) {
-					CFStringRef name = CFDictionaryGetValue(friendlyNames, pub_key_hash);
-					if (name == NULL)
-						name = token_id;
-					if (CFStringGetCString(name, (char *)&card_name, PATH_MAX - 1, kCFStringEncodingUTF8))
-						nameSet = TRUE;
+				CFArrayRef hashes = CFDictionaryGetValue(context, CFSTR(kTkHintFriendlyNameHashes));
+				CFArrayRef friendlyNames = CFDictionaryGetValue(context, CFSTR(kTkHintFriendlyNames));
+				CFIndex count = CFArrayGetCount(hashes);
+				CFStringRef certificateName = NULL;
+				for (CFIndex i = 0; i < count; ++i) {
+					CFDataRef hash = CFArrayGetValueAtIndex(hashes, i);
+					if (CFEqual(hash, pub_key_hash)) {
+						certificateName = CFArrayGetValueAtIndex(friendlyNames, i);
+						CFRetain(token_id);
+						break;
+					}
 				}
-				if (nameSet == FALSE)
-					strncpy(card_name, "Unnamed card", PATH_MAX - 1);
 
-				snprintf(prompt, sizeof(prompt), "Enter PIN for '%s': ", card_name);
+				if (!certificateName || !CFStringGetCString(certificateName, (char *)&certificate_name, PATH_MAX - 1, kCFStringEncodingUTF8))
+					strncpy(certificate_name, "Unnamed certificate", PATH_MAX - 1);
+
+				snprintf(prompt, sizeof(prompt), "Enter PIN for '%s': ", certificate_name);
 			} else if (token_id) { // first try RSA keys
 				pub_key_hash_wrap = get_key_hash_wrap(context, CFSTR(kTkHintUnlockTokenHashes), CFSTR(kTkHintUnlockTokenIds), token_id);
-				if (pub_key_hash_wrap == NULL) // if nothing was found, try also EC keys
-					pub_key_hash_wrap = get_key_hash_wrap(context, CFSTR(kTkHintKeyExchangeTokenHashes), CFSTR(kTkHintKeyExchangeTokenIds), token_id);
-
 				if (pub_key_hash_wrap) {
 					CFRetain(pub_key_hash_wrap);
 					openpam_log(PAM_LOG_DEBUG, "Wrap key found.");
@@ -302,7 +319,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		SecKeychainStatus keychainStatus;
 		status = SecKeychainGetStatus(keychain, &keychainStatus);
 		if (status == errSecSuccess && (keychainStatus & kSecUnlockStateStatus)) {
-			keychainUnlocked = true;
+			keychain_unlocked = true;
 		} else {
 			status = SecKeychainGetPath(keychain, &pathLength, pathName);
 			if (status) {
@@ -316,18 +333,18 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 // legacy support block end
 
 	retval = interactive ? PAM_IGNORE : PAM_AUTH_ERR;
-	if (keychainUnlocked == FALSE) {
+	if (keychain_unlocked == FALSE) {
 		for(int i = 0; i < (interactive ? MAX_PIN_RETRY : 1); ++i) {
-			cfPin = copy_pin(pamh, prompt, &pin); // gets pre-stored password for Authorization / asks user during interactive session
-			if (cfPin) {
+			cf_pin = copy_pin(pamh, prompt, &pin); // gets pre-stored password for Authorization / asks user during interactive session
+			if (cf_pin) {
 				if (keychain) {
 					// legacy smartcard check
 					status = SecKeychainUnlock(keychain, (UInt32)strlen(pin), pin, TRUE);
 				} else {
 					// modern smartcard check
-					status = TKPerformLogin(agent_uid, token_id, pub_key_hash, cfPin, kerberosPrincipal, &error);
+					status = TKPerformLogin(agent_uid, token_id, pub_key_hash, cf_pin, kerberos_principal, &error);
 				}
-				CFRelease(cfPin);
+				CFRelease(cf_pin);
 				openpam_log(PAM_LOG_DEBUG, "%s - Smartcard verification result %d", PM_DISPLAY_NAME, (int)status);
 				if (status == errSecSuccess) {
 					CFReleaseSafe(error);
@@ -360,13 +377,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			goto cleanup;
 		}
 
-		status = SecCertificateCopyPublicKey(certificate, &pubKey);
+		status = SecCertificateCopyPublicKey(certificate, &pub_key);
 		if (status != errSecSuccess) {
 			openpam_log(PAM_LOG_ERROR, "%s - failed to get public key", PM_DISPLAY_NAME);\
 			goto cleanup;
 		}
 
-		status = SecIdentityCopyPrivateKey(identity, &privateKey);
+		status = SecIdentityCopyPrivateKey(identity, &private_key);
 		if (status != errSecSuccess) {
 			openpam_log(PAM_LOG_ERROR, "%s - failed to get private key", PM_DISPLAY_NAME);\
 			goto cleanup;
@@ -380,7 +397,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 			goto cleanup;
 		}
 
-		status = verifySmartCardSigning(pubKey, privateKey);
+		status = verifySmartCardSigning(pub_key, private_key);
 		if (status == errSecSuccess) {
 			openpam_log(PAM_LOG_NOTICE, "%s - Smart card can be used for sign and verify", PM_DISPLAY_NAME);
 			retval = PAM_SUCCESS;
@@ -398,7 +415,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		if (geteuid() != 0) {
 			// unlock user keychain
 			char pin_context_buff[PATH_MAX];
-			if (copy_smartcard_unlock_context(pin_context_buff, PATH_MAX, token_id, cfPin, pub_key_hash, pub_key_hash_wrap)) {
+			if (copy_smartcard_unlock_context(pin_context_buff, PATH_MAX, token_id, cf_pin, pub_key_hash, pub_key_hash_wrap)) {
 				status = SecKeychainLogin((UInt32)strlen(user), user, (UInt32)strlen(pin_context_buff), pin_context_buff);
 				openpam_log(PAM_LOG_DEBUG, "%s - Keychain unlock result %d", PM_DISPLAY_NAME, (int)status);
 			} else {
@@ -412,12 +429,13 @@ cleanup:
 	CFReleaseSafe(token_id);
 	CFReleaseSafe(pub_key_hash);
 	CFReleaseSafe(pub_key_hash_wrap);
+	CFReleaseSafe(cf_user);
 // legacy support block start
 	CFReleaseSafe(keychain);
 	CFReleaseSafe(identity);
 	CFReleaseSafe(certificate);
-	CFReleaseSafe(pubKey);
-	CFReleaseSafe(privateKey);
+	CFReleaseSafe(pub_key);
+	CFReleaseSafe(private_key);
 // legacy support block end
 	return retval;
 }

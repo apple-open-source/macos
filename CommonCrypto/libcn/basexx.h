@@ -26,9 +26,9 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <dispatch/dispatch.h>
-#include "CommonNumerics.h"
-#include "CommonBaseXX.h"
+#include "../lib/ccDispatch.h"
+#include <CommonNumerics/CommonNumerics.h>
+#include <CommonNumerics/CommonBaseXX.h>
 
 typedef struct encoderConstants_t {
     uint32_t    baseNum;

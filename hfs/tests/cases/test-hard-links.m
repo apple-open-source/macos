@@ -167,7 +167,7 @@ static void run(void)
 			ssize_t res;
 			do {
 				res = fsgetpath(path, sizeof(path), &sfs.f_fsid, (uint64_t)sb.st_ino);
-			} while (res != -1 || errno == EAGAIN);
+			} while (res != -1);
 			assert_with_errno(errno == ENOENT);
 		});
 

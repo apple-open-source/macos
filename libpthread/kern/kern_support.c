@@ -1866,8 +1866,12 @@ _workq_open(struct proc *p, __unused int32_t *retval)
 		TAILQ_INIT(&wq->wq_thrunlist);
 		TAILQ_INIT(&wq->wq_thidlelist);
 
-		wq->wq_atimer_delayed_call = thread_call_allocate((thread_call_func_t)workqueue_add_timer, (thread_call_param_t)wq);
-		wq->wq_atimer_immediate_call = thread_call_allocate((thread_call_func_t)workqueue_add_timer, (thread_call_param_t)wq);
+		wq->wq_atimer_delayed_call =
+				thread_call_allocate_with_priority((thread_call_func_t)workqueue_add_timer,
+						(thread_call_param_t)wq, THREAD_CALL_PRIORITY_KERNEL);
+		wq->wq_atimer_immediate_call =
+				thread_call_allocate_with_priority((thread_call_func_t)workqueue_add_timer,
+						(thread_call_param_t)wq, THREAD_CALL_PRIORITY_KERNEL);
 
 		lck_spin_init(&wq->wq_lock, pthread_lck_grp, pthread_lck_attr);
 
@@ -2520,6 +2524,7 @@ parkit(struct workqueue *wq, struct threadlist *tl, thread_t thread)
 			us_to_wait = wq_reduce_pool_window_usecs / 100;
 		}
 
+		thread_set_pending_block_hint(thread, kThreadWaitParkedWorkQueue);
 		assert_wait_timeout_with_leeway((caddr_t)tl, (THREAD_INTERRUPTIBLE),
 				TIMEOUT_URGENCY_SYS_BACKGROUND|TIMEOUT_URGENCY_LEEWAY, us_to_wait,
 				wq_reduce_pool_window_usecs/10, NSEC_PER_USEC);
@@ -3018,6 +3023,7 @@ wq_unpark_continue(void* __unused ptr, wait_result_t wait_result)
 		workqueue_lock_spin(wq);
 
 		if ( !(tl->th_flags & TH_LIST_RUNNING)) {
+			thread_set_pending_block_hint(th, kThreadWaitParkedWorkQueue);
 			assert_wait((caddr_t)tl, (THREAD_INTERRUPTIBLE));
 
 			workqueue_unlock(wq);

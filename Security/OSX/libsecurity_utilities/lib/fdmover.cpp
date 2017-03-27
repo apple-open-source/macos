@@ -34,7 +34,7 @@ namespace Security {
 namespace IPPlusPlus {
 
 
-void *FdMover::Element::operator new (size_t base, size_t more)
+void *FdMover::Element::operator new (size_t base, ssize_t more)
 {
 	Element *element = (Element *)::malloc(CMSG_SPACE(more));
 	element->cmsg_len = (socklen_t)CMSG_LEN(more);
@@ -42,6 +42,11 @@ void *FdMover::Element::operator new (size_t base, size_t more)
 }
 
 void FdMover::Element::operator delete (void *data, size_t base)
+{
+    ::free(data);
+}
+
+void FdMover::Element::operator delete (void *data, ssize_t base)
 {
 	::free(data);
 }

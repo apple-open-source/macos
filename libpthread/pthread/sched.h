@@ -24,8 +24,8 @@
 #ifndef _SCHED_H_
 #define _SCHED_H_
 
-#include <pthread_impl.h>
 #include <sys/cdefs.h>
+#include <pthread_impl.h>
 
 __BEGIN_DECLS
 /*

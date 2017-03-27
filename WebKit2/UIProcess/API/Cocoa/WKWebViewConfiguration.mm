@@ -35,7 +35,7 @@
 #import "WKUserContentController.h"
 #import "WKWebViewContentProviderRegistry.h"
 #import "WeakObjCPtr.h"
-#import "_WKVisitedLinkProvider.h"
+#import "_WKVisitedLinkStore.h"
 #import "_WKWebsiteDataStoreInternal.h"
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <wtf/RetainPtr.h>
@@ -92,12 +92,12 @@ private:
     LazyInitialized<RetainPtr<WKWebsiteDataStore>> _websiteDataStore;
     WebKit::WeakObjCPtr<WKWebView> _relatedWebView;
     WebKit::WeakObjCPtr<WKWebView> _alternateWebViewForNavigationGestures;
-    BOOL _treatsSHA1SignedCertificatesAsInsecure;
     RetainPtr<NSString> _groupIdentifier;
     LazyInitialized<RetainPtr<NSString>> _applicationNameForUserAgent;
+    NSTimeInterval _incrementalRenderingSuppressionTimeout;
+    BOOL _treatsSHA1SignedCertificatesAsInsecure;
     BOOL _respectsImageOrientation;
     BOOL _printsBackgrounds;
-    CGFloat _incrementalRenderingSuppressionTimeout;
     BOOL _allowsJavaScriptMarkup;
     BOOL _convertsPositionStyleOnCopy;
     BOOL _allowsMetaRefresh;
@@ -123,10 +123,15 @@ private:
     BOOL _requiresUserActionForEditingControlsManager;
 #endif
     BOOL _initialCapitalizationEnabled;
+    BOOL _waitsForPaintAfterViewDidMoveToWindow;
+    BOOL _controlledByAutomation;
 
 #if ENABLE(APPLE_PAY)
     BOOL _applePayEnabled;
 #endif
+    BOOL _needsStorageAccessFromFileURLsQuirk;
+
+    NSString *_overrideContentSecurityPolicy;
 }
 
 - (instancetype)init
@@ -140,7 +145,7 @@ private:
     _inlineMediaPlaybackRequiresPlaysInlineAttribute = !_allowsInlineMediaPlayback;
     _allowsInlineMediaPlaybackAfterFullscreen = !_allowsInlineMediaPlayback;
     _mediaDataLoadsAutomatically = NO;
-    if (linkedOnOrAfter(WebKit::LibraryVersion::FirstWithMediaTypesRequiringUserActionForPlayback))
+    if (WebKit::linkedOnOrAfter(WebKit::SDKVersion::FirstWithMediaTypesRequiringUserActionForPlayback))
         _mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAudio;
     else
         _mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll;
@@ -174,6 +179,7 @@ private:
     _requiresUserActionForEditingControlsManager = NO;
 #endif
     _initialCapitalizationEnabled = YES;
+    _waitsForPaintAfterViewDidMoveToWindow = YES;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     _allowsAirPlayForMediaPlayback = YES;
@@ -185,6 +191,7 @@ private:
     _allowsMetaRefresh = YES;
     _allowUniversalAccessFromFileURLs = NO;
     _treatsSHA1SignedCertificatesAsInsecure = YES;
+    _needsStorageAccessFromFileURLsQuirk = YES;
 
     return self;
 }
@@ -284,6 +291,8 @@ private:
     configuration->_mediaTypesRequiringUserActionForPlayback = self->_mediaTypesRequiringUserActionForPlayback;
     configuration->_mainContentUserGestureOverrideEnabled = self->_mainContentUserGestureOverrideEnabled;
     configuration->_initialCapitalizationEnabled = self->_initialCapitalizationEnabled;
+    configuration->_waitsForPaintAfterViewDidMoveToWindow = self->_waitsForPaintAfterViewDidMoveToWindow;
+    configuration->_controlledByAutomation = self->_controlledByAutomation;
 
 #if PLATFORM(IOS)
     configuration->_allowsInlineMediaPlayback = self->_allowsInlineMediaPlayback;
@@ -310,6 +319,8 @@ private:
 #if ENABLE(APPLE_PAY)
     configuration->_applePayEnabled = self->_applePayEnabled;
 #endif
+    configuration->_needsStorageAccessFromFileURLsQuirk = self->_needsStorageAccessFromFileURLsQuirk;
+    configuration->_overrideContentSecurityPolicy = self->_overrideContentSecurityPolicy;
 
     return configuration;
 }
@@ -394,16 +405,6 @@ static NSString *defaultApplicationNameForUserAgent()
 - (void)_setWebsiteDataStore:(_WKWebsiteDataStore *)websiteDataStore
 {
     self.websiteDataStore = websiteDataStore ? websiteDataStore->_dataStore.get() : nullptr;
-}
-
--(_WKVisitedLinkProvider *)_visitedLinkProvider
-{
-    return (_WKVisitedLinkProvider *)self._visitedLinkStore;
-}
-
-- (void)_setVisitedLinkProvider:(_WKVisitedLinkProvider *)_visitedLinkProvider
-{
-    self._visitedLinkStore = _visitedLinkProvider;
 }
 
 #pragma clang diagnostic pop
@@ -507,12 +508,12 @@ static NSString *defaultApplicationNameForUserAgent()
     _printsBackgrounds = printsBackgrounds;
 }
 
-- (CGFloat)_incrementalRenderingSuppressionTimeout
+- (NSTimeInterval)_incrementalRenderingSuppressionTimeout
 {
     return _incrementalRenderingSuppressionTimeout;
 }
 
-- (void)_setIncrementalRenderingSuppressionTimeout:(CGFloat)incrementalRenderingSuppressionTimeout
+- (void)_setIncrementalRenderingSuppressionTimeout:(NSTimeInterval)incrementalRenderingSuppressionTimeout
 {
     _incrementalRenderingSuppressionTimeout = incrementalRenderingSuppressionTimeout;
 }
@@ -665,6 +666,26 @@ static NSString *defaultApplicationNameForUserAgent()
     _initialCapitalizationEnabled = initialCapitalizationEnabled;
 }
 
+- (BOOL)_waitsForPaintAfterViewDidMoveToWindow
+{
+    return _waitsForPaintAfterViewDidMoveToWindow;
+}
+
+- (void)_setWaitsForPaintAfterViewDidMoveToWindow:(BOOL)shouldSynchronize
+{
+    _waitsForPaintAfterViewDidMoveToWindow = shouldSynchronize;
+}
+
+- (BOOL)_isControlledByAutomation
+{
+    return _controlledByAutomation;
+}
+
+- (void)_setControlledByAutomation:(BOOL)controlledByAutomation
+{
+    _controlledByAutomation = controlledByAutomation;
+}
+
 #if PLATFORM(MAC)
 - (BOOL)_showsURLsInToolTips
 {
@@ -724,6 +745,26 @@ static NSString *defaultApplicationNameForUserAgent()
 #endif
 }
 
+- (BOOL)_needsStorageAccessFromFileURLsQuirk
+{
+    return _needsStorageAccessFromFileURLsQuirk;
+}
+
+- (void)_setNeedsStorageAccessFromFileURLsQuirk:(BOOL)needsLocalStorageQuirk
+{
+    _needsStorageAccessFromFileURLsQuirk = needsLocalStorageQuirk;
+}
+
+- (NSString *)_overrideContentSecurityPolicy
+{
+    return _overrideContentSecurityPolicy;
+}
+
+- (void)_setOverrideContentSecurityPolicy:(NSString *)overrideContentSecurityPolicy
+{
+    _overrideContentSecurityPolicy = overrideContentSecurityPolicy;
+}
+
 @end
 
 @implementation WKWebViewConfiguration (WKDeprecated)
@@ -760,6 +801,20 @@ static NSString *defaultApplicationNameForUserAgent()
 }
 
 #endif // PLATFORM(IOS)
+
+@end
+
+@implementation WKWebViewConfiguration (WKBinaryCompatibilityWithIOS10)
+
+-(_WKVisitedLinkStore *)_visitedLinkProvider
+{
+    return self._visitedLinkStore;
+}
+
+- (void)_setVisitedLinkProvider:(_WKVisitedLinkStore *)visitedLinkProvider
+{
+    self._visitedLinkStore = visitedLinkProvider;
+}
 
 @end
 

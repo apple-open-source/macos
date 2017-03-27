@@ -607,7 +607,7 @@ et{
         was{"vašo"}
         wbp{"varlpiri"}
         wo{"volofi"}
-        wuu{"uu"}
+        wuu{"shanghainese"}
         xal{"kalmõki"}
         xh{"koosa"}
         xmf{"megreli"}

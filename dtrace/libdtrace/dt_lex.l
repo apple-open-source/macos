@@ -293,7 +293,7 @@ if (yypcb->pcb_token != 0) {
 		}
 
 <S0>"$$"{RGX_IDENT} {
-			dt_ident_t *idp = dt_idhash_lookup(
+			dt_ident_t *idp = dt_macro_lookup(
 			    yypcb->pcb_hdl->dt_macros, yytext + 2);
 
 			char s[16]; /* enough for UINT_MAX + \0 */
@@ -315,7 +315,7 @@ if (yypcb->pcb_token != 0) {
 		}
 
 <S0>"$"{RGX_IDENT} {
-			dt_ident_t *idp = dt_idhash_lookup(
+			dt_ident_t *idp = dt_macro_lookup(
 			    yypcb->pcb_hdl->dt_macros, yytext + 1);
 
 			if (idp == NULL) {

@@ -30,6 +30,7 @@
 #include "HTMLParserIdioms.h"
 #include "MediaFeatureNames.h"
 #include "MediaQuery.h"
+#include "MediaQueryParser.h"
 #include "ScriptableDocumentParser.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
@@ -64,35 +65,21 @@ namespace WebCore {
  * throw SYNTAX_ERR exception.
  */
     
-MediaQuerySet::MediaQuerySet()
-    : m_fallbackToDescriptor(false)
-    , m_lastLine(0)
+Ref<MediaQuerySet> MediaQuerySet::create(const String& mediaString)
 {
+    if (mediaString.isEmpty())
+        return MediaQuerySet::create();
+    
+    return MediaQueryParser::parseMediaQuerySet(mediaString).releaseNonNull();
 }
 
-MediaQuerySet::MediaQuerySet(const String& mediaString, bool fallbackToDescriptor)
-    : m_fallbackToDescriptor(fallbackToDescriptor)
-    , m_lastLine(0)
+MediaQuerySet::MediaQuerySet()
+    : m_lastLine(0)
 {
-    bool success = parse(mediaString);
-
-    // FIXME: parsing can fail. The problem with failing constructor is that
-    // we would need additional flag saying MediaList is not valid
-    // Parse can fail only when fallbackToDescriptor == false, i.e when HTML4 media descriptor
-    // forward-compatible syntax is not in use.
-    // DOMImplementationCSS seems to mandate that media descriptors are used
-    // for both HTML and SVG, even though svg:style doesn't use media descriptors
-    // Currently the only places where parsing can fail are
-    // creating <svg:style>, creating css media / import rules from js
-
-    // FIXME: This doesn't make much sense.
-    if (!success)
-        parse("invalid");
 }
 
 MediaQuerySet::MediaQuerySet(const MediaQuerySet& o)
     : RefCounted()
-    , m_fallbackToDescriptor(o.m_fallbackToDescriptor)
     , m_lastLine(o.m_lastLine)
     , m_queries(o.m_queries)
 {
@@ -102,82 +89,60 @@ MediaQuerySet::~MediaQuerySet()
 {
 }
 
-static String parseMediaDescriptor(const String& string)
+bool MediaQuerySet::set(const String& mediaString)
 {
-    // http://www.w3.org/TR/REC-html40/types.html#type-media-descriptors
-    // "Each entry is truncated just before the first character that isn't a
-    // US ASCII letter [a-zA-Z] (ISO 10646 hex 41-5a, 61-7a), digit [0-9] (hex 30-39),
-    // or hyphen (hex 2d)."
-    unsigned length = string.length();
-    unsigned i;
-    for (i = 0; i < length; ++i) {
-        auto character = string[i];
-        if (!(isASCIIAlphanumeric(character) || character == '-'))
-            break;
-    }
-    return string.left(i);
-}
-
-Optional<MediaQuery> MediaQuerySet::internalParse(CSSParser& parser, const String& queryString)
-{
-    if (auto query = parser.parseMediaQuery(queryString))
-        return WTFMove(*query);
-    if (!m_fallbackToDescriptor)
-        return Nullopt;
-    return MediaQuery { MediaQuery::None, parseMediaDescriptor(queryString), Vector<MediaQueryExpression> { } };
-}
-
-Optional<MediaQuery> MediaQuerySet::internalParse(const String& queryString)
-{
-    CSSParser parser(CSSStrictMode);
-    return internalParse(parser, queryString);
-}
-
-bool MediaQuerySet::parse(const String& mediaString)
-{
-    CSSParser parser(CSSStrictMode);
-    
-    Vector<MediaQuery> result;
-    Vector<String> list;
-    mediaString.split(',', list);
-    for (auto& listString : list) {
-        String medium = stripLeadingAndTrailingHTMLSpaces(listString);
-        if (medium.isEmpty()) {
-            if (m_fallbackToDescriptor)
-                continue;
-        } else if (auto query = internalParse(parser, medium)) {
-            result.append(WTFMove(query.value()));
-            continue;
-        }
-        return false;
-    }
-    // ",,,," falls straight through, but is not valid unless fallback
-    if (!m_fallbackToDescriptor && list.isEmpty()) {
-        String strippedMediaString = stripLeadingAndTrailingHTMLSpaces(mediaString);
-        if (!strippedMediaString.isEmpty())
-            return false;
-    }
-    m_queries = WTFMove(result);
+    auto result = create(mediaString);
+    m_queries.swap(result->m_queries);
     return true;
 }
 
 bool MediaQuerySet::add(const String& queryString)
 {
-    auto parsedQuery = internalParse(queryString);
-    if (!parsedQuery)
-        return false;
-    m_queries.append(WTFMove(parsedQuery.value()));
+    // To "parse a media query" for a given string means to follow "the parse
+    // a media query list" steps and return "null" if more than one media query
+    // is returned, or else the returned media query.
+    auto result = create(queryString);
+    
+    // Only continue if exactly one media query is found, as described above.
+    if (result->m_queries.size() != 1)
+        return true;
+    
+    // If comparing with any of the media queries in the collection of media
+    // queries returns true terminate these steps.
+    for (size_t i = 0; i < m_queries.size(); ++i) {
+        if (m_queries[i] == result->m_queries[0])
+            return true;
+    }
+    
+    m_queries.append(result->m_queries[0]);
     return true;
 }
 
-bool MediaQuerySet::remove(const String& queryString)
+bool MediaQuerySet::remove(const String& queryStringToRemove)
 {
-    auto parsedQuery = internalParse(queryString);
-    if (!parsedQuery)
-        return false;
-    return m_queries.removeFirstMatching([&parsedQuery](auto& query) {
-        return query == parsedQuery.value();
-    });
+    // To "parse a media query" for a given string means to follow "the parse
+    // a media query list" steps and return "null" if more than one media query
+    // is returned, or else the returned media query.
+    auto result = create(queryStringToRemove);
+    
+    // Only continue if exactly one media query is found, as described above.
+    if (result->m_queries.size() != 1)
+        return true;
+    
+    // Remove any media query from the collection of media queries for which
+    // comparing with the media query returns true.
+    bool found = false;
+    
+    // Using signed int here, since for the first value, --i will result in -1.
+    for (int i = 0; i < (int)m_queries.size(); ++i) {
+        if (m_queries[i] == result->m_queries[0]) {
+            m_queries.remove(i);
+            --i;
+            found = true;
+        }
+    }
+    
+    return found;
 }
 
 void MediaQuerySet::addMediaQuery(MediaQuery&& mediaQuery)
@@ -198,6 +163,13 @@ String MediaQuerySet::mediaText() const
     return text.toString();
 }
 
+void MediaQuerySet::shrinkToFit()
+{
+    m_queries.shrinkToFit();
+    for (auto& query : m_queries)
+        query.shrinkToFit();
+}
+
 MediaList::MediaList(MediaQuerySet* mediaQueries, CSSStyleSheet* parentSheet)
     : m_mediaQueries(mediaQueries)
     , m_parentStyleSheet(parentSheet)
@@ -214,15 +186,13 @@ MediaList::~MediaList()
 {
 }
 
-void MediaList::setMediaText(const String& value, ExceptionCode& ec)
+ExceptionOr<void> MediaList::setMediaText(const String& value)
 {
     CSSStyleSheet::RuleMutationScope mutationScope(m_parentRule);
-    if (!m_mediaQueries->parse(value)) {
-        ec = SYNTAX_ERR;
-        return;
-    }
+    m_mediaQueries->set(value);
     if (m_parentStyleSheet)
         m_parentStyleSheet->didMutate();
+    return { };
 }
 
 String MediaList::item(unsigned index) const
@@ -233,31 +203,30 @@ String MediaList::item(unsigned index) const
     return String();
 }
 
-void MediaList::deleteMedium(const String& medium, ExceptionCode& ec)
+ExceptionOr<void> MediaList::deleteMedium(const String& medium)
 {
     CSSStyleSheet::RuleMutationScope mutationScope(m_parentRule);
 
     bool success = m_mediaQueries->remove(medium);
-    if (!success) {
-        ec = NOT_FOUND_ERR;
-        return;
-    }
+    if (!success)
+        return Exception { NOT_FOUND_ERR };
     if (m_parentStyleSheet)
         m_parentStyleSheet->didMutate();
+    return { };
 }
 
-void MediaList::appendMedium(const String& medium, ExceptionCode& ec)
+ExceptionOr<void> MediaList::appendMedium(const String& medium)
 {
     CSSStyleSheet::RuleMutationScope mutationScope(m_parentRule);
 
     bool success = m_mediaQueries->add(medium);
     if (!success) {
         // FIXME: Should this really be INVALID_CHARACTER_ERR?
-        ec = INVALID_CHARACTER_ERR;
-        return;
+        return Exception { INVALID_CHARACTER_ERR };
     }
     if (m_parentStyleSheet)
         m_parentStyleSheet->didMutate();
+    return { };
 }
 
 void MediaList::reattach(MediaQuerySet* mediaQueries)

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef File_h
-#define File_h
+#pragma once
 
 #include "Blob.h"
 #include <wtf/Optional.h>
@@ -38,15 +37,19 @@ class URL;
 
 class File final : public Blob {
 public:
+    struct PropertyBag : BlobPropertyBag {
+        std::optional<long long> lastModified;
+    };
+
     static Ref<File> create(const String& path)
     {
         return adoptRef(*new File(path));
     }
 
     // Create a File using the 'new File' constructor.
-    static Ref<File> create(Vector<BlobPart> blobParts, const String& filename, const String& contentType, int64_t lastModified)
+    static Ref<File> create(Vector<BlobPartVariant>&& blobPartVariants, const String& filename, const PropertyBag& propertyBag)
     {
-        return adoptRef(*new File(WTFMove(blobParts), filename, contentType, lastModified));
+        return adoptRef(*new File(WTFMove(blobPartVariants), filename, propertyBag));
     }
 
     static Ref<File> deserialize(const String& path, const URL& srcURL, const String& type, const String& name)
@@ -66,7 +69,7 @@ public:
 
     const String& path() const { return m_path; }
     const String& name() const { return m_name; }
-    double lastModified() const;
+    WEBCORE_EXPORT double lastModified() const;
 
     static String contentTypeForFile(const String& path);
 
@@ -77,7 +80,7 @@ public:
 private:
     WEBCORE_EXPORT explicit File(const String& path);
     File(const String& path, const String& nameOverride);
-    File(Vector<BlobPart>&& blobParts, const String& filename, const String& contentType, int64_t lastModified);
+    File(Vector<BlobPartVariant>&& blobPartVariants, const String& filename, const PropertyBag&);
 
     File(DeserializationContructor, const String& path, const URL& srcURL, const String& type, const String& name);
 
@@ -89,8 +92,7 @@ private:
     String m_path;
     String m_name;
 
-    Optional<String> m_overrideFilename;
-    Optional<int64_t> m_overrideLastModifiedDate;
+    std::optional<int64_t> m_overrideLastModifiedDate;
 };
 
 } // namespace WebCore
@@ -98,5 +100,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::File)
     static bool isType(const WebCore::Blob& blob) { return blob.isFile(); }
 SPECIALIZE_TYPE_TRAITS_END()
-
-#endif // File_h

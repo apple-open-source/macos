@@ -22,14 +22,12 @@
 
 messages -> WebPage LegacyReceiver {
     SetInitialFocus(bool forward, bool isKeyboardEventValid, WebKit::WebKeyboardEvent event, uint64_t callbackID)
-    SetViewState(unsigned viewState, bool wantsDidUpdateViewState, Vector<uint64_t> callbackIDs)
+    SetActivityState(unsigned activityState, bool wantsDidUpdateActivityState, Vector<uint64_t> callbackIDs)
     SetLayerHostingMode(enum WebKit::LayerHostingMode layerHostingMode)
-
-    SetSessionID(WebCore::SessionID sessionID)
 
     SetDrawsBackground(bool drawsBackground)
 
-#if PLATFORM(COCOA)
+#if HAVE(COREANIMATION_FENCES)
     SetTopContentInsetFenced(float contentInset, IPC::Attachment fencePort)
 #endif
     SetTopContentInset(float contentInset)
@@ -78,8 +76,8 @@ messages -> WebPage LegacyReceiver {
     SyncApplyAutocorrection(String correction, String originalText) -> (bool autocorrectionApplied)
     RequestAutocorrectionContext(uint64_t callbackID)
     GetAutocorrectionContext() -> (String beforeContext, String markedText, String selectedText, String afterContext, uint64_t location, uint64_t length) 
-    GetPositionInformation(WebCore::IntPoint point) -> (struct WebKit::InteractionInformationAtPosition information)
-    RequestPositionInformation(WebCore::IntPoint point)
+    GetPositionInformation(struct WebKit::InteractionInformationRequest request) -> (struct WebKit::InteractionInformationAtPosition information)
+    RequestPositionInformation(struct WebKit::InteractionInformationRequest request)
     StartInteractionWithElementAtPosition(WebCore::IntPoint point)
     StopInteraction()
     PerformActionOnElement(uint32_t action)
@@ -202,6 +200,8 @@ messages -> WebPage LegacyReceiver {
     SetTextZoomFactor(double zoomFactor)
     WindowScreenDidChange(uint32_t displayID)
 
+    AccessibilitySettingsDidChange()
+
     ScalePage(double scale, WebCore::IntPoint origin)
     ScalePageInViewCoordinates(double scale, WebCore::IntPoint centerInViewCoordinates)
     ScaleView(double scale)
@@ -236,10 +236,10 @@ messages -> WebPage LegacyReceiver {
 
     # Drag and drop.
 #if PLATFORM(GTK) && ENABLE(DRAG_SUPPORT)
-    PerformDragControllerAction(uint64_t action, WebCore::DragData dragData)
+    PerformDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, struct WebKit::WebSelectionData selection, uint32_t flags)
 #endif
 #if !PLATFORM(GTK) && ENABLE(DRAG_SUPPORT)
-    PerformDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, String dragStorageName, uint32_t flags, WebKit::SandboxExtension::Handle sandboxExtensionHandle, WebKit::SandboxExtension::HandleArray sandboxExtensionsForUpload)
+    PerformDragControllerAction(uint64_t action, WebCore::DragData dragData, WebKit::SandboxExtension::Handle sandboxExtensionHandle, WebKit::SandboxExtension::HandleArray sandboxExtensionsForUpload)
 #endif
 #if ENABLE(DRAG_SUPPORT)
     DidStartDrag()
@@ -289,8 +289,11 @@ messages -> WebPage LegacyReceiver {
 
 #if ENABLE(MEDIA_STREAM)
     # MediaSteam
-    DidReceiveUserMediaPermissionDecision(uint64_t userMediaID, bool allowed, String audioDeviceUID, String videoDeviceUID)
-    DidCompleteUserMediaPermissionCheck(uint64_t userMediaID, String mediaDeviceIdentifierHashSalt, bool allowed)
+    UserMediaAccessWasGranted(uint64_t userMediaID, String audioDeviceUID, String videoDeviceUID)
+    UserMediaAccessWasDenied(uint64_t userMediaID, uint64_t reason, String invalidConstraint)
+    DidCompleteMediaDeviceEnumeration(uint64_t userMediaID, Vector<WebCore::CaptureDevice> devices, String mediaDeviceIdentifierHashSalt, bool hasPersistentAccess)
+    GrantUserMediaDeviceSandboxExtensions(WebKit::MediaDeviceSandboxExtensions sandboxExtensions)
+    RevokeUserMediaDeviceSandboxExtensions(Vector<String> sandboxExtensionIDs)
 #endif
 
     # Notification
@@ -313,7 +316,7 @@ messages -> WebPage LegacyReceiver {
 
     # Media
     SetMediaVolume(float volume)
-    SetMuted(bool muted)
+    SetMuted(WebCore::MediaProducer::MutedStateFlags muted)
     SetMayStartMediaWhenInWindow(bool mayStartMedia)
 
 #if ENABLE(MEDIA_SESSION)
@@ -340,6 +343,8 @@ messages -> WebPage LegacyReceiver {
     SetComposition(String text, Vector<WebCore::CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
     ConfirmComposition(String text, int64_t selectionStart, int64_t selectionLength)
     CancelComposition()
+
+    CollapseSelectionInFrame(uint64_t frameID)
 #endif
 
 #if PLATFORM (GTK) && HAVE(GTK_GESTURES)
@@ -399,9 +404,11 @@ messages -> WebPage LegacyReceiver {
 #endif
 
     SetScrollPinningBehavior(uint32_t pinning)
-    SetScrollbarOverlayStyle(Optional<uint32_t> scrollbarStyle)
+    SetScrollbarOverlayStyle(std::optional<uint32_t> scrollbarStyle)
 
     GetBytecodeProfile(uint64_t callbackID)
+
+    GetSamplingProfilerOutput(uint64_t callbackID)
     
     TakeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options, uint64_t callbackID)
 #if PLATFORM(MAC)
@@ -409,10 +416,18 @@ messages -> WebPage LegacyReceiver {
     ImmediateActionDidUpdate()
     ImmediateActionDidCancel()
     ImmediateActionDidComplete()
+
     DataDetectorsDidPresentUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
     DataDetectorsDidChangeUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
     DataDetectorsDidHideUI(WebCore::PageOverlay::PageOverlayID pageOverlay)
+
     HandleAcceptedCandidate(struct WebCore::TextCheckingResult acceptedCandidate)
+
+    SetHeaderBannerHeightForTesting(int height);
+    SetFooterBannerHeightForTesting(int height);
+#endif
+
+#if PLATFORM(COCOA)
     RequestActiveNowPlayingSessionInfo()
 #endif
 
@@ -422,6 +437,12 @@ messages -> WebPage LegacyReceiver {
     PlaybackTargetSelected(uint64_t contextId, WebCore::MediaPlaybackTargetContext target)
     PlaybackTargetAvailabilityDidChange(uint64_t contextId, bool available)
     SetShouldPlayToPlaybackTarget(uint64_t contextId, bool shouldPlay)
+#endif
+
+#if ENABLE(POINTER_LOCK)
+    DidAcquirePointerLock()
+    DidNotAcquirePointerLock()
+    DidLosePointerLock()
 #endif
 
     ClearWheelEventTestTrigger()
@@ -434,4 +455,11 @@ messages -> WebPage LegacyReceiver {
     SetResourceCachingDisabled(bool disabled)
 
     SetUserInterfaceLayoutDirection(uint32_t direction)
+
+    DidGetLoadDecisionForIcon(bool decision, uint64_t loadIdentifier, uint64_t newCallbackID)
+    SetUseIconLoadingClient(bool useIconLoadingClient)
+
+#if ENABLE(GAMEPAD)
+    GamepadActivity(Vector<WebKit::GamepadData> gamepadDatas, bool shouldMakeGamepadsVisible)
+#endif
 }

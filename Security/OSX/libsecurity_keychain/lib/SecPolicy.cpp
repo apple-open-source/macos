@@ -41,61 +41,14 @@
 
 #define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
 
-#if !SECTRUST_OSX
-SEC_CONST_DECL (kSecPolicyAppleX509Basic, "1.2.840.113635.100.1.2");
-SEC_CONST_DECL (kSecPolicyAppleSSL, "1.2.840.113635.100.1.3");
-SEC_CONST_DECL (kSecPolicyAppleSMIME, "1.2.840.113635.100.1.8");
-SEC_CONST_DECL (kSecPolicyAppleEAP, "1.2.840.113635.100.1.9");
-SEC_CONST_DECL (kSecPolicyAppleSWUpdateSigning, "1.2.840.113635.100.1.10");
-SEC_CONST_DECL (kSecPolicyAppleIPsec, "1.2.840.113635.100.1.11");
-SEC_CONST_DECL (kSecPolicyAppleiChat, "1.2.840.113635.100.1.12");
-SEC_CONST_DECL (kSecPolicyApplePKINITClient, "1.2.840.113635.100.1.14");
-SEC_CONST_DECL (kSecPolicyApplePKINITServer, "1.2.840.113635.100.1.15");
-SEC_CONST_DECL (kSecPolicyAppleCodeSigning, "1.2.840.113635.100.1.16");
-SEC_CONST_DECL (kSecPolicyApplePackageSigning, "1.2.840.113635.100.1.17");
-SEC_CONST_DECL (kSecPolicyAppleIDValidation, "1.2.840.113635.100.1.18");
-SEC_CONST_DECL (kSecPolicyMacAppStoreReceipt, "1.2.840.113635.100.1.19");
-SEC_CONST_DECL (kSecPolicyAppleTimeStamping, "1.2.840.113635.100.1.20");
-SEC_CONST_DECL (kSecPolicyAppleRevocation, "1.2.840.113635.100.1.21");
-SEC_CONST_DECL (kSecPolicyApplePassbookSigning, "1.2.840.113635.100.1.22");
-SEC_CONST_DECL (kSecPolicyAppleMobileStore, "1.2.840.113635.100.1.23");
-SEC_CONST_DECL (kSecPolicyAppleEscrowService, "1.2.840.113635.100.1.24");
-SEC_CONST_DECL (kSecPolicyAppleProfileSigner, "1.2.840.113635.100.1.25");
-SEC_CONST_DECL (kSecPolicyAppleQAProfileSigner, "1.2.840.113635.100.1.26");
-SEC_CONST_DECL (kSecPolicyAppleTestMobileStore, "1.2.840.113635.100.1.27");
-SEC_CONST_DECL (kSecPolicyAppleOTAPKISigner, "1.2.840.113635.100.1.28");
-SEC_CONST_DECL (kSecPolicyAppleTestOTAPKISigner, "1.2.840.113635.100.1.29");
-/* FIXME: this policy name should be deprecated and replaced with "kSecPolicyAppleIDValidationRecordSigning" */
-SEC_CONST_DECL (kSecPolicyAppleIDValidationRecordSigningPolicy, "1.2.840.113635.100.1.30");
-SEC_CONST_DECL (kSecPolicyAppleSMPEncryption, "1.2.840.113635.100.1.31");
-SEC_CONST_DECL (kSecPolicyAppleTestSMPEncryption, "1.2.840.113635.100.1.32");
-SEC_CONST_DECL (kSecPolicyAppleServerAuthentication, "1.2.840.113635.100.1.33");
-SEC_CONST_DECL (kSecPolicyApplePCSEscrowService, "1.2.840.113635.100.1.34");
-SEC_CONST_DECL (kSecPolicyApplePPQSigning, "1.2.840.113635.100.1.35");
-SEC_CONST_DECL (kSecPolicyAppleTestPPQSigning, "1.2.840.113635.100.1.36");
-SEC_CONST_DECL (kSecPolicyApplePayIssuerEncryption, "1.2.840.113635.100.1.39");
-SEC_CONST_DECL (kSecPolicyAppleOSXProvisioningProfileSigning, "1.2.840.113635.100.1.40");
-SEC_CONST_DECL (kSecPolicyAppleAST2DiagnosticsServerAuth, "1.2.840.113635.100.1.42");
-SEC_CONST_DECL (kSecPolicyAppleEscrowProxyServerAuth, "1.2.840.113635.100.1.43");
-SEC_CONST_DECL (kSecPolicyAppleFMiPServerAuth, "1.2.840.113635.100.1.44");
-
-SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
-SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
-SEC_CONST_DECL (kSecPolicyClient, "SecPolicyClient");
-SEC_CONST_DECL (kSecPolicyRevocationFlags, "SecPolicyRevocationFlags");
-SEC_CONST_DECL (kSecPolicyTeamIdentifier, "SecPolicyTeamIdentifier");
-#else
 /* Some of these aren't defined in SecPolicy.c, but used here. */
 SEC_CONST_DECL (kSecPolicyAppleiChat, "1.2.840.113635.100.1.12");
-#endif
 
 // Private functions
 
 extern "C" {
-#if SECTRUST_OSX
 CFDictionaryRef SecPolicyGetOptions(SecPolicyRef policy);
 void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef value);
-#endif
 }
 
 // String to CSSM_OID mapping
@@ -155,7 +108,6 @@ const oidmap_entry_t oidmap[] = {
 	{ kSecPolicyAppleOSXProvisioningProfileSigning, &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
 };
 
-#if SECTRUST_OSX
 const oidmap_entry_t oidmap_priv[] = {
     { CFSTR("basicX509"), &CSSMOID_APPLE_X509_BASIC },
     { CFSTR("sslServer"), &CSSMOID_APPLE_TP_SSL },
@@ -181,20 +133,6 @@ const oidmap_entry_t oidmap_priv[] = {
     { CFSTR("ApplePCSEscrowService"), &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
     { CFSTR("AppleOSXProvisioningProfileSigning"), &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
 };
-#endif
-
-//
-// CF boilerplate
-//
-#if !SECTRUST_OSX
-CFTypeID
-SecPolicyGetTypeID(void)
-{
-	BEGIN_SECAPI
-	return gTypes().Policy.typeID;
-	END_SECAPI1(_kCFRuntimeNotATypeID)
-}
-#endif
 
 //
 // Sec API bridge functions
@@ -203,11 +141,6 @@ SecPolicyGetTypeID(void)
 OSStatus
 SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-	Required(oid) = Policy::required(policyRef)->oid();
-	END_SECAPI
-#else
 	/* bridge to support old functionality */
 	if (!policyRef) {
 		return errSecParam;
@@ -244,7 +177,6 @@ SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
     CFShow(oidStr);
 	syslog(LOG_ERR, "WARNING: SecPolicyGetOID failed to return an OID. This function was deprecated in 10.7. Please use SecPolicyCopyProperties instead.");
 	return errSecServiceNotAvailable;
-#endif
 }
 
 // TODO: use a version of this function from a utility library
@@ -283,7 +215,6 @@ CFStringRef SecPolicyGetStringForOID(CSSM_OID* oid)
 	return NULL;
 }
 
-#if SECTRUST_OSX
 static bool SecPolicyGetCSSMDataValueForString(SecPolicyRef policyRef, CFStringRef stringRef, CSSM_DATA* value)
 {
 	// Old API expects to vend a pointer and length for a policy value.
@@ -319,17 +250,11 @@ static bool SecPolicyGetCSSMDataValueForString(SecPolicyRef policyRef, CFStringR
 	}
 	return true;
 }
-#endif
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-	Required(value) = Policy::required(policyRef)->value();
-	END_SECAPI
-#else
 	/* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecPolicyGetValue was deprecated in 10.7. Please use SecPolicyCopyProperties instead.");
@@ -368,39 +293,12 @@ SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 		value->Length = 0;
 	}
 	return errSecSuccess;
-#endif
 }
-
-#if !SECTRUST_OSX
-CFDictionaryRef
-SecPolicyCopyProperties(SecPolicyRef policyRef)
-{
-	/* can't use SECAPI macros, since this function does not return OSStatus */
-	CFDictionaryRef result = NULL;
-	try {
-		result = Policy::required(policyRef)->properties();
-	}
-	catch (...) {
-		if (result) {
-			CFRelease(result);
-			result = NULL;
-		}
-	};
-	return result;
-}
-#endif
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-	Required(value);
-	const CssmData newValue(value->Data, value->Length);
-	Policy::required(policyRef)->setValue(newValue);
-	END_SECAPI
-#else
 	/* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecPolicySetValue was deprecated in 10.7. Please use SecPolicySetProperties instead.");
@@ -511,60 +409,23 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 	if (data) { CFRelease(data); }
 	if (name) { CFRelease(name); }
 	return status;
-#endif
 }
-
-#if !SECTRUST_OSX
-OSStatus
-SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properties)
-{
-	BEGIN_SECAPI
-	Policy::required(policyRef)->setProperties(properties);
-	END_SECAPI
-}
-#endif
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE* tpHandle)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-	Required(tpHandle) = Policy::required(policyRef)->tp()->handle();
-	END_SECAPI
-#else
 	/* this function is unsupported in unified SecTrust */
 #if SECTRUST_DEPRECATION_WARNINGS
 	syslog(LOG_ERR, "WARNING: SecPolicyGetTPHandle was deprecated in 10.7, and does nothing in 10.11. Please stop using it.");
 #endif
 	return errSecServiceNotAvailable;
-#endif
 }
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicyCopyAll(CSSM_CERT_TYPE certificateType, CFArrayRef* policies)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-	Required(policies);
-	CFMutableArrayRef currPolicies = NULL;
-	currPolicies = CFArrayCreateMutable(NULL, 0, NULL);
-	if ( currPolicies )
-	{
-		SecPointer<PolicyCursor> cursor(new PolicyCursor(NULL, NULL));
-		SecPointer<Policy> policy;
-		while ( cursor->next(policy) ) /* copies the next policy */
-		{
-			CFArrayAppendValue(currPolicies, policy->handle());  /* 'SecPolicyRef' appended */
-			CFRelease(policy->handle()); /* refcount bumped up when appended to array */
-		}
-		*policies = CFArrayCreateCopy(NULL, currPolicies);
-		CFRelease(currPolicies);
-		CFRelease(cursor->handle());
-	}
-	END_SECAPI
-#else
 	/* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecPolicyCopyAll was deprecated in 10.7. Please use SecPolicy creation functions instead.");
@@ -607,21 +468,16 @@ SecPolicyCopyAll(CSSM_CERT_TYPE certificateType, CFArrayRef* policies)
 	*policies = CFArrayCreateCopy(NULL, curPolicies);
 	CFRelease(curPolicies);
 	return errSecSuccess;
-#endif
 }
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
 SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPolicyRef* policy)
 {
-#if !SECTRUST_OSX
-	Required(policy);
-	Required(policyOID);
-#else
 	if (!policyOID || !policy) {
 		return errSecParam;
 	}
-#endif
+
 	SecPolicySearchRef srchRef = NULL;
 	OSStatus ortn;
 
@@ -638,9 +494,6 @@ SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPoli
 SecPolicyRef
 SecPolicyCreateItemImplInstance(SecPolicyRef policy)
 {
-#if !SECTRUST_OSX
-    return (SecPolicyRef)(policy ? CFRetain(policy) : NULL);
-#else
 	if (!policy) {
 		return NULL;
 	}
@@ -664,87 +517,7 @@ SecPolicyCreateItemImplInstance(SecPolicyRef policy)
 		CFRelease(properties);
 	}
 	return policyRef;
-#endif
 }
-
-#if !SECTRUST_OSX
-/* new in 10.6 */
-SecPolicyRef
-SecPolicyCreateBasicX509(void)
-{
-	// return a SecPolicyRef object for the X.509 Basic policy
-	SecPolicyRef policy = nil;
-	SecPolicySearchRef policySearch = nil;
-	OSStatus status = SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_X509_BASIC, NULL, &policySearch);
-	if (!status) {
-		status = SecPolicySearchCopyNext(policySearch, &policy);
-	}
-	if (policySearch) {
-		CFRelease(policySearch);
-	}
-	return policy;
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.6 */
-SecPolicyRef
-SecPolicyCreateSSL(Boolean server, CFStringRef hostname)
-{
-	// return a SecPolicyRef object for the SSL policy, given hostname and client options
-	SecPolicyRef policy = nil;
-	SecPolicySearchRef policySearch = nil;
-	OSStatus status = SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_SSL, NULL, &policySearch);
-	if (!status) {
-		status = SecPolicySearchCopyNext(policySearch, &policy);
-	}
-	if (!status && policy) {
-		// set options for client-side or server-side policy evaluation
-		char *strbuf = NULL;
-		const char *hostnamestr = NULL;
-		if (hostname) {
-			hostnamestr = CFStringGetCStringPtr(hostname, kCFStringEncodingUTF8);
-			if (hostnamestr == NULL) {
-                CFIndex maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(hostname), kCFStringEncodingUTF8) + 1;
-				strbuf = (char *)malloc(maxLen);
-				if (CFStringGetCString(hostname, strbuf, maxLen, kCFStringEncodingUTF8)) {
-					hostnamestr = strbuf;
-				}
-			}
-		}
-        uint32 hostnamelen = (hostnamestr) ? (uint32)strlen(hostnamestr) : 0;
-        uint32 flags = (!server) ? CSSM_APPLE_TP_SSL_CLIENT : 0;
-        CSSM_APPLE_TP_SSL_OPTIONS opts = {CSSM_APPLE_TP_SSL_OPTS_VERSION, hostnamelen, hostnamestr, flags};
-        CSSM_DATA data = {sizeof(opts), (uint8*)&opts};
-        SecPolicySetValue(policy, &data);
-
-		if (strbuf) {
-			free(strbuf);
-		}
-    }
-	if (policySearch) {
-		CFRelease(policySearch);
-	}
-	return policy;
-}
-#endif
-
-#if !SECTRUST_OSX
-/* not exported */
-static SecPolicyRef
-SecPolicyCreateWithSecAsn1Oid(SecAsn1Oid *oidPtr)
-{
-	SecPolicyRef policy = NULL;
-	try {
-		SecPointer<Policy> policyObj;
-		PolicyCursor::policy(oidPtr, policyObj);
-		policy = policyObj->handle();
-	}
-	catch (...) {}
-
-	return policy;
-}
-#endif
 
 static SecPolicyRef
 _SecPolicyCreateWithOID(CFTypeRef policyOID)
@@ -780,11 +553,6 @@ _SecPolicyCreateWithOID(CFTypeRef policyOID)
 		if (!policy && CFEqual(policyOID, kSecPolicyAppleRevocation)) {
 			policy = SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod);
 		}
-#if !SECTRUST_OSX
-		if (!policy) {
-			policy = SecPolicyCreateWithSecAsn1Oid((SecAsn1Oid*)oidPtr);
-		}
-#endif
 	}
 	return policy;
 }
@@ -800,169 +568,6 @@ SecPolicyCreateWithOID(CFTypeRef policyOID)
 	return policy;
 }
 
-#if !SECTRUST_OSX
-/* new in 10.9 */
-SecPolicyRef
-SecPolicyCreateWithProperties(CFTypeRef policyIdentifier, CFDictionaryRef properties)
-{
-	SecPolicyRef policy = _SecPolicyCreateWithOID(policyIdentifier);
-	SecPolicySetProperties(policy, properties);
-
-	return policy;
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.9 */
-SecPolicyRef
-SecPolicyCreateRevocation(CFOptionFlags revocationFlags)
-{
-	// return a SecPolicyRef object for the unified revocation policy
-	SecAsn1Oid *oidPtr = (SecAsn1Oid*)&CSSMOID_APPLE_TP_REVOCATION;
-	SecPolicyRef policy = SecPolicyCreateWithSecAsn1Oid(oidPtr);
-	if (policy) {
-		CSSM_DATA policyData = { (CSSM_SIZE)sizeof(CFOptionFlags), (uint8*)&revocationFlags };
-		SecPolicySetValue(policy, &policyData);
-	}
-	return policy;
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateAppleIDSService(CFStringRef hostname)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateAppleIDSServiceContext(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateApplePushService(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateApplePushServiceLegacy(CFStringRef hostname)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateAppleMMCSService(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateAppleGSService(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateApplePPQService(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.11.4 */
-SecPolicyRef SecPolicyCreateAppleAST2Service(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.12 */
-SecPolicyRef SecPolicyCreateAppleEscrowProxyService(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.12 */
-SecPolicyRef SecPolicyCreateAppleFMiPService(CFStringRef hostname, CFDictionaryRef __unused context)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.11.4 */
-SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.11 */
-SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
-{
-    return _SecPolicyCreateWithOID(kSecPolicyAppleX509Basic);
-}
-#endif
-
-#if !SECTRUST_OSX
-/* new in 10.11 */
-SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
-{
-	return _SecPolicyCreateWithOID(kSecPolicyAppleOSXProvisioningProfileSigning);
-}
-#endif
-
-
-#if !SECTRUST_OSX
-/* new in 10.11 */
-SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
-{
-    return _SecPolicyCreateWithOID(kSecPolicyAppleX509Basic);
-}
-#endif
-
-#if !SECTRUST_OSX
-SecPolicyRef SecPolicyCreateAppleSSLService(CFStringRef hostname)
-{
-	// SSL server, pinned to an Apple intermediate
-	SecPolicyRef policy = SecPolicyCreateSSL(true, hostname);
-	if (policy) {
-		// change options for policy evaluation
-		char *strbuf = NULL;
-		const char *hostnamestr = NULL;
-		if (hostname) {
-			hostnamestr = CFStringGetCStringPtr(hostname, kCFStringEncodingUTF8);
-			if (hostnamestr == NULL) {
-				CFIndex maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(hostname), kCFStringEncodingUTF8) + 1;
-				strbuf = (char *)malloc(maxLen);
-				if (CFStringGetCString(hostname, strbuf, maxLen, kCFStringEncodingUTF8)) {
-					hostnamestr = strbuf;
-				}
-			}
-		}
-		uint32 hostnamelen = (hostnamestr) ? (uint32)strlen(hostnamestr) : 0;
-		uint32 flags = 0x00000002; // 2nd-lowest bit set to require Apple intermediate pin
-		CSSM_APPLE_TP_SSL_OPTIONS opts = {CSSM_APPLE_TP_SSL_OPTS_VERSION, hostnamelen, hostnamestr, flags};
-		CSSM_DATA data = {sizeof(opts), (uint8*)&opts};
-		SecPolicySetValue(policy, &data);
-	}
-	return policy;
-}
-#endif
-
 /* OS X only: TBD */
 #include <security_utilities/cfutilities.h>
 /* New in 10.10 */
@@ -970,35 +575,6 @@ SecPolicyRef SecPolicyCreateAppleSSLService(CFStringRef hostname)
 CFArrayRef
 SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray)
 {
-#if !SECTRUST_OSX
-    /* can't use SECAPI macros, since this function does not return OSStatus */
-    CFArrayRef resultPolicyArray=NULL;
-    try {
-        // Set default policy
-        CFRef<CFArrayRef> policyArray = cfArrayize(policyOrArray);
-        CFRef<SecPolicyRef> defaultPolicy = _SecPolicyCreateWithOID(kSecPolicyAppleTimeStamping);
-        CFRef<CFMutableArrayRef> appleTimeStampingPolicies = makeCFMutableArray(1,defaultPolicy.get());
-
-        // Parse the policy and add revocation related ones
-        CFIndex numPolicies = CFArrayGetCount(policyArray);
-        for(CFIndex dex=0; dex<numPolicies; dex++) {
-            SecPolicyRef secPol = (SecPolicyRef)CFArrayGetValueAtIndex(policyArray, dex);
-            SecPointer<Policy> pol = Policy::required(SecPolicyRef(secPol));
-            const CssmOid &oid = pol->oid();
-            if ((oid == CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION))
-                || (oid == CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_CRL))
-                || (oid == CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_OCSP)))
-            {
-                CFArrayAppendValue(appleTimeStampingPolicies, secPol);
-            }
-        }
-        // Transfer of ownership
-        resultPolicyArray=appleTimeStampingPolicies.yield();
-    }
-    catch (...) {
-        CFReleaseNull(resultPolicyArray);
-    };
-#else
     /* implement with unified SecPolicyRef instances */
     SecPolicyRef policy = NULL;
     CFMutableArrayRef resultPolicyArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -1015,7 +591,6 @@ SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray)
         CFArrayAppendValue(resultPolicyArray, policy);
         CFReleaseNull(policy);
     }
-#endif
     return resultPolicyArray;
 }
 

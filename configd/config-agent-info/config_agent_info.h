@@ -30,6 +30,11 @@
 
 __BEGIN_DECLS
 
+#define kConfigAgentDomain                      "SystemConfig"
+
+#define kConfigAgentTypeProxy                   "ProxyAgent"
+#define kConfigAgentTypeDNS                     "DNSAgent"
+
 /*	
 	Returns true for agent with type DNSAgent and domain SystemConfig
  */

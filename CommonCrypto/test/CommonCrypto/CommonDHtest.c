@@ -1,4 +1,5 @@
-#include <Availability.h>
+
+
 #include "capabilities.h"
 #include "testmore.h"
 #include "testbyteBuffer.h"
@@ -7,7 +8,7 @@
 entryPoint(CommonDH,"Diffie-Hellman Key Agreement")
 #else
 
-#include "CommonDH.h"
+#include <CommonCrypto/CommonDH.h>
 static int kTestTestCount = 1+2*6;
 
 static int testDHgroup(CCDHParameters gp) {

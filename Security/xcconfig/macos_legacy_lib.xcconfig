@@ -1,0 +1,30 @@
+
+PRODUCT_NAME = $(TARGET_NAME)
+EXECUTABLE_PREFIX = lib
+
+SUPPORTED_PLATFORMS = macosx
+ARCHS = $(ARCHS_STANDARD_32_64_BIT)
+
+HEADER_SEARCH_PATHS = $(PROJECT_DIR)/OSX/libsecurity_cssm/lib/ $(PROJECT_DIR)/header_symlinks/macOS/ $(PROJECT_DIR)/OSX/include/ $(inherited) $(PROJECT_DIR) $(PROJECT_DIR)/OSX/libsecurity_apple_csp/open_ssl $(PROJECT_DIR)/OSX/lib$(PRODUCT_NAME)/lib/
+
+STRIP_INSTALLED_PRODUCT = NO
+COPY_PHASE_STRIP = NO
+GCC_GENERATE_DEBUGGING_SYMBOLS = YES
+
+// Turn off code signing for libraries
+CODE_SIGN_IDENTITY =
+
+SKIP_INSTALL = YES
+PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/$(TARGET_NAME
+
+
+// Code is ugly. Turn off some warnings.
+GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO
+GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO
+GCC_WARN_SHADOW = NO
+CLANG_ANALYZER_DEADCODE_DEADSTORES = NO
+
+
+// -Wall comes far too late in the invocation
+// mig likes to use the register keyword; tell the compiler that's okay
+WARNING_CFLAGS = $(inherited) -Wno-sign-compare -Wno-deprecated-register

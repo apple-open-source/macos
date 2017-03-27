@@ -122,7 +122,9 @@ static Boolean wantsFastLibCompressionForTargetVolume(CFURLRef theURL);
 static void _appendIfNewest(CFMutableArrayRef theArray, OSKextRef theKext);
 static void removeStalePrelinkedKernels(KextcacheArgs * toolArgs);
 static Boolean isRootVolURL(CFURLRef theURL);
-static Boolean isValidPLKFile(KextcacheArgs * toolArgs);
+static bool isValidPLKFile(KextcacheArgs *toolArgs);
+static bool isSystemPLKPath(KextcacheArgs *toolArgs);
+static bool isSystemKernelPath(KextcacheArgs *toolArgs);
 
 
 /*******************************************************************************
@@ -376,6 +378,7 @@ finish:
     SAFE_RELEASE(toolArgs.loadedKexts);
     SAFE_RELEASE(toolArgs.symbolDirURL);
     SAFE_FREE(toolArgs.prelinkedKernelPath);
+    SAFE_FREE(toolArgs.prelinkedKernelDirname);
     SAFE_FREE(toolArgs.kernelPath);
 
     return result;
@@ -401,6 +404,7 @@ ExitStatus readArgs(
     bzero(toolArgs, sizeof(*toolArgs));
     toolArgs->kernel_fd = -1;
     toolArgs->prelinkedKernel_fd = -1;
+    toolArgs->prelinkedKernelDir_fd = -1;
     
    /*****
     * Allocate collection objects.
@@ -880,13 +884,28 @@ ExitStatus setPrelinkedKernelArgs(
         setSystemExtensionsFolders(toolArgs);
 #endif /* NO_BOOT_ROOT */
     } else {
-        size_t len = strlcpy(toolArgs->prelinkedKernelPath, filename, PATH_MAX);
+        char *resolved_path;
+        size_t len;
+        resolved_path = realpath(filename, toolArgs->prelinkedKernelPath);
+        if (resolved_path) {
+            len = strlen(filename);
+        } else {
+            len = strlcpy(toolArgs->prelinkedKernelPath, filename, PATH_MAX);
+        }
         if (len >= PATH_MAX) {
             OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "Error: prelinked kernel filename length exceeds PATH_MAX");
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Error: prelinked kernel filename length exceeds PATH_MAX");
             goto finish;
         }
+        toolArgs->prelinkedKernelDirname = malloc(PATH_MAX);
+        if (!toolArgs->prelinkedKernelDirname) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            goto finish;
+        }
+        (void)dirname_r(toolArgs->prelinkedKernelPath,
+                        toolArgs->prelinkedKernelDirname);
     }
     result = EX_OK;
 finish:
@@ -1047,6 +1066,12 @@ Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
             "Error: prelinked kernel filename length exceeds PATH_MAX");
         goto finish;
     }
+    toolArgs->prelinkedKernelDirname = malloc(PATH_MAX);
+    if (!toolArgs->prelinkedKernelDirname) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    strlcpy(toolArgs->prelinkedKernelDirname, _kOSKextPrelinkedKernelsPath, PATH_MAX);
     result = TRUE;
 
 finish:
@@ -2234,10 +2259,19 @@ static void _appendIfNewest(CFMutableArrayRef theArray, OSKextRef theKext)
 static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
 {
     Boolean             myResult          = false;
-    CFDictionaryRef     myDict            = NULL;   // must release
+    char                volRoot[PATH_MAX];
+    struct bootCaches  *caches            = NULL;   // release
+    CFDictionaryRef     myDict            = NULL;   // do not release
     CFDictionaryRef     postBootPathsDict = NULL;   // do not release
     
-    myDict = copyBootCachesDictForURL(theVolRootURL);
+    if (!CFURLGetFileSystemRepresentation(theVolRootURL, /* resolve */ true,
+                                          (UInt8*)volRoot, sizeof(volRoot))) {
+        OSKextLogStringError(NULL);
+        goto finish;
+    }
+    caches = readBootCaches(volRoot, kBROptsNone);
+    if (!caches)                goto finish;
+    myDict = caches->cacheinfo;
     if (myDict) {
         postBootPathsDict = (CFDictionaryRef)
         CFDictionaryGetValue(myDict, kBCPostBootKey);
@@ -2254,17 +2288,20 @@ static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
         // smells like foul play, always check signatures
         myResult = true;
     }
-    SAFE_RELEASE(myDict);
     
+finish:
+    if (caches)     destroyCaches(caches);
+
     return(myResult);
 }
 
-/* Check to make sure the target prelinkedkernel file is indeed a
+/*
+ * Check to make sure the target prelinkedkernel file is indeed a
  * prelinkedkernel file.
  */
-static Boolean isValidPLKFile(KextcacheArgs * toolArgs)
+static bool isValidPLKFile(KextcacheArgs *toolArgs)
 {
-    Boolean             myResult            = false;
+    bool                myResult            = false;
     CFDataRef           plkRef              = NULL;  // must release
     CFDataRef           uncompressed_plkRef = NULL;  // must release
     const UInt8 *       machoHeader         = NULL;
@@ -2322,6 +2359,100 @@ static Boolean isValidPLKFile(KextcacheArgs * toolArgs)
     return(myResult);
 }
 
+/*
+ * Ensure that if we are creating a prelinked kernel on a SIP-protected
+ * volume, then the kernel comes from a valid location: /System/Library/Kernels/...
+ */
+static bool isSystemKernelPath(KextcacheArgs *toolArgs)
+{
+    char *kpath = "/System/Library/Kernels/kernel";
+    size_t kpath_len = 0;
+    struct bootCaches *bc = NULL;
+    char volRootPath[PATH_MAX] = { 0, };
+
+    if (CFURLGetFileSystemRepresentation(toolArgs->volumeRootURL, true,
+                                         (UInt8 *)volRootPath, PATH_MAX)) {
+        bc = readBootCaches(volRootPath, 0);
+    }
+    if (bc) {
+        kpath = &bc->kernelpath[0];
+    }
+
+    kpath_len = strnlen(kpath, PATH_MAX);
+
+    bool isvalid = (strncmp(kpath, toolArgs->kernelPath, kpath_len) == 0);
+
+    if (bc) {
+        destroyCaches(bc);
+    }
+
+    return isvalid;
+}
+
+
+/*
+ * Ensure that we write PLK files _only_ to a valid PLK location
+ * See: 29149883
+ */
+static bool isSystemPLKPath(KextcacheArgs *toolArgs)
+{
+    CFDictionaryRef bcDict = NULL; /* must release */
+    CFDictionaryRef postBootPathsDict = NULL; /* do not release */
+    CFDictionaryRef kcDict = NULL; /* do not release */
+    CFStringRef tmpStr;
+    char plkpath[PATH_MAX] = { 0, };
+    size_t plkpath_len = 0;
+
+    /* grab the PLK paths from /usr/standalone/bootcaches.plist */
+    bcDict = copyBootCachesDictForURL(toolArgs->volumeRootURL);
+    if (bcDict != NULL) {
+        postBootPathsDict = (CFDictionaryRef)CFDictionaryGetValue(bcDict, kBCPostBootKey);
+
+        if (postBootPathsDict &&
+            CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
+            kcDict = (CFDictionaryRef)CFDictionaryGetValue(postBootPathsDict,
+                                                           kBCKernelcacheV3Key);
+        }
+    }
+
+    if (!kcDict || CFGetTypeID(kcDict) != CFDictionaryGetTypeID()) {
+        /* no PLK information in bootcaches.plist: use a hard-coded default */
+        goto use_default_path;
+    }
+
+    tmpStr = (CFStringRef)CFDictionaryGetValue(kcDict, kBCPathKey);
+    if (tmpStr == NULL || CFGetTypeID(tmpStr) != CFStringGetTypeID()) {
+        /* no 'Path' key in the kernel cache dictionary?! */
+        goto use_default_path;
+    }
+
+    if (!CFStringGetFileSystemRepresentation(tmpStr, plkpath, PATH_MAX)) {
+        goto use_default_path;
+    }
+
+    goto compare_paths;
+
+use_default_path:
+    strlcpy(plkpath, _kOSKextPrelinkedKernelsPath "/" _kOSKextPrelinkedKernelFileName, PATH_MAX);
+
+compare_paths:
+    plkpath_len = strnlen(plkpath, PATH_MAX);
+
+    /*
+     * Make sure the PLK path passed to this tool at least starts
+     * with a valid PLK path. This will successfully match if the
+     * bootcaches path is: /System/Library/PrelinkedKernels/prelinkedkernel and the
+     * tool has been passed: /System/Library/PrelinkedKernels/prelinkedkernel.development.
+     * That's exactly what we want.
+     */
+    if (strncmp(plkpath, toolArgs->prelinkedKernelPath, plkpath_len) == 0) {
+        SAFE_RELEASE(bcDict);
+        return true;
+    }
+
+    SAFE_RELEASE(bcDict);
+    return false;
+}
 
 
 /* Make sure target volume can support fast (lzvn) compression, as well as current runtime library environment */
@@ -2329,11 +2460,20 @@ static Boolean isValidPLKFile(KextcacheArgs * toolArgs)
 static Boolean wantsFastLibCompressionForTargetVolume(CFURLRef theVolRootURL)
 {
     Boolean             myResult          = false;
-    CFDictionaryRef     myDict            = NULL;   // must release
+    char                volRoot[PATH_MAX];
+    struct bootCaches  *caches            = NULL;   // release
+    CFDictionaryRef     myDict            = NULL;   // do not release
     CFDictionaryRef     postBootPathsDict = NULL;   // do not release
     CFDictionaryRef     kernelCacheDict   = NULL;   // do not release
     
-    myDict = copyBootCachesDictForURL(theVolRootURL);
+    if (!CFURLGetFileSystemRepresentation(theVolRootURL, /* resolve */ true,
+                                          (UInt8*)volRoot, sizeof(volRoot))) {
+        OSKextLogStringError(NULL);
+        goto finish;
+    }
+    caches = readBootCaches(volRoot, kBROptsNone);
+    if (!caches)                goto finish;
+    myDict = caches->cacheinfo;
     if (myDict) {
         postBootPathsDict = (CFDictionaryRef)
             CFDictionaryGetValue(myDict, kBCPostBootKey);
@@ -2361,13 +2501,14 @@ static Boolean wantsFastLibCompressionForTargetVolume(CFURLRef theVolRootURL)
         } // postBootPathsDict
     } // myDict
     
-    SAFE_RELEASE(myDict);
-    
     /* We may not be able to generate FastLib-compressed files */
     if (myResult && !supportsFastLibCompression()) {
         myResult = false;
     }
     
+finish:
+    if (caches)     destroyCaches(caches);
+
     return(myResult);    
 }
 
@@ -2537,40 +2678,71 @@ createPrelinkedKernel(
     dev_t               plk_dev_t           = 0;
     ino_t               kern_ino_t          = 0;
     dev_t               kern_dev_t          = 0;
+    bool                created_plk         = false;
+    char               *plk_filename        = NULL;
 
     bzero(&prelinkFileTimes, sizeof(prelinkFileTimes));
-    
+
+    plk_filename = toolArgs->prelinkedKernelPath + strnlen(toolArgs->prelinkedKernelDirname, PATH_MAX);
+    while (*plk_filename == '/') plk_filename++;
+
+    toolArgs->prelinkedKernelDir_fd = open(toolArgs->prelinkedKernelDirname,
+                                           O_RDONLY | O_DIRECTORY);
+    if (toolArgs->prelinkedKernelDir_fd < 0) {
+        result = EX_NOPERM;
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Prelinked kernel directory '%s/' cannot be used",
+                  toolArgs->prelinkedKernelDirname);
+        goto finish;
+    }
+
     /* Do not allow an untrusted kernel file if 
      * 1) file system is restricted, and
      * 2) the prelinkedkernel we are about to replace is restricted.
      * 18862985, 20349389, 20693294
      */
-    toolArgs->prelinkedKernel_fd = open(toolArgs->prelinkedKernelPath, O_RDONLY);
+    toolArgs->prelinkedKernel_fd = openat(toolArgs->prelinkedKernelDir_fd,
+                                          plk_filename, O_RDONLY);
     if (toolArgs->prelinkedKernel_fd != -1) {
         plk_result = getFileDevAndInoWith_fd(toolArgs->prelinkedKernel_fd, &plk_dev_t, &plk_ino_t);
         if (plk_result == 0) {
-            /* make sure this is an existing PLK file - <rdar://problem/25323859>
-             */
-            if (isValidPLKFile(toolArgs) == false) {
+            /* make sure this is an existing PLK file - <rdar://problem/25323859> */
+            if (!isValidPLKFile(toolArgs)) {
                 plk_result = -1; // force error
             }
         }
+    } else if (errno == ENOENT) {
+        /*
+         * The prelinked kernel file doesn't exist.
+         * Create the file now so we can validate that this is exactly the location
+         * we will write to by checking the dev and ino on the open FD. This should
+         * close any races with malicious users attempting to play symlink games.
+         * NOTE: previous validation should have already run realpath().
+         * NOTE: we need to remove this file if any SIP validation fails
+         */
+        toolArgs->prelinkedKernel_fd = openat(toolArgs->prelinkedKernelDir_fd,
+                                              plk_filename, O_RDWR | O_CREAT | O_EXCL);
+        if (toolArgs->prelinkedKernel_fd != -1) {
+            created_plk = true;
+            plk_result = getFileDevAndInoWith_fd(toolArgs->prelinkedKernel_fd, &plk_dev_t, &plk_ino_t);
+        }
     }
-    
+
     if ((toolArgs->prelinkedKernel_fd == -1 && errno != ENOENT) ||
         plk_result == -1) {
+        result = EX_NOPERM;
         OSKextLog(/* kext */ NULL,
                   kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
-                  "Bad prelinkedkernel path '%s' cannot be used",
-                  toolArgs->prelinkedKernelPath);
+                  "Bad prelinkedkernel path '%s/%s' cannot be used",
+                  toolArgs->prelinkedKernelDirname, plk_filename);
         goto finish;
     }
 
-    /* 23382956 - use rootless_check_trusted_fd
-     */
     toolArgs->kernel_fd = open(toolArgs->kernelPath, O_RDONLY);
     if (toolArgs->kernel_fd < 0 ||
         getFileDevAndInoWith_fd(toolArgs->kernel_fd, &kern_dev_t, &kern_ino_t) != 0) {
+        result = EX_NOPERM;
         OSKextLog(/* kext */ NULL,
                   kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
                   "Bad kernel path '%s' cannot be used",
@@ -2578,14 +2750,59 @@ createPrelinkedKernel(
         goto finish;
     }
 
-    if (rootless_check_trusted_fd(toolArgs->prelinkedKernel_fd) == 0 &&
-        rootless_check_trusted_fd(toolArgs->kernel_fd) != 0) {
-        result = EX_NOPERM;
+    /*
+     * Is the target prelinked kernel file in a SIP protected location?
+     * 23382956 - use rootless_check_trusted_fd
+     */
+    if (csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0 &&
+        rootless_check_trusted_fd(toolArgs->prelinkedKernel_fd) == 0) {
         OSKextLog(/* kext */ NULL,
-                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
-                  "Untrusted kernel '%s' cannot be used",
-                  toolArgs->kernelPath);
-        goto finish;
+                  kOSKextLogDebugLevel  | kOSKextLogGeneralFlag,
+                  "Creating SIP-protected prelinked kernel: %s",
+                  toolArgs->prelinkedKernelPath);
+        /*
+         * Validate that when we create a prelinked kernel on a SIP protected
+         * volume in a SIP protected location, we only create a SIP protected
+         * file in a valid prelinked kernel path (/System/Library/PrelinkedKernels)
+         */
+        if (!isSystemPLKPath(toolArgs)) {
+            result = EX_NOPERM;
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                      "Invalid path '%s': SIP-protected prelinked kernels must be in /System/Library/PrelinkedKernels",
+                      toolArgs->prelinkedKernelPath);
+            goto finish;
+        }
+        /*
+         * The kernel must be trusted if we are writing to an existing
+         * protected PLK, or if we are writing to a PLK that doesn't yet exist
+         * but whose path is in a trusted location.
+         */
+        if (rootless_check_trusted_fd(toolArgs->kernel_fd) != 0) {
+            result = EX_NOPERM;
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                      "Untrusted kernel '%s' cannot be used to create a SIP-protected prelinked kernel",
+                      toolArgs->kernelPath);
+            goto finish;
+        }
+        /*
+         * A trusted kernel used to build a trusted prelinked kernel must
+         * come from a trusted path location: /System/Library/Kernels/kernel
+         */
+        if (!isSystemKernelPath(toolArgs)) {
+            result = EX_NOPERM;
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                      "Invalid kernel path '%s': only kernels from /System/Library/Kernels can be used when writing SIP-protected prelinked kernels",
+                      toolArgs->kernelPath);
+            goto finish;
+        }
+    } else {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogDebugLevel  | kOSKextLogGeneralFlag,
+                  "Creating unprotected prelinked kernel: %s",
+                  toolArgs->prelinkedKernelPath);
     }
 
 #if !NO_BOOT_ROOT
@@ -2789,10 +3006,12 @@ createPrelinkedKernel(
                   "Symlink \"%s\" -> \"%s\"",
                   tmpBuffer, toolArgs->prelinkedKernelPath);
         if (symlink(toolArgs->prelinkedKernelPath, tmpBuffer) < 0) {
-            OSKextLog(NULL,  kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
-                      "symlink(\"%s\", \"%s\") failed %d (%s) <%s %d>",
-                      toolArgs->prelinkedKernelPath, tmpBuffer,
-                      errno, strerror(errno), __func__, __LINE__);
+            if (errno != EEXIST) {
+                OSKextLog(NULL,  kOSKextLogGeneralFlag | kOSKextLogWarningLevel,
+                          "symlink(\"%s\", \"%s\") failed %d (%s)",
+                          toolArgs->prelinkedKernelPath, tmpBuffer,
+                          errno, strerror(errno));
+            }
         }
    }
 
@@ -2831,7 +3050,23 @@ finish:
                                sExcludedKextAlertDict);
         }
     }
-    
+    if (result != EX_OK && created_plk &&
+        toolArgs->prelinkedKernel_fd != -1 &&
+        toolArgs->prelinkedKernelDir_fd != -1) {
+        /*
+         * If we fail to build the PLK, and we had to initially create
+         * the file, we should remove the empty / invalid PLK.
+         */
+        if (unlinkat(toolArgs->prelinkedKernelDir_fd, plk_filename, 0) < 0) {
+            OSKextLog(NULL, kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                      "Error removing (now invalid) prelinked kernel: %s/%s",
+                      toolArgs->prelinkedKernelDirname, plk_filename);
+        }
+    }
+    if (toolArgs->prelinkedKernelDir_fd != -1) {
+        close(toolArgs->prelinkedKernelDir_fd);
+        toolArgs->prelinkedKernelDir_fd = -1;
+    }
     if (toolArgs->prelinkedKernel_fd != -1) {
         close(toolArgs->prelinkedKernel_fd);
         toolArgs->prelinkedKernel_fd = -1;

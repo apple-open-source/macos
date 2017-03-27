@@ -16,23 +16,23 @@ entryPoint(CommonBaseEncoding,"Base XX Encoding")
 
 static int kTestTestCount = 416;
 
-#define BUFSIZ 1024
+#define BUFSIZE 1024
 
 static int
 doWithEncoders(CNEncoderRef encoder, CNEncoderRef decoder, char *input, char *expected)
 {
     CNStatus retval;
-    char outBuf[BUFSIZ], secondBuf[BUFSIZ];
+    char outBuf[BUFSIZE], secondBuf[BUFSIZE];
     size_t outLen, outAvailable, secondLen, secondAvailable;
     
-    outAvailable = BUFSIZ;
+    outAvailable = BUFSIZE;
 
     retval = CNEncoderUpdate(encoder, input, strlen(input), outBuf, &outAvailable);
     
     ok(retval == kCNSuccess, "encoded");
     
     outLen = outAvailable;
-    outAvailable = BUFSIZ - outLen;
+    outAvailable = BUFSIZE - outLen;
     
     retval = CNEncoderFinal(encoder, &outBuf[outLen], &outAvailable);
     
@@ -52,7 +52,7 @@ doWithEncoders(CNEncoderRef encoder, CNEncoderRef decoder, char *input, char *ex
     ok(retval == kCNSuccess, "released");
     
     
-    secondAvailable = BUFSIZ;
+    secondAvailable = BUFSIZE;
     secondLen = 0;
     retval = CNEncoderUpdate(decoder, outBuf, outLen, secondBuf, &secondAvailable);
     
@@ -60,7 +60,7 @@ doWithEncoders(CNEncoderRef encoder, CNEncoderRef decoder, char *input, char *ex
     
     
     secondLen = secondAvailable;
-    secondAvailable = BUFSIZ - secondLen;
+    secondAvailable = BUFSIZE - secondLen;
     
     retval = CNEncoderFinal(decoder, &secondBuf[secondLen], &secondLen);
     
@@ -123,10 +123,10 @@ static int
 doOneShotStyle(CNEncodings encodingStrat, char *input, char *expected)
 {
     CNStatus retval;
-    char outBuf[BUFSIZ], secondBuf[BUFSIZ];
+    char outBuf[BUFSIZE], secondBuf[BUFSIZE];
     size_t outLen, outAvailable, secondAvailable;
     
-    outAvailable = BUFSIZ;
+    outAvailable = BUFSIZE;
     retval = CNEncode(encodingStrat, kCNEncode, input, strlen(input), outBuf, &outAvailable);
     ok(retval == kCNSuccess, "CNEncode passes");
     outLen = outAvailable;
@@ -139,7 +139,7 @@ doOneShotStyle(CNEncodings encodingStrat, char *input, char *expected)
     }
         
     
-    secondAvailable = BUFSIZ;
+    secondAvailable = BUFSIZE;
     retval = CNEncode(encodingStrat, kCNDecode, outBuf, outLen, secondBuf, &secondAvailable);
     ok(retval == kCNSuccess, "CNEncode passes");
     

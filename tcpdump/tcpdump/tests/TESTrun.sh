@@ -38,6 +38,7 @@ runSimpleTests()
       passed=`expr $passed + 1`
       echo $passed >.passed
     else
+      echo "### command: tcpdump -r $input $options" >> failure-outputs.txt
       failed=`expr $failed + 1`
       echo $failed >.failed
     fi

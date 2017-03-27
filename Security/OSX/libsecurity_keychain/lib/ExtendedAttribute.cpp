@@ -42,7 +42,7 @@ ExtendedAttribute::ExtendedAttribute(
 	const CssmData &itemID, 
 	const CssmData attrName,
 	const CssmData attrValue) :
-		ItemImpl(CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE, 
+		ItemImpl((SecItemClass) CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE,
 			reinterpret_cast<SecKeychainAttributeList *>(NULL), 
 			0, NULL),
 		mRecordType(recordType),

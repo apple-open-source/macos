@@ -27,8 +27,6 @@
 #import "RemoteLayerTreeTransaction.h"
 
 #import "ArgumentCoders.h"
-#import "MessageDecoder.h"
-#import "MessageEncoder.h"
 #import "PlatformCAAnimationRemote.h"
 #import "PlatformCALayerRemote.h"
 #import "WebCoreArgumentCoders.h"
@@ -37,7 +35,6 @@
 #import <WebCore/TextStream.h>
 #import <WebCore/TimingFunction.h>
 #import <wtf/text/CString.h>
-#import <wtf/text/StringBuilder.h>
 
 using namespace WebCore;
 
@@ -51,7 +48,7 @@ RemoteLayerTreeTransaction::LayerCreationProperties::LayerCreationProperties()
 {
 }
 
-void RemoteLayerTreeTransaction::LayerCreationProperties::encode(IPC::ArgumentEncoder& encoder) const
+void RemoteLayerTreeTransaction::LayerCreationProperties::encode(IPC::Encoder& encoder) const
 {
     encoder << layerID;
     encoder.encodeEnum(type);
@@ -59,7 +56,7 @@ void RemoteLayerTreeTransaction::LayerCreationProperties::encode(IPC::ArgumentEn
     encoder << hostingDeviceScaleFactor;
 }
 
-bool RemoteLayerTreeTransaction::LayerCreationProperties::decode(IPC::ArgumentDecoder& decoder, LayerCreationProperties& result)
+bool RemoteLayerTreeTransaction::LayerCreationProperties::decode(IPC::Decoder& decoder, LayerCreationProperties& result)
 {
     if (!decoder.decode(result.layerID))
         return false;
@@ -158,7 +155,7 @@ RemoteLayerTreeTransaction::LayerProperties::LayerProperties(const LayerProperti
         filters = std::make_unique<FilterOperations>(*other.filters);
 }
 
-void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::ArgumentEncoder& encoder) const
+void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::Encoder& encoder) const
 {
     encoder.encodeEnum(changedProperties);
 
@@ -280,7 +277,7 @@ void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::ArgumentEncoder& e
         encoder << userInteractionEnabled;
 }
 
-bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::ArgumentDecoder& decoder, LayerProperties& result)
+bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::Decoder& decoder, LayerProperties& result)
 {
     if (!decoder.decodeEnum(result.changedProperties))
         return false;
@@ -512,7 +509,7 @@ RemoteLayerTreeTransaction::~RemoteLayerTreeTransaction()
 {
 }
 
-void RemoteLayerTreeTransaction::encode(IPC::ArgumentEncoder& encoder) const
+void RemoteLayerTreeTransaction::encode(IPC::Encoder& encoder) const
 {
     encoder << m_rootLayerID;
     encoder << m_createdLayers;
@@ -530,6 +527,11 @@ void RemoteLayerTreeTransaction::encode(IPC::ArgumentEncoder& encoder) const
 
     encoder << m_contentsSize;
     encoder << m_scrollOrigin;
+
+    encoder << m_baseLayoutViewportSize;
+    encoder << m_minStableLayoutViewportOrigin;
+    encoder << m_maxStableLayoutViewportOrigin;
+
 #if PLATFORM(MAC)
     encoder << m_scrollPosition;
 #endif
@@ -551,10 +553,12 @@ void RemoteLayerTreeTransaction::encode(IPC::ArgumentEncoder& encoder) const
     encoder << m_viewportMetaTagWidthWasExplicit;
     encoder << m_viewportMetaTagCameFromImageDocument;
 
+    encoder << m_isInStableState;
+
     encoder << m_callbackIDs;
 }
 
-bool RemoteLayerTreeTransaction::decode(IPC::ArgumentDecoder& decoder, RemoteLayerTreeTransaction& result)
+bool RemoteLayerTreeTransaction::decode(IPC::Decoder& decoder, RemoteLayerTreeTransaction& result)
 {
     if (!decoder.decode(result.m_rootLayerID))
         return false;
@@ -605,6 +609,15 @@ bool RemoteLayerTreeTransaction::decode(IPC::ArgumentDecoder& decoder, RemoteLay
     if (!decoder.decode(result.m_scrollOrigin))
         return false;
 
+    if (!decoder.decode(result.m_baseLayoutViewportSize))
+        return false;
+
+    if (!decoder.decode(result.m_minStableLayoutViewportOrigin))
+        return false;
+
+    if (!decoder.decode(result.m_maxStableLayoutViewportOrigin))
+        return false;
+    
 #if PLATFORM(MAC)
     if (!decoder.decode(result.m_scrollPosition))
         return false;
@@ -647,6 +660,9 @@ bool RemoteLayerTreeTransaction::decode(IPC::ArgumentDecoder& decoder, RemoteLay
         return false;
 
     if (!decoder.decode(result.m_viewportMetaTagCameFromImageDocument))
+        return false;
+
+    if (!decoder.decode(result.m_isInStableState))
         return false;
 
     if (!decoder.decode(result.m_callbackIDs))
@@ -847,6 +863,12 @@ CString RemoteLayerTreeTransaction::description() const
     if (m_scrollOrigin != IntPoint::zero())
         ts.dumpProperty("scrollOrigin", m_scrollOrigin);
 
+    ts.dumpProperty("baseLayoutViewportSize", FloatSize(m_baseLayoutViewportSize));
+
+    if (m_minStableLayoutViewportOrigin != LayoutPoint::zero())
+        ts.dumpProperty("minStableLayoutViewportOrigin", FloatPoint(m_minStableLayoutViewportOrigin));
+    ts.dumpProperty("maxStableLayoutViewportOrigin", FloatPoint(m_maxStableLayoutViewportOrigin));
+
     if (m_pageScaleFactor != 1)
         ts.dumpProperty("pageScaleFactor", m_pageScaleFactor);
 
@@ -856,6 +878,7 @@ CString RemoteLayerTreeTransaction::description() const
     ts.dumpProperty("viewportMetaTagWidth", m_viewportMetaTagWidth);
     ts.dumpProperty("viewportMetaTagWidthWasExplicit", m_viewportMetaTagWidthWasExplicit);
     ts.dumpProperty("viewportMetaTagCameFromImageDocument", m_viewportMetaTagCameFromImageDocument);
+    ts.dumpProperty("isInStableState", m_isInStableState);
     ts.dumpProperty("renderTreeSize", m_renderTreeSize);
 
     ts << "root-layer " << m_rootLayerID << ")";

@@ -190,20 +190,26 @@ void Benchmark::printReport()
 	std::string name(m_isParallel ? "parallel-" : "single-");
 	name += m_benchmarkPair->name;
 
-	std::ofstream ofs(std::string(env) + "/" + name + ".perfdata", std::ofstream::out);
-	cout << "Writing perf data to: " << (std::string(env) + "/" + name + ".perfdata") << endl;
+	/*
+	 * Must prepend files with dtres_ to get them picked up by BATS until
+	 * <rdar://problem/28389212>
+	 */
+	std::string perfDataPath = std::string(env) + "/dtres_" + name + ".perfdata";
+	std::ofstream ofs(perfDataPath, std::ofstream::out);
+	cout << "Writing perf data to: " << perfDataPath << endl;
 
 	ofs << "{" << endl;
     ofs << "\t\"version\": \"1.0\"," << endl;
     ofs << "\t\"bats_test_name\": \"" << name << "\"," << endl;
     ofs << "\t\"measurements\": {" << endl;
 	ofs << "\t\t\"" << name << "\": {" << endl;
-	ofs << "\t\t\t\"names\": [\"time\", \"memory\", \"peakmem\"]," << endl;
-	ofs << "\t\t\t\"units\": [\"us\", \"B\", \"B\"]," << endl;
+	ofs << "\t\t\t\"names\": [\"time\", \"memory\", \"peakmem\", \"phys_footprint\"]," << endl;
+	ofs << "\t\t\t\"units\": [\"us\", \"B\", \"B\", \"B\"]," << endl;
 	ofs << "\t\t\t\"data\": [[";
 	ofs << m_elapsedTime << "], [";
 	ofs << m_memory.resident << "], [";
-	ofs << m_memory.residentMax;
+	ofs << m_memory.residentMax << "], [";
+	ofs << m_memory.physicalFootprint;
 	ofs << "]]" << endl;
 	ofs << "\t\t}" << endl;
 	ofs << "\t}" << endl;
@@ -230,5 +236,6 @@ Benchmark::Memory Benchmark::currentMemoryBytes()
 
     memory.resident = vm_info.internal - vm_info.purgeable_volatile_pmap;
     memory.residentMax = vm_info.resident_size_peak;
+    memory.physicalFootprint = vm_info.phys_footprint;
     return memory;
 }

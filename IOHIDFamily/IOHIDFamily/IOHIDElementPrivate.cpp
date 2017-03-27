@@ -2074,6 +2074,33 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
         
         granularity = _calibration.gran;
         
+    } else if ( type == kIOHIDValueScaleTypeExponent ) {
+        SInt32 resExponent  = _unitExponent & 0x0F;
+        scaledMin           = getPhysicalMin();
+        scaledMax           = getPhysicalMax();
+        
+        logicalRange    = logicalMax - logicalMin;
+        scaledRange     = scaledMax - scaledMin;
+        
+        if (resExponent < 8)
+        {
+            for (int i = resExponent; i > 0; i--)
+            {
+                scaledRange *=  10;
+            }
+        }
+        else
+        {
+            for (int i = 0x10 - resExponent; i > 0; i--)
+            {
+                logicalRange *= 10;
+            }
+        }
+        
+        scaledRange     <<= 16;
+        returnValue     = (IOFixed)((logicalValue - logicalMin)<<16);
+        returnValue     = (IOFixedMultiply(returnValue, scaledRange) / logicalRange) + scaledMin;
+        return returnValue;
     } else { // kIOHIDValueScaleTypePhysical
         scaledMin = getPhysicalMin()<<16;
         scaledMax = getPhysicalMax()<<16;
@@ -2092,6 +2119,9 @@ UInt32 IOHIDElementPrivate::getValue(IOOptionBits options) {
     UInt32 newValue = 0;
     
     if ((_reportBits * _reportCount) <= 32) {
+        if (options & kIOHIDValueOptionsUpdateElementValues) {
+            _owner->updateElementValues(&_cookie, 1);
+        }
         
         newValue = ( options & kIOHIDValueOptionsFlagPrevious ) ? _previousValue : _elementValue->value[0];
 

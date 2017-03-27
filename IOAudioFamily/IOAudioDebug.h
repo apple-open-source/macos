@@ -28,7 +28,7 @@
 
 
 #ifdef DEBUG
-	#define DEBUG_LEVEL 3						//<rdar://problem/9725460>
+	#define DEBUG_LEVEL 4						//<rdar://problem/9725460>
 	//#define DEBUG_USE_FIRELOG 1
 	#define DEBUG_USE_FIREWIRE_KPRINTF 1
 	
@@ -36,20 +36,24 @@
 	#include <IOKit/firewire/FireLog.h>
 	#define audioDebugIOLog( level, message... ) \
 		do {FireLog(  message ); FireLog("\n");} while (0)
+    #define audioErrorIOLog( message... ) \
+        do { FireLog( message ); FireLog("\n"); IOLog( message );} while (0)
 	#endif
-	
+
 	#ifdef DEBUG_USE_IOUSBLOG
 	#include <IOKit/usb/IOUSBLog.h>
 	#define audioDebugIOLog( level, message... ) \
 		do {USBLog( level, message );} while (0)
+    #define audioErrorIOLog( level, message... ) \
+        do { USBLog( DEBUG_LEVEL_BETA, message ); IOLog( message );} while (0)
 	#endif
 
 	#ifdef DEBUG_USE_FIREWIRE_KPRINTF
 	#define audioDebugIOLog( level, message... ) \
 		do { if (level <= DEBUG_LEVEL) kprintf( message );} while (0)
+    #define audioErrorIOLog( message... ) \
+        do { kprintf( message ); IOLog( message );} while (0)
 	#endif
-
-
 
 	#ifdef assert
 		#undef assert
@@ -66,7 +70,15 @@
 			}
 	#endif
 #else
-	#define audioDebugIOLog( level, message... ) ;
+    #define DEBUG_LEVEL 3
+
+    #include <os/log.h>
+    #define audioDebugIOLog( level, message... ) \
+        do { if ( __builtin_expect(level <= DEBUG_LEVEL, 0) ) { os_log( OS_LOG_DEFAULT, message ); } } while (0)
+
+    #define audioErrorIOLog( message... ) \
+        do { os_log_error( OS_LOG_DEFAULT, message ); IOLog( message );} while (0)
+
 #endif
 
 

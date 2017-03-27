@@ -36,7 +36,7 @@
 Allocator *RSA_DSA_Factory::normAllocator;
 Allocator *RSA_DSA_Factory::privAllocator;
 
-/* normally found in crypto.h, which has way too much useless cruft....move these to
+/* normally found in crypto_legacy.h, which has way too much useless cruft....move these to
  * a local header.... */
 extern "C" {
 extern int CRYPTO_set_mem_functions(

@@ -28,7 +28,7 @@
  Contains:  Object Identifiers for OCSP
  */
 
-#include "oidsbase.h"
+#include <Security/oidsbase.h>
 #include "oidsocsp.h"
 
 SECASN1OID_DEF(OID_PKIX_OCSP,                   OID_AD_OCSP);

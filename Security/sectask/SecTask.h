@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008,2012-2013 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008,2012-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,11 +24,23 @@
 #ifndef _SECURITY_SECTASK_H_
 #define _SECURITY_SECTASK_H_
 
+#include <Security/SecBase.h>
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/message.h>
+
+#if SEC_OS_IPHONE_INCLUDES
 #include <sys/cdefs.h>
+#endif
+
+#if SEC_OS_OSX
+#include <Security/SecCode.h>
+#endif /* SEC_OS_OSX */
 
 __BEGIN_DECLS
+
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
 
 /*!
     @typedef SecTaskRef
@@ -51,15 +63,18 @@ CFTypeID SecTaskGetTypeID(void);
     @result The newly created SecTask object or NULL on error.  The caller must
     CFRelease the returned object.
 */
-SecTaskRef SecTaskCreateWithAuditToken(CFAllocatorRef allocator, audit_token_t token);
+__nullable
+SecTaskRef SecTaskCreateWithAuditToken(CFAllocatorRef __nullable allocator, audit_token_t token);
 
 /*!
-     @function SecTaskCreateFromSelf
-     @abstract Create a SecTask object for the current task.
-     @result The newly created SecTask object or NULL on error.  The caller must
-     CFRelease the returned object.
- */
-SecTaskRef SecTaskCreateFromSelf(CFAllocatorRef allocator);
+    @function SecTaskCreateFromSelf
+    @abstract Create a SecTask object for the current task.
+    @result The newly created SecTask object or NULL on error.  The caller must
+    CFRelease the returned object.
+#ifndef LEFT
+*/
+__nullable
+SecTaskRef SecTaskCreateFromSelf(CFAllocatorRef __nullable allocator);
 
 /*!
     @function SecTaskCopyValueForEntitlement
@@ -78,6 +93,7 @@ SecTaskRef SecTaskCreateFromSelf(CFAllocatorRef allocator);
     the entitlement is simply not present.  In the latter case, no CFError is
     returned.
 */
+__nullable
 CFTypeRef SecTaskCopyValueForEntitlement(SecTaskRef task, CFStringRef entitlement, CFErrorRef *error);
 
 /*!
@@ -92,6 +108,7 @@ CFTypeRef SecTaskCopyValueForEntitlement(SecTaskRef task, CFStringRef entitlemen
     returned dictionary, the entitlement is not set on the task.  The caller
     must CFRelease the returned value
 */
+__nullable
 CFDictionaryRef SecTaskCopyValuesForEntitlements(SecTaskRef task, CFArrayRef entitlements, CFErrorRef *error);
 
 /*!
@@ -102,8 +119,10 @@ CFDictionaryRef SecTaskCopyValuesForEntitlements(SecTaskRef task, CFArrayRef ent
     the problem.  This argument may be NULL if the caller is not interested in
     detailed errors. The caller must CFRelease the returned value
 */
+__nullable
 CFStringRef SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error);
 
+#if SEC_OS_IPHONE
 /*!
     @function SecTaskGetCodeSignStatus
     @abstract Return the code sign status flags
@@ -111,6 +130,11 @@ CFStringRef SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error);
 */
 
 uint32_t SecTaskGetCodeSignStatus(SecTaskRef task);
+#endif /* SEC_OS_IPHONE */
+
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 __END_DECLS
 

@@ -28,6 +28,7 @@
 #include "IOHIDElementPrivate.h"
 #include "OSStackRetain.h"
 #include "IOHIDDebug.h"
+#include <IOKit/hidsystem/IOHIDShared.h>
 
 //===========================================================================
 // IOHIDInterface class
@@ -107,7 +108,7 @@ IOReturn IOHIDInterface::message(UInt32 type,
                                  void * argument)
 {
     IOReturn result = kIOReturnSuccess;
-    if (kIOMessageServiceIsRequestingClose == type) {
+    if (type == kIOMessageServiceIsRequestingClose) {
         result = messageClients(type, argument);
         if (result != kIOReturnSuccess) {
             HIDLogError("IOHIDInterface unsuccessfully requested close of clients: 0x%08x", result);
@@ -115,8 +116,9 @@ IOReturn IOHIDInterface::message(UInt32 type,
         else {
             provider->close(this);
         }
-    }
-    else {
+    } else if  (type == kIOHIDMessageOpenedByEventSystem && provider != _owner) {
+        result = _owner->message(type, provider, argument);
+    } else {
         result = super::message(type, provider, argument);
     }
     

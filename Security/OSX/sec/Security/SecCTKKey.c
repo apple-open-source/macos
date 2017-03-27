@@ -34,10 +34,6 @@
 #include <ctkclient.h>
 #include <libaks_acl_cf_keys.h>
 
-#if TKTOKEN_CLIENT_INTERFACE_VERSION <= 1
-#define kTKTokenCreateAttributeAuxParams "auxParams"
-#endif
-
 #include "SecECKey.h"
 #include "SecRSAKey.h"
 #include "SecCTKKeyPriv.h"
@@ -66,15 +62,8 @@ static void SecCTKKeyDestroy(SecKeyRef key) {
 
 static CFIndex SecCTKGetAlgorithmID(SecKeyRef key) {
     SecCTKKeyData *kd = key->key;
-    CFTypeRef type = CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType);
-    if (type != NULL) {
-        if (CFGetTypeID(type) == CFNumberGetTypeID()) {
-            CFIndex keyType;
-            if (CFNumberGetValue(type, kCFNumberCFIndexType, &keyType) && keyType == 73 /* kSecAttrKeyTypeEC */)
-                return kSecECDSAAlgorithmID;
-        } else if (CFGetTypeID(type) == CFStringGetTypeID() && CFEqual(type, kSecAttrKeyTypeEC)) {
-            return kSecECDSAAlgorithmID;
-        }
+    if (CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeECSECPrimeRandom)) {
+        return kSecECDSAAlgorithmID;
     }
     return kSecRSAAlgorithmID;
 }
@@ -125,11 +114,7 @@ static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType
             }
         }
 
-#if TKTOKEN_CLIENT_INTERFACE_VERSION >= 1
         result = TKTokenCopyOperationResult(token, kd->objectID, operation, algorithms, mode, in1, in2, error);
-#else
-        result = TKTokenCopyCryptoResult(token, kd->objectID, operation, (CFIndex)algorithm, in1, in2, error);
-#endif
         return (result != NULL) ? kSecItemAuthResultOK : SecCTKProcessError(*aclOperations[operation], token,
                                                                             kd->objectID, ac_pairs, error);
     });
@@ -330,6 +315,29 @@ SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttrib
     if (CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrIsPrivate) == NULL) {
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrIsPrivate, kCFBooleanTrue);
     }
+
+    // Convert some attributes which are stored as numbers in iOS keychain but a lot of code counts that the values
+    // are actually strings as specified by kSecAttrXxx constants.
+    static const CFStringRef *numericAttributes[] = {
+        &kSecAttrKeyType,
+        &kSecAttrKeyClass,
+        NULL,
+    };
+
+    for (const CFStringRef **attrName = &numericAttributes[0]; *attrName != NULL; attrName++) {
+        CFTypeRef value = CFDictionaryGetValue(kd->attributes.dictionary, **attrName);
+        if (value != NULL && CFGetTypeID(value) == CFNumberGetTypeID()) {
+            CFIndex number;
+            if (CFNumberGetValue(value, kCFNumberCFIndexType, &number)) {
+                CFStringRef newValue = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%ld"), (long)number);
+                if (newValue != NULL) {
+                    CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), **attrName, newValue);
+                    CFRelease(newValue);
+                }
+            }
+        }
+    }
+
     return key;
 }
 

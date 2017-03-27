@@ -148,6 +148,10 @@ private:
             OSArray *           elements;
             OSArray *           pendingEvents;
         } vendorMessage;
+        
+        struct {
+            OSArray *           elements;
+        } biometric;
 
         UInt64  lastReportTime;
     };
@@ -166,6 +170,7 @@ private:
     bool                    parseLegacyUnicodeElement(IOHIDElement * element);
     bool                    parseGestureUnicodeElement(IOHIDElement * element);
     bool                    parseVendorMessageElement(IOHIDElement * element);
+    bool                    parseBiometricElement(IOHIDElement * element);
   
     void                    processDigitizerElements();
     void                    processMultiAxisElements();
@@ -182,6 +187,7 @@ private:
     void                    setUnicodeProperties();
     void                    setAccelerationProperties();
     void                    setVendorMessageProperties();
+    void                    setBiometricProperties();
 
     UInt32                  checkGameControllerElement(IOHIDElement * element);
     UInt32                  checkMultiAxisElement(IOHIDElement * element);
@@ -204,6 +210,7 @@ private:
     IOHIDEvent *            handleUnicodeGestureCandidateReport(EventElementCollection * candidate, AbsoluteTime timeStamp, UInt32 reportID);
 
     void                    handleVendorMessageReport(AbsoluteTime timeStamp, IOMemoryDescriptor * report, UInt32 reportID, int phase);
+    void                    handleBiometricReport(AbsoluteTime timeStamp, UInt32 reportID);
   
     bool                    serializeCharacterGestureState(void * ref, OSSerialize * serializer);
     bool                    conformTo (UInt32 usagePage, UInt32 usage);

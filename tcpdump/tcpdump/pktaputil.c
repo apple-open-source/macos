@@ -28,12 +28,11 @@
 
 #ifdef __APPLE__
 
-#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <tcpdump-stdinc.h>
+#include <netdissect-stdinc.h>
 
 #define __APPLE_PCAP_NG_API
 #include <net/pktap.h>
@@ -55,8 +54,6 @@
 
 extern node_t *pkt_meta_data_expression;
 
-extern netdissect_options *gndo;
-
 extern int pktap_if_count;
 
 extern u_int packets_mtdt_fltr_drop;
@@ -68,19 +65,20 @@ extern char *svc2str(uint32_t);
  * Returns zero if the packet doesn't match, non-zero if it matches
  */
 int
-pktap_filter_packet(pcap_t *pcap, struct pcap_if_info *if_info,
+pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 					const struct pcap_pkthdr *h, const u_char *sp)
 {
 	struct pktap_header *pktp_hdr;
 	const u_char *pkt_data;
 	int match = 0;
+	pcap_t *pcap = ndo->ndo_pcap;
 	
 	pktp_hdr = (struct pktap_header *)sp;
 
 	if (h->len < sizeof(struct pktap_header) ||
 		h->caplen < sizeof(struct pktap_header) ||
 		pktp_hdr->pth_length > h->caplen) {
-		error("%s: Packet too short", __func__);
+		fprintf(stderr, "%s: Packet too short\n", __func__);
 		return (0);
 	}
 	
@@ -91,9 +89,9 @@ pktap_filter_packet(pcap_t *pcap, struct pcap_if_info *if_info,
 		 */
 		if (if_info == NULL) {
 			if_info = pcap_add_if_info(pcap, pktp_hdr->pth_ifname,
-											-1, pktp_hdr->pth_dlt, gndo->ndo_snaplen);
+											-1, pktp_hdr->pth_dlt, ndo->ndo_snaplen);
 			if (if_info == NULL) {
-				error("%s: pcap_add_if_info(%s, %u) failed: %s",
+				fprintf(stderr, "%s: pcap_add_if_info(%s, %u) failed: %s\n",
 					  __func__, pktp_hdr->pth_ifname, pktp_hdr->pth_dlt, pcap_geterr(pcap));
 				return (0);
 			}
@@ -139,5 +137,38 @@ pktap_filter_packet(pcap_t *pcap, struct pcap_if_info *if_info,
 	
 	return (match);
 }
+
+char *
+svc2str(uint32_t svc)
+{
+	static char svcstr[10];
+
+	switch (svc) {
+		case SO_TC_BK_SYS:
+			return "BK_SYS";
+		case SO_TC_BK:
+			return "BK";
+		case SO_TC_BE:
+			return "BE";
+		case SO_TC_RD:
+			return "RD";
+		case SO_TC_OAM:
+			return "OAM";
+		case SO_TC_AV:
+			return "AV";
+		case SO_TC_RV:
+			return "RV";
+		case SO_TC_VI:
+			return "VI";
+		case SO_TC_VO:
+			return "VO";
+		case SO_TC_CTL:
+			return "CTL";
+		default:
+			snprintf(svcstr, sizeof(svcstr), "%u", svc);
+			return svcstr;
+	}
+}
+
 
 #endif /* __APPLE__ */

@@ -309,7 +309,7 @@ extern "C" {
 
 /**
  * APR_HAS_LARGE_FILES introduces the problem of spliting sendfile into
- * mutiple buckets, no greater than MAX(apr_size_t), and more granular
+ * multiple buckets, no greater than MAX(apr_size_t), and more granular
  * than that in case the brigade code/filters attempt to read it directly.
  * ### 16mb is an invention, no idea if it is reasonable.
  */
@@ -354,7 +354,7 @@ extern "C" {
  * use by modules.  The difference between #AP_DECLARE and
  * #AP_DECLARE_NONSTD is that the latter is required for any functions
  * which use varargs or are used via indirect function call.  This
- * is to accomodate the two calling conventions in windows dlls.
+ * is to accommodate the two calling conventions in windows dlls.
  */
 # define AP_DECLARE_NONSTD(type)    type
 #endif
@@ -1584,6 +1584,28 @@ AP_DECLARE(int) ap_find_etag_weak(apr_pool_t *p, const char *line, const char *t
  * @return 1 if found, 0 if not found.
  */
 AP_DECLARE(int) ap_find_etag_strong(apr_pool_t *p, const char *line, const char *tok);
+
+/* Scan a string for field content chars, as defined by RFC7230 section 3.2
+ * including VCHAR/obs-text, as well as HT and SP
+ * @param ptr The string to scan
+ * @return A pointer to the first (non-HT) ASCII ctrl character.
+ * @note lws and trailing whitespace are scanned, the caller is responsible
+ * for trimming leading and trailing whitespace
+ */
+AP_DECLARE(const char *) ap_scan_http_field_content(const char *ptr);
+
+/* Scan a string for token characters, as defined by RFC7230 section 3.2.6 
+ * @param ptr The string to scan
+ * @return A pointer to the first non-token character.
+ */
+AP_DECLARE(const char *) ap_scan_http_token(const char *ptr);
+
+/* Scan a string for visible ASCII (0x21-0x7E) or obstext (0x80+)
+ * and return a pointer to the first SP/CTL/NUL character encountered.
+ * @param ptr The string to scan
+ * @return A pointer to the first SP/CTL character.
+ */
+AP_DECLARE(const char *) ap_scan_vchar_obstext(const char *ptr);
 
 /**
  * Retrieve an array of tokens in the format "1#token" defined in RFC2616. Only

@@ -714,3 +714,4 @@ _krb5_srp_keysize
 _krb5_srp_pkisize
 _krb5_srp_reply_key
 _krb5_srp_validate_group
+krb5_enctype_warning

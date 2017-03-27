@@ -136,7 +136,7 @@ bool DefaultCredentials::unlockKey(const UnlockReferralRecord &ref, const Keycha
 		CSSM_DB_RECORDTYPE recordType =
 			(ref.type() == CSSM_APPLE_UNLOCK_TYPE_KEY_DIRECT) ?
 				CSSM_DL_DB_RECORD_SYMMETRIC_KEY : CSSM_DL_DB_RECORD_PRIVATE_KEY;
-		KCCursor cursor(list, recordType, &search);
+		KCCursor cursor(list, (SecItemClass) recordType, &search);
 		
 		Item keyItem;
 		while (cursor->next(keyItem)) {

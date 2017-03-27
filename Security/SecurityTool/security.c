@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * security.c
@@ -26,7 +26,7 @@
 #include "security_tool.h"
 
 #include "leaks.h"
-#include "readline.h"
+#include "readline_cssm.h"
 
 #include "cmsutil.h"
 #include "db_commands.h"
@@ -114,7 +114,7 @@ const command commands[] =
 	  "Display or manipulate the keychain search list." },
 
     { "list-smartcards", ctk_list,
-      "With no parameters, display IDs of available smartcards.",
+      "Display IDs of available smartcards.",
       "Display available smartcards." },
 
 	{ "default-keychain", keychain_default,
@@ -441,6 +441,16 @@ const command commands[] =
 	  "If no keychains are specified to search, the default search list is used.",
 	  "Delete a certificate from a keychain."},
 
+	{ "delete-identity", keychain_delete_identity,
+	  "[-c name] [-Z hash] [-t] [keychain...]\n"
+	  "    -c  Specify certificate to delete by its common name\n"
+	  "    -Z  Specify certificate to delete by its SHA-1 hash value\n"
+	  "    -t  Also delete user trust settings for this identity certificate\n"
+	  "The identity to be deleted must be uniquely specified either by a\n"
+	  "string found in its common name, or by its SHA-1 hash.\n"
+	  "If no keychains are specified to search, the default search list is used.",
+	  "Delete an identity (certificate + private key) from a keychain."},
+
 	{ "set-identity-preference", set_identity_preference,
 	  "[-n] [-c identity] [-s service] [-u keyUsage] [-Z hash] [keychain...]\n"
 	  "    -n  Specify no identity (clears existing preference for service)\n"
@@ -573,7 +583,6 @@ const command commands[] =
 	  "    -k keychain         Specify keychain to which cert is added\n"
 	  "    -i settingsFileIn   Input trust settings file; default is user domain\n"
 	  "    -o settingsFileOut  Output trust settings file; default is user domain\n"
-	  "    -D                  Add default setting instead of per-cert setting\n"
 	  "    certFile            Certificate(s)",
 	  "Add trusted certificate(s)." },
 

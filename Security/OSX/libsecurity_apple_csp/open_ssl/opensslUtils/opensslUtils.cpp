@@ -21,13 +21,13 @@
  */
  
 #include <openssl/rand.h>
-#include <openssl/crypto.h>
-#include <openssl/err.h>
+#include <openssl/crypto_legacy.h>
+#include <openssl/opensslerr.h>
 #include <openssl/sha.h>
-#include <openssl/rsa.h>
-#include <openssl/dsa.h>
-#include <openssl/dh.h>
-#include <openssl/err.h>
+#include <openssl/rsa_legacy.h>
+#include <openssl/dsa_legacy.h>
+#include <openssl/dh_legacy.h>
+#include <openssl/opensslerr.h>
 #include <security_utilities/debugging.h>
 #include <Security/cssmerr.h>
 #include "opensslUtils.h"

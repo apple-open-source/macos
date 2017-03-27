@@ -104,7 +104,7 @@ public:
 	 * Lookup with file-based indirection. Allows multiple mdsinfo file to share 
 	 * commmon info from a separate plist file.
 	 */
-	const CFPropertyListRef lookupWithIndirect(
+	CFPropertyListRef lookupWithIndirect(
 		const char *key,
 		CFBundleRef bundle,
 		CFTypeID	desiredType);

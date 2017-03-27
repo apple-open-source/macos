@@ -153,7 +153,8 @@ static void tests()
         SOSFullPeerInfoUpdateTransportType(alice_account->my_identity, SOSTransportMessageTypeIDSV2, &localError);
         SOSFullPeerInfoUpdateTransportPreference(alice_account->my_identity, kCFBooleanFalse, &localError);
         SOSFullPeerInfoUpdateTransportFragmentationPreference(alice_account->my_identity, kCFBooleanTrue, &localError);
-        
+        SOSFullPeerInfoUpdateTransportAckModelPreference(alice_account->my_identity, kCFBooleanTrue, &localError);
+
         return SOSCircleHasPeer(circle, SOSFullPeerInfoGetPeerInfo(alice_account->my_identity), NULL);
     });
     
@@ -167,7 +168,8 @@ static void tests()
         SOSFullPeerInfoUpdateTransportType(bob_account->my_identity, SOSTransportMessageTypeIDSV2, &localError);
         SOSFullPeerInfoUpdateTransportPreference(bob_account->my_identity, kCFBooleanFalse, &localError);
         SOSFullPeerInfoUpdateTransportFragmentationPreference(bob_account->my_identity, kCFBooleanTrue, &localError);
-        
+        SOSFullPeerInfoUpdateTransportAckModelPreference(bob_account->my_identity, kCFBooleanTrue, &localError);
+
         return SOSCircleHasPeer(circle, SOSFullPeerInfoGetPeerInfo(bob_account->my_identity), NULL);
     });
     
@@ -184,17 +186,17 @@ static void tests()
     
     SOSTransportMessageIDSTestSetName(alice_account->ids_message_transport, CFSTR("Alice Account"));
     ok(SOSTransportMessageIDSTestGetName(alice_account->ids_message_transport) != NULL, "retrieved getting account name");
-    ok(SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(alice_account, &error) != false, "device ID from IDSKeychainSyncingProxy");
+    ok(SOSAccountRetrieveDeviceIDFromKeychainSyncingOverIDSProxy(alice_account, &error) != false, "device ID from KeychainSyncingOverIDSProxy");
     
     SOSTransportMessageIDSTestSetName(bob_account->ids_message_transport, CFSTR("Bob Account"));
     ok(SOSTransportMessageIDSTestGetName(bob_account->ids_message_transport) != NULL, "retrieved getting account name");
-    ok(SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(bob_account, &error) != false, "device ID from IDSKeychainSyncingProxy");
+    ok(SOSAccountRetrieveDeviceIDFromKeychainSyncingOverIDSProxy(bob_account, &error) != false, "device ID from KeychainSyncingOverIDSProxy");
     
-    ok(SOSAccountSetMyDSID(alice_account, CFSTR("Alice"),&error), "Setting IDS device ID");
+    ok(SOSAccountSetMyDSID_wTxn(alice_account, CFSTR("Alice"),&error), "Setting IDS device ID");
     CFStringRef alice_dsid = SOSAccountCopyDeviceID(alice_account, &error);
     ok(CFEqualSafe(alice_dsid, CFSTR("Alice")), "Getting IDS device ID");
     
-    ok(SOSAccountSetMyDSID(bob_account, CFSTR("Bob"),&error), "Setting IDS device ID");
+    ok(SOSAccountSetMyDSID_wTxn(bob_account, CFSTR("Bob"),&error), "Setting IDS device ID");
     CFStringRef bob_dsid = SOSAccountCopyDeviceID(bob_account, &error);
     ok(CFEqualSafe(bob_dsid, CFSTR("Bob")), "Getting IDS device ID");
     
@@ -202,9 +204,9 @@ static void tests()
     
     SOSTransportMessageIDSTestSetName(alice_account->ids_message_transport, CFSTR("Alice Account"));
     ok(SOSTransportMessageIDSTestGetName(alice_account->ids_message_transport) != NULL, "retrieved getting account name");
-    ok(SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(alice_account, &error) != false, "device ID from IDSKeychainSyncingProxy");
+    ok(SOSAccountRetrieveDeviceIDFromKeychainSyncingOverIDSProxy(alice_account, &error) != false, "device ID from KeychainSyncingOverIDSProxy");
     
-    ok(SOSAccountSetMyDSID(alice_account, CFSTR("DSID"),&error), "Setting IDS device ID");
+    ok(SOSAccountSetMyDSID_wTxn(alice_account, CFSTR("DSID"),&error), "Setting IDS device ID");
     CFStringRef dsid = SOSAccountCopyDeviceID(alice_account, &error);
     ok(CFEqualSafe(dsid, CFSTR("DSID")), "Getting IDS device ID");
     CFReleaseNull(dsid);
@@ -293,13 +295,7 @@ static void tests()
     CFReleaseNull(bob_dsid);
     CFReleaseNull(changes);
 
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-
+    SOSTestCleanup();
 }
 int secd_76_idstransport(int argc, char *const *argv)
 {

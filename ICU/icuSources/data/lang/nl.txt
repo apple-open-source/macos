@@ -613,7 +613,7 @@ nl{
         was{"Washo"}
         wbp{"Warlpiri"}
         wo{"Wolof"}
-        wuu{"Wuyu"}
+        wuu{"Shanghainees"}
         xal{"Kalmuks"}
         xh{"Xhosa"}
         xmf{"Mingreels"}

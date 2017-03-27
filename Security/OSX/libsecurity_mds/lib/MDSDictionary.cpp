@@ -384,7 +384,7 @@ void MDSDictionary::lookupAttributes(
  *		}
  *		...else return error;
  */
-const CFPropertyListRef MDSDictionary::lookupWithIndirect(
+CFPropertyListRef MDSDictionary::lookupWithIndirect(
 	const char *key,
 	CFBundleRef bundle,
 	CFTypeID	desiredType)

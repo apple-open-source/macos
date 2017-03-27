@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2014 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,25 +26,8 @@
 #include "config.h"
 #include "MemoryPressureHandler.h"
 
-#include "CSSValuePool.h"
-#include "Chrome.h"
-#include "ChromeClient.h"
-#include "Document.h"
-#include "FontCache.h"
-#include "GCController.h"
-#include "HTMLMediaElement.h"
-#include "InspectorInstrumentation.h"
-#include "MemoryCache.h"
-#include "Page.h"
-#include "PageCache.h"
-#include "ScrollingThread.h"
-#include "StyledElement.h"
-#include "WorkerThread.h"
-#include <JavaScriptCore/IncrementalSweeper.h>
-#include <chrono>
-#include <wtf/CurrentTime.h>
-#include <wtf/FastMalloc.h>
-#include <wtf/StdLibExtras.h>
+#include "Logging.h"
+#include <wtf/MemoryFootprint.h>
 
 namespace WebCore {
 
@@ -56,183 +39,169 @@ MemoryPressureHandler& MemoryPressureHandler::singleton()
     return memoryPressureHandler;
 }
 
-MemoryPressureHandler::MemoryPressureHandler() 
-    : m_installed(false)
-    , m_lastRespondTime(0)
-    , m_lowMemoryHandler([this] (Critical critical, Synchronous synchronous) { releaseMemory(critical, synchronous); })
-    , m_underMemoryPressure(false)
-#if PLATFORM(IOS)
-    // FIXME: Can we share more of this with OpenSource?
-    , m_memoryPressureReason(MemoryPressureReasonNone)
-    , m_clearPressureOnMemoryRelease(true)
-    , m_releaseMemoryBlock(0)
-    , m_observer(0)
-#elif OS(LINUX)
-    , m_holdOffTimer(RunLoop::main(), this, &MemoryPressureHandler::holdOffTimerFired)
+MemoryPressureHandler::MemoryPressureHandler()
+#if OS(LINUX)
+    : m_holdOffTimer(RunLoop::main(), this, &MemoryPressureHandler::holdOffTimerFired)
 #endif
 {
-    platformInitialize();
 }
 
-void MemoryPressureHandler::releaseNoncriticalMemory()
+void MemoryPressureHandler::setShouldUsePeriodicMemoryMonitor(bool use)
 {
-    {
-        ReliefLogger log("Purge inactive FontData");
-        FontCache::singleton().purgeInactiveFontData();
-    }
-
-    {
-        ReliefLogger log("Clear WidthCaches");
-        clearWidthCaches();
-    }
-
-    {
-        ReliefLogger log("Discard Selector Query Cache");
-        for (auto* document : Document::allDocuments())
-            document->clearSelectorQueryCache();
-    }
-
-    {
-        ReliefLogger log("Prune MemoryCache dead resources");
-        MemoryCache::singleton().pruneDeadResourcesToSize(0);
-    }
-
-    {
-        ReliefLogger log("Prune presentation attribute cache");
-        StyledElement::clearPresentationAttributeCache();
-    }
-}
-
-void MemoryPressureHandler::releaseCriticalMemory(Synchronous synchronous)
-{
-    {
-        ReliefLogger log("Empty the PageCache");
-        // Right now, the only reason we call release critical memory while not under memory pressure is if the process is about to be suspended.
-        PruningReason pruningReason = isUnderMemoryPressure() ? PruningReason::MemoryPressure : PruningReason::ProcessSuspended;
-        PageCache::singleton().pruneToSizeNow(0, pruningReason);
-    }
-
-    {
-        ReliefLogger log("Prune MemoryCache live resources");
-        MemoryCache::singleton().pruneLiveResourcesToSize(0, /*shouldDestroyDecodedDataForAllLiveResources*/ true);
-    }
-
-    {
-        ReliefLogger log("Drain CSSValuePool");
-        CSSValuePool::singleton().drain();
-    }
-
-    {
-        ReliefLogger log("Discard StyleResolvers");
-        Vector<RefPtr<Document>> documents;
-        copyToVector(Document::allDocuments(), documents);
-        for (auto& document : documents)
-            document->clearStyleResolver();
-    }
-
-    {
-        ReliefLogger log("Discard all JIT-compiled code");
-        GCController::singleton().deleteAllCode();
-    }
-
-#if ENABLE(VIDEO)
-    {
-        ReliefLogger log("Dropping buffered data from paused media elements");
-        for (auto* mediaElement: HTMLMediaElement::allMediaElements()) {
-            if (mediaElement->paused())
-                mediaElement->purgeBufferedDataIfPossible();
-        }
-    }
-#endif
-
-    if (synchronous == Synchronous::Yes) {
-        ReliefLogger log("Collecting JavaScript garbage");
-        GCController::singleton().garbageCollectNow();
+    if (use) {
+        m_measurementTimer = std::make_unique<RunLoop::Timer<MemoryPressureHandler>>(RunLoop::main(), this, &MemoryPressureHandler::measurementTimerFired);
+        m_measurementTimer->startRepeating(30);
     } else
-        GCController::singleton().garbageCollectNowIfNotDoneRecently();
-
-    // We reduce tiling coverage while under memory pressure, so make sure to drop excess tiles ASAP.
-    Page::forEachPage([](Page& page) {
-        page.chrome().client().scheduleCompositingLayerFlush();
-    });
+        m_measurementTimer = nullptr;
 }
 
-void MemoryPressureHandler::jettisonExpensiveObjectsOnTopLevelNavigation()
+#if !RELEASE_LOG_DISABLED
+static const char* toString(MemoryUsagePolicy policy)
 {
-#if PLATFORM(IOS)
-    // Protect against doing excessive jettisoning during repeated navigations.
-    const auto minimumTimeSinceNavigation = 2s;
+    switch (policy) {
+    case MemoryUsagePolicy::Unrestricted: return "Unrestricted";
+    case MemoryUsagePolicy::Conservative: return "Conservative";
+    case MemoryUsagePolicy::Strict: return "Strict";
+    case MemoryUsagePolicy::Panic: return "Panic";
+    }
+}
+#endif
 
-    static auto timeOfLastNavigation = std::chrono::steady_clock::now();
-    auto now = std::chrono::steady_clock::now();
-    bool shouldJettison = now - timeOfLastNavigation >= minimumTimeSinceNavigation;
-    timeOfLastNavigation = now;
+static size_t thresholdForPolicy(MemoryUsagePolicy policy)
+{
+    switch (policy) {
+    case MemoryUsagePolicy::Conservative:
+        return 1 * GB;
+    case MemoryUsagePolicy::Strict:
+        return 2 * GB;
+    case MemoryUsagePolicy::Panic:
+#if CPU(X86_64) || CPU(ARM64)
+        return 4 * GB;
+#else
+        return 3 * GB;
+#endif
+    case MemoryUsagePolicy::Unrestricted:
+    default:
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+}
 
-    if (!shouldJettison)
+static MemoryUsagePolicy policyForFootprint(size_t footprint)
+{
+    if (footprint >= thresholdForPolicy(MemoryUsagePolicy::Panic))
+        return MemoryUsagePolicy::Panic;
+    if (footprint >= thresholdForPolicy(MemoryUsagePolicy::Strict))
+        return MemoryUsagePolicy::Strict;
+    if (footprint >= thresholdForPolicy(MemoryUsagePolicy::Conservative))
+        return MemoryUsagePolicy::Conservative;
+    return MemoryUsagePolicy::Unrestricted;
+}
+
+void MemoryPressureHandler::measurementTimerFired()
+{
+    auto footprint = memoryFootprint();
+    if (!footprint)
         return;
 
-    // Throw away linked JS code. Linked code is tied to a global object and is not reusable.
-    // The immediate memory savings outweigh the cost of recompilation in case we go back again.
-    GCController::singleton().deleteAllLinkedCode();
-#endif
+    RELEASE_LOG(MemoryPressure, "Current memory footprint: %lu MB", footprint.value() / MB);
+
+    auto newPolicy = policyForFootprint(footprint.value());
+    if (newPolicy == m_memoryUsagePolicy) {
+        if (m_memoryUsagePolicy != MemoryUsagePolicy::Panic)
+            return;
+        RELEASE_LOG(MemoryPressure, "Memory usage still above panic threshold");
+    } else
+        RELEASE_LOG(MemoryPressure, "Memory usage policy changed: %s -> %s", toString(m_memoryUsagePolicy), toString(newPolicy));
+
+    m_memoryUsagePolicy = newPolicy;
+
+    if (newPolicy == MemoryUsagePolicy::Unrestricted)
+        return;
+
+    if (newPolicy == MemoryUsagePolicy::Conservative) {
+        // FIXME: Implement this policy by choosing which caches should respect it, and hooking them up.
+        return;
+    }
+
+    if (newPolicy == MemoryUsagePolicy::Strict) {
+        RELEASE_LOG(MemoryPressure, "Attempting to reduce memory footprint by freeing less important objects.");
+        releaseMemory(Critical::No, Synchronous::No);
+        return;
+    }
+
+    RELEASE_ASSERT(newPolicy == MemoryUsagePolicy::Panic);
+
+    RELEASE_LOG(MemoryPressure, "Attempting to reduce memory footprint by freeing more important objects.");
+    if (m_processIsEligibleForMemoryKillCallback) {
+        if (!m_processIsEligibleForMemoryKillCallback()) {
+            releaseMemory(Critical::Yes, Synchronous::No);
+            return;
+        }
+    }
+
+    releaseMemory(Critical::Yes, Synchronous::Yes);
+
+    // Remeasure footprint to see how well the pressure handler did.
+    footprint = memoryFootprint();
+    RELEASE_ASSERT(footprint);
+
+    RELEASE_LOG(MemoryPressure, "New memory footprint: %lu MB", footprint.value() / MB);
+    if (footprint.value() < thresholdForPolicy(MemoryUsagePolicy::Panic)) {
+        m_memoryUsagePolicy = policyForFootprint(footprint.value());
+        RELEASE_LOG(MemoryPressure, "Pressure reduced below panic threshold. New memory usage policy: %s", toString(m_memoryUsagePolicy));
+        return;
+    }
+
+    if (m_memoryKillCallback)
+        m_memoryKillCallback();
+}
+
+void MemoryPressureHandler::beginSimulatedMemoryPressure()
+{
+    m_isSimulatingMemoryPressure = true;
+    respondToMemoryPressure(Critical::Yes, Synchronous::Yes);
+}
+
+void MemoryPressureHandler::endSimulatedMemoryPressure()
+{
+    m_isSimulatingMemoryPressure = false;
 }
 
 void MemoryPressureHandler::releaseMemory(Critical critical, Synchronous synchronous)
 {
-    if (critical == Critical::Yes)
-        releaseCriticalMemory(synchronous);
+    if (!m_lowMemoryHandler)
+        return;
 
-    releaseNoncriticalMemory();
-
+    ReliefLogger log("Total");
+    m_lowMemoryHandler(critical, synchronous);
     platformReleaseMemory(critical);
-
-    {
-        ReliefLogger log("Release free FastMalloc memory");
-        // FastMalloc has lock-free thread specific caches that can only be cleared from the thread itself.
-        WorkerThread::releaseFastMallocFreeMemoryInAllThreads();
-#if ENABLE(ASYNC_SCROLLING) && !PLATFORM(IOS)
-        ScrollingThread::dispatch([]() {
-            WTF::releaseFastMallocFreeMemory();
-        });
-#endif
-        WTF::releaseFastMallocFreeMemory();
-    }
-
-#if ENABLE(RESOURCE_USAGE)
-    Page::forEachPage([&](Page& page) {
-        InspectorInstrumentation::didHandleMemoryPressure(page, critical);
-    });
-#endif
 }
 
 void MemoryPressureHandler::ReliefLogger::logMemoryUsageChange()
 {
 #if !RELEASE_LOG_DISABLED
 #define STRING_SPECIFICATION "%{public}s"
-#define MEMORYPRESSURE_LOG(...) RELEASE_LOG(__VA_ARGS__)
+#define MEMORYPRESSURE_LOG(...) RELEASE_LOG(MemoryPressure, __VA_ARGS__)
 #else
 #define STRING_SPECIFICATION "%s"
 #define MEMORYPRESSURE_LOG(...) WTFLogAlways(__VA_ARGS__)
 #endif
 
-    size_t currentMemory = platformMemoryUsage();
-    if (currentMemory == static_cast<size_t>(-1) || m_initialMemory == static_cast<size_t>(-1)) {
+    auto currentMemory = platformMemoryUsage();
+    if (!currentMemory || !m_initialMemory) {
         MEMORYPRESSURE_LOG("Memory pressure relief: " STRING_SPECIFICATION ": (Unable to get dirty memory information for process)", m_logString);
         return;
     }
 
-    long memoryDiff = currentMemory - m_initialMemory;
-    if (memoryDiff < 0)
-        MEMORYPRESSURE_LOG("Memory pressure relief: " STRING_SPECIFICATION ": -dirty %ld bytes (from %zu to %zu)", m_logString, (memoryDiff * -1), m_initialMemory, currentMemory);
-    else if (memoryDiff > 0)
-        MEMORYPRESSURE_LOG("Memory pressure relief: " STRING_SPECIFICATION ": +dirty %ld bytes (from %zu to %zu)", m_logString, memoryDiff, m_initialMemory, currentMemory);
-    else
-        MEMORYPRESSURE_LOG("Memory pressure relief: " STRING_SPECIFICATION ": =dirty (at %zu bytes)", m_logString, currentMemory);
-}
+    long residentDiff = currentMemory->resident - m_initialMemory->resident;
+    long physicalDiff = currentMemory->physical - m_initialMemory->physical;
 
-#if !PLATFORM(COCOA)
-void MemoryPressureHandler::platformInitialize() { }
-#endif
+    MEMORYPRESSURE_LOG("Memory pressure relief: " STRING_SPECIFICATION ": res = %zu/%zu/%ld, res+swap = %zu/%zu/%ld",
+        m_logString,
+        m_initialMemory->resident, currentMemory->resident, residentDiff,
+        m_initialMemory->physical, currentMemory->physical, physicalDiff);
+}
 
 #if !PLATFORM(COCOA) && !OS(LINUX) && !PLATFORM(WIN)
 void MemoryPressureHandler::install() { }
@@ -240,7 +209,7 @@ void MemoryPressureHandler::uninstall() { }
 void MemoryPressureHandler::holdOff(unsigned) { }
 void MemoryPressureHandler::respondToMemoryPressure(Critical, Synchronous) { }
 void MemoryPressureHandler::platformReleaseMemory(Critical) { }
-size_t MemoryPressureHandler::ReliefLogger::platformMemoryUsage() { return 0; }
+std::optional<MemoryPressureHandler::ReliefLogger::MemoryUsage> MemoryPressureHandler::ReliefLogger::platformMemoryUsage() { return std::nullopt; }
 #endif
 
 } // namespace WebCore

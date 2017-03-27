@@ -136,7 +136,7 @@ CFDataRef decodePrivateKeyHeader(SecKeychainRef keychain, const FVPrivateKeyHead
     CSSM_CC_HANDLE cc = 0;
 	
 	SecKeychainSearchRef _searchRef;
-	throwIfError(SecKeychainSearchCreateFromAttributes(keychain, CSSM_DL_DB_RECORD_PRIVATE_KEY, &attrList, &_searchRef));
+	throwIfError(SecKeychainSearchCreateFromAttributes(keychain, (SecItemClass) CSSM_DL_DB_RECORD_PRIVATE_KEY, &attrList, &_searchRef));
 	CFRef<SecKeychainSearchRef> searchRef(_searchRef);
 	
 	SecKeychainItemRef _item;

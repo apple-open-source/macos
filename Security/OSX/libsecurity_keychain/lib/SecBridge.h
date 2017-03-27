@@ -71,7 +71,6 @@ using namespace KeychainCore;
 // BEGIN_SECKCITEMAPI
 // Note: this macro assumes an input parameter named "itemRef"
 //
-#if SECTRUST_OSX
 #define BEGIN_SECKCITEMAPI \
 	OSStatus __secapiresult=errSecSuccess; \
 	SecKeychainItemRef __itemImplRef=NULL; \
@@ -90,12 +89,7 @@ using namespace KeychainCore;
 		__itemImplRef=(SecKeychainItemRef)((itemRef) ? CFRetain(itemRef) : NULL); \
 	} \
 	try {
-#else
-#define BEGIN_SECKCITEMAPI \
-	OSStatus __secapiresult=errSecSuccess; \
-	SecKeychainItemRef __itemImplRef=(SecKeychainItemRef)((itemRef) ? CFRetain(itemRef) : NULL); \
-	try {
-#endif
+
 //
 // END_SECKCITEMAPI
 //
@@ -112,7 +106,6 @@ using namespace KeychainCore;
 // BEGIN_SECCERTAPI
 // Note: this macro assumes an input parameter named "certificate"
 //
-#if SECTRUST_OSX
 #define BEGIN_SECCERTAPI \
 	OSStatus __secapiresult=errSecSuccess; \
 	SecCertificateRef __itemImplRef=NULL; \
@@ -121,12 +114,7 @@ using namespace KeychainCore;
 	if (!__itemImplRef && certificate) { __itemImplRef=SecCertificateCreateItemImplInstance(certificate); \
 		(void)SecCertificateSetKeychainItem(certificate,__itemImplRef); } \
 	try {
-#else
-#define BEGIN_SECCERTAPI \
-	OSStatus __secapiresult=errSecSuccess; \
-	SecCertificateRef __itemImplRef=(SecCertificateRef)((certificate)?CFRetain(certificate):NULL); \
-	try {
-#endif
+
 //
 // END_SECCERTAPI
 //

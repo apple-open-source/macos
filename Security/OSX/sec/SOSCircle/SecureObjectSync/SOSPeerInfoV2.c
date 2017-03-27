@@ -10,6 +10,7 @@
 #include "SOSPeerInfoV2.h"
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSAccountPriv.h>
+#include <Security/SecureObjectSync/SOSPeerInfoV2.h>
 #include <utilities/der_plist.h>
 #include <utilities/der_plist_internal.h>
 #include <corecrypto/ccder.h>
@@ -77,6 +78,10 @@ void SOSPeerInfoSetSerialNumber(SOSPeerInfoRef pi) {
 }
 
 const CFStringRef SOSSerialUnknown = CFSTR("Unknown");
+
+void SOSPeerInfoSetTestSerialNumber(SOSPeerInfoRef pi, CFStringRef serialNumber) {
+    if(serialNumber) SOSPeerInfoV2DictionarySetValue(pi, sSerialNumberKey, serialNumber);
+}
 
 CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi) {
     CFStringRef retval = SOSPeerInfoV2DictionaryCopyString(pi, sSerialNumberKey);
@@ -156,13 +161,8 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     
     SOSPeerInfoSetVersionNumber(pi, PEERINFO_CURRENT_VERSION);
     CFMutableDictionaryRef v2Dictionary = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFStringRef serialNumber = SOSCopySerialNumberAsString(error);
-    if(serialNumber == NULL) {
-        secnotice("signing", "serialNumber was returned NULL\n");
-    }
     CFMutableSetRef views = SOSViewCopyViewSet(kViewSetDefault);
     CFMutableSetRef secproperties = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-    if(serialNumber) CFDictionaryAddValue(v2Dictionary, sSerialNumberKey, serialNumber);
     CFDictionaryAddValue(v2Dictionary, sViewsKey, views);
     CFDictionaryAddValue(v2Dictionary, sSecurityPropertiesKey, secproperties);
     
@@ -170,17 +170,18 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeIDSV2);
     CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanFalse);
     CFDictionaryAddValue(v2Dictionary, sPreferIDSFragmentation, kCFBooleanTrue);
+    CFDictionaryAddValue(v2Dictionary, sPreferIDSACKModel, kCFBooleanTrue);
     
     require_action_quiet((v2data = SOSCreateDERFromDictionary(v2Dictionary, error)), out, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("No Memory"), NULL, error));
     CFDictionaryAddValue(pi->description, sV2DictionaryKey, v2data);
+    // To use the central serial number setting routine this must be done after the V2 dictionary is installed.
+    SOSPeerInfoSetSerialNumber(pi);
     SOSPeerInfoExpandV2Data(pi, error);
     retval = true;
 out:
     CFReleaseNull(views);
-    CFReleaseNull(secproperties);
     CFReleaseNull(v2data);
     CFReleaseNull(v2Dictionary);
-    CFReleaseNull(serialNumber);
     return retval;
 }
 
@@ -238,14 +239,22 @@ errOut:
     return false;
 }
 
+// Not API to prevent owenership confusion
+static CFStringRef SOSPeerInfoV2DictionaryGetAsString(SOSPeerInfoRef pi, const void *key) {
+    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
+    return asString(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
+errOut:
+    return NULL;
+
+}
+
+bool SOSPeerInfoV2DictionaryHasStringValue(SOSPeerInfoRef pi, const void *key, CFStringRef value) {
+    return CFEqualSafe(SOSPeerInfoV2DictionaryGetAsString(pi, key), value);
+}
 
 bool SOSPeerInfoV2DictionaryHasString(SOSPeerInfoRef pi, const void *key) {
-    require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
-    CFTypeRef value = CFDictionaryGetValue(pi->v2Dictionary, key);
-    if(asString(value,NULL) != NULL)
-        return true;
-errOut:
-    return false;
+    CFStringRef possibleID = SOSPeerInfoV2DictionaryGetAsString(pi, key);
+    return possibleID != NULL && CFStringGetLength(possibleID) > 0;
 }
 
 bool SOSPeerInfoV2DictionaryHasSet(SOSPeerInfoRef pi, const void *key) {
@@ -266,7 +275,7 @@ errOut:
     return false;
 }
 
-const CFMutableStringRef SOSPeerInfoV2DictionaryCopyString(SOSPeerInfoRef pi, const void *key) {
+CFMutableStringRef SOSPeerInfoV2DictionaryCopyString(SOSPeerInfoRef pi, const void *key) {
     require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFStringRef value = asString(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
@@ -293,7 +302,7 @@ void SOSPeerInfoV2DictionaryWithSet(SOSPeerInfoRef pi, const void *key, void(^op
     });
 }
 
-const CFMutableSetRef SOSPeerInfoV2DictionaryCopySet(SOSPeerInfoRef pi, const void *key) {
+CFMutableSetRef SOSPeerInfoV2DictionaryCopySet(SOSPeerInfoRef pi, const void *key) {
     require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFSetRef value = asSet(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
@@ -321,7 +330,7 @@ errOut:
     return value && CFSetContainsValue(value, member);
 }
 
-const CFMutableDataRef SOSPeerInfoV2DictionaryCopyData(SOSPeerInfoRef pi, const void *key) {
+CFMutableDataRef SOSPeerInfoV2DictionaryCopyData(SOSPeerInfoRef pi, const void *key) {
     require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFDataRef value = asData(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
@@ -330,7 +339,7 @@ errOut:
     return NULL;
 }
 
-const CFBooleanRef SOSPeerInfoV2DictionaryCopyBoolean(SOSPeerInfoRef pi, const void *key) {
+CFBooleanRef SOSPeerInfoV2DictionaryCopyBoolean(SOSPeerInfoRef pi, const void *key) {
     require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFBooleanRef value = asBoolean(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
@@ -339,11 +348,25 @@ errOut:
     return NULL;
 }
 
-const CFMutableDictionaryRef SOSPeerInfoV2DictionaryCopyDictionary(SOSPeerInfoRef pi, const void *key) {
+CFMutableDictionaryRef SOSPeerInfoV2DictionaryCopyDictionary(SOSPeerInfoRef pi, const void *key) {
     require_quiet(SOSPeerInfoExpandV2Data(pi, NULL), errOut);
     CFDictionaryRef value = asDictionary(CFDictionaryGetValue(pi->v2Dictionary, key), NULL);
     if(value != NULL)
         return CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(value), value);
 errOut:
     return NULL;
+}
+
+
+SOSPeerInfoRef SOSPeerInfoCopyWithV2DictionaryUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef newv2dict, SecKeyRef signingKey, CFErrorRef* error) {
+    SOSPeerInfoRef retval = SOSPeerInfoCreateCopy(kCFAllocatorDefault, toCopy, error);
+    require_quiet(retval, errOut);
+    require_action_quiet(SOSPeerInfoExpandV2Data(retval, error), errOut, CFReleaseNull(retval));
+    CFDictionaryForEach(newv2dict, ^(const void *key, const void *value) {
+        CFDictionarySetValue(retval->v2Dictionary, key, value);
+    });
+    SOSPeerInfoPackV2Data(retval);
+    require_action_quiet(SOSPeerInfoSign(signingKey, retval, error), errOut, CFReleaseNull(retval));
+errOut:
+    return retval;
 }

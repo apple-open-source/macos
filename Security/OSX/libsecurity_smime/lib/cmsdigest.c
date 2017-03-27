@@ -263,6 +263,7 @@ loser:
 
 cleanup:
     if (cmsdigcx->digcnt > 0) {
+        SecCmsDigestContextCancel(cmsdigcx);
 	PORT_Free(cmsdigcx->digobjs);
         cmsdigcx->digobjs = NULL;
         cmsdigcx->digcnt = 0;

@@ -29,12 +29,9 @@
 #if ENABLE(MATHML)
 
 #include "GraphicsContext.h"
-#include "MathMLNames.h"
 #include "PaintInfo.h"
 
 namespace WebCore {
-
-using namespace MathMLNames;
 
 RenderMathMLSpace::RenderMathMLSpace(MathMLSpaceElement& element, RenderStyle&& style)
     : RenderMathMLBlock(element, WTFMove(style))
@@ -85,11 +82,11 @@ void RenderMathMLSpace::layoutBlock(bool relayoutChildren, LayoutUnit)
     clearNeedsLayout();
 }
 
-Optional<int> RenderMathMLSpace::firstLineBaseline() const
+std::optional<int> RenderMathMLSpace::firstLineBaseline() const
 {
     LayoutUnit height, depth;
     getSpaceHeightAndDepth(height, depth);
-    return Optional<int>(height);
+    return std::optional<int>(height);
 }
 
 }

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2004, 2007, 2008, 2016 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004, 2007-2008, 2016-2017 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -37,6 +37,8 @@ const ClassInfo InternalFunction::s_info = { "Function", &Base::s_info, 0, CREAT
 InternalFunction::InternalFunction(VM& vm, Structure* structure)
     : JSDestructibleObject(vm, structure)
 {
+    // exec->vm() wants callees to not be large allocations.
+    RELEASE_ASSERT(!isLargeAllocation());
 }
 
 void InternalFunction::finishCreation(VM& vm, const String& name)
@@ -55,7 +57,7 @@ void InternalFunction::visitChildren(JSCell* cell, SlotVisitor& visitor)
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
     
-    visitor.append(&thisObject->m_originalName);
+    visitor.append(thisObject->m_originalName);
 }
 
 const String& InternalFunction::name()
@@ -95,13 +97,15 @@ Structure* InternalFunction::createSubclassStructure(ExecState* exec, JSValue ne
 {
 
     VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     // We allow newTarget == JSValue() because the API needs to be able to create classes without having a real JS frame.
-    // Since we don't allow subclassing in the API we just treat newTarget == JSValue() as newTarget == exec->callee()
+    // Since we don't allow subclassing in the API we just treat newTarget == JSValue() as newTarget == exec->jsCallee()
     ASSERT(!newTarget || newTarget.isConstructor());
 
-    if (newTarget && newTarget != exec->callee()) {
+    if (newTarget && newTarget != exec->jsCallee()) {
         // newTarget may be an InternalFunction if we were called from Reflect.construct.
         JSFunction* targetFunction = jsDynamicCast<JSFunction*>(newTarget);
+        JSGlobalObject* lexicalGlobalObject = exec->lexicalGlobalObject();
 
         if (LIKELY(targetFunction)) {
             Structure* structure = targetFunction->rareData(vm)->internalFunctionAllocationStructure();
@@ -110,18 +114,16 @@ Structure* InternalFunction::createSubclassStructure(ExecState* exec, JSValue ne
 
             // Note, Reflect.construct might cause the profile to churn but we don't care.
             JSValue prototypeValue = newTarget.get(exec, exec->propertyNames().prototype);
-            if (UNLIKELY(vm.exception()))
-                return nullptr;
+            RETURN_IF_EXCEPTION(scope, nullptr);
             if (JSObject* prototype = jsDynamicCast<JSObject*>(prototypeValue))
-                return targetFunction->rareData(vm)->createInternalFunctionAllocationStructureFromBase(vm, prototype, baseClass);
+                return targetFunction->rareData(vm)->createInternalFunctionAllocationStructureFromBase(vm, lexicalGlobalObject, prototype, baseClass);
         } else {
             JSValue prototypeValue = newTarget.get(exec, exec->propertyNames().prototype);
-            if (UNLIKELY(vm.exception()))
-                return nullptr;
+            RETURN_IF_EXCEPTION(scope, nullptr);
             if (JSObject* prototype = jsDynamicCast<JSObject*>(prototypeValue)) {
                 // This only happens if someone Reflect.constructs our builtin constructor with another builtin constructor as the new.target.
                 // Thus, we don't care about the cost of looking up the structure from our hash table every time.
-                return vm.prototypeMap.emptyStructureForPrototypeFromBaseStructure(prototype, baseClass);
+                return vm.prototypeMap.emptyStructureForPrototypeFromBaseStructure(lexicalGlobalObject, prototype, baseClass);
             }
         }
     }

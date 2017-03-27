@@ -32,6 +32,7 @@
 #define DEFAULT_HOST   	  	"www.amazon.com"
 #define DEFAULT_PORT     	443
 
+static const int _maxFileStringSize = 100;
 
 static void usageNorm(char **argv)
 {
@@ -57,7 +58,7 @@ static void usageNorm(char **argv)
 							" [23t]\n");
 	printf("   k=keychain  Contains cert and keys. Optional.\n");
 	printf("   l=loopCount Perform loopCount ops (default = 1)\n");
-	printf("   P=port      Default = %d\n", DEFAULT_PORT); 
+	printf("   P=port      Default = %d\n", DEFAULT_PORT);
 	printf("   p           Pause after each loop\n");
 	printf("   q           Quiet/diagnostic mode (site names and errors only)\n");
     printf("   a fileName  Add fileName to list of trusted roots\n");
@@ -111,7 +112,7 @@ static void usage(char **argv)
 	exit(1);
 }
 
-/* 
+/*
  * Arguments to top-level sslPing()
  */
 typedef struct {
@@ -123,18 +124,18 @@ typedef struct {
 	const char				*vfyHostName;		// use this for cert vfy if non-NULL,
 												//   else use hostName
 	unsigned short			port;
-	const char				*getMsg;			// e.g., 
-												//   "GET / HTTP/1.0\r\n\r\n" 
+	const char				*getMsg;			// e.g.,
+												//   "GET / HTTP/1.0\r\n\r\n"
 	bool				allowExpired;
 	bool				allowAnyRoot;
 	bool				allowExpiredRoot;
 	bool				disableCertVerify;
 	bool				manualCertVerify;
 	bool				dumpRxData;			// display server data
-	char					cipherRestrict;		// '2', 'd'. etc...; '\0' for 
+	char					cipherRestrict;		// '2', 'd'. etc...; '\0' for
 												//   no restriction
 	bool				keepConnected;
-	bool				requireNotify;		// require closure notify 
+	bool				requireNotify;		// require closure notify
 												//   in V3 mode
 	bool				resumableEnable;
 	bool				allowHostnameSpoof;
@@ -167,7 +168,7 @@ typedef struct {
 
 static void
 sigpipe(int sig)
-{ 
+{
 	fflush(stdin);
 	printf("***SIGPIPE***\n");
 }
@@ -191,7 +192,7 @@ static OSStatus sslEvaluateTrust(
 		return ortn;
 	}
 	if(secTrust == NULL) {
-		/* this is the normal case for resumed sessions, in which 
+		/* this is the normal case for resumed sessions, in which
 		 * no cert evaluation is performed */
 		if(!pargs->silent) {
 			printf("...No SecTrust available - this is a resumed session, right?\n");
@@ -213,9 +214,9 @@ static OSStatus sslEvaluateTrust(
 	if(pargs->verbose) {
 		const char *res = NULL;
 		switch(secTrustResult) {
-			case kSecTrustResultInvalid: 
+			case kSecTrustResultInvalid:
 				res = "kSecTrustResultInvalid"; break;
-			case kSecTrustResultProceed: 
+			case kSecTrustResultProceed:
 				res = "kSecTrustResultProceed"; break;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -224,20 +225,20 @@ static OSStatus sslEvaluateTrust(
 				res = "kSecTrustResultConfirm"; break;
 			case kSecTrustResultDeny:
 				res = "kSecTrustResultDeny"; break;
-			case kSecTrustResultUnspecified: 
+			case kSecTrustResultUnspecified:
 				res = "kSecTrustResultUnspecified"; break;
-			case kSecTrustResultRecoverableTrustFailure: 
+			case kSecTrustResultRecoverableTrustFailure:
 				res = "kSecTrustResultRecoverableTrustFailure"; break;
-			case kSecTrustResultFatalTrustFailure: 
+			case kSecTrustResultFatalTrustFailure:
 				res = "kSecTrustResultFatalTrustFailure"; break;
-			case kSecTrustResultOtherError: 
+			case kSecTrustResultOtherError:
 				res = "kSecTrustResultOtherError"; break;
 			default:
 				res = "UNKNOWN"; break;
 		}
 		printf("\nSecTrustEvaluate(): secTrustResult %s\n", res);
 	}
-	
+
 	switch(secTrustResult) {
 		case kSecTrustResultUnspecified:
 			/* cert chain valid, no special UserTrust assignments */
@@ -245,7 +246,7 @@ static OSStatus sslEvaluateTrust(
 			/* cert chain valid AND user explicitly trusts this */
 			break;
 		default:
-			printf("\n***SecTrustEvaluate reported secTrustResult %d\n", 
+			printf("\n***SecTrustEvaluate reported secTrustResult %d\n",
 				(int)secTrustResult);
 			ortn = errSSLXCertChainInvalid;
 			break;
@@ -253,37 +254,18 @@ static OSStatus sslEvaluateTrust(
 
 	*peerCerts = NULL;
 
-#ifdef USE_CDSA_CRYPTO
-	/* one more thing - get peer certs in the form of an evidence chain */
-	CSSM_TP_APPLE_EVIDENCE_INFO *dummyEv;
-	OSStatus thisRtn = SecTrustGetResult(secTrust, &secTrustResult,
-		peerCerts, &dummyEv);
-	if(thisRtn) {
-		printSslErrStr("SecTrustGetResult", thisRtn);
-	}
-	else {
-		/* workaround for the fact that SSLGetPeerCertificates()
-		 * leaves a retain count on each element in the returned array,
-		 * requiring us to do a release on each cert.
-		 */
-		CFIndex numCerts = CFArrayGetCount(*peerCerts);
-		for(CFIndex dex=0; dex<numCerts; dex++) {
-			CFRetain(CFArrayGetValueAtIndex(*peerCerts, dex));
-		}
-	}
-#endif
 	return ortn;
 }
 
 /* print reply received from server, safely */
 static void dumpAscii(
-	uint8_t *rcvBuf, 
+	uint8_t *rcvBuf,
 	size_t len)
 {
 	char *cp = (char *)rcvBuf;
 	uint32_t i;
 	char c;
-	
+
 	for(i=0; i<len; i++) {
 		c = *cp++;
 		if(c == '\0') {
@@ -324,9 +306,9 @@ alpnFunc(SSLContextRef          ctx,
 
 /*
  * Perform one SSL diagnostic session. Returns nonzero on error. Normally no
- * output to stdout except initial "connecting to" message, unless there 
- * is a really screwed up error (i.e., something not directly related 
- * to the SSL connection). 
+ * output to stdout except initial "connecting to" message, unless there
+ * is a really screwed up error (i.e., something not directly related
+ * to the SSL connection).
  */
 #define RCV_BUF_SIZE		256
 
@@ -342,11 +324,11 @@ static OSStatus sslPing(
     uint8_t             rcvBuf[RCV_BUF_SIZE];
 	CFAbsoluteTime		startHandshake;
 	CFAbsoluteTime		endHandshake;
-	
+
     pargs->negVersion = kSSLProtocolUnknown;
     pargs->negCipher = SSL_NULL_WITH_NULL_NULL;
     pargs->peerCerts = NULL;
-    
+
 	/* first make sure requested server is there */
 	ortn = MakeServerConnection(pargs->hostName, pargs->port, pargs->nonBlocking,
 		&sock, &peerId);
@@ -357,8 +339,8 @@ static OSStatus sslPing(
 	if(pargs->verbose) {
 		printf("...connected to server; starting SecureTransport\n");
 	}
-	
-	/* 
+
+	/*
 	 * Set up a SecureTransport session.
 	 * First the standard calls.
 	 */
@@ -366,12 +348,12 @@ static OSStatus sslPing(
 	if(ctx == NULL) {
 		printf("SSLCreateContext\n");
 		goto cleanup;
-	} 
+	}
 	ortn = SSLSetIOFuncs(ctx, SocketRead, SocketWrite);
 	if(ortn) {
 		printSslErrStr("SSLSetIOFuncs", ortn);
 		goto cleanup;
-	} 
+	}
 	ortn = SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock);
 	if(ortn) {
 		printSslErrStr("SSLSetConnection", ortn);
@@ -386,7 +368,7 @@ static OSStatus sslPing(
 	if(getConn != (SSLConnectionRef)(intptr_t)sock) {
 		printf("***SSLGetConnection error\n");
 		ortn = errSecParam;
-		goto cleanup; 
+		goto cleanup;
 	}
 	if(!pargs->allowHostnameSpoof) {
 		/* if this isn't set, it isn't checked by AppleX509TP */
@@ -401,10 +383,10 @@ static OSStatus sslPing(
 			goto cleanup;
 		}
 	}
-	
-	/* 
+
+	/*
 	 * SecureTransport options.
-	 */ 
+	 */
 	if(pargs->acceptedProts) {
 		ortn = SSLSetProtocolVersionEnabled(ctx, kSSLProtocolAll, false);
 		if(ortn) {
@@ -438,7 +420,7 @@ static OSStatus sslPing(
 		if(ortn) {
 			printSslErrStr("SSLSetProtocolVersion", ortn);
 			goto cleanup;
-		} 
+		}
 		SSLProtocol getVers;
 		ortn = SSLGetProtocolVersion(ctx, &getVers);
 		if(ortn) {
@@ -456,7 +438,7 @@ static OSStatus sslPing(
 	if(pargs->resumableEnable) {
 		const void *rtnId = NULL;
 		size_t rtnIdLen = 0;
-		
+
 		ortn = SSLSetPeerID(ctx, &peerId, sizeof(PeerSpec));
 		if(ortn) {
 			printSslErrStr("SSLSetPeerID", ortn);
@@ -558,16 +540,16 @@ static OSStatus sslPing(
     }
 
 	/*** end options ***/
-	
+
 	if(pargs->verbose) {
 		printf("...starting SSL handshake\n");
 	}
 	startHandshake = CFAbsoluteTimeGetCurrent();
-	
+
     do
     {   ortn = SSLHandshake(ctx);
 	    if((ortn == errSSLWouldBlock) && !pargs->silent) {
-	    	/* keep UI responsive */ 
+	    	/* keep UI responsive */
 	    	sslOutputDot();
 	    }
     } while (ortn == errSSLWouldBlock);
@@ -583,7 +565,7 @@ static OSStatus sslPing(
 		pargs->handshakeTimeTotal += pargs->handshakeTimeOp;
 	}
 	pargs->numHandshakes++;
-	
+
     ortn = SSLCopyPeerTrust(ctx, &pargs->peerTrust);
     if(ortn) {
         printf("***SSLCopyPeerTrust error %" PRIdOSStatus "\n", ortn);
@@ -595,10 +577,8 @@ static OSStatus sslPing(
 	SSLGetNegotiatedCipher(ctx, &pargs->negCipher);
 	SSLGetNegotiatedProtocolVersion(ctx, &pargs->negVersion);
 	pargs->sessionIDLength = MAX_SESSION_ID_LENGTH;
-	SSLGetResumableSessionInfo(ctx, &pargs->sessionWasResumed, pargs->sessionID,
-		&pargs->sessionIDLength);
-
-    {
+	ortn = SSLGetResumableSessionInfo(ctx, &pargs->sessionWasResumed, pargs->sessionID, &pargs->sessionIDLength);
+    if(!ortn) {
 		OSStatus certRtn = sslEvaluateTrust(ctx, pargs, &pargs->peerCerts);
 
         if (certRtn && !pargs->manualCertVerify) {
@@ -610,7 +590,7 @@ static OSStatus sslPing(
 			ortn = certRtn;
 		}
 	}
-	
+
     if(ortn) {
 		if(!pargs->silent) {
 			printf("\n");
@@ -624,15 +604,15 @@ static OSStatus sslPing(
 	length = strlen(pargs->getMsg);
 	(void) SSLWrite(ctx, pargs->getMsg, length, &actLen);
 
-	/* 
+	/*
 	 * Try to snag RCV_BUF_SIZE bytes. Exit if (!keepConnected and we get any data
 	 * at all), or (keepConnected and err != (none, wouldBlock)).
 	 */
-    while (1) {   
+    while (1) {
 		actLen = 0;
 		if(pargs->dumpRxData) {
 			size_t avail = 0;
-			
+
 			ortn = SSLGetBufferedReadSize(ctx, &avail);
 			if(ortn) {
 				printf("***SSLGetBufferedReadSize error\n");
@@ -673,7 +653,7 @@ static OSStatus sslPing(
 	SSLGetClientCertificateState(ctx, &pargs->certState);
 	SSLGetNegotiatedCipher(ctx, &pargs->negCipher);
 	SSLGetNegotiatedProtocolVersion(ctx, &pargs->negVersion);
-	
+
     /* convert normal "shutdown" into zero err rtn */
 	if(ortn == errSSLClosedGraceful) {
 		ortn = errSecSuccess;
@@ -684,7 +664,7 @@ static OSStatus sslPing(
 	}
 cleanup: ;
 	/*
-	 * always do close, even on error - to flush outgoing write queue 
+	 * always do close, even on error - to flush outgoing write queue
 	 */
 	OSStatus cerr = SSLClose(ctx);
 	if(ortn == errSecSuccess) {
@@ -695,7 +675,7 @@ cleanup: ;
 	}
 	if(ctx) {
 	    CFRelease(ctx);
-	}    
+	}
 	return ortn;
 }
 
@@ -825,7 +805,7 @@ static void showPeerCerts(
 	CFIndex numCerts;
 	SecCertificateRef certRef;
 	CFIndex i;
-	
+
 	if(peerCerts == NULL) {
 		return;
 	}
@@ -846,14 +826,14 @@ static void writePeerCerts(
 	CFIndex numCerts;
 	SecCertificateRef certRef;
 	CFIndex i;
-	char fileName[100];
-	
+	char fileName[_maxFileStringSize];
+
 	if(peerCerts == NULL) {
 		return;
 	}
 	numCerts = CFArrayGetCount(peerCerts);
 	for(i=0; i<numCerts; i++) {
-		sprintf(fileName, "%s%02d.cer", fileBase, (int)i);
+        snprintf(fileName, _maxFileStringSize, "%s%02d.cer", fileBase, (int)i);
 		certRef = (SecCertificateRef)CFArrayGetValueAtIndex(peerCerts, i);
         CFDataRef derCert = SecCertificateCopyData(certRef);
         if (derCert) {
@@ -888,19 +868,19 @@ static void showSSLResult(
 	char				*fileBase)		// non-NULL: write certs to file
 {
 	CFIndex numPeerCerts;
-	
+
 	printf("\n");
-	
+
 	if(pargs->acceptedProts) {
 		printf("   Allowed SSL versions   : %s\n", pargs->acceptedProts);
 	}
 	else {
-		printf("   Attempted  SSL version : %s\n", 
+		printf("   Attempted  SSL version : %s\n",
 			sslGetProtocolVersionString(pargs->tryVersion));
 	}
-	
+
 	printf("   Result                 : %s\n", sslGetSSLErrString(err));
-	printf("   Negotiated SSL version : %s\n", 
+	printf("   Negotiated SSL version : %s\n",
 		sslGetProtocolVersionString(pargs->negVersion));
 	printf("   Negotiated CipherSuite : %s\n",
 		sslGetCipherSuiteString(pargs->negCipher));
@@ -941,7 +921,7 @@ static void showSSLResult(
 			writePeerCerts(pargs->peerCerts, fileBase);
 		}
 	}
-	
+
 	printf("\n");
 }
 
@@ -1000,17 +980,15 @@ static SSLProtocol charToProt(
 		default:
 			usage(argv);
 	}
-	/* NOT REACHED */
-	return kSSLProtocolUnknown;
 }
 
 int main(int argc, char **argv)
-{   
+{
     OSStatus            err;
 	int					arg;
 	char 				*argp;
 	char				getMsg[300];
-	char				fullFileBase[100];
+	char				fullFileBase[_maxFileStringSize];
 	int					ourRtn = 0;			// exit status - sum of all errors
 	unsigned			loop;
 	SecKeychainRef		serverKc = nil;
@@ -1050,14 +1028,14 @@ int main(int argc, char **argv)
 			usageVerbose(argv);
 		}
 	}
-	
+
 	/* set up defaults */
 	memset(&pargs, 0, sizeof(sslPingArgs));
 	pargs.hostName = DEFAULT_HOST;
 	pargs.port = DEFAULT_PORT;
 	pargs.resumableEnable = true;
 	pargs.argv = argv;
-	
+
 	for(arg=1; arg<argc; arg++) {
 		argp = argv[arg];
 		if(arg == 1) {
@@ -1074,73 +1052,73 @@ int main(int argc, char **argv)
 		}
 		/* options */
 		switch(argp[0]) {
-            case 'Z': {
-                if(++arg == argc)  {
-                    /* requires another arg */
-                    usage(argv);
-                }
-                if (pargs.alpnNames == NULL) {
-                    pargs.alpnNames = CFArrayCreateMutableForCFTypes(NULL);
-                }
+      case 'Z': {
+          if(++arg == argc)  {
+              /* requires another arg */
+              usage(argv);
+          }
+          if (pargs.alpnNames == NULL) {
+              pargs.alpnNames = CFArrayCreateMutableForCFTypes(NULL);
+          }
 
-                CFDataRef alpn = CFDataCreate(NULL, (const UInt8 *)argv[arg], strlen(argv[arg]));
-                CFArrayAppendValue(pargs.alpnNames, alpn);
-                CFReleaseNull(alpn);
-                break;
-            }
-            case 'W':
-            case 'w': {
-                CFDictionaryRef context = NULL;
+          CFDataRef alpn = CFDataCreate(NULL, (const UInt8 *)argv[arg], strlen(argv[arg]));
+          CFArrayAppendValue(pargs.alpnNames, alpn);
+          CFReleaseNull(alpn);
+          break;
+      }
+      case 'W':
+      case 'w': {
+          CFDictionaryRef context = NULL;
 
-                if(++arg == argc)  {
-                    /* requires another arg */
-                    usage(argv);
-                }
+          if(++arg == argc)  {
+              /* requires another arg */
+              usage(argv);
+          }
 
-                if (argp[0] == 'W') {
-                    context = CFDictionaryCreateForCFTypes(NULL,
-                                                           CFSTR("AppleServerAuthenticationAllowUATAPN"), kCFBooleanTrue,
-                                                           CFSTR("AppleServerAuthenticationAllowUATIDS"), kCFBooleanTrue,
-                                                           CFSTR("AppleServerAuthenticationAllowUATGS"), kCFBooleanTrue,
-                                                           NULL);
-                }
-                const char *verifyName = pargs.hostName;
+          if (argp[0] == 'W') {
+              context = CFDictionaryCreateForCFTypes(NULL,
+                                                     CFSTR("AppleServerAuthenticationAllowUATAPN"), kCFBooleanTrue,
+                                                     CFSTR("AppleServerAuthenticationAllowUATIDS"), kCFBooleanTrue,
+                                                     CFSTR("AppleServerAuthenticationAllowUATGS"), kCFBooleanTrue,
+                                                     NULL);
+          }
+          const char *verifyName = pargs.hostName;
 
-                if (pargs.policies == NULL) {
-                    pargs.policies = CFArrayCreateMutableForCFTypes(NULL);
-                }
+          if (pargs.policies == NULL) {
+              pargs.policies = CFArrayCreateMutableForCFTypes(NULL);
+          }
 
-                if (pargs.vfyHostName)
-                    verifyName = pargs.vfyHostName;
+          if (pargs.vfyHostName)
+              verifyName = pargs.vfyHostName;
 
-                SecPolicyRef policy = NULL;
-                CFStringRef hostname = CFStringCreateWithCString(NULL, verifyName, kCFStringEncodingUTF8);
+          SecPolicyRef policy = NULL;
+          CFStringRef hostname = CFStringCreateWithCString(NULL, verifyName, kCFStringEncodingUTF8);
 
-                if (strcasecmp(argv[arg], "PushLegacy") == 0) {
-                    policy = SecPolicyCreateApplePushServiceLegacy(hostname);
-                } else if (strcasecmp(argv[arg], "Push") == 0) {
-                    policy = SecPolicyCreateApplePushService(hostname, context);
-                } else if (strcasecmp(argv[arg], "IDS") == 0) {
-                    policy = SecPolicyCreateAppleIDSServiceContext(hostname, context);
-                } else if (strcasecmp(argv[arg], "GS") == 0) {
-                    policy = SecPolicyCreateAppleGSService(hostname, context);
-                } else {
-                    printf("unknown policy: %s", argv[arg]);
-                    CFReleaseNull(hostname);
-                    CFReleaseNull(context);
-                    usage(argv);
-                }
+          if (strcasecmp(argv[arg], "PushLegacy") == 0) {
+              policy = SecPolicyCreateApplePushServiceLegacy(hostname);
+          } else if (strcasecmp(argv[arg], "Push") == 0) {
+              policy = SecPolicyCreateApplePushService(hostname, context);
+          } else if (strcasecmp(argv[arg], "IDS") == 0) {
+              policy = SecPolicyCreateAppleIDSServiceContext(hostname, context);
+          } else if (strcasecmp(argv[arg], "GS") == 0) {
+              policy = SecPolicyCreateAppleGSService(hostname, context);
+          } else {
+              printf("unknown policy: %s", argv[arg]);
+              CFReleaseNull(hostname);
+              CFReleaseNull(context);
+              usage(argv);
+          }
 
-                if (policy) {
-                    CFArrayAppendValue(pargs.policies, policy);
-                }
+          if (policy) {
+              CFArrayAppendValue(pargs.policies, policy);
+          }
 
-                CFReleaseNull(policy);
-                CFReleaseNull(hostname);
-                CFReleaseNull(context);
+          CFReleaseNull(policy);
+          CFReleaseNull(hostname);
+          CFReleaseNull(context);
 
-                break;
-            }
+          break;
+      }
 			case 'e':
 				pargs.allowExpired = true;
 				break;
@@ -1249,15 +1227,16 @@ int main(int argc, char **argv)
 				doSslV3 = doSslV2 = doTlsV1 = doTlsV11 = doTlsV12 = false;
 				break;
 			case 'l':
-                if(++arg == argc)  {
-                    /* requires another arg */
-                    usage(argv);
-                }
-				loopCount = atoi(argv[arg]);
-				if(loopCount == 0) {
+        if(++arg == argc)  {
+          /* requires another arg */
+          usage(argv);
+        }
+				int parsedLoopCount = atoi(argv[arg]);
+				if (parsedLoopCount <= 0) {
 					printf("***bad loopCount\n");
 					usage(argv);
 				}
+        loopCount = (unsigned) parsedLoopCount;
 				break;
 			case 'P':
                 if(++arg == argc)  {
@@ -1339,17 +1318,15 @@ int main(int argc, char **argv)
 				else {
 					usage(argv);
 				}
-                break;
 			default:
 				usage(argv);
-                break;
 		}
 	}
 	if(getMsgSpec) {
 		pargs.getMsg = getMsgSpec;
 	}
 	else {
-		sprintf(getMsg, "%s %s %s", 
+		sprintf(getMsg, "%s %s %s",
 			DEFAULT_GETMSG, getPath, DEFAULT_GET_SUFFIX);
 		pargs.getMsg = getMsg;
 	}
@@ -1361,16 +1338,6 @@ int main(int argc, char **argv)
 		if(pargs.clientCerts == nil) {
 			exit(1);
 		}
-#ifdef USE_CDSA_CRYPTO
-		if(pargs.password) {
-			OSStatus ortn = SecKeychainUnlock(serverKc, 
-				strlen(pargs.password), pargs.password, true);
-			if(ortn) {
-				printf("SecKeychainUnlock returned %d\n", (int)ortn);
-				/* oh well */
-			}
-		}
-#endif
 	}
 
     {
@@ -1382,7 +1349,7 @@ int main(int argc, char **argv)
     }
 
 	for(loop=0; loop<loopCount; loop++) {
-		/* 
+		/*
 		 * One pass for each protocol version, skipping any explicit version if
 		 * an attempt at a higher version and succeeded in doing so successfully fell
 		 * back.
@@ -1400,7 +1367,7 @@ int main(int argc, char **argv)
 			}
 			if(!pargs.quiet) {
 				if(fileBase) {
-					sprintf(fullFileBase, "%s_v3.1", fileBase);
+                    snprintf(fullFileBase, _maxFileStringSize, "%s_v3.1", fileBase);
 				}
 				showSSLResult(&pargs,
                               err,
@@ -1444,7 +1411,7 @@ int main(int argc, char **argv)
 			pargs.tryVersion = kTLSProtocol11;
 			pargs.acceptedProts = NULL;
 			if(!pargs.silent) {
-				printf("Connecting to host %s with TLS V1.1...", pargs.hostName); 
+				printf("Connecting to host %s with TLS V1.1...", pargs.hostName);
 			}
 			fflush(stdout);
 			err = sslPing(&pargs);
@@ -1453,10 +1420,10 @@ int main(int argc, char **argv)
 			}
 			if(!pargs.quiet) {
 				if(fileBase) {
-					sprintf(fullFileBase, "%s_v3.1", fileBase);
+                    snprintf(fullFileBase, _maxFileStringSize, "%s_v3.1", fileBase);
 				}
 				showSSLResult(&pargs,
-                              err, 
+                              err,
                               displayCerts,
                               fileBase ? fullFileBase : NULL);
 			}
@@ -1488,11 +1455,11 @@ int main(int argc, char **argv)
                                             pargs.certState);
 		}
 		if(doTlsV1) {
-			pargs.tryVersion = 
+			pargs.tryVersion =
 				protXOnly ? kTLSProtocol1Only : kTLSProtocol1;
 			pargs.acceptedProts = NULL;
 			if(!pargs.silent) {
-				printf("Connecting to host %s with TLS V1...", pargs.hostName); 
+				printf("Connecting to host %s with TLS V1...", pargs.hostName);
 			}
 			fflush(stdout);
 			err = sslPing(&pargs);
@@ -1501,10 +1468,10 @@ int main(int argc, char **argv)
 			}
 			if(!pargs.quiet) {
 				if(fileBase) {
-					sprintf(fullFileBase, "%s_v3.1", fileBase);
+                    snprintf(fullFileBase, _maxFileStringSize, "%s_v3.1", fileBase);
 				}
 				showSSLResult(&pargs,
-					err, 
+					err,
 					displayCerts,
 					fileBase ? fullFileBase : NULL);
 			}
@@ -1534,7 +1501,7 @@ int main(int argc, char **argv)
 			pargs.tryVersion = protXOnly ? kSSLProtocol3Only : kSSLProtocol3;
 			pargs.acceptedProts = NULL;
 			if(!pargs.silent) {
-				printf("Connecting to host %s with SSL V3...", pargs.hostName); 
+				printf("Connecting to host %s with SSL V3...", pargs.hostName);
 			}
 			fflush(stdout);
 			err = sslPing(&pargs);
@@ -1543,10 +1510,10 @@ int main(int argc, char **argv)
 			}
 			if(!pargs.quiet) {
 				if(fileBase) {
-					sprintf(fullFileBase, "%s_v3.0", fileBase);
+                    snprintf(fullFileBase, _maxFileStringSize, "%s_v3.0", fileBase);
 				}
 				showSSLResult(&pargs,
-					err, 
+					err,
 					displayCerts,
 					fileBase ? fullFileBase : NULL);
 			}
@@ -1568,10 +1535,10 @@ int main(int argc, char **argv)
 			ourRtn += verifyClientCertState(vfyCertState, expectCertState,
 				pargs.certState);
 		}
-		
+
 		if(doSslV2) {
 			if(fileBase) {
-				sprintf(fullFileBase, "%s_v2", fileBase);
+                snprintf(fullFileBase, _maxFileStringSize, "%s_v2", fileBase);
 			}
 			if(!pargs.silent) {
 				printf("Connecting to host %s with SSL V2...", pargs.hostName);
@@ -1585,10 +1552,10 @@ int main(int argc, char **argv)
 			}
 			if(!pargs.quiet) {
 				if(fileBase) {
-					sprintf(fullFileBase, "%s_v2", fileBase);
+                    snprintf(fullFileBase, _maxFileStringSize, "%s_v2", fileBase);
 				}
 				showSSLResult(&pargs,
-					err, 
+					err,
 					displayCerts,
 					fileBase ? fullFileBase : NULL);
 			}
@@ -1604,8 +1571,8 @@ int main(int argc, char **argv)
 		}
 		if(doProtUnknown) {
 			if(!pargs.silent) {
-				printf("Connecting to host %s with kSSLProtocolUnknown...", 
-					pargs.hostName); 
+				printf("Connecting to host %s with kSSLProtocolUnknown...",
+					pargs.hostName);
 			}
 			fflush(stdout);
 			pargs.tryVersion = kSSLProtocolUnknown;
@@ -1616,10 +1583,10 @@ int main(int argc, char **argv)
 			}
 			if(!pargs.quiet) {
 				if(fileBase) {
-					sprintf(fullFileBase, "%s_def", fileBase);
+                    snprintf(fullFileBase, _maxFileStringSize, "%s_def", fileBase);
 				}
 				showSSLResult(&pargs,
-					err, 
+					err,
 					displayCerts,
 					fileBase ? fullFileBase : NULL);
 			}
@@ -1629,8 +1596,8 @@ int main(int argc, char **argv)
 			pargs.acceptedProts = acceptedProts;
 			pargs.tryVersion = kSSLProtocolUnknown; // not used
 			if(!pargs.silent) {
-				printf("Connecting to host %s with acceptedProts %s...", 
-					pargs.hostName, pargs.acceptedProts); 
+				printf("Connecting to host %s with acceptedProts %s...",
+					pargs.hostName, pargs.acceptedProts);
 			}
 			fflush(stdout);
 			err = sslPing(&pargs);
@@ -1639,17 +1606,17 @@ int main(int argc, char **argv)
 			}
 			if(!pargs.quiet) {
 				if(fileBase) {
-					sprintf(fullFileBase, "%s_def", fileBase);
+                    snprintf(fullFileBase, _maxFileStringSize, "%s_def", fileBase);
 				}
 				showSSLResult(&pargs,
-					err, 
+					err,
 					displayCerts,
 					fileBase ? fullFileBase : NULL);
 			}
 			CFReleaseNull(pargs.peerCerts);
 		}
-		if(doPause || 
-		      (pauseFirstLoop && 
+		if(doPause ||
+		      (pauseFirstLoop &&
 				 /* pause after first, before last to grab trace */
 		         ((loop == 0) || (loop == loopCount - 1))
 			  )
@@ -1657,7 +1624,7 @@ int main(int argc, char **argv)
 			char resp;
 			fpurge(stdin);
 			printf("a to abort, c to continue: ");
-			resp = getchar();
+			resp = (char) getchar();
 			if(resp == 'a') {
 				break;
 			}
@@ -1684,11 +1651,9 @@ int main(int argc, char **argv)
 	}
 
     if(ourRtn) {
-		printf("===%s exiting with %d %s for host %s\n", argv[0], ourRtn, 
+		printf("===%s exiting with %d %s for host %s\n", argv[0], ourRtn,
 			(ourRtn > 1) ? "errors" : "error", pargs.hostName);
 	}
     return ourRtn;
 
 }
-
-

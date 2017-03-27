@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ToNativeFromValue_h
-#define ToNativeFromValue_h
+#pragma once
 
 #include "JSCJSValue.h"
 
@@ -49,16 +48,13 @@ typename Adaptor::Type toNativeFromValue(ExecState* exec, JSValue value)
 }
 
 template<typename Adaptor>
-Optional<typename Adaptor::Type> toNativeFromValueWithoutCoercion(JSValue value)
+std::optional<typename Adaptor::Type> toNativeFromValueWithoutCoercion(JSValue value)
 {
     if (!value.isNumber())
-        return Nullopt;
+        return std::nullopt;
     if (value.isInt32())
         return Adaptor::toNativeFromInt32WithoutCoercion(value.asInt32());
     return Adaptor::toNativeFromDoubleWithoutCoercion(value.asDouble());
 }
 
 } // namespace JSC
-
-#endif // ToNativeFromValue_h
-

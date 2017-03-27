@@ -833,6 +833,14 @@ IOReturn IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback(io_user_
 IOReturn IOFireWireAVCUserClient::CreateAVCAsyncCommand(UInt8 * cmd, UInt8 * asyncAVCCommandHandle, UInt32 len, UInt32 *refSize)
 {
 	IOReturn res = kIOReturnNoMemory;
+    
+    if( (cmd == NULL) ||
+        (len < (1 + sizeof(mach_vm_address_t))) ||
+        (len > (512 + sizeof(mach_vm_address_t))) )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	UInt32 *pReturnedCommandHandle = (UInt32*) asyncAVCCommandHandle;
 	UInt32 cmdLen = len - sizeof(mach_vm_address_t);
 	mach_vm_address_t *ppSharedBufAddress = (mach_vm_address_t*) &cmd[cmdLen];

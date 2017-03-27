@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef DFGGraph_h
-#define DFGGraph_h
+#pragma once
 
 #if ENABLE(DFG_JIT)
 
@@ -60,8 +59,11 @@ class BackwardsDominators;
 class CFG;
 class ControlEquivalenceAnalysis;
 class Dominators;
+class FlowIndexing;
 class NaturalLoops;
 class PrePostNumbering;
+
+template<typename> class FlowMap;
 
 #define DFG_NODE_DO_TO_CHILDREN(graph, node, thingToDo) do {            \
         Node* _node = (node);                                           \
@@ -182,12 +184,25 @@ public:
     }
     
     template<typename... Params>
+    Node* addNode(Params... params)
+    {
+        Node* node = new (m_allocator) Node(params...);
+        addNodeToMapByIndex(node);
+        return node;
+    }
+    template<typename... Params>
     Node* addNode(SpeculatedType type, Params... params)
     {
         Node* node = new (m_allocator) Node(params...);
         node->predict(type);
+        addNodeToMapByIndex(node);
         return node;
     }
+
+    void deleteNode(Node*);
+    unsigned maxNodeCount() const { return m_nodesByIndex.size(); }
+    Node* nodeAt(unsigned index) const { return m_nodesByIndex[index]; }
+    void packNodeIndices();
 
     void dethread();
     
@@ -198,7 +213,12 @@ public:
     void convertToConstant(Node* node, JSValue value);
     void convertToStrongConstant(Node* node, JSValue value);
     
-    StructureRegistrationResult registerStructure(Structure* structure);
+    RegisteredStructure registerStructure(Structure* structure)
+    {
+        StructureRegistrationResult ignored;
+        return registerStructure(structure, ignored);
+    }
+    RegisteredStructure registerStructure(Structure*, StructureRegistrationResult&);
     void assertIsRegistered(Structure* structure);
     
     // CodeBlock is optional, but may allow additional information to be dumped (e.g. Identifier names).
@@ -326,12 +346,26 @@ public:
     
     static const char *opName(NodeType);
     
-    StructureSet* addStructureSet(const StructureSet& structureSet)
+    RegisteredStructureSet* addStructureSet(const StructureSet& structureSet)
     {
+        m_structureSets.append();
+        RegisteredStructureSet* result = &m_structureSets.last();
+
         for (Structure* structure : structureSet)
-            registerStructure(structure);
-        m_structureSet.append(structureSet);
-        return &m_structureSet.last();
+            result->add(registerStructure(structure));
+
+        return result;
+    }
+
+    RegisteredStructureSet* addStructureSet(const RegisteredStructureSet& structureSet)
+    {
+        m_structureSets.append();
+        RegisteredStructureSet* result = &m_structureSets.last();
+
+        for (RegisteredStructure structure : structureSet)
+            result->add(structure);
+
+        return result;
     }
     
     JSGlobalObject* globalObjectFor(CodeOrigin codeOrigin)
@@ -402,7 +436,7 @@ public:
         return hasExitSite(node->origin.semantic, exitKind);
     }
     
-    MethodOfGettingAValueProfile methodOfGettingAValueProfileFor(Node*);
+    MethodOfGettingAValueProfile methodOfGettingAValueProfileFor(Node* currentNode, Node* operandNode);
     
     BlockIndex numBlocks() const { return m_blocks.size(); }
     BasicBlock* block(BlockIndex blockIndex) const { return m_blocks[blockIndex].get(); }
@@ -644,6 +678,32 @@ public:
         doToChildren(node, [&] (Edge edge) { result |= edge == child; });
         return result;
     }
+
+    bool isWatchingHavingABadTimeWatchpoint(Node* node)
+    {
+        JSGlobalObject* globalObject = globalObjectFor(node->origin.semantic);
+        return watchpoints().isWatched(globalObject->havingABadTimeWatchpoint());
+    }
+
+    bool isWatchingArrayIteratorProtocolWatchpoint(Node* node)
+    {
+        JSGlobalObject* globalObject = globalObjectFor(node->origin.semantic);
+        InlineWatchpointSet& set = globalObject->arrayIteratorProtocolWatchpoint();
+        if (watchpoints().isWatched(set))
+            return true;
+
+        if (set.isStillValid()) {
+            // Since the global object owns this watchpoint, we make ourselves have a weak pointer to it.
+            // If the global object got deallocated, it wouldn't fire the watchpoint. It's unlikely the
+            // global object would get deallocated without this code ever getting thrown away, however,
+            // it's more sound logically to depend on the global object lifetime weakly.
+            freeze(globalObject);
+            watchpoints().addLazily(set);
+            return true;
+        }
+
+        return false;
+    }
     
     Profiler::Compilation* compilation() { return m_plan.compilation.get(); }
     
@@ -674,7 +734,7 @@ public:
     }
 
     AbstractValue inferredValueForProperty(
-        const StructureSet& base, UniquedStringImpl* uid, StructureClobberState = StructuresAreWatched);
+        const RegisteredStructureSet& base, UniquedStringImpl* uid, StructureClobberState = StructuresAreWatched);
 
     // This uses either constant property inference or property type inference to derive a good abstract
     // value for some property accessed with the given abstract value base.
@@ -724,7 +784,7 @@ public:
                 if (reg >= exclusionStart && reg < exclusionEnd)
                     continue;
                 
-                if (liveness.get(relativeLocal))
+                if (liveness[relativeLocal])
                     functor(reg);
             }
             
@@ -770,12 +830,14 @@ public:
     BytecodeKills& killsFor(CodeBlock*);
     BytecodeKills& killsFor(InlineCallFrame*);
     
+    static unsigned parameterSlotsForArgCount(unsigned);
+    
     unsigned frameRegisterCount();
     unsigned stackPointerOffset();
     unsigned requiredRegisterCountForExit();
     unsigned requiredRegisterCountForExecutionAndExit();
     
-    JSValue tryGetConstantProperty(JSValue base, const StructureSet&, PropertyOffset);
+    JSValue tryGetConstantProperty(JSValue base, const RegisteredStructureSet&, PropertyOffset);
     JSValue tryGetConstantProperty(JSValue base, Structure*, PropertyOffset);
     JSValue tryGetConstantProperty(JSValue base, const StructureAbstractValue&, PropertyOffset);
     JSValue tryGetConstantProperty(const AbstractValue&, PropertyOffset);
@@ -814,6 +876,9 @@ public:
     // because it queries the m_hasExceptionHandlers boolean whose value
     // is only fully determined after bytcode parsing.
     bool willCatchExceptionInMachineFrame(CodeOrigin, CodeOrigin& opCatchOriginOut, HandlerInfo*& catchHandlerOut);
+    
+    bool needsScopeRegister() const { return m_hasDebuggerEnabled || m_codeBlock->usesEval(); }
+    bool needsFlushedThis() const { return m_codeBlock->usesEval(); }
 
     VM& m_vm;
     Plan& m_plan;
@@ -864,7 +929,6 @@ public:
     
     SegmentedVector<VariableAccessData, 16> m_variableAccessData;
     SegmentedVector<ArgumentPosition, 8> m_argumentPositions;
-    SegmentedVector<StructureSet, 16> m_structureSet;
     Bag<Transition> m_transitions;
     SegmentedVector<NewArrayBufferData, 4> m_newArrayBufferData;
     Bag<BranchData> m_branchData;
@@ -876,11 +940,14 @@ public:
     Bag<LoadVarargsData> m_loadVarargsData;
     Bag<StackAccessData> m_stackAccessData;
     Bag<LazyJSValue> m_lazyJSValues;
+    Bag<CallDOMGetterData> m_callDOMGetterData;
+    Bag<BitVector> m_bitVectors;
     Vector<InlineVariableData, 4> m_inlineVariableData;
     HashMap<CodeBlock*, std::unique_ptr<FullBytecodeLiveness>> m_bytecodeLiveness;
     HashMap<CodeBlock*, std::unique_ptr<BytecodeKills>> m_bytecodeKills;
     HashSet<std::pair<JSObject*, PropertyOffset>> m_safeToLoad;
     HashMap<PropertyTypeKey, InferredType::Descriptor> m_inferredTypes;
+    Vector<RefPtr<DOMJIT::Patchpoint>> m_domJITPatchpoints;
     std::unique_ptr<Dominators> m_dominators;
     std::unique_ptr<PrePostNumbering> m_prePostNumbering;
     std::unique_ptr<NaturalLoops> m_naturalLoops;
@@ -908,7 +975,14 @@ public:
     RefCountState m_refCountState;
     bool m_hasDebuggerEnabled;
     bool m_hasExceptionHandlers { false };
+    std::unique_ptr<FlowIndexing> m_indexingCache;
+    std::unique_ptr<FlowMap<AbstractValue>> m_abstractValuesCache;
+
+    RegisteredStructure stringStructure;
+    RegisteredStructure symbolStructure;
+
 private:
+    void addNodeToMapByIndex(Node*);
 
     bool isStringPrototypeMethodSane(JSGlobalObject*, UniquedStringImpl*);
 
@@ -941,9 +1015,12 @@ private:
         
         return bytecodeCanTruncateInteger(add->arithNodeFlags()) ? SpeculateInt32AndTruncateConstants : DontSpeculateInt32;
     }
+
+    Vector<Node*, 0, UnsafeVectorOverflow> m_nodesByIndex;
+    Vector<unsigned, 0, UnsafeVectorOverflow> m_nodeIndexFreeList;
+    SegmentedVector<RegisteredStructureSet, 16> m_structureSets;
 };
 
 } } // namespace JSC::DFG
 
-#endif
 #endif

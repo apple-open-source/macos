@@ -41,6 +41,7 @@ SDCSPDLPlugin::SDCSPDLPlugin()
 	: EventListener(kNotificationDomainCDSA, kNotificationAllEvents),
 	  mRawCsp(gGuidAppleCSP)
 {
+    mInitialized = true;
     EventListener::FinishedInitialization(this);
 }
 

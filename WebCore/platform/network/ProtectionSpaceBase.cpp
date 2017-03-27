@@ -27,10 +27,9 @@
 
 #include "ProtectionSpace.h"
 
-#if USE(CFNETWORK) && !PLATFORM(COCOA)
+#if USE(CFURLCONNECTION) && !PLATFORM(COCOA)
 #include "AuthenticationCF.h"
 #include <CFNetwork/CFURLProtectionSpacePriv.h>
-#include <wtf/RetainPtr.h>
 #endif
 
 namespace WebCore {

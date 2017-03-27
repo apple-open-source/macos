@@ -26,6 +26,9 @@
 #include <Security/cssm.h>
 #include <stdint.h>
 
+namespace Security
+{
+
 // 
 // Instantiate the explicit MappingHandle subclasses.  If there start to be
 // a lot of these, break this into multiple .cpp files so useless classes
@@ -37,3 +40,5 @@ template struct TypedHandle<CSSM_HANDLE>;        // HandledObject
 template class MappingHandle<CSSM_HANDLE>;      // HandleObject
 
 template class MappingHandle<uint32_t>;         // U32HandleObject
+
+}

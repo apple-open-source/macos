@@ -103,7 +103,8 @@ xit:
     return result;
 }
 
-bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef circle_id, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error) {
+
+bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error) {
     bool ok = false;
     secnotice("transport", "coder state: %@", coder);
     require_action_quiet(coder, xit, secerror("%@ getCoder: %@", peer_id, error ? *error : NULL));
@@ -132,7 +133,7 @@ bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn,
     } else {
         *message_to_send = SOSCoderCopyPendingResponse(coder);
         engine->codersNeedSaving = true;
-        secinfo("transport", "%@ negotiating, %@", peer_id, message_to_send ? CFSTR("sending negotiation message.") : CFSTR("waiting for negotiation message."));
+        secinfo("transport", "%@ negotiating, %@", peer_id, (message_to_send && *message_to_send) ? CFSTR("sending negotiation message.") : CFSTR("waiting for negotiation message."));
         *sent = Block_copy(^(bool wasSent){
             if (wasSent)
                 SOSCoderConsumeResponse(coder);

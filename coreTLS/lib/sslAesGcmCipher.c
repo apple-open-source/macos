@@ -170,6 +170,11 @@ int CCSymmAEADDecrypt(const uint8_t *src,
     err |= ccgcm_reset(cipherCtx->gcm, cipherCtx->gcmCtx);
     err |= ccgcm_inc_iv(cipherCtx->gcm, cipherCtx->gcmCtx, cipherCtx->gcmIV);
 
+    /* If an error occurred then scrub the plaintext destination */
+    if (err != 0) {
+        cc_clear(len-TLS_AES_GCM_TAG_SIZE, dest);
+    }
+
     return err;
 }
 

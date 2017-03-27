@@ -4579,6 +4579,14 @@ IOFireWireUserClient::setAsyncRef_IsochChannelForceStop(
 		error = kIOReturnBadArgument ;
 	}
 	
+    if( error == kIOReturnSuccess )
+    {
+        if( inAsyncRef == NULL )
+        {
+            error = kIOReturnBadArgument;
+        }
+    }
+    
 	io_user_reference_t * asyncRef = NULL;
 	if( error == kIOReturnSuccess )
 	{

@@ -367,6 +367,7 @@ krb5_init_creds_warn_user(krb5_context context,
 {
     krb5_timestamp sec;
     krb5_const_realm realm;
+    krb5_enctype weak_enctype = KRB5_ENCTYPE_NULL;
     LastReq *lr;
     unsigned i;
     time_t t;
@@ -410,19 +411,21 @@ krb5_init_creds_warn_user(krb5_context context,
 	}
     }
 
-    if (ctx->prompter &&
-	(ctx->as_enctype == KRB5_ENCTYPE_DES3_CBC_SHA1 || 
-	 ctx->as_enctype == KRB5_ENCTYPE_ARCFOUR_HMAC_MD5)) {
+    if (krb5_enctype_warning(context, ctx->as_enctype))
+	weak_enctype = ctx->as_enctype;
+    else if (krb5_enctype_warning(context, ctx->cred.session.keytype))
+	weak_enctype = ctx->cred.session.keytype;
 
+    if (ctx->prompter && weak_enctype != KRB5_ENCTYPE_NULL) {
 	bool suppress = krb5_config_get_bool_default(context, NULL, false,
 						     "libdefaults",
 						     "suppress_weak_enctype", NULL);
 	if (!suppress) {
 	    char *str = NULL, *p = NULL;
-	    krb5_enctype_to_string(context, ctx->as_enctype, &str);
+	    krb5_enctype_to_string(context, weak_enctype, &str);
 
 	    (void)asprintf(&p, "Encryption type %s(%d) used for authentication is weak and will be deprecated",
-			   str ? str : "unknown", ctx->as_enctype);
+			   str ? str : "unknown", weak_enctype);
 	    if (p) {
 		(*ctx->prompter)(context, ctx->prompter_data, NULL, p, 0, NULL);
 		free(p);
@@ -1771,7 +1774,7 @@ srp_step(krb5_context context, krb5_init_creds_context ctx, void *pa_ctx, PA_DAT
 	 */
 	ci.group = state->group->group;
 
-	ccsrp_client_start_authentication(state->srp, ccDevRandomGetRngState(), ci.a.data);
+	ccsrp_client_start_authentication(state->srp, ccDRBGGetRngState(), ci.a.data);
 
 	ASN1_MALLOC_ENCODE(KRB5_SRP_PA_INIT, data.data, data.length, &ci, &size, ret);
 	free_KRB5_SRP_PA_INIT(&ci);

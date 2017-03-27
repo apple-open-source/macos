@@ -56,7 +56,7 @@
 
 pcap_t *pc;		/* pcap device */
 int datalinkOffset;	/* offset of ip packet from datalink packet */
-int captureDebug = 0;
+int captureDebug = 1;
 unsigned int thisTimeZone;
 
 void CaptureInit(u_int32_t sourceIP, u_int16_t sourcePort,

@@ -721,8 +721,6 @@ unsigned feePubKeyBitsize(feePubKey pubKey)
 		default:
 			return bitlen(pkinst->cp->basePrime);	
 	}
-	/* NOT REACHED */
-	return 0;
 }
 
 /*

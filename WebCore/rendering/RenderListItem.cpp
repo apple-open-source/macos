@@ -34,12 +34,12 @@
 #include "RenderInline.h"
 #include "RenderListMarker.h"
 #include "RenderMultiColumnFlowThread.h"
+#include "RenderRuby.h"
 #include "RenderTable.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
 #include <wtf/StackStats.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -79,7 +79,7 @@ void RenderListItem::styleDidChange(StyleDifference diff, const RenderStyle* old
     auto newStyle = RenderStyle::create();
     // The marker always inherits from the list item, regardless of where it might end
     // up (e.g., in some deeply nested line box). See CSS3 spec.
-    newStyle.inheritFrom(&style());
+    newStyle.inheritFrom(style());
     if (!m_marker) {
         m_marker = createRenderer<RenderListMarker>(*this, WTFMove(newStyle)).leakPtr();
         m_marker->initializeStyle();
@@ -220,11 +220,6 @@ void RenderListItem::updateValueNow() const
     m_isValueUpToDate = true;
 }
 
-bool RenderListItem::isEmpty() const
-{
-    return lastChild() == m_marker;
-}
-
 static RenderBlock* getParentOfFirstLineBox(RenderBlock& current, RenderObject& marker)
 {
     bool inQuirksMode = current.document().inQuirksMode();
@@ -238,7 +233,10 @@ static RenderBlock* getParentOfFirstLineBox(RenderBlock& current, RenderObject& 
         if (child.isFloating() || child.isOutOfFlowPositioned())
             continue;
 
-        if (is<RenderTable>(child) || !is<RenderBlock>(child) || (is<RenderBox>(child) && downcast<RenderBox>(child).isWritingModeRoot()))
+        if (!is<RenderBlock>(child) || is<RenderTable>(child) || is<RenderRubyAsBlock>(child))
+            break;
+
+        if (is<RenderBox>(child) && downcast<RenderBox>(child).isWritingModeRoot())
             break;
 
         if (is<RenderListItem>(current) && inQuirksMode && child.node() && isHTMLListElement(*child.node()))
@@ -298,6 +296,11 @@ void RenderListItem::insertOrMoveMarkerRendererIfNeeded()
         // Removing and adding the marker can trigger repainting in
         // containers other than ourselves, so we need to disable LayoutState.
         LayoutStateDisabler layoutStateDisabler(view());
+        // Mark the parent dirty so that when the marker gets inserted into the tree
+        // and dirties ancestors, it stops at the parent.
+        newParent->setChildNeedsLayout(MarkOnlyThis);
+        m_marker->setNeedsLayout(MarkOnlyThis);
+
         m_marker->removeFromParent();
         newParent->addChild(m_marker, firstNonMarkerChild(*newParent));
         m_marker->updateMarginsAndContent();

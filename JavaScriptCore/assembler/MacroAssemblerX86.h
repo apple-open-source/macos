@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef MacroAssemblerX86_h
-#define MacroAssemblerX86_h
+#pragma once
 
 #if ENABLE(ASSEMBLER) && CPU(X86)
 
@@ -34,6 +33,9 @@ namespace JSC {
 
 class MacroAssemblerX86 : public MacroAssemblerX86Common {
 public:
+    static const unsigned numGPRs = 8;
+    static const unsigned numFPRs = 8;
+    
     static const Scale ScalePtr = TimesFour;
 
     using MacroAssemblerX86Common::add32;
@@ -371,5 +373,3 @@ private:
 } // namespace JSC
 
 #endif // ENABLE(ASSEMBLER)
-
-#endif // MacroAssemblerX86_h

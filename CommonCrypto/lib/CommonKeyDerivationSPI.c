@@ -27,7 +27,7 @@ typedef uint32_t CCKDFAlgorithm;
 
 CCStatus
 CCKeyDerivationHMac(CCKDFAlgorithm algorithm, CCDigestAlgorithm digest,
-                    uint rounds, // ignored except for PBKDF
+                    unsigned rounds, // ignored except for PBKDF
                     const void *keyDerivationKey, size_t keyDerivationKeyLen,
                     const void *label, size_t labelLen,
                     const void *context, size_t contextLen, // or FIXED buffer (label | context)
@@ -38,17 +38,17 @@ CCKeyDerivationHMac(CCKDFAlgorithm algorithm, CCDigestAlgorithm digest,
     const struct ccdigest_info *di = CCDigestGetDigestInfo(digest);
 	
     if(di == NULL) {
-        CC_DEBUG_LOG(CC_DEBUG, "CCKeyDerivationHMac Unknown Digest %d\n");
+        CC_DEBUG_LOG( "CCKeyDerivationHMac Unknown Digest %d\n");
         return kCCParamError;
 	}
     
     if(!keyDerivationKeyLen || !keyDerivationKey) {
-        CC_DEBUG_LOG(CC_DEBUG, "CCKeyDerivationHMac bad KDK parameters %d\n");
+        CC_DEBUG_LOG( "CCKeyDerivationHMac bad KDK parameters %d\n");
         return kCCParamError;
 	}
     
     if(!derivedKeyLen || !derivedKey) {
-        CC_DEBUG_LOG(CC_DEBUG, "CCKeyDerivationHMac bad derived key parameters %d\n");
+        CC_DEBUG_LOG( "CCKeyDerivationHMac bad derived key parameters %d\n");
         return kCCParamError;
 	}
 

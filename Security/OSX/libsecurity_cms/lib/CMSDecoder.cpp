@@ -127,19 +127,20 @@ static void cmsDecoderFinalize(
 	if(cmsDecoder->decoder != NULL) {
 		/*
 		 * Normally this gets freed in SecCmsDecoderFinish - this is
-		 * an error case.
-		 * FIXME: SecCmsDecoderDestroy() appears to destroy the
-		 * cmsMsg too! Plus there's a comment there re: a leak...
+		 * an error case. Unlike Finish, this calls SecCmsMessageDestroy.
 		 */
 		SecCmsDecoderDestroy(cmsDecoder->decoder);
+		cmsDecoder->cmsMsg = NULL;
 	}
 	CFRELEASE(cmsDecoder->detachedContent);
 	CFRELEASE(cmsDecoder->keychainOrArray);
 	if(cmsDecoder->cmsMsg != NULL) {
 		SecCmsMessageDestroy(cmsDecoder->cmsMsg);
+		cmsDecoder->cmsMsg = NULL;
 	}
 	if(cmsDecoder->arena != NULL) {
 		SecArenaPoolFree(cmsDecoder->arena, false);
+		cmsDecoder->arena = NULL;
 	}
 }
 

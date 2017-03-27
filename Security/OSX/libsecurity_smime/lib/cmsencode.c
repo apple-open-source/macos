@@ -140,7 +140,6 @@ nss_cms_encoder_notify(void *arg, Boolean before, void *dest, int depth)
     SecCmsEncoderRef p7ecx;
     SecCmsContentInfoRef rootcinfo, cinfo;
     Boolean after = !before;
-    PLArenaPool *poolp;
     SECOidTag childtype;
     CSSM_DATA_PTR item;
 
@@ -148,7 +147,6 @@ nss_cms_encoder_notify(void *arg, Boolean before, void *dest, int depth)
     PORT_Assert(p7ecx != NULL);
 
     rootcinfo = &(p7ecx->cmsg->contentInfo);
-    poolp = p7ecx->cmsg->poolp;
 
 #ifdef CMSDEBUG
     fprintf(stderr, "%6.6s, dest = %p, depth = %d\n", before ? "before" : "after", dest, depth);
@@ -225,11 +223,8 @@ nss_cms_before_data(SecCmsEncoderRef p7ecx)
     OSStatus rv;
     SECOidTag childtype;
     SecCmsContentInfoRef cinfo;
-    PLArenaPool *poolp;
     SecCmsEncoderRef childp7ecx;
     const SecAsn1Template *template;
-
-    poolp = p7ecx->cmsg->poolp;
 
     /* call _Encode_BeforeData handlers */
     switch (p7ecx->type) {
@@ -624,6 +619,10 @@ SecCmsEncoderUpdate(SecCmsEncoderRef p7ecx, const void *data, CFIndex len)
     OSStatus result;
     SecCmsContentInfoRef cinfo;
     SECOidTag childtype;
+
+    if (!p7ecx) {
+        return errSecParam;
+    }
 
     if (p7ecx->error)
 	return p7ecx->error;

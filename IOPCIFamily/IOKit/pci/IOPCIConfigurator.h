@@ -106,6 +106,8 @@ IOPCIScalar IOPCIRangeListCollapse(IOPCIRange * headRange, IOPCIScalar alignment
 
 IOPCIScalar IOPCIRangeCollapse(IOPCIRange * headRange, IOPCIScalar alignment);
 
+void        IOPCIRangeOptimize(IOPCIRange * headRange);
+
 IOPCIScalar IOPCIRangeListLastFree(IOPCIRange * headRange, IOPCIScalar align);
 IOPCIScalar IOPCIRangeLastFree(IOPCIRange * headRange, IOPCIScalar align);
 void        IOPCIRangeListOptimize(IOPCIRange * headRange);
@@ -137,7 +139,7 @@ enum {
     kIOPCIConfiguratorDeviceMap      = 0x00000020,
 
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,
-    kIOPCIConfiguratorDeferHotPlug   = 0x00000080,
+    kIOPCIConfiguratorMapInterrupts  = 0x00000080,
 	kIOPCIConfiguratorPanicOnFault   = 0x00000100, 
     kIOPCIConfiguratorNoSplay        = 0x00000200,
 
@@ -155,6 +157,7 @@ enum {
     kIOPCIConfiguratorCheckTunnel    = 0x00080000,
     kIOPCIConfiguratorNoTunnelDrv    = 0x00100000,
     kIOPCIConfiguratorNoTerminate    = 0x00200000,
+    kIOPCIConfiguratorDeferHotPlug   = 0x00400000,
 
     kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };

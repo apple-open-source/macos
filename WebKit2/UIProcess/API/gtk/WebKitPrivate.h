@@ -39,7 +39,6 @@
 #include <WebKit/WKInspectorClientGtk.h>
 #include <WebKit/WKRetainPtr.h>
 #include <WebKit/WKSerializedScriptValue.h>
-#include <WebKit/WKSoupCustomProtocolRequestManager.h>
 #include <WebKit/WKString.h>
 #include <WebKit/WKUserMediaPermissionRequest.h>
 #include <WebKit/WebKit2_C.h>
@@ -127,10 +126,6 @@ enum SnapshotRegion {
     SnapshotRegionFullDocument
 };
 
-#if ENABLE(NETWORK_CACHE)
 static const char networkCacheSubdirectory[] = "WebKitCache";
-#else
-static const char networkCacheSubdirectory[] = "webkit";
-#endif
 
 #endif // WebKitPrivate_h

@@ -38,7 +38,7 @@
 #include "sslDebug.h"
 #include "sslCrypto.h"
 #include "sslDigests.h"
-#include "sslCipherspecs.h"
+#include "sslCipherSpecs.h"
 
 
 #include <AssertMacros.h>

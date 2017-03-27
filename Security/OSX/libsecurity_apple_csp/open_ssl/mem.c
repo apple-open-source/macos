@@ -76,7 +76,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <openssl/crypto.h>
+#include <openssl/crypto_legacy.h>
 #include "cryptlib.h"
 
 

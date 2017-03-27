@@ -27,10 +27,13 @@
 #include "VisibleContentRectUpdateInfo.h"
 
 #include "WebCoreArgumentCoders.h"
+#include <WebCore/TextStream.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
-void VisibleContentRectUpdateInfo::encode(IPC::ArgumentEncoder& encoder) const
+void VisibleContentRectUpdateInfo::encode(IPC::Encoder& encoder) const
 {
     encoder << m_exposedContentRect;
     encoder << m_unobscuredContentRect;
@@ -49,7 +52,7 @@ void VisibleContentRectUpdateInfo::encode(IPC::ArgumentEncoder& encoder) const
     encoder << m_enclosedInScrollableAncestorView;
 }
 
-bool VisibleContentRectUpdateInfo::decode(IPC::ArgumentDecoder& decoder, VisibleContentRectUpdateInfo& result)
+bool VisibleContentRectUpdateInfo::decode(IPC::Decoder& decoder, VisibleContentRectUpdateInfo& result)
 {
     if (!decoder.decode(result.m_exposedContentRect))
         return false;
@@ -83,6 +86,46 @@ bool VisibleContentRectUpdateInfo::decode(IPC::ArgumentDecoder& decoder, Visible
         return false;
 
     return true;
+}
+
+String VisibleContentRectUpdateInfo::dump() const
+{
+    TextStream stream;
+    stream << *this;
+    return stream.release();
+}
+
+TextStream& operator<<(TextStream& ts, const VisibleContentRectUpdateInfo& info)
+{
+    TextStream::GroupScope scope(ts);
+    
+    ts << "VisibleContentRectUpdateInfo";
+
+    ts.dumpProperty("lastLayerTreeTransactionID", info.lastLayerTreeTransactionID());
+
+    ts.dumpProperty("exposedContentRect", info.exposedContentRect());
+    ts.dumpProperty("unobscuredContentRect", info.unobscuredContentRect());
+    ts.dumpProperty("unobscuredRectInScrollViewCoordinates", info.unobscuredRectInScrollViewCoordinates());
+    ts.dumpProperty("unobscuredContentRectRespectingInputViewBounds", info.unobscuredContentRectRespectingInputViewBounds());
+    ts.dumpProperty("customFixedPositionRect", info.customFixedPositionRect());
+    ts.dumpProperty("obscuredInset", info.obscuredInset());
+
+    ts.dumpProperty("scale", info.scale());
+    ts.dumpProperty("inStableState", info.inStableState());
+    if (info.isChangingObscuredInsetsInteractively())
+        ts.dumpProperty("isChangingObscuredInsetsInteractively", info.isChangingObscuredInsetsInteractively());
+    if (info.enclosedInScrollableAncestorView())
+        ts.dumpProperty("enclosedInScrollableAncestorView", info.enclosedInScrollableAncestorView());
+
+    ts.dumpProperty("timestamp", info.timestamp().secondsSinceEpoch().value());
+    if (info.horizontalVelocity())
+        ts.dumpProperty("horizontalVelocity", info.horizontalVelocity());
+    if (info.verticalVelocity())
+        ts.dumpProperty("verticalVelocity", info.verticalVelocity());
+    if (info.scaleChangeRate())
+        ts.dumpProperty("scaleChangeRate", info.scaleChangeRate());
+
+    return ts;
 }
 
 } // namespace WebKit

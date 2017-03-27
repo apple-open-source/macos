@@ -69,6 +69,8 @@ public:
     virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
 
     virtual bool start(IOService * provider);
+
+    virtual void stop(IOService * provider);
     
     virtual IOReturn clientClose(void);
 

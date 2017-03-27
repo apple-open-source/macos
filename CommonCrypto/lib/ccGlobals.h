@@ -28,26 +28,27 @@
 #ifndef CCGLOBALS_H
 #define CCGLOBALS_H
 
-#include <asl.h>
 #include <corecrypto/ccdh.h>
-#include <dispatch/dispatch.h>
-#include <mach/mach_time.h>
 #include "CommonCryptorPriv.h"
 #include "CommonRandomPriv.h"
-#include "basexx.h"
-#include "crc.h"
-#include "CommonCRC.h"
+#include "../libcn/basexx.h"
 
-#if __has_include(<os/alloc_once_private.h>)
-#include <os/alloc_once_private.h>
-#if defined(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO) && !defined(KERNEL)
-#define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 1
-#endif
+#include "../libcn/crc.h"
+#include <CommonNumerics/CommonCRC.h>
+
+#if defined(_WIN32)
+    #define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 0
+#else
+    #if __has_include(<os/alloc_once_private.h>)
+    #include <os/alloc_once_private.h>
+    #if defined(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO) && !defined(KERNEL)
+    #define _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE 1
+    #endif
+    #endif
 #endif
 
 #define CN_SUPPORTED_CRCS kCN_CRC_64_ECMA_182+1
 #define CN_STANDARD_BASE_ENCODERS kCNEncodingBase16+1
-
 
 struct cc_globals_s {
     // CommonCRC.c
@@ -68,14 +69,6 @@ struct cc_globals_s {
     ccInternalRandom dev_random;
     ccInternalRandom drbg;
 	
-	// CommonKeyDerivation.c
-	mach_timebase_info_data_t timebaseInfo;
-	
-	// ccdebug.c
-	dispatch_once_t debug_init;
-	aslclient aslhandle;
-	aslmsg msgptr;
-    
     // CommonCryptor.c
     cipherMode cipherModeTab[CC_SUPPORTED_CIPHERS][CC_DIRECTIONS];
 
@@ -86,14 +79,15 @@ __attribute__((__pure__))
 static inline cc_globals_t
 _cc_globals(void) {
 #if _LIBCOMMONCRYPTO_HAS_ALLOC_ONCE
-	return (cc_globals_t) os_alloc_once(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO,
-					       sizeof(struct cc_globals_s),
-					       NULL);
+    return (cc_globals_t) os_alloc_once(OS_ALLOC_ONCE_KEY_LIBCOMMONCRYPTO,
+                                        sizeof(struct cc_globals_s),
+                                        NULL);
 #else
-	static struct cc_globals_s storage;
-	return &storage;
+    extern struct cc_globals_s cc_globals_storage;
+    return &cc_globals_storage;
 #endif
 }
+
 
 
 #endif /* CCGLOBALS_H */

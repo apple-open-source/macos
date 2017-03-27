@@ -27,7 +27,6 @@
 #import "InteractionInformationAtPosition.h"
 
 #import "ArgumentCodersCF.h"
-#import "Arguments.h"
 #import "WebCoreArgumentCoders.h"
 #import <WebCore/DataDetectorsCoreSPI.h>
 #import <WebCore/SoftLinking.h>
@@ -39,9 +38,10 @@ namespace WebKit {
 
 #if PLATFORM(IOS)
 
-void InteractionInformationAtPosition::encode(IPC::ArgumentEncoder& encoder) const
+void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
 {
-    encoder << point;
+    encoder << request;
+
     encoder << nodeAtPositionIsAssistedNode;
     encoder << isSelectable;
     encoder << isNearMarkedText;
@@ -79,9 +79,9 @@ void InteractionInformationAtPosition::encode(IPC::ArgumentEncoder& encoder) con
 #endif
 }
 
-bool InteractionInformationAtPosition::decode(IPC::ArgumentDecoder& decoder, InteractionInformationAtPosition& result)
+bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, InteractionInformationAtPosition& result)
 {
-    if (!decoder.decode(result.point))
+    if (!decoder.decode(result.request))
         return false;
 
     if (!decoder.decode(result.nodeAtPositionIsAssistedNode))
@@ -168,6 +168,19 @@ bool InteractionInformationAtPosition::decode(IPC::ArgumentDecoder& decoder, Int
 
     return true;
 }
-#endif
+
+void InteractionInformationAtPosition::mergeCompatibleOptionalInformation(const InteractionInformationAtPosition& oldInformation)
+{
+    if (oldInformation.request.point != request.point)
+        return;
+
+    if (oldInformation.request.includeSnapshot && !request.includeSnapshot)
+        image = oldInformation.image;
+
+    if (oldInformation.request.includeLinkIndicator && !request.includeLinkIndicator)
+        linkIndicator = oldInformation.linkIndicator;
+}
+
+#endif // PLATFORM(IOS)
 
 }

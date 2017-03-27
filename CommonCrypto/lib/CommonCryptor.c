@@ -31,11 +31,9 @@
 #include "ccGlobals.h"
 #include "ccMemory.h"
 #include "ccdebug.h"
-#include "CommonCryptor.h"
-#include "CommonCryptorSPI.h"
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonCryptorSPI.h>
 #include "CommonCryptorPriv.h"
-#include <dispatch/dispatch.h>
-#include <dispatch/queue.h>
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -59,21 +57,33 @@ static inline uint32_t ccGetCipherBlockSize(CCCryptor *ref) {
     }
 }
 
+struct info_pack{
+    int i;
+    CCAlgorithm cipher;
+};
+
+static void init_globals(void *info){
+    int i = ((struct info_pack *)info)->i;
+    CCAlgorithm cipher = ((struct info_pack *)info)->cipher;
+    cc_globals_t globals = _cc_globals();
+    
+    globals->cipherModeTab[cipher][i].ecb = ccmodeList[cipher][i].ecb();
+    globals->cipherModeTab[cipher][i].cbc = ccmodeList[cipher][i].cbc();
+    globals->cipherModeTab[cipher][i].cfb = ccmodeList[cipher][i].cfb();
+    globals->cipherModeTab[cipher][i].cfb8 = ccmodeList[cipher][i].cfb8();
+    globals->cipherModeTab[cipher][i].ctr = ccmodeList[cipher][i].ctr();
+    globals->cipherModeTab[cipher][i].ofb = ccmodeList[cipher][i].ofb();
+    globals->cipherModeTab[cipher][i].xts = ccmodeList[cipher][i].xts();
+    globals->cipherModeTab[cipher][i].gcm = ccmodeList[cipher][i].gcm();
+    globals->cipherModeTab[cipher][i].ccm = ccmodeList[cipher][i].ccm();
+}
+
 const corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction)
 {
     cc_globals_t globals = _cc_globals();
     for(int i = 0; i<2; i++) {
-        dispatch_once(&(globals->cipherModeTab[cipher][i].init), ^{
-            globals->cipherModeTab[cipher][i].ecb = ccmodeList[cipher][i].ecb();
-            globals->cipherModeTab[cipher][i].cbc = ccmodeList[cipher][i].cbc();
-            globals->cipherModeTab[cipher][i].cfb = ccmodeList[cipher][i].cfb();
-            globals->cipherModeTab[cipher][i].cfb8 = ccmodeList[cipher][i].cfb8();
-            globals->cipherModeTab[cipher][i].ctr = ccmodeList[cipher][i].ctr();
-            globals->cipherModeTab[cipher][i].ofb = ccmodeList[cipher][i].ofb();
-            globals->cipherModeTab[cipher][i].xts = ccmodeList[cipher][i].xts();
-            globals->cipherModeTab[cipher][i].gcm = ccmodeList[cipher][i].gcm();
-            globals->cipherModeTab[cipher][i].ccm = ccmodeList[cipher][i].ccm();
-        });
+        struct info_pack info = {i, cipher};
+        cc_dispatch_once(&(globals->cipherModeTab[cipher][i].init), &info, init_globals);
     }
 
     switch(mode) {
@@ -381,7 +391,7 @@ CCCryptorStatus CCCryptorCreate(
 	int				numRounds;
 	CCModeOptions 	modeOptions;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	/* Determine mode from options - old call only supported ECB and CBC 
        we treat RC4 as a "mode" in that it's the only streaming cipher
        currently supported 
@@ -452,7 +462,7 @@ CCCryptorStatus CCCryptorCreateWithMode(
 	CCCryptor *cryptor = NULL;
     uint8_t *alignedKey = NULL;
 
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Op: %d Mode: %d Cipher: %d Padding: %d\n", op, mode, alg, padding);
+    CC_DEBUG_LOG("Entering Op: %d Mode: %d Cipher: %d Padding: %d\n", op, mode, alg, padding);
 
     // For now we're mapping these two AES selectors to the stock one.
     if(alg == kCCAlgorithmAES128NoHardware || alg == kCCAlgorithmAES128WithHardware) 
@@ -463,13 +473,13 @@ CCCryptorStatus CCCryptorCreateWithMode(
        See <rdar://problem/10306112> */
     
     if(mode == kCCModeCTR && options != kCCModeOptionCTR_BE) {
-        CC_DEBUG_LOG(ASL_LEVEL_ERR, "Mode is CTR, but options isn't BE\n", op, mode, alg, padding);
+        CC_DEBUG_LOG("Mode is CTR, but options isn't BE\n", op, mode, alg, padding);
         return kCCUnimplemented;
     }
 
     // validate pointers
 	if((cryptorRef == NULL) || (key == NULL)) {
-		CC_DEBUG_LOG(ASL_LEVEL_ERR, "bad arguments\n", 0);
+		CC_DEBUG_LOG("bad arguments\n", 0);
 		return kCCParamError;
 	}
     
@@ -535,7 +545,7 @@ CCCryptorStatus CCCryptorRelease(
 {
     CCCryptor *cryptor = getRealCryptor(cryptorRef, 0);
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if(cryptor) {
         ccClearCryptor(cryptor);
         CC_XFREE(cryptor, DEFAULT_CRYPTOR_MALLOC);
@@ -679,7 +689,7 @@ size_t CCCryptorGetOutputLength(
     size_t inputLength,
     bool final)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCCryptor *cryptor = getRealCryptor(cryptorRef, 1);
     if(cryptor == NULL) return kCCParamError;
     return ccGetOutputLength(cryptor, inputLength, final);
@@ -693,7 +703,7 @@ CCCryptorStatus CCCryptorUpdate(
     size_t dataOutAvailable,
     size_t *dataOutMoved)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	CCCryptorStatus	retval;
     CCCryptor *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
@@ -723,7 +733,7 @@ CCCryptorStatus CCCryptorFinal(
 	size_t dataOutAvailable,
 	size_t *dataOutMoved)		/* number of bytes written */
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 0);
     // Some old behavior .. CDSA? has zapped the Cryptor.
     if(cryptor == NULL) return kCCSuccess;
@@ -780,7 +790,7 @@ CCCryptorStatus CCCryptorReset(
 	CCCryptorRef cryptorRef,
 	const void *iv)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCCryptor *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
     CCCryptorStatus retval;
@@ -812,7 +822,7 @@ CCCryptorStatus
 CCCryptorGetIV(CCCryptorRef cryptorRef, void *iv)
 {
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if(!cryptor) return kCCParamError;
     
     if(ccIsStreaming(cryptor)) return kCCParamError;
@@ -839,7 +849,7 @@ CCCryptorStatus CCCrypt(
 	size_t dataOutAvailable,
 	size_t *dataOutMoved)	
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	CCCryptorRef cryptor = NULL;
 	CCCryptorStatus retval;
 	size_t updateLen, finalLen;
@@ -870,7 +880,7 @@ CCCryptorStatus CCCryptorEncryptDataBlock(
 	size_t dataInLength,
 	void *dataOut)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
     if(ccIsStreaming(cryptor)) return kCCParamError;
@@ -886,7 +896,7 @@ CCCryptorStatus CCCryptorDecryptDataBlock(
 	size_t dataInLength,
 	void *dataOut)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
     if(ccIsStreaming(cryptor)) return kCCParamError;
@@ -908,7 +918,7 @@ CCCryptorStatus CCCryptorAddParameter(
     const void *data,
     size_t dataSize)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
 
@@ -965,7 +975,7 @@ CCCryptorStatus CCCryptorGetParameter(
     void *data,
     size_t *dataSize)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
 

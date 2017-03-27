@@ -18,8 +18,7 @@
  *
  */
 
-#ifndef InlineBox_h
-#define InlineBox_h
+#pragma once
 
 #include "RenderBoxModelObject.h"
 #include "RenderText.h"
@@ -455,9 +454,7 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToValueTypeName) \
 SPECIALIZE_TYPE_TRAITS_END()
 
 #if ENABLE(TREE_DEBUGGING)
-// Outside the WebCore namespace for ease of invocation from gdb.
+// Outside the WebCore namespace for ease of invocation from the debugger.
 void showNodeTree(const WebCore::InlineBox*);
 void showLineTree(const WebCore::InlineBox*);
 #endif
-
-#endif // InlineBox_h

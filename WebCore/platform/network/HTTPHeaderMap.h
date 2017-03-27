@@ -54,7 +54,7 @@ public:
 
         struct KeyValue {
             String key;
-            Optional<HTTPHeaderName> keyAsHTTPHeaderName;
+            std::optional<HTTPHeaderName> keyAsHTTPHeaderName;
             String value;
         };
 
@@ -99,7 +99,7 @@ public:
             if (it == m_table.uncommonHeaders().end())
                 return false;
             m_keyValue.key = it->key;
-            m_keyValue.keyAsHTTPHeaderName = Nullopt;
+            m_keyValue.keyAsHTTPHeaderName = std::nullopt;
             m_keyValue.value = it->value;
             return true;
         }
@@ -141,6 +141,7 @@ public:
     WEBCORE_EXPORT String get(HTTPHeaderName) const;
     void set(HTTPHeaderName, const String& value);
     void add(HTTPHeaderName, const String& value);
+    bool addIfNotPresent(HTTPHeaderName, const String&);
     bool contains(HTTPHeaderName) const;
     WEBCORE_EXPORT bool remove(HTTPHeaderName);
 

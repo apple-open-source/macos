@@ -37,7 +37,7 @@ namespace KeychainCore {
 // Construct a UnlockReferralItem from attributes and initial content
 //
 UnlockReferralItem::UnlockReferralItem() :
-	ItemImpl(CSSM_DL_DB_RECORD_UNLOCK_REFERRAL,
+	ItemImpl((SecItemClass) CSSM_DL_DB_RECORD_UNLOCK_REFERRAL,
 		reinterpret_cast<SecKeychainAttributeList *>(NULL),
 		UInt32(0/*size*/),
 		NULL/*data*/)

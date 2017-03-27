@@ -390,6 +390,8 @@ public:
 
     virtual IOReturn requestProbe( IOOptionBits options );
 
+    virtual void systemWillShutdown(IOOptionBits specifier);
+
     virtual void saveBridgeState( void );
 
     virtual void restoreBridgeState( void );

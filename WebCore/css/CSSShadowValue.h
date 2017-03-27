@@ -18,11 +18,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef CSSShadowValue_h
-#define CSSShadowValue_h
+#pragma once
 
 #include "CSSValue.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -30,7 +28,7 @@ namespace WebCore {
 class CSSPrimitiveValue;
 
 // Used for text-shadow and box-shadow
-class CSSShadowValue : public CSSValue {
+class CSSShadowValue final : public CSSValue {
 public:
     static Ref<CSSShadowValue> create(RefPtr<CSSPrimitiveValue>&& x,
         RefPtr<CSSPrimitiveValue>&& y,
@@ -65,5 +63,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSShadowValue, isShadowValue())
-
-#endif // CSSShadowValue_h

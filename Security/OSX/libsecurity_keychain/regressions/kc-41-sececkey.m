@@ -183,7 +183,7 @@ static void testkeygen(size_t keySizeInBits) {
 	size_t keySizeInBytes = (keySizeInBits + 7) / 8;
 	CFNumberRef kzib;
 
-	kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keySizeInBits);
+	kzib = CFNumberCreate(NULL, kCFNumberSInt64Type, &keySizeInBits);
 	CFMutableDictionaryRef kgp = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
 	CFDictionaryAddValue(kgp, kSecAttrKeyType, kSecAttrKeyTypeEC);
 	CFDictionaryAddValue(kgp, kSecAttrKeySizeInBits, kzib);
@@ -271,7 +271,7 @@ static void testkeygen2(size_t keySizeInBits) {
 	CFDictionaryAddValue(pubd, kSecAttrLabel, publicName);
 	CFDictionaryAddValue(privd, kSecAttrLabel, privateName);
 
-	kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keySizeInBits);
+	kzib = CFNumberCreate(NULL, kCFNumberSInt64Type, &keySizeInBits);
 	CFMutableDictionaryRef kgp = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
 	CFDictionaryAddValue(kgp, kSecAttrKeyType, kSecAttrKeyTypeEC);
 	CFDictionaryAddValue(kgp, kSecAttrKeySizeInBits, kzib);
@@ -561,21 +561,18 @@ static void testkeyexchange(unsigned long keySizeInBits)
     for (size_t ix = 0; ix < array_size(algos); ++ix) {
         CFErrorRef error = NULL;
 
-        NSData *secret1 = (NSData *)SecKeyCopyKeyExchangeResult(privKey1, algos[ix], pubKey2, (CFDictionaryRef)params, &error);
-        ok(secret1 != NULL && CFGetTypeID(secret1) == CFDataGetTypeID());
+        NSData *secret1 = (__bridge_transfer NSData *)SecKeyCopyKeyExchangeResult(privKey1, algos[ix], pubKey2, (CFDictionaryRef)params, &error);
+        ok(secret1 != NULL && CFGetTypeID((__bridge CFTypeRef) secret1) == CFDataGetTypeID());
         CFReleaseNull(error);
 
-        NSData *secret2 = (NSData *)SecKeyCopyKeyExchangeResult(privKey2, algos[ix], pubKey1, (CFDictionaryRef)params, &error);
-        ok(secret2 != NULL && CFGetTypeID(secret2) == CFDataGetTypeID());
+        NSData *secret2 = (__bridge_transfer NSData *)SecKeyCopyKeyExchangeResult(privKey2, algos[ix], pubKey1, (CFDictionaryRef)params, &error);
+        ok(secret2 != NULL && CFGetTypeID((__bridge CFTypeRef) secret2) == CFDataGetTypeID());
         CFReleaseNull(error);
 
-        eq_cf(secret1, secret2, "results of key exchange are equal");
+        eq_cf((__bridge CFTypeRef) secret1, (__bridge CFTypeRef) secret2, "results of key exchange are equal");
         if (algos[ix] != kSecKeyAlgorithmECDHKeyExchangeCofactor && algos[ix] != kSecKeyAlgorithmECDHKeyExchangeStandard) {
             is(secret1.length, requestedSize, "generated response has expected length");
         }
-
-        CFReleaseNull(secret1);
-        CFReleaseNull(secret2);
     }
 
     CFReleaseNull(privKey1);

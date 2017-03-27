@@ -55,6 +55,7 @@ public:
 private:
 	void consume(SecurityServer::NotificationDomain domain,
 		SecurityServer::NotificationEvent event, const CssmData &data);
+    bool initialized() { return mInitialized; }
 
 private:
 	friend class SDCSPSession;

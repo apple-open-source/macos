@@ -1,0 +1,27 @@
+--- ../Python-2.7.10/Modules/zipimport.c	2015-05-23 09:09:21.000000000 -0700
++++ Modules/zipimport.c	2016-11-01 16:22:20.000000000 -0700
+@@ -862,6 +862,11 @@
+         return NULL;
+     }
+ 
++    if (data_size < 0) {
++        PyErr_Format(ZipImportError, "negative data size");
++        return NULL;
++    }
++
+     fp = fopen(archive, "rb");
+     if (!fp) {
+         PyErr_Format(PyExc_IOError,
+@@ -895,6 +900,12 @@
+         PyMarshal_ReadShortFromFile(fp);        /* local header size */
+     file_offset += l;           /* Start of file data */
+ 
++    if (data_size > LONG_MAX - 1) {
++        fclose(fp);
++        PyErr_NoMemory();
++        return NULL;
++    }
++
+     raw_data = PyString_FromStringAndSize((char *)NULL, compress == 0 ?
+                                           data_size : data_size + 1);
+     if (raw_data == NULL) {

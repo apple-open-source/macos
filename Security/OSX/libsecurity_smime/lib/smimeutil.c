@@ -191,8 +191,7 @@ SecSMIMEEnableCipher(uint32 which, Boolean on)
 	return SECFailure;
     }
 
-    if (smime_cipher_map[mapi].enabled != on)
-	smime_cipher_map[mapi].enabled = on;
+    smime_cipher_map[mapi].enabled = on;
 
     return SECSuccess;
 }
@@ -219,8 +218,7 @@ SecSMIMEAllowCipher(uint32 which, Boolean on)
 	/* XXX set an error */
 	return SECFailure;
 
-    if (smime_cipher_map[mapi].allowed != on)
-	smime_cipher_map[mapi].allowed = on;
+    smime_cipher_map[mapi].allowed = on;
 
     return SECSuccess;
 }
@@ -574,6 +572,9 @@ SecSMIMEFindBulkAlgForRecipients(SecCertificateRef *rcerts, SECOidTag *bulkalgta
 
     cipher = smime_choose_cipher(NULL, rcerts);
     mapi = smime_mapi_by_cipher(cipher);
+    if (mapi < 0) {
+        return SECFailure;
+    }
 
     *bulkalgtag = smime_cipher_map[mapi].algtag;
     *keysize = smime_keysize_by_cipher(smime_cipher_map[mapi].cipher);

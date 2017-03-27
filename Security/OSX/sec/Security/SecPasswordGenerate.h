@@ -42,7 +42,8 @@ enum {
     kSecPasswordTypeSafari = 0,
     kSecPasswordTypeiCloudRecovery = 1,
     kSecPasswordTypeWifi = 2,
-    kSecPasswordTypePIN = 3
+    kSecPasswordTypePIN = 3,
+    kSecPasswordTypeiCloudRecoveryKey __OSX_AVAILABLE(10.12.4) __IOS_AVAILABLE(10.4) = 4,
 } __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 // Keys for external dictionaries with password generation requirements we read from plist.
@@ -95,7 +96,13 @@ extern CFStringRef kSecPasswordSeparator
 CFDictionaryRef SecPasswordCopyDefaultPasswordLength(SecPasswordType type, CFErrorRef *error)
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
-    
+/*
+ * Check that password is propery formated (groups, checksum). Make no claim about password quality.
+ */
+bool
+SecPasswordValidatePasswordFormat(SecPasswordType type, CFStringRef password, CFErrorRef *error)
+    __OSX_AVAILABLE(10.12.4) __IOS_AVAILABLE(10.4) __WATCHOS_AVAILABLE(3.4) __TVOS_AVAILABLE(10.4);
+
 /*
  @function SecPasswordIsPasswordWeak
  @abstract Evalutes the weakness of a passcode. This function can take any type of passcode.  Currently

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DEBUGSCOPE</key>
+		<string>all</string>
+		<key>WAIT4DEBUGGER</key>
+		<string>NO</string>
+	</dict>
+	<key>Label</key>
+	<string>com.apple.security.keychainsyncingoveridsproxy</string>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.notifyd.matching</key>
+		<dict>
+			<key>com.apple.mobile.keybagd.first_unlock</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.mobile.keybagd.first_unlock</string>
+			</dict>
+			<key>com.apple.mobile.keybagd.lock_status</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.mobile.keybagd.lock_status</string>
+			</dict>
+			<key>com.apple.keystore.lockstatus</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.keystore.lockstatus</string>
+			</dict>
+		</dict>
+	</dict>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.private.alloy.keychainsync-idswake</key>
+		<true/>
+		<key>com.apple.security.keychainsyncingoveridsproxy</key>
+		<true/>
+	</dict>
+	<key>Program</key>
+	<string>/System/Library/Frameworks/Security.framework/KeychainSyncingOverIDSProxy.bundle/KeychainSyncingOverIDSProxy</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/System/Library/Frameworks/Security.framework/KeychainSyncingOverIDSProxy.bundle/KeychainSyncingOverIDSProxy</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>enabletransactions</key>
+	<true/>
+</dict>
+</plist>

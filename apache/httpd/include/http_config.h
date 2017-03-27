@@ -50,7 +50,7 @@ enum cmd_how {
     RAW_ARGS,           /**< cmd_func parses command line itself */
     TAKE1,              /**< one argument only */
     TAKE2,              /**< two arguments only */
-    ITERATE,            /**< one argument, occuring multiple times
+    ITERATE,            /**< one argument, occurring multiple times
                          * (e.g., IndexIgnore)
                          */
     ITERATE2,           /**< two arguments, 2nd occurs multiple times
@@ -410,6 +410,23 @@ struct module_struct {
 };
 
 /**
+ * The AP_MAYBE_UNUSED macro is used for variable declarations that
+ * might potentially exhibit "unused var" warnings on some compilers if
+ * left untreated.
+ * Since static intializers are not part of the C language (C89), making
+ * (void) usage is not possible. However many compiler have proprietary 
+ * mechanism to suppress those warnings.  
+ */
+#ifdef AP_MAYBE_UNUSED
+#elif defined(__GNUC__)
+# define AP_MAYBE_UNUSED(x) x __attribute__((unused)) 
+#elif defined(__LCLINT__)
+# define AP_MAYBE_UNUSED(x) /*@unused@*/ x  
+#else
+# define AP_MAYBE_UNUSED(x) x
+#endif
+    
+/**
  * The APLOG_USE_MODULE macro is used choose which module a file belongs to.
  * This is necessary to allow per-module loglevel configuration.
  *
@@ -424,7 +441,7 @@ struct module_struct {
  */
 #define APLOG_USE_MODULE(foo) \
     extern module AP_MODULE_DECLARE_DATA foo##_module;                  \
-    static int * const aplog_module_index = &(foo##_module.module_index)
+    AP_MAYBE_UNUSED(static int * const aplog_module_index) = &(foo##_module.module_index)
 
 /**
  * AP_DECLARE_MODULE is a convenience macro that combines a call of
@@ -812,7 +829,7 @@ AP_DECLARE(apr_status_t) ap_cfg_getc(char *ch, ap_configfile_t *cfp);
 /**
  * Detach from open ap_configfile_t, calling the close handler
  * @param cfp The file to close
- * @return 1 on sucess, 0 on failure
+ * @return 1 on success, 0 on failure
  */
 AP_DECLARE(int) ap_cfg_closefile(ap_configfile_t *cfp);
 

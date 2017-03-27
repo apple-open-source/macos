@@ -40,7 +40,6 @@
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSUserKeygen.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
-#include "SOSCloudKeychainLogging.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -166,7 +165,6 @@ static void tests(void)
     secLogEnable();
     SOSAccountLogState(master_account);
     SOSAccountLogViewState(master_account);
-    SOSCloudKVSLogState();
     secLogDisable();
     
     CFDataRef acctData = SOSAccountCopyEncodedData(master_account, kCFAllocatorDefault, &error);
@@ -188,12 +186,7 @@ static void tests(void)
     CFReleaseNull(master_account);
     CFReleaseNull(minion_accounts);
     
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
+    SOSTestCleanup();
     
 }
 

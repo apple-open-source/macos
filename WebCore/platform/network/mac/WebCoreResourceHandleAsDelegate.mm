@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WebCoreResourceHandleAsDelegate.h"
 
-#if !USE(CFNETWORK)
+#if !USE(CFURLCONNECTION)
 
 #import "AuthenticationChallenge.h"
 #import "AuthenticationMac.h"
@@ -157,12 +157,12 @@ using namespace WebCore;
     resourceResponse.setIsQuickLook(isQuickLookPreview);
 #endif
 #if ENABLE(WEB_TIMING)
-    ResourceHandle::getConnectionTimingData(connection, resourceResponse.resourceLoadTiming());
+    ResourceHandle::getConnectionTimingData(connection, resourceResponse.networkLoadTiming());
 #else
     UNUSED_PARAM(connection);
 #endif
 
-    m_handle->client()->didReceiveResponse(m_handle, WTFMove(resourceResponse));
+    m_handle->didReceiveResponse(WTFMove(resourceResponse));
 }
 
 #if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
@@ -277,5 +277,5 @@ using namespace WebCore;
 
 @end
 
-#endif // !USE(CFNETWORK)
+#endif // !USE(CFURLCONNECTION)
 

@@ -159,8 +159,8 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
 			
             // figure out the base and dir
             const char* path = xpc_array_get_string(keychain_path_array, i);
-            char* dir;
-            char* base;
+            char* dir = NULL;
+            char* base = NULL;
             
             char buffer[PATH_MAX];
             strcpy(buffer, path);

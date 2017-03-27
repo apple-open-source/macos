@@ -214,6 +214,12 @@ enum {
  *
  * @constant DISPATCH_VFS_QUOTA
  * We hit a user quota (quotactl) for this filesystem.
+ *
+ * @constant DISPATCH_VFS_NEARLOWDISK
+ * Filesystem is nearly full (below NEARLOWDISK level).
+ *
+ * @constant DISPATCH_VFS_DESIREDDISK
+ * Filesystem has exceeded the DESIREDDISK level
  */
 enum {
 	DISPATCH_VFS_NOTRESP = 0x0001,
@@ -227,6 +233,8 @@ enum {
 	DISPATCH_VFS_UPDATE = 0x0100,
 	DISPATCH_VFS_VERYLOWDISK = 0x0200,
 	DISPATCH_VFS_QUOTA = 0x1000,
+	DISPATCH_VFS_NEARLOWDISK = 0x2000,
+	DISPATCH_VFS_DESIREDDISK = 0x4000,
 };
 
 /*!

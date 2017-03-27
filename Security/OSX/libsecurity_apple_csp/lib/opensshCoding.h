@@ -29,8 +29,8 @@
 #ifndef	_OPENSSH_CODING_H_
 #define _OPENSSH_CODING_H_
 
-#include <openssl/rsa.h>
-#include <openssl/dsa.h>
+#include <openssl/rsa_legacy.h>
+#include <openssl/dsa_legacy.h>
 #include <Security/cssmtype.h>
 #include <security_cdsa_utilities/cssmdata.h>
 #include <CoreFoundation/CFData.h>

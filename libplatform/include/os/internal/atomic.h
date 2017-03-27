@@ -46,8 +46,7 @@
 #pragma mark -
 #pragma mark memory_order
 
-typedef enum _os_atomic_memory_order
-{
+typedef enum _os_atomic_memory_order {
 	_os_atomic_memory_order_relaxed,
 	_os_atomic_memory_order_consume,
 	_os_atomic_memory_order_acquire,
@@ -55,139 +54,82 @@ typedef enum _os_atomic_memory_order
 	_os_atomic_memory_order_acq_rel,
 	_os_atomic_memory_order_seq_cst,
 	_os_atomic_memory_order_ordered,
+	_os_atomic_memory_order_dependency,
 } _os_atomic_memory_order;
 
 #if !OS_ATOMIC_UP
 
-#define os_atomic_memory_order_relaxed \
-		_os_atomic_memory_order_relaxed
-#define os_atomic_memory_order_acquire \
-		_os_atomic_memory_order_acquire
-#define os_atomic_memory_order_release \
-		_os_atomic_memory_order_release
-#define os_atomic_memory_order_acq_rel \
-		_os_atomic_memory_order_acq_rel
-#define os_atomic_memory_order_seq_cst \
-		_os_atomic_memory_order_seq_cst
-#define os_atomic_memory_order_ordered \
-		_os_atomic_memory_order_seq_cst
+#define os_atomic_memory_order_relaxed    _os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_acquire    _os_atomic_memory_order_acquire
+#define os_atomic_memory_order_release    _os_atomic_memory_order_release
+#define os_atomic_memory_order_acq_rel    _os_atomic_memory_order_acq_rel
+#define os_atomic_memory_order_seq_cst    _os_atomic_memory_order_seq_cst
+#define os_atomic_memory_order_ordered    _os_atomic_memory_order_seq_cst
+#define os_atomic_memory_order_dependency _os_atomic_memory_order_acquire
 
 #else // OS_ATOMIC_UP
 
-#define os_atomic_memory_order_relaxed \
-		_os_atomic_memory_order_relaxed
-#define os_atomic_memory_order_acquire \
-		_os_atomic_memory_order_relaxed
-#define os_atomic_memory_order_release \
-		_os_atomic_memory_order_relaxed
-#define os_atomic_memory_order_acq_rel \
-		_os_atomic_memory_order_relaxed
-#define os_atomic_memory_order_seq_cst \
-		_os_atomic_memory_order_relaxed
-#define os_atomic_memory_order_ordered \
-		_os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_relaxed    _os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_acquire    _os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_release    _os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_acq_rel    _os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_seq_cst    _os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_ordered    _os_atomic_memory_order_relaxed
+#define os_atomic_memory_order_dependency _os_atomic_memory_order_relaxed
 
 #endif // OS_ATOMIC_UP
 
-#if __has_extension(c_generic_selections)
-#define _os_atomic_basetypeof(p) \
-		typeof(*_Generic((p), \
-		char*: (char*)(p), \
-		volatile char*: (char*)(p), \
-		signed char*: (signed char*)(p), \
-		volatile signed char*: (signed char*)(p), \
-		unsigned char*: (unsigned char*)(p), \
-		volatile unsigned char*: (unsigned char*)(p), \
-		short*: (short*)(p), \
-		volatile short*: (short*)(p), \
-		unsigned short*: (unsigned short*)(p), \
-		volatile unsigned short*: (unsigned short*)(p), \
-		int*: (int*)(p), \
-		volatile int*: (int*)(p), \
-		unsigned int*: (unsigned int*)(p), \
-		volatile unsigned int*: (unsigned int*)(p), \
-		long*: (long*)(p), \
-		volatile long*: (long*)(p), \
-		unsigned long*: (unsigned long*)(p), \
-		volatile unsigned long*: (unsigned long*)(p), \
-		long long*: (long long*)(p), \
-		volatile long long*: (long long*)(p), \
-		unsigned long long*: (unsigned long long*)(p), \
-		volatile unsigned long long*: (unsigned long long*)(p), \
-		const void**: (const void**)(p), \
-		const void*volatile*: (const void**)(p), \
-		default: (void**)(p)))
-#endif
-
-#if __has_extension(c_atomic) && __has_extension(c_generic_selections)
 #pragma mark -
 #pragma mark c11
 
+#if !__has_extension(c_atomic)
+#error "Please use a C11 compiler"
+#endif
+
+#define os_atomic(type) type _Atomic
+
 #define _os_atomic_c11_atomic(p) \
-		_Generic((p), \
-		char*: (_Atomic(char)*)(p), \
-		volatile char*: (volatile _Atomic(char)*)(p), \
-		signed char*: (_Atomic(signed char)*)(p), \
-		volatile signed char*: (volatile _Atomic(signed char)*)(p), \
-		unsigned char*: (_Atomic(unsigned char)*)(p), \
-		volatile unsigned char*: (volatile _Atomic(unsigned char)*)(p), \
-		short*: (_Atomic(short)*)(p), \
-		volatile short*: (volatile _Atomic(short)*)(p), \
-		unsigned short*: (_Atomic(unsigned short)*)(p), \
-		volatile unsigned short*: (volatile _Atomic(unsigned short)*)(p), \
-		int*: (_Atomic(int)*)(p), \
-		volatile int*: (volatile _Atomic(int)*)(p), \
-		unsigned int*: (_Atomic(unsigned int)*)(p), \
-		volatile unsigned int*: (volatile _Atomic(unsigned int)*)(p), \
-		long*: (_Atomic(long)*)(p), \
-		volatile long*: (volatile _Atomic(long)*)(p), \
-		unsigned long*: (_Atomic(unsigned long)*)(p), \
-		volatile unsigned long*: (volatile _Atomic(unsigned long)*)(p), \
-		long long*: (_Atomic(long long)*)(p), \
-		volatile long long*: (volatile _Atomic(long long)*)(p), \
-		unsigned long long*: (_Atomic(unsigned long long)*)(p), \
-		volatile unsigned long long*: \
-				(volatile _Atomic(unsigned long long)*)(p), \
-		const void**: (_Atomic(const void*)*)(p), \
-		const void*volatile*: (volatile _Atomic(const void*)*)(p), \
-		default: (volatile _Atomic(void*)*)(p))
+		((typeof(*(p)) _Atomic *)(p))
+
+// This removes the _Atomic and volatile qualifiers on the type of *p
+#define _os_atomic_basetypeof(p) \
+		typeof(__c11_atomic_load(_os_atomic_c11_atomic(p), \
+		_os_atomic_memory_order_relaxed))
+
+#define _os_atomic_baseptr(p) \
+		((_os_atomic_basetypeof(p) *)(p))
 
 #define _os_atomic_barrier(m) \
-		({ __c11_atomic_thread_fence(os_atomic_memory_order_##m); })
+		__c11_atomic_thread_fence(os_atomic_memory_order_##m)
 #define os_atomic_load(p, m) \
-		({ _os_atomic_basetypeof(p) _r = \
-		__c11_atomic_load(_os_atomic_c11_atomic(p), \
-		os_atomic_memory_order_##m); (typeof(*(p)))_r; })
+		__c11_atomic_load(_os_atomic_c11_atomic(p), os_atomic_memory_order_##m)
 #define os_atomic_store(p, v, m) \
-		({ _os_atomic_basetypeof(p) _v = (v); \
-		__c11_atomic_store(_os_atomic_c11_atomic(p), _v, \
-		os_atomic_memory_order_##m); })
+		__c11_atomic_store(_os_atomic_c11_atomic(p), v, \
+		os_atomic_memory_order_##m)
 #define os_atomic_xchg(p, v, m) \
-		({ _os_atomic_basetypeof(p) _v = (v), _r = \
-		__c11_atomic_exchange(_os_atomic_c11_atomic(p), _v, \
-		os_atomic_memory_order_##m); (typeof(*(p)))_r; })
+		__c11_atomic_exchange(_os_atomic_c11_atomic(p), v, \
+		os_atomic_memory_order_##m)
 #define os_atomic_cmpxchg(p, e, v, m) \
-		({ _os_atomic_basetypeof(p) _v = (v), _r = (e); \
+		({ _os_atomic_basetypeof(p) _r = (e); \
 		__c11_atomic_compare_exchange_strong(_os_atomic_c11_atomic(p), \
-		&_r, _v, os_atomic_memory_order_##m, os_atomic_memory_order_relaxed); })
+		&_r, v, os_atomic_memory_order_##m, os_atomic_memory_order_relaxed); })
 #define os_atomic_cmpxchgv(p, e, v, g, m) \
-		({ _os_atomic_basetypeof(p) _v = (v), _r = (e); _Bool _b = \
+		({ _os_atomic_basetypeof(p) _r = (e); _Bool _b = \
 		__c11_atomic_compare_exchange_strong(_os_atomic_c11_atomic(p), \
-		&_r, _v, os_atomic_memory_order_##m, os_atomic_memory_order_relaxed); \
-		*(g) = (typeof(*(p)))_r; _b; })
+		&_r, v, os_atomic_memory_order_##m, os_atomic_memory_order_relaxed); \
+		*(g) = _r; _b; })
 #define os_atomic_cmpxchgvw(p, e, v, g, m) \
-		({ _os_atomic_basetypeof(p) _v = (v), _r = (e); _Bool _b = \
+		({ _os_atomic_basetypeof(p) _r = (e); _Bool _b = \
 		__c11_atomic_compare_exchange_weak(_os_atomic_c11_atomic(p), \
-		&_r, _v, os_atomic_memory_order_##m, os_atomic_memory_order_relaxed); \
-		*(g) = (typeof(*(p)))_r;  _b; })
+		&_r, v, os_atomic_memory_order_##m, os_atomic_memory_order_relaxed); \
+		*(g) = _r; _b; })
 #define _os_atomic_c11_op(p, v, m, o, op) \
 		({ _os_atomic_basetypeof(p) _v = (v), _r = \
 		__c11_atomic_fetch_##o(_os_atomic_c11_atomic(p), _v, \
-		os_atomic_memory_order_##m); (typeof(*(p)))(_r op _v); })
+		os_atomic_memory_order_##m); (typeof(_r))(_r op _v); })
 #define _os_atomic_c11_op_orig(p, v, m, o, op) \
-		({ _os_atomic_basetypeof(p) _v = (v), _r = \
-		__c11_atomic_fetch_##o(_os_atomic_c11_atomic(p), _v, \
-		os_atomic_memory_order_##m); (typeof(*(p)))_r; })
+		__c11_atomic_fetch_##o(_os_atomic_c11_atomic(p), v, \
+		os_atomic_memory_order_##m)
 
 #define os_atomic_add(p, v, m) \
 		_os_atomic_c11_op((p), (v), m, add, +)
@@ -210,116 +152,11 @@ typedef enum _os_atomic_memory_order
 #define os_atomic_xor_orig(p, v, m) \
 		_os_atomic_c11_op_orig((p), (v), m, xor, ^)
 
-#elif __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2)
-#pragma mark -
-#pragma mark gnu99
-
-#define _os_atomic_full_barrier()	\
-		__sync_synchronize()
-#define _os_atomic_barrier(m)	\
-		({ switch(os_atomic_memory_order_##m) { \
-		case _os_atomic_memory_order_relaxed: \
-			break; \
-		default: \
-			_os_atomic_full_barrier(); break; \
-		} })
-#define os_atomic_load(p, m) \
-		({ typeof(*(p)) _r = *(p); \
-		switch(os_atomic_memory_order_##m) { \
-		case _os_atomic_memory_order_relaxed: \
-		case _os_atomic_memory_order_acquire: \
-		case _os_atomic_memory_order_seq_cst: \
-			_os_atomic_barrier(m); \
-			break; \
-		default: \
-			_os_atomic_unimplemented(); break; \
-		} _r; })
-#define os_atomic_store(p, v, m) \
-		({ switch(os_atomic_memory_order_##m) { \
-		case _os_atomic_memory_order_relaxed: \
-		case _os_atomic_memory_order_release: \
-		case _os_atomic_memory_order_seq_cst: \
-			_os_atomic_barrier(m); \
-			*(p) = (v); break; \
-		default: \
-			_os_atomic_unimplemented(); break; \
-		} switch(os_atomic_memory_order_##m) { \
-		case _os_atomic_memory_order_seq_cst: \
-			_os_atomic_barrier(m); break; \
-		default: \
-			break; \
-		} })
-#if __has_builtin(__sync_swap)
-#define os_atomic_xchg(p, v, m) \
-		((typeof(*(p)))__sync_swap((p), (v)))
-#else
-#define os_atomic_xchg(p, v, m) \
-		((typeof(*(p)))__sync_lock_test_and_set((p), (v)))
-#endif
-#define os_atomic_cmpxchg(p, e, v, m) \
-		__sync_bool_compare_and_swap((p), (e), (v))
-#define os_atomic_cmpxchgv(p, e, v, g, m) \
-		({ typeof(*(g)) _e = (e), _r = \
-		__sync_val_compare_and_swap((p), _e, (v)); \
-		bool _b = (_e == _r); *(g) = _r; _b; })
-#define os_atomic_cmpxchgvw(p, e, v, g, m) \
-		os_atomic_cmpxchgv((p), (e), (v), (g), m)
-
-#define os_atomic_add(p, v, m) \
-		__sync_add_and_fetch((p), (v))
-#define os_atomic_add_orig(p, v, m) \
-		__sync_fetch_and_add((p), (v))
-#define os_atomic_sub(p, v, m) \
-		__sync_sub_and_fetch((p), (v))
-#define os_atomic_sub_orig(p, v, m) \
-		__sync_fetch_and_sub((p), (v))
-#define os_atomic_and(p, v, m) \
-		__sync_and_and_fetch((p), (v))
-#define os_atomic_and_orig(p, v, m) \
-		__sync_fetch_and_and((p), (v))
-#define os_atomic_or(p, v, m) \
-		__sync_or_and_fetch((p), (v))
-#define os_atomic_or_orig(p, v, m) \
-		__sync_fetch_and_or((p), (v))
-#define os_atomic_xor(p, v, m) \
-		__sync_xor_and_fetch((p), (v))
-#define os_atomic_xor_orig(p, v, m) \
-		__sync_fetch_and_xor((p), (v))
-
-#if defined(__x86_64__) || defined(__i386__)
-// GCC emits nothing for __sync_synchronize() on x86_64 & i386
-#undef _os_atomic_full_barrier
-#define _os_atomic_full_barrier() \
-		({ __asm__ __volatile__( \
-		"mfence" \
-		: : : "memory"); })
-#undef os_atomic_load
-#define os_atomic_load(p, m) \
-		({ switch(os_atomic_memory_order_##m) { \
-		case _os_atomic_memory_order_relaxed: \
-		case _os_atomic_memory_order_acquire: \
-		case _os_atomic_memory_order_seq_cst: \
-			break; \
-		default: \
-			_os_atomic_unimplemented(); break; \
-		} *(p); })
-// xchg is faster than store + mfence
-#undef os_atomic_store
-#define os_atomic_store(p, v, m) \
-		({ switch(os_atomic_memory_order_##m) { \
-		case _os_atomic_memory_order_relaxed: \
-		case _os_atomic_memory_order_release: \
-			*(p) = (v); break; \
-		case _os_atomic_memory_order_seq_cst: \
-			(void)os_atomic_xchg((p), (v), m); break; \
-		default:\
-			_os_atomic_unimplemented(); break; \
-		} })
-#endif
-
-#else
-#error "Please upgrade to GCC 4.2 or newer."
-#endif
+#define os_atomic_force_dependency_on(p, e) (p)
+#define os_atomic_load_with_dependency_on(p, e) \
+		os_atomic_load(os_atomic_force_dependency_on(p, e), relaxed)
+#define os_atomic_load_with_dependency_on2o(p, f, e) \
+		os_atomic_load_with_dependency_on(&(p)->f, e)
 
 #pragma mark -
 #pragma mark generic

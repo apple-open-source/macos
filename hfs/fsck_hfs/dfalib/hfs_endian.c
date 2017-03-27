@@ -202,13 +202,13 @@ hfs_swap_BTNode (
 
 #ifdef ENDIAN_DEBUG
     if (direction == kSwapBTNodeBigToHost) {
-        plog ("BE -> Native Swap\n");
+        if (debug) plog ("BE -> Native Swap\n");
     } else if (direction == kSwapBTNodeHostToBig) {
-        plog ("Native -> BE Swap\n");
+        if (debug) plog ("Native -> BE Swap\n");
     } else if (direction == kSwapBTNodeHeaderRecordOnly) {
-        plog ("Not swapping descriptors\n");
+        if (debug) plog ("Not swapping descriptors\n");
     } else {
-        plog ("hfs_swap_BTNode: This is impossible");
+        if (debug) plog ("hfs_swap_BTNode: This is impossible");
         exit(99);
     }
 #endif
@@ -272,7 +272,8 @@ hfs_swap_BTNode (
              * This is why we allow the record offset to be zero.
              */
             if ((srcOffs[i] & 1) || (srcOffs[i] < sizeof(BTNodeDescriptor) && srcOffs[i] != 0) || (srcOffs[i] >= src->blockSize)) {
-            	if (debug) plog("hfs_swap_BTNode: record #%d invalid offset (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
+            	if (debug) plog("hfs_swap_BTNode: offset #%d invalid  (0x%04X) (blockSize 0x%x numRecords %d)\n",
+                                i, srcOffs[i], src->blockSize, srcDesc->numRecords);
 				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
             	error = E_BadNode;
             	goto fail;
@@ -284,7 +285,7 @@ hfs_swap_BTNode (
              */
             if ((i != 0) && (srcOffs[i] >= srcOffs[i-1])) {
             	if (debug) plog("hfs_swap_BTNode: offsets %d and %d out of order (0x%04X, 0x%04X)\n",
-            	    srcDesc->numRecords-i-1, srcDesc->numRecords-i, srcOffs[i], srcOffs[i-1]);
+            	    i, i-1, srcOffs[i], srcOffs[i-1]);
 				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
             	error = E_BadNode;
             	goto fail;
@@ -395,7 +396,8 @@ hfs_swap_BTNode (
              * This is why we allow the record offset to be zero.
              */
             if ((srcOffs[i] & 1) || (srcOffs[i] < sizeof(BTNodeDescriptor) && srcOffs[i] != 0) || (srcOffs[i] >= src->blockSize)) {
-            	if (debug) plog("hfs_UNswap_BTNode: record #%d invalid offset (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
+            	if (debug) plog("hfs_UNswap_BTNode: offset #%d invalid  (0x%04X) (blockSize 0x%x numRecords %d)\n",
+                                i, srcOffs[i], src->blockSize, srcDesc->numRecords);
 				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
             	error = E_BadNode;
             	goto fail;
@@ -407,7 +409,7 @@ hfs_swap_BTNode (
              */
             if ((i < srcDesc->numRecords) && (srcOffs[i+1] >= srcOffs[i])) {
             	if (debug) plog("hfs_UNswap_BTNode: offsets %d and %d out of order (0x%04X, 0x%04X)\n",
-            	    srcDesc->numRecords-i-2, srcDesc->numRecords-i-1, srcOffs[i+1], srcOffs[i]);
+            	    i+1, i, srcOffs[i+1], srcOffs[i]);
 				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
             	error = E_BadNode;
             	goto fail;
@@ -860,7 +862,7 @@ hfs_swap_HFSPlusBTInternalNode (
             	srcRec->recordType = SWAP_BE32(srcRec->recordType);
     	}
     } else {
-		plog("hfs_swap_HFSPlusBTInternalNode: fileID %u is not a system B-tree\n", fileID);
+		if (debug) plog("hfs_swap_HFSPlusBTInternalNode: fileID %u is not a system B-tree\n", fileID);
         exit(99);
     }
 
@@ -1111,7 +1113,7 @@ hfs_swap_HFSBTInternalNode (
         }
         
     } else {
-       plog("hfs_swap_HFSBTInternalNode: fileID %u is not a system B-tree\n", fileID);
+       if (debug) plog("hfs_swap_HFSBTInternalNode: fileID %u is not a system B-tree\n", fileID);
        exit(99);
     }
 

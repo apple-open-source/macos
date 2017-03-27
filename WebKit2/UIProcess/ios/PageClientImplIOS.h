@@ -96,6 +96,8 @@ private:
 #if ENABLE(CONTEXT_MENUS)
     std::unique_ptr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy&, const ContextMenuContextData&, const UserData&) override;
 #endif
+    Ref<WebCore::ValidationBubble> createValidationBubble(const String& message) final;
+
     void setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorWindowLifetime) override;
     void clearTextIndicator(WebCore::TextIndicatorWindowDismissalAnimation) override;
     void setTextIndicatorAnimationProgress(float) override;
@@ -103,7 +105,6 @@ private:
     void enterAcceleratedCompositingMode(const LayerTreeContext&) override;
     void exitAcceleratedCompositingMode() override;
     void updateAcceleratedCompositingMode(const LayerTreeContext&) override;
-    void willEnterAcceleratedCompositingMode() override;
     void setAcceleratedCompositingRootLayer(LayerOrView *) override;
     LayerOrView *acceleratedCompositingRootLayer() const override;
     LayerHostingMode viewLayerHostingMode() override { return LayerHostingMode::OutOfProcess; }
@@ -192,6 +193,8 @@ private:
     void didRestoreScrollPosition() override;
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
+
+    void handleActiveNowPlayingSessionInfoResponse(bool hasActiveSession, const String& title, double duration, double elapsedTime) override;
 
     WKContentView *m_contentView;
     WKWebView *m_webView;

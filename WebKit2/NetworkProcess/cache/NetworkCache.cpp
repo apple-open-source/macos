@@ -114,7 +114,7 @@ void Cache::setCapacity(size_t maximumSize)
     m_storage->setCapacity(maximumSize);
 }
 
-static Key makeCacheKey(const WebCore::ResourceRequest& request)
+Key Cache::makeCacheKey(const WebCore::ResourceRequest& request)
 {
 #if ENABLE(CACHE_PARTITIONING)
     String partition = request.cachePartition();
@@ -125,7 +125,7 @@ static Key makeCacheKey(const WebCore::ResourceRequest& request)
     // FIXME: This implements minimal Range header disk cache support. We don't parse
     // ranges so only the same exact range request will be served from the cache.
     String range = request.httpHeaderField(WebCore::HTTPHeaderName::Range);
-    return { partition, resourceType(), range, request.url().string() };
+    return { partition, resourceType(), range, request.url().string(), m_storage->salt() };
 }
 
 static bool cachePolicyAllowsExpired(WebCore::ResourceRequestCachePolicy policy)
@@ -136,13 +136,16 @@ static bool cachePolicyAllowsExpired(WebCore::ResourceRequestCachePolicy policy)
         return true;
     case WebCore::UseProtocolCachePolicy:
     case WebCore::ReloadIgnoringCacheData:
+    case WebCore::RefreshAnyCacheData:
+        return false;
+    case WebCore::DoNotUseAnyCache:
+        ASSERT_NOT_REACHED();
         return false;
     }
-    ASSERT_NOT_REACHED();
     return false;
 }
 
-static bool responseHasExpired(const WebCore::ResourceResponse& response, std::chrono::system_clock::time_point timestamp, Optional<std::chrono::microseconds> maxStale)
+static bool responseHasExpired(const WebCore::ResourceResponse& response, std::chrono::system_clock::time_point timestamp, std::optional<std::chrono::microseconds> maxStale)
 {
     if (response.cacheControlContainsNoCache())
         return true;
@@ -198,6 +201,8 @@ static UseDecision makeUseDecision(const Entry& entry, const WebCore::ResourceRe
 
 static RetrieveDecision makeRetrieveDecision(const WebCore::ResourceRequest& request)
 {
+    ASSERT(request.cachePolicy() != WebCore::DoNotUseAnyCache);
+
     // FIXME: Support HEAD requests.
     if (request.httpMethod() != "GET")
         return RetrieveDecision::NoDueToHTTPMethod;
@@ -409,13 +414,15 @@ std::unique_ptr<Entry> Cache::store(const WebCore::ResourceRequest& request, con
     auto cacheEntry = std::make_unique<Entry>(makeCacheKey(request), response, WTFMove(responseData), WebCore::collectVaryingRequestHeaders(request, response));
     auto record = cacheEntry->encodeAsStorageRecord();
 
-    m_storage->store(record, [completionHandler = WTFMove(completionHandler)](const Data& bodyData) {
+    m_storage->store(record, [this, completionHandler = WTFMove(completionHandler)](const Data& bodyData) {
         MappedBody mappedBody;
 #if ENABLE(SHAREABLE_RESOURCE)
-        if (auto sharedMemory = bodyData.tryCreateSharedMemory()) {
-            mappedBody.shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, bodyData.size());
-            ASSERT(mappedBody.shareableResource);
-            mappedBody.shareableResource->createHandle(mappedBody.shareableResourceHandle);
+        if (canUseSharedMemoryForBodyData()) {
+            if (auto sharedMemory = bodyData.tryCreateSharedMemory()) {
+                mappedBody.shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, bodyData.size());
+                ASSERT(mappedBody.shareableResource);
+                mappedBody.shareableResource->createHandle(mappedBody.shareableResourceHandle);
+            }
         }
 #endif
         completionHandler(mappedBody);

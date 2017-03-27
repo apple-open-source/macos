@@ -311,8 +311,11 @@ ctk_list(int argc, char * const *argv)
 
     stat = SecItemCopyMatching(query, (CFTypeRef *)&result);
     if(stat) {
-        sec_error("SecItemCopyMatching: %x (%d) - %s",
-                  stat, stat, sec_errstr(stat));
+        if (stat == errSecItemNotFound) {
+            fprintf(stderr, "No smartcards found.\n");
+        } else {
+            sec_error("SecItemCopyMatching: %x (%d) - %s", stat, stat, sec_errstr(stat));
+        }
         goto cleanup;
     }
 

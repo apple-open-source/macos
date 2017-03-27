@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -81,9 +81,13 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 #include "plugin_shared.h"
+#if	!TARGET_OS_IPHONE
+#include "InterfaceNamerControlPrefs.h"
+#endif	// !TARGET_OS_IPHONE
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitLibPrivate.h>
+#include <IOKit/IOKitKeysPrivate.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/network/IONetworkController.h>
@@ -1466,6 +1470,96 @@ builtinCount(CFArrayRef if_list, CFIndex last, CFNumberRef if_type)
     return n;
 }
 
+#if	!TARGET_OS_IPHONE
+static boolean_t
+blockNewInterfaces()
+{
+    static boolean_t	    allow	= TRUE;
+    static dispatch_once_t  once;
+
+    dispatch_once(&once, ^{
+	allow = InterfaceNamerControlPrefsAllowNewInterfaces();
+    });
+
+    return !allow;
+}
+
+
+static boolean_t
+isConsoleLocked()
+{
+    CFArrayRef		console_sessions;
+    boolean_t		locked		    = FALSE;
+    io_registry_entry_t	root;
+
+    root = IORegistryGetRootEntry(kIOMasterPortDefault);
+    console_sessions = IORegistryEntryCreateCFProperty(root,
+						       CFSTR(kIOConsoleUsersKey),
+						       NULL,
+						       0);
+    if (isA_CFArray(console_sessions)) {
+	CFIndex	n;
+
+	n = CFArrayGetCount(console_sessions);
+	for (CFIndex i = 0; i < n; i++) {
+	    CFBooleanRef	isLocked;
+	    CFBooleanRef	isLoginDone;
+	    CFBooleanRef	onConsole;
+	    CFDictionaryRef	session;
+
+	    session = CFArrayGetValueAtIndex(console_sessions, i);
+	    if (!isA_CFDictionary(session)) {
+		// if not dictionary
+		continue;
+	    }
+
+	    if (!CFDictionaryGetValueIfPresent(session,
+					       CFSTR(kIOConsoleSessionOnConsoleKey),
+					       (const void **)&onConsole) ||
+		!isA_CFBoolean(onConsole) ||
+		!CFBooleanGetValue(onConsole)) {
+		// if not "on console" session
+		continue;
+	    }
+
+	    if ((n > 1) &&
+		CFDictionaryGetValueIfPresent(session,
+					      CFSTR(kIOConsoleSessionLoginDoneKey),
+					      (const void **)&isLoginDone) &&
+		isA_CFBoolean(isLoginDone) &&
+		!CFBooleanGetValue(isLoginDone)) {
+		// if @ loginwindow
+		SC_log(LOG_INFO, "multiple sessions, console @ loginwindow");
+		locked = TRUE;
+		goto done;
+	    }
+
+	    if (CFDictionaryGetValueIfPresent(session,
+					      CFSTR(kIOConsoleSessionScreenIsLockedKey),
+					      (const void **)&isLocked) &&
+		isA_CFBoolean(isLocked) &&
+		CFBooleanGetValue(isLocked)) {
+		// if screen locked
+		SC_log(LOG_INFO, "console screen locked");
+		locked = TRUE;
+		goto done;
+	    }
+	}
+    }
+
+    SC_log(LOG_INFO, "console not locked");
+
+  done :
+
+    if (console_sessions != NULL) {
+	CFRelease(console_sessions);
+    }
+    IOObjectRelease(root);
+
+    return locked;
+}
+#endif	// !TARGET_OS_IPHONE
+
 static __inline__ boolean_t
 isQuiet(void)
 {
@@ -1537,6 +1631,26 @@ nameInterfaces(CFMutableArrayRef if_list)
 						 if_list,
 						 i + 1,
 						 is_builtin ? kCFBooleanTrue : kCFBooleanFalse);
+
+#if	!TARGET_OS_IPHONE
+		if (!is_builtin &&
+		    (dbdict != NULL) &&
+		    blockNewInterfaces() &&
+		    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
+		    isConsoleLocked()) {
+		    CFDataRef	    addr;
+
+		    // if new (but matching) interface and console locked, ignore
+		    SC_log(LOG_NOTICE, "Console locked, network interface* ignored");
+		    SC_log(LOG_INFO, "  path = %@", path);
+		    addr = _SCNetworkInterfaceGetHardwareAddress(interface);
+		    if (addr != NULL) {
+			SC_log(LOG_INFO, "  addr = %@", addr);
+		    }
+		    continue;
+		}
+#endif	// !TARGET_OS_IPHONE
+
 		if (dbdict != NULL) {
 		    unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
 		    CFRetain(unit);
@@ -1578,6 +1692,25 @@ nameInterfaces(CFMutableArrayRef if_list)
 			unit = NULL;
 		    }
 		}
+
+#if	!TARGET_OS_IPHONE
+		if (!is_builtin &&
+		    (unit == NULL) &&
+		    blockNewInterfaces() &&
+		    !_SCNetworkInterfaceIsApplePreconfigured(interface) &&
+		    isConsoleLocked()) {
+		    CFDataRef	    addr;
+
+		    // if new interface and console locked, ignore
+		    SC_log(LOG_NOTICE, "Console locked, network interface ignored");
+		    SC_log(LOG_INFO, "  path = %@", path);
+		    addr = _SCNetworkInterfaceGetHardwareAddress(interface);
+		    if (addr != NULL) {
+			SC_log(LOG_INFO, "  addr = %@", addr);
+		    }
+		    continue;
+		}
+#endif	// !TARGET_OS_IPHONE
 
 		if (unit == NULL) {
 		    // not built-in (or built-in unit not available), allocate from

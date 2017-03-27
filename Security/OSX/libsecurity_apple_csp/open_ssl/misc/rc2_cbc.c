@@ -74,7 +74,7 @@
  * [including the GNU Public Licence.]
  */
 
-#include <openssl/rc2.h>
+#include <openssl/rc2_legacy.h>
 #include "rc2_locl.h"
 
 #ifndef	_OPENSSL_APPLE_CDSA_

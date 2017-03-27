@@ -1,0 +1,11 @@
+
+# /
+/build
+
+# /ntp.xcodeproj/
+/ntp.xcodeproj/*.xcworkspace
+/ntp.xcodeproj/*.mode1v3
+/ntp.xcodeproj/*.move2v3
+/ntp.xcodeproj/*.pbxuser
+/ntp.xcodeproj/*.perspectivev3
+/ntp.xcodeproj/xcuserdata

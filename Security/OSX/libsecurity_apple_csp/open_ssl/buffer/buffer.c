@@ -76,7 +76,7 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/buffer.h>
+#include <openssl/buffer_legacy.h>
 
 BUF_MEM *BUF_MEM_new(void)
 	{

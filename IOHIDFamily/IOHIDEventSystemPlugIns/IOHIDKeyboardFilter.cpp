@@ -741,6 +741,13 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
           
             _modifiersKeyMap = createMapFromArrayOfPairs((CFArrayRef) property);
           
+            // 29348498: Set caps lock to 0 if it was remapped to something else
+            KeyMap::const_iterator iter;
+            iter = _modifiersKeyMap.find(Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock));
+            if (iter != _modifiersKeyMap.end()) {
+                setCapsLockState(false);
+            }
+            
             HIDLogDebug("_modifiersKeyMap initialized");
         }
         
@@ -1783,6 +1790,13 @@ IOHIDEventRef IOHIDKeyboardFilter::processSlowKeys(IOHIDEventRef event)
     usagePage   = (UInt32)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsagePage);
     keyDown     = (UInt32)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown);
     
+#if !TARGET_OS_EMBEDDED
+    // 29559398: slow key should not be allowed for mesa button since
+    // triple-click is used to bring up accessibility options.
+    if (usagePage == kHIDPage_Consumer && usage == kHIDUsage_Csmr_Menu) {
+        goto exit;
+    }
+#endif
  
     if (keyDown) {
 #if !TARGET_OS_EMBEDDED

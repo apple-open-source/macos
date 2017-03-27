@@ -19,8 +19,7 @@
  *
  */
 
-#ifndef RenderView_h
-#define RenderView_h
+#pragma once
 
 #include "FrameView.h"
 #include "LayoutState.h"
@@ -58,7 +57,7 @@ public:
 
     void layout() override;
     void updateLogicalWidth() override;
-    void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const override;
+    LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
 
     LayoutUnit availableLogicalHeight(AvailableLogicalHeightType) const override;
 
@@ -83,10 +82,12 @@ public:
 
     void paint(PaintInfo&, const LayoutPoint&) override;
     void paintBoxDecorations(PaintInfo&, const LayoutPoint&) override;
+    // Return the renderer whose background style is used to paint the root background.
+    RenderElement* rendererForRootBackground() const;
 
     enum SelectionRepaintMode { RepaintNewXOROld, RepaintNewMinusOld, RepaintNothing };
-    void setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode = RepaintNewXOROld);
-    void getSelection(RenderObject*& startRenderer, int& startOffset, RenderObject*& endRenderer, int& endOffset) const;
+    void setSelection(RenderObject* start, std::optional<unsigned> startPos, RenderObject* endObject, std::optional<unsigned> endPos, SelectionRepaintMode = RepaintNewXOROld);
+    void getSelection(RenderObject*& startRenderer, std::optional<unsigned>& startOffset, RenderObject*& endRenderer, std::optional<unsigned>& endOffset) const;
     void clearSelection();
     RenderObject* selectionUnsplitStart() const { return m_selectionUnsplitStart; }
     RenderObject* selectionUnsplitEnd() const { return m_selectionUnsplitEnd; }
@@ -132,8 +133,6 @@ public:
     // Subtree push/pop
     void pushLayoutState(RenderObject&);
     void popLayoutState(RenderObject&) { return popLayoutState(); } // Just doing this to keep popLayoutState() private and to make the subtree calls symmetrical.
-
-    bool shouldDisableLayoutStateForSubtree(RenderObject*) const;
 
     // Returns true if layoutState should be used for its cached offset and clip.
     bool layoutStateEnabled() const { return m_layoutStateDisableCount == 0 && m_layoutState; }
@@ -204,6 +203,9 @@ public:
 
     void setRenderQuoteHead(RenderQuote* head) { m_renderQuoteHead = head; }
     RenderQuote* renderQuoteHead() const { return m_renderQuoteHead; }
+    
+    // FIXME: see class RenderTreeInternalMutation below.
+    bool renderTreeIsBeingMutatedInternally() const { return !!m_renderTreeInternalMutationCounter; }
 
     // FIXME: This is a work around because the current implementation of counters
     // requires walking the entire tree repeatedly and most pages don't actually use either
@@ -289,6 +291,17 @@ private:
         m_layoutState = WTFMove(m_layoutState->m_next);
     }
 
+    enum class RenderTreeInternalMutation { On, Off };
+    void setRenderTreeInternalMutation(RenderTreeInternalMutation state)
+    {
+        if (state == RenderTreeInternalMutation::On)
+            ++m_renderTreeInternalMutationCounter;
+        else {
+            ASSERT(m_renderTreeInternalMutationCounter);
+            --m_renderTreeInternalMutationCounter;
+        }
+    }
+
     // Suspends the LayoutState optimization. Used under transforms that cannot be represented by
     // LayoutState (common in SVG) and when manipulating the render tree during layout in ways
     // that can trigger repaint of a non-child (e.g. when a list item moves its list marker around).
@@ -310,10 +323,11 @@ private:
     friend class LayoutStateMaintainer;
     friend class LayoutStateDisabler;
     friend class SubtreeLayoutStateMaintainer;
+    friend class RenderTreeInternalMutationScope;
 
     bool isScrollableOrRubberbandableBox() const override;
 
-    void splitSelectionBetweenSubtrees(const RenderObject* startRenderer, int startPos, const RenderObject* endRenderer, int endPos, SelectionRepaintMode blockRepaintMode);
+    void splitSelectionBetweenSubtrees(const RenderObject* startRenderer, std::optional<unsigned> startPos, const RenderObject* endRenderer, std::optional<unsigned> endPos, SelectionRepaintMode blockRepaintMode);
     void clearSubtreeSelection(const SelectionSubtreeRoot&, SelectionRepaintMode, OldSelectionData&) const;
     void updateSelectionForSubtrees(RenderSubtreesMap&, SelectionRepaintMode);
     void applySubtreeSelection(const SelectionSubtreeRoot&, SelectionRepaintMode, const OldSelectionData&);
@@ -323,10 +337,10 @@ private:
 private:
     FrameView& m_frameView;
 
-    RenderObject* m_selectionUnsplitStart;
-    RenderObject* m_selectionUnsplitEnd;
-    int m_selectionUnsplitStartPos;
-    int m_selectionUnsplitEndPos;
+    RenderObject* m_selectionUnsplitStart { nullptr };
+    RenderObject* m_selectionUnsplitEnd { nullptr };
+    std::optional<unsigned> m_selectionUnsplitStartPos;
+    std::optional<unsigned> m_selectionUnsplitEndPos;
 
     // Include this RenderView.
     uint64_t m_rendererCount { 1 };
@@ -335,18 +349,11 @@ private:
 
     // FIXME: Only used by embedded WebViews inside AppKit NSViews.  Find a way to remove.
     struct LegacyPrinting {
-        LegacyPrinting()
-            : m_bestTruncatedAt(0)
-            , m_truncatedAt(0)
-            , m_truncatorWidth(0)
-            , m_forcedPageBreak(false)
-        { }
-
-        int m_bestTruncatedAt;
-        int m_truncatedAt;
-        int m_truncatorWidth;
+        int m_bestTruncatedAt { 0 };
+        int m_truncatedAt { 0 };
+        int m_truncatorWidth { 0 };
         IntRect m_printRect;
-        bool m_forcedPageBreak;
+        bool m_forcedPageBreak { false };
     };
     LegacyPrinting m_legacyPrinting;
     // End deprecated members.
@@ -360,17 +367,18 @@ private:
 
     std::unique_ptr<ImageQualityController> m_imageQualityController;
     LayoutUnit m_pageLogicalHeight;
-    bool m_pageLogicalHeightChanged;
+    bool m_pageLogicalHeightChanged { false };
     std::unique_ptr<LayoutState> m_layoutState;
-    unsigned m_layoutStateDisableCount;
+    unsigned m_layoutStateDisableCount { 0 };
     std::unique_ptr<RenderLayerCompositor> m_compositor;
     std::unique_ptr<FlowThreadController> m_flowThreadController;
 
-    RenderQuote* m_renderQuoteHead;
-    unsigned m_renderCounterCount;
+    RenderQuote* m_renderQuoteHead { nullptr };
+    unsigned m_renderCounterCount { 0 };
+    unsigned m_renderTreeInternalMutationCounter { 0 };
 
-    bool m_selectionWasCaret;
-    bool m_hasSoftwareFilters;
+    bool m_selectionWasCaret { false };
+    bool m_hasSoftwareFilters { false };
     bool m_usesFirstLineRules { false };
     bool m_usesFirstLetterRules { false };
 #if !ASSERT_DISABLED
@@ -465,8 +473,25 @@ private:
     RenderView& m_view;
 };
 
+// FIXME: This is a temporary workaround to mute unintended activities triggered by render tree mutations.
+class RenderTreeInternalMutationScope {
+    WTF_MAKE_NONCOPYABLE(RenderTreeInternalMutationScope);
+public:
+    RenderTreeInternalMutationScope(RenderView& view)
+        : m_view(view)
+    {
+        m_view.setRenderTreeInternalMutation(RenderView::RenderTreeInternalMutation::On);
+    }
+
+    ~RenderTreeInternalMutationScope()
+    {
+        m_view.setRenderTreeInternalMutation(RenderView::RenderTreeInternalMutation::Off);
+    }
+
+private:
+    RenderView& m_view;
+};
+
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderView, isRenderView())
-
-#endif // RenderView_h

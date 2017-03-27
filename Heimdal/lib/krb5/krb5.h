@@ -351,6 +351,11 @@ typedef enum krb5_address_type {
     KRB5_ADDRESS_IPPORT   = 257
 } krb5_address_type;
 
+typedef enum krb5_af_flags {
+    KRB5_AF_FLAG_INET  = 1,
+    KRB5_AF_FLAG_INET6 = 2
+} krb5_af_flags;
+
 enum {
   AP_OPTS_USE_SESSION_KEY = 1,
   AP_OPTS_MUTUAL_REQUIRED = 2,

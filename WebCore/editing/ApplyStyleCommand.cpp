@@ -59,7 +59,7 @@ using namespace HTMLNames;
 
 static int toIdentifier(PassRefPtr<CSSValue> value)
 {
-    return (value && value->isPrimitiveValue()) ? static_pointer_cast<CSSPrimitiveValue>(value)->getValueID() : 0;
+    return (value && value->isPrimitiveValue()) ? static_pointer_cast<CSSPrimitiveValue>(value)->valueID() : 0;
 }
 
 static String& styleSpanClassString()
@@ -356,7 +356,7 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(EditingStyle* style)
     Node* beyondEnd;
     ASSERT(start.deprecatedNode());
     ASSERT(end.deprecatedNode());
-    if (start.deprecatedNode()->isDescendantOf(end.deprecatedNode()))
+    if (start.deprecatedNode()->isDescendantOf(*end.deprecatedNode()))
         beyondEnd = NodeTraversal::nextSkippingChildren(*end.deprecatedNode());
     else
         beyondEnd = NodeTraversal::next(*end.deprecatedNode());
@@ -785,7 +785,7 @@ void ApplyStyleCommand::applyInlineStyleToNodeRange(EditingStyle* style, PassRef
             // This is a plaintext-only region. Only proceed if it's fully selected.
             // pastEndNode is the node after the last fully selected node, so if it's inside node then
             // node isn't fully selected.
-            if (pastEndNode && pastEndNode->isDescendantOf(node.get()))
+            if (pastEndNode && pastEndNode->isDescendantOf(*node))
                 break;
             // Add to this element's inline style and skip over its contents.
             HTMLElement& element = downcast<HTMLElement>(*node);
@@ -1513,8 +1513,8 @@ float ApplyStyleCommand::computedFontSize(Node* node)
     if (!node)
         return 0;
 
-    RefPtr<CSSValue> value = ComputedStyleExtractor(node).propertyValue(CSSPropertyFontSize);
-    return downcast<CSSPrimitiveValue>(*value).getFloatValue(CSSPrimitiveValue::CSS_PX);
+    auto value = ComputedStyleExtractor(node).propertyValue(CSSPropertyFontSize);
+    return downcast<CSSPrimitiveValue>(*value).floatValue(CSSPrimitiveValue::CSS_PX);
 }
 
 void ApplyStyleCommand::joinChildTextNodes(Node* node, const Position& start, const Position& end)

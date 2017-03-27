@@ -25,7 +25,7 @@ void _printcfmsg(FILE *ff, CFDictionaryRef formatOptions, CFStringRef format, ..
 }
 
 
-int setOutputTo(char *dir, char *filename) {
+int SOSLogSetOutputTo(char *dir, char *filename) {
     size_t pathlen = 0;
 
     if(dir && filename) {

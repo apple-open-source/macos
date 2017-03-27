@@ -27,45 +27,31 @@
 
 #if ENABLE(APPLE_PAY)
 
-#include <WebCore/ExceptionCode.h>
 #include <wtf/Forward.h>
 #include <wtf/RetainPtr.h>
 
-namespace JSC {
-class ExecState;
-class JSValue;
-}
-
-OBJC_CLASS NSDictionary;
 OBJC_CLASS PKContact;
 
 namespace WebCore {
 
+struct ApplePayPaymentContact;
+
 class PaymentContact {
 public:
-    PaymentContact()
-    {
-    }
-
+    PaymentContact() = default;
     explicit PaymentContact(PKContact *pkContact)
         : m_pkContact(pkContact)
     {
     }
 
-    ~PaymentContact()
-    {
-    }
-
-    static Optional<PaymentContact> fromJS(JSC::ExecState&, JSC::JSValue, String& errorMessage);
-    JSC::JSValue toJS(JSC::ExecState&) const;
+    static PaymentContact fromApplePayPaymentContact(const ApplePayPaymentContact&);
+    ApplePayPaymentContact toApplePayPaymentContact() const;
 
     PKContact *pkContact() const { return m_pkContact.get(); }
 
 private:
     RetainPtr<PKContact> m_pkContact;
 };
-
-RetainPtr<NSDictionary> toDictionary(PKContact *);
 
 }
 

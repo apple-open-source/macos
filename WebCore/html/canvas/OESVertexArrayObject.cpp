@@ -34,12 +34,8 @@
 
 namespace WebCore {
 
-OESVertexArrayObject::OESVertexArrayObject(WebGLRenderingContextBase* context)
+OESVertexArrayObject::OESVertexArrayObject(WebGLRenderingContextBase& context)
     : WebGLExtension(context)
-{
-}
-
-OESVertexArrayObject::~OESVertexArrayObject()
 {
 }
 
@@ -50,57 +46,50 @@ WebGLExtension::ExtensionName OESVertexArrayObject::getName() const
 
 RefPtr<WebGLVertexArrayObjectOES> OESVertexArrayObject::createVertexArrayOES()
 {
-    if (m_context->isContextLost())
+    if (m_context.isContextLost())
         return nullptr;
-    
+
     auto object = WebGLVertexArrayObjectOES::create(m_context, WebGLVertexArrayObjectOES::VAOTypeUser);
-    m_context->addContextObject(object.ptr());
+    m_context.addContextObject(object.ptr());
     return WTFMove(object);
 }
 
 void OESVertexArrayObject::deleteVertexArrayOES(WebGLVertexArrayObjectOES* arrayObject)
 {
-    if (!arrayObject || m_context->isContextLost())
+    if (!arrayObject || m_context.isContextLost())
         return;
     
-    if (!arrayObject->isDefaultObject() && arrayObject == static_cast<WebGLRenderingContext*>(m_context)->m_boundVertexArrayObject)
-        static_cast<WebGLRenderingContext*>(m_context)->setBoundVertexArrayObject(0);
+    if (!arrayObject->isDefaultObject() && arrayObject == static_cast<WebGLRenderingContext*>(&m_context)->m_boundVertexArrayObject)
+        static_cast<WebGLRenderingContext*>(&m_context)->setBoundVertexArrayObject(0);
 
-    arrayObject->deleteObject(m_context->graphicsContext3D());
+    arrayObject->deleteObject(m_context.graphicsContext3D());
 }
 
 GC3Dboolean OESVertexArrayObject::isVertexArrayOES(WebGLVertexArrayObjectOES* arrayObject)
 {
-    if (!arrayObject || m_context->isContextLost())
-        return 0;
-    
-    if (!arrayObject->hasEverBeenBound())
-        return 0;
-    
-    Extensions3D* extensions = m_context->graphicsContext3D()->getExtensions();
-    return extensions->isVertexArrayOES(arrayObject->object());
+    return arrayObject && !m_context.isContextLost() && arrayObject->hasEverBeenBound()
+        && m_context.graphicsContext3D()->getExtensions().isVertexArrayOES(arrayObject->object());
 }
 
-void OESVertexArrayObject::bindVertexArrayOES(WebGLVertexArrayObjectOES* arrayObject, ExceptionCode& ec)
+void OESVertexArrayObject::bindVertexArrayOES(WebGLVertexArrayObjectOES* arrayObject)
 {
-    UNUSED_PARAM(ec);
-    if (m_context->isContextLost())
+    if (m_context.isContextLost())
         return;
-    
-    if (arrayObject && (arrayObject->isDeleted() || !arrayObject->validate(0, context()))) {
-        m_context->graphicsContext3D()->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
+
+    if (arrayObject && (arrayObject->isDeleted() || !arrayObject->validate(nullptr, context()))) {
+        m_context.graphicsContext3D()->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return;
     }
-    
-    Extensions3D* extensions = m_context->graphicsContext3D()->getExtensions();
+
+    auto& extensions = m_context.graphicsContext3D()->getExtensions();
+    auto& context = downcast<WebGLRenderingContext>(m_context);
     if (arrayObject && !arrayObject->isDefaultObject() && arrayObject->object()) {
-        extensions->bindVertexArrayOES(arrayObject->object());
-        
+        extensions.bindVertexArrayOES(arrayObject->object());
         arrayObject->setHasEverBeenBound();
-        static_cast<WebGLRenderingContext*>(m_context)->setBoundVertexArrayObject(arrayObject);
+        context.setBoundVertexArrayObject(arrayObject);
     } else {
-        extensions->bindVertexArrayOES(0);
-        static_cast<WebGLRenderingContext*>(m_context)->setBoundVertexArrayObject(0);
+        extensions.bindVertexArrayOES(0);
+        context.setBoundVertexArrayObject(0);
     }
 }
 

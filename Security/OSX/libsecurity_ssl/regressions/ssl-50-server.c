@@ -244,7 +244,7 @@ tests(void)
     }
     //fprintf(stderr, "session_id: %d\n", session_id);
 
-    pthread_create(&server_thread, NULL, securetransport_ssl_thread, socket);
+    pthread_create(&server_thread, NULL, securetransport_ssl_thread, (void*)socket);
 
     system("/usr/bin/openssl s_client -msg -debug -connect localhost:4443");
 

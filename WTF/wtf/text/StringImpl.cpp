@@ -30,7 +30,6 @@
 #include "StringHash.h"
 #include <wtf/ProcessID.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/WTFThreadData.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringView.h>
 #include <wtf/text/SymbolImpl.h>
@@ -102,6 +101,7 @@ void StringStats::printStats()
 }
 #endif
 
+StringImpl::StaticStringImpl StringImpl::s_atomicEmptyString("", StringImpl::StringAtomic);
 
 StringImpl::~StringImpl()
 {
@@ -114,8 +114,12 @@ StringImpl::~StringImpl()
     if (isAtomic() && length() && !isSymbol())
         AtomicStringImpl::remove(static_cast<AtomicStringImpl*>(this));
 
-    if (isSymbol() && symbolRegistry())
-        symbolRegistry()->remove(static_cast<SymbolImpl&>(*this));
+    if (isSymbol()) {
+        auto& symbol = static_cast<SymbolImpl&>(*this);
+        auto* symbolRegistry = symbol.symbolRegistry();
+        if (symbolRegistry)
+            symbolRegistry->remove(symbol);
+    }
 
     BufferOwnership ownership = bufferOwnership();
 
@@ -291,26 +295,6 @@ Ref<StringImpl> StringImpl::create(const LChar* string)
     return create(string, length);
 }
 
-Ref<SymbolImpl> StringImpl::createSymbol(StringImpl& rep)
-{
-    auto* ownerRep = (rep.bufferOwnership() == BufferSubstring) ? rep.substringBuffer() : &rep;
-
-    // We allocate a buffer that contains
-    // 1. the StringImpl struct
-    // 2. the pointer to the owner string
-    // 3. the pointer to the symbol registry
-    // 4. the placeholder for symbol aware hash value (allocated size is pointer size, but only 4 bytes are used)
-    auto* stringImpl = static_cast<StringImpl*>(fastMalloc(allocationSize<StringImpl*>(3)));
-    if (rep.is8Bit())
-        return adoptRef(static_cast<SymbolImpl&>(*new (NotNull, stringImpl) StringImpl(CreateSymbol, rep.m_data8, rep.length(), *ownerRep)));
-    return adoptRef(static_cast<SymbolImpl&>(*new (NotNull, stringImpl) StringImpl(CreateSymbol, rep.m_data16, rep.length(), *ownerRep)));
-}
-
-Ref<SymbolImpl> StringImpl::createNullSymbol()
-{
-    return createSymbol(*null());
-}
-
 bool StringImpl::containsOnlyWhitespace()
 {
     // FIXME: The definition of whitespace here includes a number of characters
@@ -364,39 +348,20 @@ UChar32 StringImpl::characterStartingAt(unsigned i)
 Ref<StringImpl> StringImpl::convertToLowercaseWithoutLocale()
 {
     // Note: At one time this was a hot function in the Dromaeo benchmark, specifically the
-    // no-op code path up through the first 'return' statement.
+    // no-op code path that may return ourself if we find no upper case letters and no invalid
+    // ASCII letters.
 
     // First scan the string for uppercase and non-ASCII characters:
     if (is8Bit()) {
-        unsigned failingIndex;
         for (unsigned i = 0; i < m_length; ++i) {
             LChar character = m_data8[i];
-            if (UNLIKELY((character & ~0x7F) || isASCIIUpper(character))) {
-                failingIndex = i;
-                goto SlowPath;
-            }
+            if (UNLIKELY((character & ~0x7F) || isASCIIUpper(character)))
+                return convertToLowercaseWithoutLocaleStartingAtFailingIndex8Bit(i);
         }
+
         return *this;
-
-SlowPath:
-        LChar* data8;
-        auto newImpl = createUninitializedInternalNonEmpty(m_length, data8);
-
-        for (unsigned i = 0; i < failingIndex; ++i)
-            data8[i] = m_data8[i];
-
-        for (unsigned i = failingIndex; i < m_length; ++i) {
-            LChar character = m_data8[i];
-            if (!(character & ~0x7F))
-                data8[i] = toASCIILower(character);
-            else {
-                ASSERT(u_tolower(character) <= 0xFF);
-                data8[i] = static_cast<LChar>(u_tolower(character));
-            }
-        }
-
-        return newImpl;
     }
+
     bool noUpper = true;
     unsigned ored = 0;
 
@@ -442,6 +407,30 @@ SlowPath:
     return newImpl;
 }
 
+Ref<StringImpl> StringImpl::convertToLowercaseWithoutLocaleStartingAtFailingIndex8Bit(unsigned failingIndex)
+{
+    ASSERT(is8Bit());
+    LChar* data8;
+    auto newImpl = createUninitializedInternalNonEmpty(m_length, data8);
+
+    for (unsigned i = 0; i < failingIndex; ++i) {
+        ASSERT(!(m_data8[i] & ~0x7F) && !isASCIIUpper(m_data8[i]));
+        data8[i] = m_data8[i];
+    }
+
+    for (unsigned i = failingIndex; i < m_length; ++i) {
+        LChar character = m_data8[i];
+        if (!(character & ~0x7F))
+            data8[i] = toASCIILower(character);
+        else {
+            ASSERT(u_tolower(character) <= 0xFF);
+            data8[i] = static_cast<LChar>(u_tolower(character));
+        }
+    }
+
+    return newImpl;
+}
+
 Ref<StringImpl> StringImpl::convertToUppercaseWithoutLocale()
 {
     // This function could be optimized for no-op cases the way
@@ -462,14 +451,7 @@ Ref<StringImpl> StringImpl::convertToUppercaseWithoutLocale()
         for (int i = 0; i < length; ++i) {
             LChar c = m_data8[i];
             ored |= c;
-#if CPU(X86) && defined(_MSC_VER) && _MSC_VER >=1700
-            // Workaround for an MSVC 2012 x86 optimizer bug. Remove once the bug is fixed.
-            // See https://connect.microsoft.com/VisualStudio/feedback/details/780362/optimization-bug-of-range-comparison
-            // for more details.
-            data8[i] = c >= 'a' && c <= 'z' ? c & ~0x20 : c;
-#else
             data8[i] = toASCIIUpper(c);
-#endif
         }
         if (!(ored & ~0x7F))
             return newImpl;
@@ -832,7 +814,7 @@ ALWAYS_INLINE Ref<StringImpl> StringImpl::removeCharacters(const CharType* chara
 
     data.shrink(outc);
 
-    return adopt(data);
+    return adopt(WTFMove(data));
 }
 
 Ref<StringImpl> StringImpl::removeCharacters(CharacterMatchFunctionPtr findMatch)
@@ -876,7 +858,7 @@ inline Ref<StringImpl> StringImpl::simplifyMatchedCharactersToSpace(UCharPredica
     
     data.shrink(outc);
     
-    return adopt(data);
+    return adopt(WTFMove(data));
 }
 
 Ref<StringImpl> StringImpl::simplifyWhiteSpace()
@@ -2003,7 +1985,7 @@ UCharDirection StringImpl::defaultWritingDirection(bool* hasStrongDirectionality
     return U_LEFT_TO_RIGHT;
 }
 
-Ref<StringImpl> StringImpl::adopt(StringBuffer<LChar>& buffer)
+Ref<StringImpl> StringImpl::adopt(StringBuffer<LChar>&& buffer)
 {
     unsigned length = buffer.length();
     if (!length)
@@ -2011,7 +1993,7 @@ Ref<StringImpl> StringImpl::adopt(StringBuffer<LChar>& buffer)
     return adoptRef(*new StringImpl(buffer.release(), length));
 }
 
-Ref<StringImpl> StringImpl::adopt(StringBuffer<UChar>& buffer)
+Ref<StringImpl> StringImpl::adopt(StringBuffer<UChar>&& buffer)
 {
     unsigned length = buffer.length();
     if (!length)

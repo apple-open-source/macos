@@ -52,7 +52,13 @@
 
 #include <AssertMacros.h>
 
-CFStringRef kSOSErrorDomain = CFSTR("com.apple.security.sos.error");
+const CFStringRef kSecIDSErrorDomain = CFSTR("com.apple.security.ids.error");
+const CFStringRef kIDSOperationType = CFSTR("IDSMessageOperation");
+const CFStringRef kIDSMessageToSendKey = CFSTR("MessageToSendKey");
+const CFStringRef kIDSMessageUniqueID = CFSTR("MessageID");
+const CFStringRef kIDSMessageRecipientPeerID = CFSTR("RecipientPeerID");
+const CFStringRef kIDSMessageRecipientDeviceID = CFSTR("RecipientDeviceID");
+const CFStringRef kIDSMessageUsesAckModel = CFSTR("UsesAckModel");
 
 bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef formatOptions, CFStringRef format, ...) {
     if (!errorCode) return true;
@@ -166,27 +172,35 @@ CFStringRef SOSItemsChangedCopyDescription(CFDictionaryRef changes, bool is_send
     return string;
 }
 
-CFStringRef SOSCopyIDOfKey(SecKeyRef key, CFErrorRef *error)
-{
-    const struct ccdigest_info * di = ccsha1_di();
-    CFDataRef publicBytes = NULL;
-    CFStringRef result = NULL;
 
+CFStringRef SOSCopyIDOfDataBuffer(CFDataRef data, CFErrorRef *error) {
+    const struct ccdigest_info * di = ccsha1_di();
     uint8_t digest[di->output_size];
     char encoded[2 * di->output_size]; // Big enough for base64 encoding.
-
-    require_quiet(SecError(SecKeyCopyPublicBytes(key, &publicBytes), error, CFSTR("Failed to export public bytes %@"), key), fail);
     
-    ccdigest(di, CFDataGetLength(publicBytes), CFDataGetBytePtr(publicBytes), digest);
-
+    ccdigest(di, CFDataGetLength(data), CFDataGetBytePtr(data), digest);
+    
     size_t length = SecBase64Encode(digest, sizeof(digest), encoded, sizeof(encoded));
     assert(length && length < sizeof(encoded));
     if (length > 26)
-      length = 26;
+        length = 26;
     encoded[length] = 0;
-    CFReleaseNull(publicBytes);
     return CFStringCreateWithCString(kCFAllocatorDefault, encoded, kCFStringEncodingASCII);
+}
 
+CFStringRef SOSCopyIDOfDataBufferWithLength(CFDataRef data, CFIndex len, CFErrorRef *error) {
+    CFStringRef retval = NULL;
+    CFStringRef tmp = SOSCopyIDOfDataBuffer(data, error);
+    if(tmp) retval = CFStringCreateWithSubstring(kCFAllocatorDefault, tmp, CFRangeMake(0, len));
+    CFReleaseNull(tmp);
+    return retval;
+}
+
+CFStringRef SOSCopyIDOfKey(SecKeyRef key, CFErrorRef *error) {
+    CFDataRef publicBytes = NULL;
+    CFStringRef result = NULL;
+    require_quiet(SecError(SecKeyCopyPublicBytes(key, &publicBytes), error, CFSTR("Failed to export public bytes %@"), key), fail);
+    result = SOSCopyIDOfDataBuffer(publicBytes, error);
 fail:
     CFReleaseNull(publicBytes);
     return result;
@@ -199,6 +213,7 @@ CFStringRef SOSCopyIDOfKeyWithLength(SecKeyRef key, CFIndex len, CFErrorRef *err
     CFReleaseNull(tmp);
     return retval;
 }
+
 
 CFGiblisGetSingleton(ccec_const_cp_t, SOSGetBackupKeyCurveParameters, sBackupKeyCurveParameters, ^{
     *sBackupKeyCurveParameters = ccec_cp_256();

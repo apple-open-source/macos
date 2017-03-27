@@ -46,6 +46,7 @@ try
 }
 catch (...)
 {
+    return;	// Prevent re-throw of exception [function-try-block]
 }
 
 SSUniqueRecord
@@ -327,7 +328,7 @@ SSDatabaseImpl::load(const DLDbIdentifier &dlDbIdentifier) {
     CssmDataContainer dbb(allocator());
     getDbBlobId(&dbb);
 
-    secnotice("integrity", "loading %s", name());
+    secinfo("integrity", "loading %s", name());
 }
 
 void

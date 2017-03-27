@@ -29,7 +29,6 @@
 
 #include "GenericTaskQueue.h"
 #include "PlatformMediaSessionManager.h"
-#include <wtf/RetainPtr.h>
 
 namespace WebCore {
 

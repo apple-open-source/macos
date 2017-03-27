@@ -14,7 +14,7 @@ extern "C" {
 #define SD_XML_SECTOR_SIZE			CFSTR("sector_size")
 #define SD_XML_DIGESTS				CFSTR("digests")
 
-CFPropertyListRef _SecureDownloadParseTicketXML(CFDataRef xmlData);
+CF_RETURNS_RETAINED CFPropertyListRef _SecureDownloadParseTicketXML(CFDataRef xmlData);
 CFDataRef _SecureDownloadCreateTicketXML(CFPropertyListRef plist);
 
 #ifdef __cplusplus

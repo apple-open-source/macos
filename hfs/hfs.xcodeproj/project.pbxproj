@@ -136,6 +136,7 @@
 		0703A0541CD826160035BCFD /* test-defrag.c in Sources */ = {isa = PBXBuildFile; fileRef = 0703A0531CD826160035BCFD /* test-defrag.c */; };
 		07C2BF891CB43F5E00D8327D /* test-renamex.c in Sources */ = {isa = PBXBuildFile; fileRef = 07C2BF881CB43F5E00D8327D /* test-renamex.c */; };
 		2A386A3B1C22209C007FEDAC /* test-list-ids.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A386A3A1C221E67007FEDAC /* test-list-ids.c */; };
+		2A84DBD41D9E15F2007964B8 /* test-raw-dev-unaligned.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */; };
 		2A9399951BDFEB5200FB075B /* test-access.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399941BDFEA6E00FB075B /* test-access.c */; };
 		2A9399981BDFF7E500FB075B /* test-chflags.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399961BDFEF3900FB075B /* test-chflags.c */; };
 		2A93999D1BE0146E00FB075B /* test-class-roll.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A93999B1BE0146000FB075B /* test-class-roll.c */; };
@@ -718,6 +719,7 @@
 		0703A0531CD826160035BCFD /* test-defrag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-defrag.c"; sourceTree = "<group>"; };
 		07C2BF881CB43F5E00D8327D /* test-renamex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-renamex.c"; sourceTree = "<group>"; };
 		2A386A3A1C221E67007FEDAC /* test-list-ids.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-list-ids.c"; sourceTree = "<group>"; };
+		2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-raw-dev-unaligned.c"; sourceTree = "<group>"; };
 		2A9399941BDFEA6E00FB075B /* test-access.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-access.c"; sourceTree = "<group>"; };
 		2A9399961BDFEF3900FB075B /* test-chflags.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-chflags.c"; sourceTree = "<group>"; };
 		2A93999B1BE0146000FB075B /* test-class-roll.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-class-roll.c"; sourceTree = "<group>"; };
@@ -1383,6 +1385,7 @@
 		FB55AE551B7CD89600701D03 /* cases */ = {
 			isa = PBXGroup;
 			children = (
+				2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */,
 				07C2BF881CB43F5E00D8327D /* test-renamex.c */,
 				2A386A3A1C221E67007FEDAC /* test-list-ids.c */,
 				2A9399D41BE2C14800FB075B /* test-unicode-file-names.c */,
@@ -2455,6 +2458,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2A84DBD41D9E15F2007964B8 /* test-raw-dev-unaligned.c in Sources */,
 				2A386A3B1C22209C007FEDAC /* test-list-ids.c in Sources */,
 				2ABDCEA71BF3DAA100CFC70C /* test-journal-toggle.c in Sources */,
 				FBE1B1D41BD6E41D00CEB443 /* test-move-data-extents.c in Sources */,

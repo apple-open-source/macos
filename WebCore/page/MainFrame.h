@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MainFrame_h
-#define MainFrame_h
+#pragma once
 
 #include "EventHandler.h"
 #include "Frame.h"
@@ -35,6 +34,7 @@ namespace WebCore {
 class PageConfiguration;
 class PageOverlayController;
 class PaymentCoordinator;
+class PerformanceLogging;
 class ScrollLatchingState;
 class ServicesOverlayController;
 class WheelEventDeltaFilter;
@@ -67,6 +67,11 @@ public:
     PaymentCoordinator& paymentCoordinator() const { return *m_paymentCoordinator; }
 #endif
 
+    PerformanceLogging& performanceLogging() const { return *m_performanceLogging; }
+
+    void didCompleteLoad();
+    MonotonicTime timeOfLastCompletedLoad() const { return m_timeOfLastCompletedLoad; }
+
 private:
     MainFrame(Page&, PageConfiguration&);
 
@@ -87,13 +92,10 @@ private:
 #if ENABLE(APPLE_PAY)
     std::unique_ptr<PaymentCoordinator> m_paymentCoordinator;
 #endif
+
+    std::unique_ptr<PerformanceLogging> m_performanceLogging;
+
+    MonotonicTime m_timeOfLastCompletedLoad;
 };
 
-inline bool Frame::isMainFrame() const
-{
-    return this == &m_mainFrame;
-}
-
-}
-
-#endif
+} // namespace WebCore

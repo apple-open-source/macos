@@ -42,6 +42,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreServices/CoreServices.h>
 #include <Security/Security.h>
+#include <Security/SecKey.h>
 #include <Security/SecPolicyPriv.h>
 
 #include <stdlib.h>
@@ -1055,6 +1056,10 @@ static void PrintStringToMatch(CFStringRef nameStr)
 static void PrintSecCertificate(SecCertificateRef certificate)
 {
 	CFStringRef nameStr;
+    if(!certificate) {
+        return;
+    }
+
 	OSStatus status = SecCertificateCopyCommonName(certificate, &nameStr);
 	if (status) {
 		fprintf(stderr, "### SecCertificateCopyCommonName error %d\n", (int)status);
@@ -1075,6 +1080,10 @@ static void PrintSecCertificate(SecCertificateRef certificate)
 static void PrintSecIdentity(SecIdentityRef identity)
 {
 	SecCertificateRef certRef;
+    if(!identity) {
+        return;
+    }
+
 	OSStatus status = SecIdentityCopyCertificate(identity, &certRef);
 	if (status) {
 		fprintf(stderr, "### SecIdentityCopyCertificate error %d\n", (int)status);
@@ -1220,6 +1229,7 @@ static int TestAddItems(SecKeychainRef keychain)
 		};
 		status = SecItemImport(p12DataRef,
 			NULL, &format, &itemType, flags, &keyParams, keychain, NULL);
+        CFReleaseSafe(p12DataRef);
 		CFRelease(keyUsagesArray);
 		CFRelease(keyAttrsArray);
 	#endif
@@ -1266,6 +1276,7 @@ static int TestAddItems(SecKeychainRef keychain)
 		};
 		status = SecItemImport(p12DataRef,
 			NULL, &format, &itemType, flags, &keyParams, keychain, NULL);
+        CFReleaseSafe(p12DataRef);
 		CFRelease(keyUsagesArray);
 		CFRelease(keyAttrsArray);
 	#endif
@@ -1297,6 +1308,7 @@ static int TestAddItems(SecKeychainRef keychain)
 		};
 		status = SecItemImport(p12DataRef,
 			NULL, &format, &itemType, flags, &keyParams, keychain, NULL);
+        CFReleaseNull(p12DataRef);
 		CFRelease(keyUsagesArray);
 		CFRelease(keyAttrsArray);
         ok_status(status, "Unable to import TestIDSSL2007_p12 identity: error %d\n", (int)status);
@@ -1327,6 +1339,7 @@ static int TestAddItems(SecKeychainRef keychain)
 		};
 		status = SecItemImport(p12DataRef,
 			NULL, &format, &itemType, flags, &keyParams, keychain, NULL);
+        CFReleaseSafe(p12DataRef);
 		CFRelease(keyUsagesArray);
 		CFRelease(keyAttrsArray);
         ok_status(status, "Unable to import TestIDSMIME2007_p12 identity: error %d\n", (int)status);
@@ -2529,7 +2542,7 @@ static int CreateSymmetricKey(
 	CFDictionaryAddValue( params, kSecAttrAccess, access );
 	CFDictionaryAddValue( params, kSecAttrKeyClass, kSecAttrKeyClassSymmetric );
 	CFDictionaryAddValue( params, kSecAttrKeyType, kSecAttrKeyTypeAES );
-	CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize );
+    CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize ); CFReleaseNull(keySize);
 	CFDictionaryAddValue( params, kSecAttrIsPermanent, kCFBooleanTrue );
 	CFDictionaryAddValue( params, kSecAttrCanEncrypt, kCFBooleanTrue );
 	CFDictionaryAddValue( params, kSecAttrCanDecrypt, kCFBooleanTrue );
@@ -2788,10 +2801,12 @@ static int TestIdentityLookup(SecKeychainRef keychain)
 	CFDateRef aPastValidDate = CFDateCreate(kCFAllocatorDefault, CFGregorianDateGetAbsoluteTime(aPastValidGDate, NULL));
 	if (FindIdentityByNameAndValidDate(keychain, CFSTR(" 2007"), aPastValidDate, kSecReturnRef, kSecMatchLimitAll, 0, noErr))
 		++result;
+    CFReleaseNull(aPastValidDate);
 
 	// test the ability of kCFNull to denote "currently valid" (should not find anything, since the " 2007" certs are expired)
 	if (FindIdentityByNameAndValidDate(keychain, CFSTR(" 2007"), kCFNull, kSecReturnRef, kSecMatchLimitAll, 0, errSecItemNotFound))
 		++result;
+
 
 	// test Ian's bug: <rdar://8197632>; the 4th argument is a string which should NOT be present in any found items
 	if (FindIdentityByPolicyAndValidDate(keychain, kSecPolicyAppleSMIME, FALSE, kCFNull, CFSTR(" 2007"), kSecReturnAttributes, kSecMatchLimitAll, 0, errSecSuccess))
@@ -3140,7 +3155,7 @@ static int TestUpdateItems(SecKeychainRef keychain)
 	CFNumberRef keySize = CFNumberCreate(NULL, kCFNumberIntType, &keySizeValue);
 	CFStringRef keyLabel = CFSTR("AppleID 8658820 test key");
 	CFDictionaryAddValue( params, kSecAttrKeyType, kSecAttrKeyTypeRSA );
-	CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize );
+    CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize ); CFReleaseNull(keySize);
 	CFDictionaryAddValue( params, kSecAttrLabel, keyLabel );
 	CFDictionaryAddValue( params, kSecUseKeychain, keychain );
 //	CFDictionaryAddValue( params, kSecAttrAccess, access );

@@ -30,25 +30,27 @@
 #import "config.h"
 #import "FontCache.h"
 
-#if !PLATFORM(IOS)
-
 #import "CoreGraphicsSPI.h"
 #import "CoreTextSPI.h"
 #import "Font.h"
 #import "FontCascade.h"
 #import "FontPlatformData.h"
+
+#if PLATFORM(MAC)
 #import "NSFontSPI.h"
 #import "WebCoreNSStringExtras.h"
 #import "WebCoreSystemInterface.h"
 #import <AppKit/AppKit.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/Optional.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/Threading.h>
 #import <wtf/text/AtomicStringHash.h>
+#endif
 
 namespace WebCore {
+
+#if PLATFORM(MAC)
 
 #if !ENABLE(PLATFORM_FONT_LOOKUP)
 
@@ -405,6 +407,13 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     return *fontForFamily(fontDescription, AtomicString("Lucida Grande", AtomicString::ConstructFromLiteral), nullptr, nullptr, false);
 }
 
-} // namespace WebCore
+#endif // PLATFORM(MAC)
 
-#endif // !PLATFORM(IOS)
+Ref<Font> FontCache::lastResortFallbackFontForEveryCharacter(const FontDescription& fontDescription)
+{
+    auto result = fontForFamily(fontDescription, AtomicString("LastResort", AtomicString::ConstructFromLiteral));
+    ASSERT(result);
+    return *result;
+}
+
+} // namespace WebCore

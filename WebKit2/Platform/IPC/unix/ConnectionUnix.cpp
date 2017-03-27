@@ -245,7 +245,7 @@ bool Connection::processMessage()
     if (messageInfo.isMessageBodyIsOutOfLine())
         messageBody = reinterpret_cast<uint8_t*>(oolMessageBody->data());
 
-    auto decoder = std::make_unique<MessageDecoder>(DataReference(messageBody, messageInfo.bodySize()), WTFMove(attachments));
+    auto decoder = std::make_unique<Decoder>(messageBody, messageInfo.bodySize(), nullptr, WTFMove(attachments));
 
     processIncomingMessage(WTFMove(decoder));
 
@@ -402,7 +402,7 @@ bool Connection::platformCanSendOutgoingMessages() const
     return m_isConnected;
 }
 
-bool Connection::sendOutgoingMessage(std::unique_ptr<MessageEncoder> encoder)
+bool Connection::sendOutgoingMessage(std::unique_ptr<Encoder> encoder)
 {
     COMPILE_ASSERT(sizeof(MessageInfo) + attachmentMaxAmount * sizeof(size_t) <= messageMaxSize, AttachmentsFitToMessageInline);
 
@@ -543,15 +543,13 @@ Connection::SocketPair Connection::createPlatformConnection(unsigned options)
     SocketPair socketPair = { sockets[0], sockets[1] };
     return socketPair;
 }
-    
-void Connection::willSendSyncMessage(unsigned flags)
+
+void Connection::willSendSyncMessage(OptionSet<SendSyncOption>)
 {
-    UNUSED_PARAM(flags);
 }
-    
-void Connection::didReceiveSyncReply(unsigned flags)
+
+void Connection::didReceiveSyncReply(OptionSet<SendSyncOption>)
 {
-    UNUSED_PARAM(flags);    
 }
 
 } // namespace IPC

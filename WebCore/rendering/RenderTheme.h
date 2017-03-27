@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef RenderTheme_h
-#define RenderTheme_h
+#pragma once
 
 #include "BorderData.h"
 #include "ControlStates.h"
@@ -34,7 +33,7 @@
 #include "PaintInfo.h"
 #include "PopupMenuStyle.h"
 #include "ScrollTypes.h"
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -49,9 +48,7 @@ class PopupMenu;
 class RenderAttachment;
 class RenderBox;
 class RenderMenuList;
-#if ENABLE(METER_ELEMENT)
 class RenderMeter;
-#endif
 class RenderObject;
 class RenderProgress;
 class RenderSnapshottedPlugIn;
@@ -67,12 +64,12 @@ public:
     // This function is to be implemented in your platform-specific theme implementation to hand back the
     // appropriate platform theme. When the theme is needed in non-page dependent code, a default theme is
     // used as fallback, which is returned for a nulled page, so the platform code needs to account for this.
-    static PassRefPtr<RenderTheme> themeForPage(Page* page);
+    static Ref<RenderTheme> themeForPage(Page*);
 
     // When the theme is needed in non-page dependent code, the defaultTheme() is used as fallback.
-    static inline PassRefPtr<RenderTheme> defaultTheme()
+    static inline Ref<RenderTheme> defaultTheme()
     {
-        return themeForPage(0);
+        return themeForPage(nullptr);
     };
 
     // This method is called whenever style has been computed for an element and the appearance
@@ -101,6 +98,7 @@ public:
     virtual String mediaControlsStyleSheet() { return String(); }
     virtual String extraMediaControlsStyleSheet() { return String(); }
     virtual String mediaControlsScript() { return String(); }
+    virtual String mediaControlsBase64StringForIconAndPlatform(const String&, const String&) { return String(); }
 #endif
 #if ENABLE(FULLSCREEN_API)
     virtual String extraFullScreenStyleSheet() { return String(); }
@@ -173,7 +171,7 @@ public:
     static float platformFocusRingOffset(float outlineWidth) { return std::max<float>(outlineWidth - platformFocusRingWidth(), 0); }
 #if ENABLE(TOUCH_EVENTS)
     static Color tapHighlightColor();
-    virtual Color platformTapHighlightColor() const { return RenderTheme::defaultTapHighlightColor; }
+    virtual Color platformTapHighlightColor() const;
 #endif
     virtual void platformColorsDidChange();
 
@@ -414,17 +412,9 @@ private:
     mutable Color m_activeListBoxSelectionForegroundColor;
     mutable Color m_inactiveListBoxSelectionForegroundColor;
 
-#if ENABLE(TOUCH_EVENTS)
-    // This color is expected to be drawn on a semi-transparent overlay,
-    // making it more transparent than its alpha value indicates.
-    static const RGBA32 defaultTapHighlightColor = 0x66000000;
-#endif
-
 #if USE(NEW_THEME)
     Theme* m_theme; // The platform-specific theme.
 #endif
 };
 
 } // namespace WebCore
-
-#endif // RenderTheme_h

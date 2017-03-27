@@ -250,7 +250,7 @@ exit:
     return result;
 }
 
-SecCertificatePathRef SecCertificatPathCreateDeserialized(CFArrayRef certificates, CFErrorRef *error) {
+SecCertificatePathRef SecCertificatePathCreateDeserialized(CFArrayRef certificates, CFErrorRef *error) {
     SecCertificatePathRef result = NULL;
     require_action_quiet(isArray(certificates), exit,
                          SecError(errSecParam, error, CFSTR("certificates is not an array")));
@@ -563,7 +563,7 @@ SecKeyRef SecCertificatePathCopyPublicKeyAtIndex(
 	SecCertificatePathRef certificatePath, CFIndex ix) {
 	SecCertificateRef certificate =
         SecCertificatePathGetCertificateAtIndex(certificatePath, ix);
-#if SECTRUST_OSX
+#if TARGET_OS_OSX
     return SecCertificateCopyPublicKey_ios(certificate);
 #else
     return SecCertificateCopyPublicKey(certificate);

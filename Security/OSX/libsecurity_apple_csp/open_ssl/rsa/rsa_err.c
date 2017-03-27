@@ -77,8 +77,8 @@
  */
 
 #include <stdio.h>
-#include <openssl/err.h>
-#include <openssl/rsa.h>
+#include <openssl/opensslerr.h>
+#include <openssl/rsa_legacy.h>
 
 /* BEGIN ERROR CODES */
 #ifndef NO_ERR

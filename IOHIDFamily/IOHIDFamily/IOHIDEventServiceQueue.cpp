@@ -169,9 +169,9 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationSuppress) == 0) {
         if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce) || ( head == tail )
             || ( __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED) == tail ) || queueFull) {
-            if (queueFull) {
-                HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again 0xllx", _owner);
-            }
+            //if (queueFull) {
+            //    HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again 0xllx", _owner);
+            //}
             sendDataAvailableNotification();
         }
     }

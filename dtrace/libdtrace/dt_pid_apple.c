@@ -24,12 +24,6 @@
 // This must be done *after* any references to Foundation.h!
 #define uint_t  __Solaris_uint_t
 
-#include <pthread.h>
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <errno.h>
-#include <stdlib.h>
-
 #include <sys/dtrace.h>
 #include <dtrace.h>
 
@@ -137,58 +131,5 @@ int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb
 	dt_proc_bpenable(dpr);
         
 	return (ret);
-}
-
-// Because of the statically cached array, this function is not thread safe.
-int pidFromProcessName(char* name)
-{
-	// Most of this code is from [VMUProcInfo getProcessIds]
-	// The reason we don't call this code directly is because we only get the pids,
-	// and then we have to turn around and construct a VMUProcInfo for each pid to
-	// populate our proc table.
-
-	static struct kinfo_proc *procBuf = NULL;
-	static int numberOfProcs;
-
-	if (procBuf == NULL) {
-		size_t bufSize;
-		int mib[3] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL};
-		int err;
-
-		// Try to find out how many processes are around so we can
-		// size the buffer appropriately.  sysctl's man page specifically suggests
-		// this approach, and says it returns a bit larger size than needed to handle
-		// any new processes created between then and now.
-    
-		err = sysctl(mib, 4, NULL, &bufSize, NULL, 0);
-    
-		if((err < 0) && (err != ENOMEM)) {
-			// enomem says we didn't have enough room for the entire buffer.
-			// We don't care about that, we're trying to get the size of a buffer
-			// suitable for getting all the data.
-			perror("Failure calling sysctl to get process list buffer size");
-			return -1;
-		}
-    
-		// Now for the real access.  Create the buffer, and grab the
-		// data.
-		procBuf = (struct kinfo_proc *)calloc(1, bufSize);
-    
-		if(sysctl(mib, 4, procBuf, &bufSize, NULL, 0) < 0) {
-			//perror("Failure calling sysctl to get proc buf");
-			free(procBuf);
-			return -1;
-		}
-    
-		numberOfProcs = (int)(bufSize / (sizeof(struct kinfo_proc)));
-	}
-
-	int i;
-	for (i=0; i<numberOfProcs; i++) {
-		if (strncmp(name, procBuf[i].kp_proc.p_comm, MAXCOMLEN) == 0)
-			return procBuf[i].kp_proc.p_pid;
-	}
-
-	return -1;
 }
 

@@ -74,6 +74,8 @@ private:
     
     bool canRunModal() override;
     void runModal() override;
+
+    void reportProcessCPUTime(int64_t, WebCore::ActivityStateForCPUSampling) final;
     
     void setToolbarsVisible(bool) override;
     bool toolbarsVisible() override;
@@ -174,7 +176,7 @@ private:
     void webAppOrientationsUpdated() override;
     void showPlaybackTargetPicker(bool hasVideo) override;
 
-    std::chrono::milliseconds eventThrottlingDelay() override;
+    Seconds eventThrottlingDelay() override;
 #endif
 
 #if ENABLE(ORIENTATION_EVENTS)
@@ -190,6 +192,11 @@ private:
 #endif
 #if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
     void scheduleAnimation() override;
+#endif
+    
+#if ENABLE(POINTER_LOCK)
+    bool requestPointerLock() override;
+    void requestPointerUnlock() override;
 #endif
 
     void didAssociateFormControls(const Vector<RefPtr<WebCore::Element>>&) override;
@@ -275,7 +282,7 @@ private:
     void notifyScrollerThumbIsVisibleInRect(const WebCore::IntRect&) override;
     void recommendedScrollbarStyleDidChange(WebCore::ScrollbarStyle newStyle) override;
 
-    WTF::Optional<WebCore::ScrollbarOverlayStyle> preferredScrollbarOverlayStyle() override;
+    std::optional<WebCore::ScrollbarOverlayStyle> preferredScrollbarOverlayStyle() override;
 
     WebCore::Color underlayColor() const override;
 
@@ -294,7 +301,6 @@ private:
     bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) const override;
 
     void isPlayingMediaDidChange(WebCore::MediaProducer::MediaStateFlags, uint64_t) override;
-    void setPageActivityState(WebCore::PageActivityState::Flags) override;
 
 #if ENABLE(MEDIA_SESSION)
     void hasMediaSessionWithActiveMediaElementsDidChange(bool) override;

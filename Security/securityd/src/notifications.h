@@ -32,6 +32,7 @@
 #include <security_utilities/machserver.h>
 #include <security_utilities/globalizer.h>
 #include <securityd_client/ssclient.h>
+#include "SharedMemoryCommon.h"
 #include <map>
 #include <queue>
 
@@ -72,7 +73,7 @@ public:
     static void notify(NotificationDomain domain,
 		NotificationEvent event, const CssmData &data);
     static void notify(NotificationDomain domain,
-		NotificationEvent event, uint32 sequence, const CssmData &data);
+		NotificationEvent event, uint32 sequence, const CssmData &data, audit_token_t auditToken);
     static bool remove(Port port);
 
     const NotificationDomain domain;
@@ -92,13 +93,16 @@ protected:
 		const NotificationEvent event;
 		const uint32 sequence;
 		const CssmAutoData data;
-		
+
+        std::string description() const;
 		size_t size() const
 		{ return data.length(); }	//@@@ add "slop" here for heuristic?
 	};
 	
 	virtual void notifyMe(Notification *message) = 0;
-	
+
+    static bool testPredicate(const std::function<bool(const Listener& listener)> test);
+
 public:
 	class JitterBuffer {
 	public:
@@ -130,11 +134,20 @@ protected:
 	virtual void action ();
 	virtual void notifyMe(Notification *message);
 
+    static bool findUID(uid_t uid);
+    static int get_process_euid(pid_t pid, uid_t& out_euid);
+
+    bool needsPrivacyFilter(Notification *notification);
+    bool isTrustEvent(Notification *notification);
+    uint32 getRecordType(const CssmData& val) const;
+    
 	bool mActive;
 
 public:
-	SharedMemoryListener (const char* serverName, u_int32_t serverSize);
+	SharedMemoryListener (const char* serverName, u_int32_t serverSize, uid_t uid = 0, gid_t gid = 0);
 	virtual ~SharedMemoryListener ();
+
+    static void createDefaultSharedMemoryListener(uid_t uid, gid_t gid);
 };
 
 #endif

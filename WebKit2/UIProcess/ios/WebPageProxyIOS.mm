@@ -32,6 +32,7 @@
 #import "DataReference.h"
 #import "EditingRange.h"
 #import "InteractionInformationAtPosition.h"
+#import "Logging.h"
 #import "NativeWebKeyboardEvent.h"
 #import "PageClient.h"
 #import "PrintInfo.h"
@@ -49,7 +50,9 @@
 #import <WebCore/NotImplemented.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/SharedBuffer.h>
+#import <WebCore/TextStream.h>
 #import <WebCore/UserAgent.h>
+#import <WebCore/ValidationBubble.h>
 
 #if USE(QUICK_LOOK)
 #import "APILoaderClient.h"
@@ -216,20 +219,21 @@ static inline float adjustedUnexposedMaxEdge(float documentEdge, float exposedRe
     return exposedRectEdge;
 }
 
-WebCore::FloatRect WebPageProxy::computeCustomFixedPositionRect(const FloatRect& unobscuredContentRect, double displayedContentScale, UnobscuredRectConstraint constraint) const
+// FIXME: rename this when visual viewports are the default.
+WebCore::FloatRect WebPageProxy::computeCustomFixedPositionRect(const FloatRect& unobscuredContentRect, const FloatRect& unobscuredContentRectRespectingInputViewBounds, const FloatRect& currentCustomFixedPositionRect, double displayedContentScale, UnobscuredRectConstraint constraint, bool visualViewportEnabled) const
 {
     FloatRect constrainedUnobscuredRect = unobscuredContentRect;
     FloatRect documentRect = m_pageClient.documentRect();
 
-    if (m_pageClient.isAssistingNode())
+    if (!visualViewportEnabled && m_pageClient.isAssistingNode())
         return documentRect;
 
     if (constraint == UnobscuredRectConstraint::ConstrainedToDocumentRect)
         constrainedUnobscuredRect.intersect(documentRect);
 
     double minimumScale = m_pageClient.minimumZoomScale();
-    
-    if (displayedContentScale < minimumScale) {
+    bool isBelowMinimumScale = displayedContentScale < minimumScale;
+    if (isBelowMinimumScale) {
         const CGFloat slope = 12;
         CGFloat factor = std::max<CGFloat>(1 - slope * (minimumScale - displayedContentScale), 0);
             
@@ -239,7 +243,36 @@ WebCore::FloatRect WebPageProxy::computeCustomFixedPositionRect(const FloatRect&
         constrainedUnobscuredRect.setHeight(adjustedUnexposedMaxEdge(documentRect.maxY(), constrainedUnobscuredRect.maxY(), factor) - constrainedUnobscuredRect.y());
     }
     
-    return FrameView::rectForViewportConstrainedObjects(enclosingLayoutRect(constrainedUnobscuredRect), LayoutSize(documentRect.size()), displayedContentScale, false, StickToViewportBounds);
+    if (!visualViewportEnabled)
+        return FrameView::rectForViewportConstrainedObjects(enclosingLayoutRect(constrainedUnobscuredRect), LayoutSize(documentRect.size()), displayedContentScale, false, StickToViewportBounds);
+
+    FloatRect layoutViewportRect = currentCustomFixedPositionRect;
+
+    // The layout viewport is never smaller than m_baseLayoutViewportSize, and never be smaller than the constrainedUnobscuredRect.
+    FloatSize constrainedSize = m_baseLayoutViewportSize;
+    if (isBelowMinimumScale)
+        layoutViewportRect.setSize(constrainedSize.expandedTo(constrainedUnobscuredRect.size()));
+    else
+        layoutViewportRect.setSize(constrainedSize.expandedTo(unobscuredContentRect.size()));
+
+    LayoutPoint layoutViewportOrigin;
+    if (isBelowMinimumScale)
+        layoutViewportOrigin = FrameView::computeLayoutViewportOrigin(enclosingLayoutRect(constrainedUnobscuredRect), m_minStableLayoutViewportOrigin, m_maxStableLayoutViewportOrigin, enclosingLayoutRect(layoutViewportRect));
+    else
+        layoutViewportOrigin = FrameView::computeLayoutViewportOrigin(enclosingLayoutRect(unobscuredContentRectRespectingInputViewBounds), m_minStableLayoutViewportOrigin, m_maxStableLayoutViewportOrigin, enclosingLayoutRect(layoutViewportRect));
+
+    if (constraint == UnobscuredRectConstraint::ConstrainedToDocumentRect) {
+        // The max stable layout viewport origin really depends on the size of the layout viewport itself, so we need to adjust the location of the layout viewport one final time to make sure it does not end up out of bounds of the document.
+        // Without this adjustment (and with using the non-constrained unobscuredContentRect's size as the size of the layout viewport) the layout viewport can be pushed past the bounds of the document during rubber-banding, and cannot be pushed
+        // back in until the user scrolls back in the other direction.
+        layoutViewportOrigin.setX(clampTo<float>(layoutViewportOrigin.x(), 0, documentRect.width() - layoutViewportRect.width()));
+        layoutViewportOrigin.setY(clampTo<float>(layoutViewportOrigin.y(), 0, documentRect.height() - layoutViewportRect.height()));
+    }
+    layoutViewportRect.setLocation(layoutViewportOrigin);
+    
+    if (layoutViewportRect != currentCustomFixedPositionRect)
+        LOG_WITH_STREAM(VisibleRects, stream << "WebPageProxy::computeCustomFixedPositionRect: new layout viewport  " << layoutViewportRect);
+    return layoutViewportRect;
 }
 
 void WebPageProxy::overflowScrollViewWillStartPanGesture()
@@ -267,6 +300,8 @@ void WebPageProxy::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize,
     if (!isValid())
         return;
 
+    hideValidationMessage();
+
     m_dynamicViewportSizeUpdateWaitingForTarget = true;
     m_dynamicViewportSizeUpdateWaitingForLayerTreeCommit = true;
     m_process->send(Messages::WebPage::DynamicViewportSizeUpdate(minimumLayoutSize, maximumUnobscuredSize, targetExposedContentRect, targetUnobscuredRect, targetUnobscuredRectInScrollViewCoordinates, targetScale, deviceOrientation, ++m_currentDynamicViewportSizeUpdateID), m_pageID);
@@ -292,7 +327,7 @@ void WebPageProxy::synchronizeDynamicViewportUpdate()
         double newScale;
         FloatPoint newScrollPosition;
         uint64_t nextValidLayerTreeTransactionID;
-        if (m_process->sendSync(Messages::WebPage::SynchronizeDynamicViewportUpdate(), Messages::WebPage::SynchronizeDynamicViewportUpdate::Reply(newScale, newScrollPosition, nextValidLayerTreeTransactionID), m_pageID, std::chrono::seconds(2))) {
+        if (m_process->sendSync(Messages::WebPage::SynchronizeDynamicViewportUpdate(), Messages::WebPage::SynchronizeDynamicViewportUpdate::Reply(newScale, newScrollPosition, nextValidLayerTreeTransactionID), m_pageID, 2_s)) {
             m_dynamicViewportSizeUpdateWaitingForTarget = false;
             m_dynamicViewportSizeUpdateLayerTreeTransactionID = nextValidLayerTreeTransactionID;
             m_pageClient.dynamicViewportUpdateChangedTarget(newScale, newScrollPosition, nextValidLayerTreeTransactionID);
@@ -303,7 +338,7 @@ void WebPageProxy::synchronizeDynamicViewportUpdate()
     // If m_dynamicViewportSizeUpdateWaitingForTarget is false, we are waiting for the next valid frame with the hope it is the one for the new target.
     // If m_dynamicViewportSizeUpdateWaitingForTarget is still true, this is a desperate attempt to get the valid frame before finishing the animation.
     if (m_dynamicViewportSizeUpdateWaitingForLayerTreeCommit)
-        m_drawingArea->waitForDidUpdateViewState();
+        m_drawingArea->waitForDidUpdateActivityState();
 
     m_dynamicViewportSizeUpdateWaitingForTarget = false;
     m_dynamicViewportSizeUpdateWaitingForLayerTreeCommit = false;
@@ -372,6 +407,19 @@ void WebPageProxy::didCommitLayerTree(const WebKit::RemoteLayerTreeTransaction& 
         m_hasDeferredStartAssistingNode = false;
         m_deferredNodeAssistanceArguments = nullptr;
     }
+}
+
+bool WebPageProxy::updateLayoutViewportParameters(const WebKit::RemoteLayerTreeTransaction& layerTreeTransaction)
+{
+    bool changed = m_baseLayoutViewportSize != layerTreeTransaction.baseLayoutViewportSize()
+        || m_minStableLayoutViewportOrigin != layerTreeTransaction.minStableLayoutViewportOrigin()
+        || m_maxStableLayoutViewportOrigin != layerTreeTransaction.maxStableLayoutViewportOrigin();
+
+    m_baseLayoutViewportSize = layerTreeTransaction.baseLayoutViewportSize();
+    m_minStableLayoutViewportOrigin = layerTreeTransaction.minStableLayoutViewportOrigin();
+    m_maxStableLayoutViewportOrigin = layerTreeTransaction.maxStableLayoutViewportOrigin();
+    
+    return changed;
 }
 
 void WebPageProxy::layerTreeCommitComplete()
@@ -594,14 +642,14 @@ void WebPageProxy::didReceivePositionInformation(const InteractionInformationAtP
     m_pageClient.positionInformationDidChange(info);
 }
 
-void WebPageProxy::getPositionInformation(const WebCore::IntPoint& point, InteractionInformationAtPosition& info)
+void WebPageProxy::getPositionInformation(const InteractionInformationRequest& request, InteractionInformationAtPosition& info)
 {
-    m_process->sendSync(Messages::WebPage::GetPositionInformation(point), Messages::WebPage::GetPositionInformation::Reply(info), m_pageID);
+    m_process->sendSync(Messages::WebPage::GetPositionInformation(request), Messages::WebPage::GetPositionInformation::Reply(info), m_pageID);
 }
 
-void WebPageProxy::requestPositionInformation(const WebCore::IntPoint& point)
+void WebPageProxy::requestPositionInformation(const InteractionInformationRequest& request)
 {
-    m_process->send(Messages::WebPage::RequestPositionInformation(point), m_pageID);
+    m_process->send(Messages::WebPage::RequestPositionInformation(request), m_pageID);
 }
 
 void WebPageProxy::startInteractionWithElementAtPosition(const WebCore::IntPoint& point)
@@ -639,6 +687,8 @@ void WebPageProxy::applicationDidEnterBackground()
 
 void WebPageProxy::applicationDidFinishSnapshottingAfterEnteringBackground()
 {
+    if (m_drawingArea)
+        m_drawingArea->prepareForAppSuspension();
     m_process->send(Messages::WebPage::ApplicationDidFinishSnapshottingAfterEnteringBackground(), m_pageID);
 }
 
@@ -752,6 +802,7 @@ void WebPageProxy::willStartUserTriggeredZooming()
 
 void WebPageProxy::potentialTapAtPosition(const WebCore::FloatPoint& position, uint64_t& requestID)
 {
+    hideValidationMessage();
     process().send(Messages::WebPage::PotentialTapAtPosition(requestID, position), m_pageID);
 }
 
@@ -1007,6 +1058,27 @@ void WebPageProxy::editorStateChanged(const EditorState& editorState)
     // We always need to notify the client on iOS to make sure the selection is redrawn,
     // even during composition to support phrase boundary gesture.
     m_pageClient.selectionDidChange();
+}
+
+void WebPageProxy::showValidationMessage(const IntRect& anchorClientRect, const String& message)
+{
+    m_validationBubble = m_pageClient.createValidationBubble(message);
+    m_validationBubble->setAnchorRect(anchorClientRect, uiClient().presentingViewController());
+
+    // If we are currently doing a scrolling / zoom animation, then we'll delay showing the validation
+    // bubble until the animation is over.
+    if (!m_isScrollingOrZooming)
+        m_validationBubble->show();
+}
+
+void WebPageProxy::setIsScrollingOrZooming(bool isScrollingOrZooming)
+{
+    m_isScrollingOrZooming = isScrollingOrZooming;
+
+    // We finished doing the scrolling / zoom animation so we can now show the validation
+    // bubble if we're supposed to.
+    if (!m_isScrollingOrZooming && m_validationBubble)
+        m_validationBubble->show();
 }
 
 #if USE(QUICK_LOOK)

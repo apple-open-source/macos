@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "ExceptionOr.h"
 #include <bindings/ScriptValue.h>
 #include <heap/Strong.h>
 #include <runtime/ArrayBuffer.h>
@@ -42,26 +43,19 @@ namespace WebCore {
 
 class IDBValue;
 class MessagePort;
-typedef Vector<RefPtr<MessagePort>, 1> MessagePortArray;
-typedef Vector<RefPtr<JSC::ArrayBuffer>, 1> ArrayBufferArray;
- 
-enum SerializationReturnCode {
-    SuccessfullyCompleted,
-    StackOverflowError,
-    InterruptedExecutionError,
-    ValidationError,
-    ExistingExceptionError,
-    DataCloneError,
-    UnspecifiedError
-};
-    
-enum SerializationErrorMode { NonThrowing, Throwing };
-
 class SharedBuffer;
+enum class SerializationReturnCode;
+
+enum class SerializationErrorMode { NonThrowing, Throwing };
+enum class SerializationContext { Default, WorkerPostMessage };
+
+using ArrayBufferContentsArray = Vector<JSC::ArrayBufferContents>;
 
 class SerializedScriptValue : public ThreadSafeRefCounted<SerializedScriptValue> {
 public:
-    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(JSC::ExecState*, JSC::JSValue, MessagePortArray*, ArrayBufferArray*, SerializationErrorMode = Throwing);
+    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(JSC::ExecState&, JSC::JSValue, SerializationErrorMode = SerializationErrorMode::Throwing);
+
+    WEBCORE_EXPORT static ExceptionOr<Ref<SerializedScriptValue>> create(JSC::ExecState&, JSC::JSValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer, Vector<RefPtr<MessagePort>>&, SerializationContext = SerializationContext::Default);
 
     WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(StringView);
     static Ref<SerializedScriptValue> adopt(Vector<uint8_t>&& buffer)
@@ -71,8 +65,9 @@ public:
 
     static Ref<SerializedScriptValue> nullValue();
 
-    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState*, JSC::JSGlobalObject*, MessagePortArray*, SerializationErrorMode = Throwing);
-    JSC::JSValue deserialize(JSC::ExecState*, JSC::JSGlobalObject*, MessagePortArray*, SerializationErrorMode, const Vector<String>& blobURLs, const Vector<String>& blobFilePaths);
+    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, SerializationErrorMode = SerializationErrorMode::Throwing);
+    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, Vector<RefPtr<MessagePort>>&, SerializationErrorMode = SerializationErrorMode::Throwing);
+    JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, Vector<RefPtr<MessagePort>>&, const Vector<String>& blobURLs, const Vector<String>& blobFilePaths, SerializationErrorMode = SerializationErrorMode::Throwing);
 
     static uint32_t wireFormatVersion();
 
@@ -100,17 +95,12 @@ public:
     WEBCORE_EXPORT ~SerializedScriptValue();
 
 private:
-    typedef Vector<JSC::ArrayBufferContents> ArrayBufferContentsArray;
-    static void maybeThrowExceptionIfSerializationFailed(JSC::ExecState*, SerializationReturnCode);
-    static bool serializationDidCompleteSuccessfully(SerializationReturnCode);
-    static std::unique_ptr<ArrayBufferContentsArray> transferArrayBuffers(JSC::ExecState*, ArrayBufferArray&, SerializationReturnCode&);
-
     WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&&);
-    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, std::unique_ptr<ArrayBufferContentsArray>&&);
+    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, std::unique_ptr<ArrayBufferContentsArray>, std::unique_ptr<ArrayBufferContentsArray> sharedBuffers);
 
     Vector<unsigned char> m_data;
     std::unique_ptr<ArrayBufferContentsArray> m_arrayBufferContentsArray;
-
+    std::unique_ptr<ArrayBufferContentsArray> m_sharedBufferContentsArray;
     Vector<String> m_blobURLs;
 };
 

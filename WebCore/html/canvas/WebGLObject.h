@@ -23,11 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebGLObject_h
-#define WebGLObject_h
+#pragma once
 
 #include "GraphicsContext3D.h"
-
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -56,10 +54,10 @@ public:
     bool isDeleted() { return m_deleted; }
 
     // True if this object belongs to the group or context.
-    virtual bool validate(const WebGLContextGroup*, const WebGLRenderingContextBase*) const = 0;
+    virtual bool validate(const WebGLContextGroup*, const WebGLRenderingContextBase&) const = 0;
 
 protected:
-    WebGLObject(WebGLRenderingContextBase*);
+    WebGLObject(WebGLRenderingContextBase&);
 
     // setObject should be only called once right after creating a WebGLObject.
     void setObject(Platform3DObject);
@@ -80,5 +78,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // WebGLObject_h

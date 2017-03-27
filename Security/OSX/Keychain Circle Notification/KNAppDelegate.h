@@ -35,4 +35,6 @@
 @property (retain) NSMutableSet *viewedIds;
 @property (retain) KNPersistentState *state;
 
+- (void) postRequirePassword;
+
 @end

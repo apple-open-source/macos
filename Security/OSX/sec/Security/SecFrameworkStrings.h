@@ -70,6 +70,7 @@ __BEGIN_DECLS
 #define SEC_USAGE_KEY               SecStringWithDefaultValue("Usage", "Certificate", 0, "Usage", "Label for KeyUsage bitfield values")
 #define SEC_NOT_VALID_BEFORE_KEY	SecStringWithDefaultValue("Not Valid Before", "Certificate", 0, "Not Valid Before", "label indicating the soonest date at which something is valid")
 #define SEC_NOT_VALID_AFTER_KEY		SecStringWithDefaultValue("Not Valid After", "Certificate", 0, "Not Valid After", "label indicating the date after which something is no longer valid")
+#define SEC_VALIDITY_PERIOD_KEY     SecStringWithDefaultValue("Validity Period", "Certificate", 0, "Validity Period", "")
 #define SEC_PRIVATE_KU_PERIOD_KEY   SecStringWithDefaultValue("Private Key Usage Period", "Certificate", 0, "Private Key Usage Period", "Label for an invlaid private key se perion value")
 #define SEC_OTHER_NAME_KEY			SecStringWithDefaultValue("Other Name", "Certificate", 0, "Other Name", "Label used for Other Name RDN when value is invalid")
 #define SEC_EMAIL_ADDRESS_KEY		SecStringWithDefaultValue("Email Address", "Certificate", 0, "Email Address", "label for general name field value")
@@ -173,12 +174,21 @@ __BEGIN_DECLS
 #define SEC_CERT_VERSION_VALUE_KEY  SecStringWithDefaultValue("%d", "Certificate", 0, "%d", "format string to turn version number into a string")
 #define SEC_VERSION_KEY             SecStringWithDefaultValue("Version", "Certificate", 0, "Version", "")
 #define SEC_SERIAL_NUMBER_KEY		SecStringWithDefaultValue("Serial Number", "Certificate", 0, "Serial Number", "")
-#define SEC_SIGNATURE_ALGORITHM_KEY SecStringWithDefaultValue("Signature Algorithm", "Certificate", 0, "Signature Algorithm", "")
 #define SEC_SUBJECT_UNIQUE_ID_KEY	SecStringWithDefaultValue("Subject Unique ID", "Certificate", 0, "Subject Unique ID", "")
 #define SEC_ISSUER_UNIQUE_ID_KEY	SecStringWithDefaultValue("Issuer Unique ID", "Certificate", 0, "Issuer Unique ID", "")
+
+#define SEC_PUBLIC_KEY_KEY          SecStringWithDefaultValue("Public Key Info", "Certificate", 0, "Public Key Info", "")
 #define SEC_PUBLIC_KEY_ALG_KEY		SecStringWithDefaultValue("Public Key Algorithm", "Certificate", 0, "Public Key Algorithm", "")
-#define SEC_PULIC_KEY_DATA_KEY		SecStringWithDefaultValue("Public Key Data", "Certificate", 0, "Public Key Data", "")
+#define SEC_PUBLIC_KEY_DATA_KEY		SecStringWithDefaultValue("Public Key Data", "Certificate", 0, "Public Key Data", "")
+#define SEC_PUBLIC_KEY_SIZE_KEY     SecStringWithDefaultValue("Public Key Size", "Certificate", 0, "Public Key Size", "")
+
 #define SEC_SIGNATURE_KEY			SecStringWithDefaultValue("Signature", "Certificate", 0, "Signature", "")
+#define SEC_SIGNATURE_ALGORITHM_KEY SecStringWithDefaultValue("Signature Algorithm", "Certificate", 0, "Signature Algorithm", "")
+#define SEC_SIGNATURE_DATA_KEY      SecStringWithDefaultValue("Signature Data", "Certificate", 0, "Signature Data", "")
+
+#define SEC_FINGERPRINTS_KEY         SecStringWithDefaultValue("Fingerprints", "Certificate", 0, "Fingerprints", "")
+#define SEC_SHA1_FINGERPRINT_KEY    SecStringWithDefaultValue("SHA-1", "Certificate", 0, "SHA-1", "")
+#define SEC_SHA2_FINGERPRINT_KEY    SecStringWithDefaultValue("SHA-256", "Certificate", 0, "SHA-256", "")
 
 /* SecTrust Strings. */
 #define SEC_INVALID_LINKAGE_KEY     SecStringWithDefaultValue("Invalid certificate chain linkage.", "Certificate", 0, "Invalid certificate chain linkage.", "")

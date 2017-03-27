@@ -64,7 +64,7 @@ bool_t sec_xdr_bytes(XDR *xdrs, uint8_t **cpp, u_int *sizep, u_int maxsize)
         if (!sp) {
             if (!sec_mem_alloc(xdrs, nodesize, &sp))
                 return (FALSE);
-            if (!sizeof_alloc)
+            if (!sizeof_alloc && cpp != NULL)
                 *cpp = sp; /* sp can be NULL when counting required space */
         }
         /* FALLTHROUGH */
@@ -263,7 +263,9 @@ bool_t copyout(const void *copy, u_int size, xdrproc_t proc, void **data, u_int 
 
     if (proc(&xdr, data, 0))
     {
-        *length = length_required;
+        if(length) {
+            *length = length_required;
+        }
         return (TRUE);
     }
 

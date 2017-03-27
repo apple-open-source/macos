@@ -75,8 +75,8 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
-#include <openssl/dh.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/dh_legacy.h>
 
 /* We generate DH parameters as follows
  * find a prime q which is prime_len/2 bits long.

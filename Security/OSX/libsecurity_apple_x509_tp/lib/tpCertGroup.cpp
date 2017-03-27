@@ -24,7 +24,6 @@
 #include "certGroupUtils.h"
 #include "TPCertInfo.h"
 #include "TPCrlInfo.h"
-#include "tpCertAllowList.h"
 #include "tpPolicies.h"
 #include "tpdebugging.h"
 #include "tpCrlVerify.h"
@@ -736,13 +735,7 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 			    outCertGroup.isAllowedError(constructReturn)) {
 				constructReturn = CSSM_OK;
 			}
-            
-			/*
-			 * Allow non-trusted root if whitelist check permits
-			 */
-			if (constructReturn == CSSMERR_TP_NOT_TRUSTED) {
-				constructReturn = tpCheckCertificateAllowList(outCertGroup);
-			}
+
 			break;
 	}
 

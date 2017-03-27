@@ -36,15 +36,15 @@ static void tests()
     SecKeychainItemRef item = NULL;
 
     // Find passwords
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContents(item, CFSTR("test_password"));  checkPrompts(0, "after reading a password");
     changePasswordContents(item, CFSTR("new_password")); checkPrompts(0, "changing a internet password");
     readPasswordContents(item, CFSTR("new_password"));   checkPrompts(0, "reading a changed internet password");
     CFReleaseNull(item);
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL); // we don't expect to be able to read this
     checkPrompts(1, "trying to read internet password without access");
 
@@ -54,15 +54,15 @@ static void tests()
     checkPrompts(1, "after changing a internet password without access");
     CFReleaseNull(item);
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service"), CFSTR("test_service"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service"), CFSTR("test_service"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContents(item, CFSTR("test_password"));   checkPrompts(0, "after reading a generic password");
     changePasswordContents(item, CFSTR("new_password"));  checkPrompts(0, "changing a generic password");
     readPasswordContents(item, CFSTR("new_password"));    checkPrompts(0, "after changing a generic password");
     CFReleaseNull(item);
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL); // we don't expect to be able to read this
     checkPrompts(1, "trying to read generic password without access");
 

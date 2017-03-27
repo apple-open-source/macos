@@ -39,6 +39,7 @@ namespace SecurityServer {
 class EventListener : public RefCount
 {
 protected:
+    bool mInitialized;
 	NotificationDomain mDomain;
 	NotificationMask mMask;
 
@@ -49,6 +50,8 @@ public:
 
 	EventListener(NotificationDomain domain, NotificationMask eventMask);
 	virtual ~EventListener();
+
+    virtual bool initialized()  { return mInitialized; }
 
 	virtual void consume(NotificationDomain domain, NotificationEvent event, const CssmData& data);
 	

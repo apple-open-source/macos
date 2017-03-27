@@ -31,11 +31,11 @@
 #import "AVFoundationSPI.h"
 #import "CDMSessionAVContentKeySession.h"
 #import "CDMSessionMediaSourceAVFObjC.h"
-#import "ExceptionCodePlaceholder.h"
 #import "Logging.h"
 #import "MediaDescription.h"
 #import "MediaPlayerPrivateMediaSourceAVFObjC.h"
 #import "MediaSample.h"
+#import "MediaSampleAVFObjC.h"
 #import "MediaSourcePrivateAVFObjC.h"
 #import "MediaTimeAVFoundation.h"
 #import "NotImplemented.h"
@@ -105,19 +105,6 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
 - (void)enqueueSampleBuffer:(CMSampleBufferRef)sampleBuffer;
 - (void)flush;
 - (void)flushAndRemoveImage;
-- (BOOL)isReadyForMoreMediaData;
-- (void)requestMediaDataWhenReadyOnQueue:(dispatch_queue_t)queue usingBlock:(void (^)(void))block;
-- (void)stopRequestingMediaData;
-@end
-
-#pragma mark -
-#pragma mark AVSampleBufferAudioRenderer
-
-@interface AVSampleBufferAudioRenderer : NSObject
-- (NSInteger)status;
-- (NSError*)error;
-- (void)enqueueSampleBuffer:(CMSampleBufferRef)sampleBuffer;
-- (void)flush;
 - (BOOL)isReadyForMoreMediaData;
 - (void)requestMediaDataWhenReadyOnQueue:(dispatch_queue_t)queue usingBlock:(void (^)(void))block;
 - (void)stopRequestingMediaData;
@@ -414,128 +401,6 @@ SOFT_LINK_CONSTANT(AVFoundation, AVSampleBufferDisplayLayerFailedToDecodeNotific
 namespace WebCore {
 
 #pragma mark -
-#pragma mark MediaSampleAVFObjC
-
-class MediaSampleAVFObjC final : public MediaSample {
-public:
-    static RefPtr<MediaSampleAVFObjC> create(CMSampleBufferRef sample, int trackID) { return adoptRef(new MediaSampleAVFObjC(sample, trackID)); }
-    virtual ~MediaSampleAVFObjC() { }
-
-private:
-    MediaSampleAVFObjC(CMSampleBufferRef sample, int trackID)
-        : m_sample(sample)
-        , m_id(String::format("%d", trackID))
-    {
-    }
-
-    MediaTime presentationTime() const override { return toMediaTime(CMSampleBufferGetPresentationTimeStamp(m_sample.get())); }
-    MediaTime decodeTime() const override { return toMediaTime(CMSampleBufferGetDecodeTimeStamp(m_sample.get())); }
-    MediaTime duration() const override { return toMediaTime(CMSampleBufferGetDuration(m_sample.get())); }
-    AtomicString trackID() const override { return m_id; }
-    size_t sizeInBytes() const override { return CMSampleBufferGetTotalSampleSize(m_sample.get()); }
-    FloatSize presentationSize() const override;
-
-    SampleFlags flags() const override;
-    PlatformSample platformSample() override;
-    void dump(PrintStream&) const override;
-    void offsetTimestampsBy(const MediaTime&) override;
-    void setTimestamps(const MediaTime&, const MediaTime&) override;
-
-    RetainPtr<CMSampleBufferRef> m_sample;
-    AtomicString m_id;
-};
-
-PlatformSample MediaSampleAVFObjC::platformSample()
-{
-    PlatformSample sample = { PlatformSample::CMSampleBufferType, { .cmSampleBuffer = m_sample.get() } };
-    return sample;
-}
-
-static bool CMSampleBufferIsRandomAccess(CMSampleBufferRef sample)
-{
-    CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sample, false);
-    if (!attachments)
-        return true;
-
-    for (CFIndex i = 0, count = CFArrayGetCount(attachments); i < count; ++i) {
-        CFDictionaryRef attachmentDict = (CFDictionaryRef)CFArrayGetValueAtIndex(attachments, i);
-        if (CFDictionaryContainsKey(attachmentDict, kCMSampleAttachmentKey_NotSync))
-            return false;
-    }
-    return true;
-}
-
-MediaSample::SampleFlags MediaSampleAVFObjC::flags() const
-{
-    int returnValue = MediaSample::None;
-
-    if (CMSampleBufferIsRandomAccess(m_sample.get()))
-        returnValue |= MediaSample::IsSync;
-
-    return SampleFlags(returnValue);
-}
-
-FloatSize MediaSampleAVFObjC::presentationSize() const
-{
-    CMFormatDescriptionRef formatDescription = CMSampleBufferGetFormatDescription(m_sample.get());
-    if (CMFormatDescriptionGetMediaType(formatDescription) != kCMMediaType_Video)
-        return FloatSize();
-
-    return FloatSize(CMVideoFormatDescriptionGetPresentationDimensions(formatDescription, true, true)); 
-}
-
-void MediaSampleAVFObjC::dump(PrintStream& out) const
-{
-    out.print("{PTS(", presentationTime(), "), DTS(", decodeTime(), "), duration(", duration(), "), flags(", (int)flags(), "), presentationSize(", presentationSize().width(), "x", presentationSize().height(), ")}");
-}
-
-void MediaSampleAVFObjC::offsetTimestampsBy(const MediaTime& offset)
-{
-    CMItemCount itemCount = 0;
-    if (noErr != CMSampleBufferGetSampleTimingInfoArray(m_sample.get(), 0, nullptr, &itemCount))
-        return;
-
-    Vector<CMSampleTimingInfo> timingInfoArray;
-    timingInfoArray.grow(itemCount);
-    if (noErr != CMSampleBufferGetSampleTimingInfoArray(m_sample.get(), itemCount, timingInfoArray.data(), nullptr))
-        return;
-
-    for (auto& timing : timingInfoArray) {
-        timing.presentationTimeStamp = toCMTime(toMediaTime(timing.presentationTimeStamp) + offset);
-        timing.decodeTimeStamp = toCMTime(toMediaTime(timing.decodeTimeStamp) + offset);
-    }
-
-    CMSampleBufferRef newSample;
-    if (noErr != CMSampleBufferCreateCopyWithNewTiming(kCFAllocatorDefault, m_sample.get(), itemCount, timingInfoArray.data(), &newSample))
-        return;
-
-    m_sample = adoptCF(newSample);
-}
-
-void MediaSampleAVFObjC::setTimestamps(const WTF::MediaTime &presentationTimestamp, const WTF::MediaTime &decodeTimestamp)
-{
-    CMItemCount itemCount = 0;
-    if (noErr != CMSampleBufferGetSampleTimingInfoArray(m_sample.get(), 0, nullptr, &itemCount))
-        return;
-
-    Vector<CMSampleTimingInfo> timingInfoArray;
-    timingInfoArray.grow(itemCount);
-    if (noErr != CMSampleBufferGetSampleTimingInfoArray(m_sample.get(), itemCount, timingInfoArray.data(), nullptr))
-        return;
-
-    for (auto& timing : timingInfoArray) {
-        timing.presentationTimeStamp = toCMTime(presentationTimestamp);
-        timing.decodeTimeStamp = toCMTime(decodeTimestamp);
-    }
-
-    CMSampleBufferRef newSample;
-    if (noErr != CMSampleBufferCreateCopyWithNewTiming(kCFAllocatorDefault, m_sample.get(), itemCount, timingInfoArray.data(), &newSample))
-        return;
-
-    m_sample = adoptCF(newSample);
-}
-
-#pragma mark -
 #pragma mark MediaDescriptionAVFObjC
 
 class MediaDescriptionAVFObjC final : public MediaDescription {
@@ -675,26 +540,16 @@ void SourceBufferPrivateAVFObjC::didProvideMediaDataForTrackID(int trackID, CMSa
 
 bool SourceBufferPrivateAVFObjC::processCodedFrame(int trackID, CMSampleBufferRef sampleBuffer, const String&)
 {
-    if (trackID == m_enabledVideoTrackID) {
-        CMFormatDescriptionRef formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer);
-        FloatSize formatSize = FloatSize(CMVideoFormatDescriptionGetPresentationDimensions(formatDescription, true, true));
-        if (formatSize != m_cachedSize) {
-            LOG(MediaSource, "SourceBufferPrivateAVFObjC::processCodedFrame(%p) - size change detected: {width=%lf, height=%lf}", formatSize.width(), formatSize.height());
-            m_cachedSize = formatSize;
-            if (m_mediaSource)
-                m_mediaSource->player()->sizeChanged();
-        }
-    } else if (!m_audioRenderers.contains(trackID)) {
+    if (trackID != m_enabledVideoTrackID && !m_audioRenderers.contains(trackID)) {
         // FIXME(125161): We don't handle text tracks, and passing this sample up to SourceBuffer
         // will just confuse its state. Drop this sample until we can handle text tracks properly.
         return false;
     }
 
-
     if (m_client) {
-        RefPtr<MediaSample> mediaSample = MediaSampleAVFObjC::create(sampleBuffer, trackID);
-        LOG(MediaSourceSamples, "SourceBufferPrivateAVFObjC::processCodedFrame(%p) - sample(%s)", this, toString(*mediaSample).utf8().data());
-        m_client->sourceBufferPrivateDidReceiveSample(this, WTFMove(mediaSample));
+        Ref<MediaSample> mediaSample = MediaSampleAVFObjC::create(sampleBuffer, trackID);
+        LOG(MediaSourceSamples, "SourceBufferPrivateAVFObjC::processCodedFrame(%p) - sample(%s)", this, toString(mediaSample.get()).utf8().data());
+        m_client->sourceBufferPrivateDidReceiveSample(this, mediaSample);
     }
 
     return true;
@@ -714,7 +569,7 @@ void SourceBufferPrivateAVFObjC::willProvideContentKeyRequestInitializationDataF
 
     ASSERT(m_parser);
 
-#if ENABLE(ENCRYPTED_MEDIA_V2)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     LOG(MediaSource, "SourceBufferPrivateAVFObjC::willProvideContentKeyRequestInitializationDataForTrackID(%p) - track:%d", this, trackID);
     m_protectedTrackID = trackID;
 
@@ -736,7 +591,7 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
         return;
 
     UNUSED_PARAM(trackID);
-#if ENABLE(ENCRYPTED_MEDIA_V2)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     LOG(MediaSource, "SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataForTrackID(%p) - track:%d", this, trackID);
     m_protectedTrackID = trackID;
     RefPtr<Uint8Array> initDataArray = Uint8Array::create([initData length]);
@@ -752,6 +607,7 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
     }
 #else
     UNUSED_PARAM(initData);
+    UNUSED_PARAM(hasSessionSemaphore);
 #endif
 }
 
@@ -825,8 +681,10 @@ void SourceBufferPrivateAVFObjC::resetParserState()
 
 void SourceBufferPrivateAVFObjC::destroyParser()
 {
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     if (m_mediaSource && m_mediaSource->player()->hasStreamSession())
         [m_mediaSource->player()->streamSession() removeStreamDataParser:m_parser.get()];
+#endif
 
     [m_delegate invalidate];
     m_delegate = nullptr;
@@ -946,6 +804,7 @@ void SourceBufferPrivateAVFObjC::trackDidChangeEnabled(AudioTrackPrivateMediaSou
 
 void SourceBufferPrivateAVFObjC::setCDMSession(CDMSessionMediaSourceAVFObjC* session)
 {
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     if (session == m_session)
         return;
 
@@ -972,6 +831,9 @@ void SourceBufferPrivateAVFObjC::setCDMSession(CDMSessionMediaSourceAVFObjC* ses
             });
         }
     }
+#else
+    UNUSED_PARAM(session);
+#endif
 }
 
 void SourceBufferPrivateAVFObjC::flush()
@@ -1033,68 +895,34 @@ void SourceBufferPrivateAVFObjC::rendererDidReceiveError(AVSampleBufferAudioRend
         return;
 }
 
-static RetainPtr<CMSampleBufferRef> createNonDisplayingCopy(CMSampleBufferRef sampleBuffer)
-{
-    CMSampleBufferRef newSampleBuffer = 0;
-    CMSampleBufferCreateCopy(kCFAllocatorDefault, sampleBuffer, &newSampleBuffer);
-    if (!newSampleBuffer)
-        return sampleBuffer;
-
-    CFArrayRef attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(newSampleBuffer, true);
-    for (CFIndex i = 0; i < CFArrayGetCount(attachmentsArray); ++i) {
-        CFMutableDictionaryRef attachments = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(attachmentsArray, i);
-        CFDictionarySetValue(attachments, kCMSampleAttachmentKey_DoNotDisplay, kCFBooleanTrue);
-    }
-
-    return adoptCF(newSampleBuffer);
-}
-
-void SourceBufferPrivateAVFObjC::flushAndEnqueueNonDisplayingSamples(Vector<RefPtr<MediaSample>> mediaSamples, AtomicString trackIDString)
+void SourceBufferPrivateAVFObjC::flush(AtomicString trackIDString)
 {
     int trackID = trackIDString.toInt();
-    LOG(MediaSource, "SourceBufferPrivateAVFObjC::flushAndEnqueueNonDisplayingSamples(%p) samples: %d samples, trackId: %d", this, mediaSamples.size(), trackID);
+    LOG(MediaSource, "SourceBufferPrivateAVFObjC::flush(%p) - trackId: %d", this, trackID);
 
     if (trackID == m_enabledVideoTrackID)
-        flushAndEnqueueNonDisplayingSamples(mediaSamples, m_displayLayer.get());
+        flush(m_displayLayer.get());
     else if (m_audioRenderers.contains(trackID))
-        flushAndEnqueueNonDisplayingSamples(mediaSamples, m_audioRenderers.get(trackID).get());
+        flush(m_audioRenderers.get(trackID).get());
 }
 
-void SourceBufferPrivateAVFObjC::flushAndEnqueueNonDisplayingSamples(Vector<RefPtr<MediaSample>> mediaSamples, AVSampleBufferAudioRenderer* renderer)
+void SourceBufferPrivateAVFObjC::flush(AVSampleBufferDisplayLayer *renderer)
+{
+    [renderer flush];
+    m_cachedSize = std::nullopt;
+
+    if (m_mediaSource) {
+        m_mediaSource->player()->setHasAvailableVideoFrame(false);
+        m_mediaSource->player()->flushPendingSizeChanges();
+    }
+}
+
+void SourceBufferPrivateAVFObjC::flush(AVSampleBufferAudioRenderer *renderer)
 {
     [renderer flush];
 
-    for (auto it = mediaSamples.begin(), end = mediaSamples.end(); it != end; ++it) {
-        RefPtr<MediaSample>& mediaSample = *it;
-
-        PlatformSample platformSample = mediaSample->platformSample();
-        ASSERT(platformSample.type == PlatformSample::CMSampleBufferType);
-
-        RetainPtr<CMSampleBufferRef> sampleBuffer = createNonDisplayingCopy(platformSample.sample.cmSampleBuffer);
-
-        [renderer enqueueSampleBuffer:sampleBuffer.get()];
-    }
-}
-
-void SourceBufferPrivateAVFObjC::flushAndEnqueueNonDisplayingSamples(Vector<RefPtr<MediaSample>> mediaSamples, AVSampleBufferDisplayLayer* layer)
-{
-    [layer flush];
-
-    for (auto it = mediaSamples.begin(), end = mediaSamples.end(); it != end; ++it) {
-        RefPtr<MediaSample>& mediaSample = *it;
-
-        LOG(MediaSourceSamples, "SourceBufferPrivateAVFObjC::flushAndEnqueueNonDisplayingSamples(%p) - sample(%s)", this, toString(*mediaSample).utf8().data());
-
-        PlatformSample platformSample = mediaSample->platformSample();
-        ASSERT(platformSample.type == PlatformSample::CMSampleBufferType);
-
-        RetainPtr<CMSampleBufferRef> sampleBuffer = createNonDisplayingCopy(platformSample.sample.cmSampleBuffer);
-
-        [layer enqueueSampleBuffer:sampleBuffer.get()];
-    }
-
     if (m_mediaSource)
-        m_mediaSource->player()->setHasAvailableVideoFrame(false);
+        m_mediaSource->player()->setHasAvailableAudioSample(renderer, false);
 }
 
 void SourceBufferPrivateAVFObjC::enqueueSample(PassRefPtr<MediaSample> prpMediaSample, AtomicString trackIDString)
@@ -1112,11 +940,29 @@ void SourceBufferPrivateAVFObjC::enqueueSample(PassRefPtr<MediaSample> prpMediaS
     LOG(MediaSourceSamples, "SourceBufferPrivateAVFObjC::enqueueSample(%p) - sample(%s)", this, toString(*mediaSample).utf8().data());
 
     if (trackID == m_enabledVideoTrackID) {
+        CMFormatDescriptionRef formatDescription = CMSampleBufferGetFormatDescription(platformSample.sample.cmSampleBuffer);
+        FloatSize formatSize = FloatSize(CMVideoFormatDescriptionGetPresentationDimensions(formatDescription, true, true));
+        if (!m_cachedSize || formatSize != m_cachedSize.value()) {
+            LOG(MediaSource, "SourceBufferPrivateAVFObjC::enqueueSample(%p) - size change detected: {width=%lf, height=%lf}", formatSize.width(), formatSize.height());
+            bool sizeWasNull = !m_cachedSize;
+            m_cachedSize = formatSize;
+            if (m_mediaSource) {
+                if (sizeWasNull)
+                    m_mediaSource->player()->setNaturalSize(formatSize);
+                else
+                    m_mediaSource->player()->sizeWillChangeAtTime(mediaSample->presentationTime(), formatSize);
+            }
+        }
+
         [m_displayLayer enqueueSampleBuffer:platformSample.sample.cmSampleBuffer];
         if (m_mediaSource)
-            m_mediaSource->player()->setHasAvailableVideoFrame(true);
-    } else
-        [m_audioRenderers.get(trackID) enqueueSampleBuffer:platformSample.sample.cmSampleBuffer];
+            m_mediaSource->player()->setHasAvailableVideoFrame(!mediaSample->isNonDisplaying());
+    } else {
+        auto renderer = m_audioRenderers.get(trackID);
+        [renderer enqueueSampleBuffer:platformSample.sample.cmSampleBuffer];
+        if (m_mediaSource)
+            m_mediaSource->player()->setHasAvailableAudioSample(renderer.get(), !mediaSample->isNonDisplaying());
+    }
 }
 
 bool SourceBufferPrivateAVFObjC::isReadyForMoreSamples(AtomicString trackIDString)
@@ -1126,8 +972,6 @@ bool SourceBufferPrivateAVFObjC::isReadyForMoreSamples(AtomicString trackIDStrin
         return [m_displayLayer isReadyForMoreMediaData];
     else if (m_audioRenderers.contains(trackID))
         return [m_audioRenderers.get(trackID) isReadyForMoreMediaData];
-    else
-        ASSERT_NOT_REACHED();
 
     return false;
 }
@@ -1145,6 +989,15 @@ MediaTime SourceBufferPrivateAVFObjC::fastSeekTimeForMediaTime(MediaTime time, M
     return time;
 }
 
+void SourceBufferPrivateAVFObjC::willSeek()
+{
+    if (m_displayLayer)
+        flush(m_displayLayer.get());
+
+    for (auto& renderer : m_audioRenderers.values())
+        flush(renderer.get());
+}
+
 void SourceBufferPrivateAVFObjC::seekToTime(MediaTime time)
 {
     if (m_client)
@@ -1153,7 +1006,7 @@ void SourceBufferPrivateAVFObjC::seekToTime(MediaTime time)
 
 FloatSize SourceBufferPrivateAVFObjC::naturalSize()
 {
-    return m_cachedSize;
+    return m_cachedSize.value_or(FloatSize());
 }
 
 void SourceBufferPrivateAVFObjC::didBecomeReadyForMoreSamples(int trackID)
@@ -1182,8 +1035,7 @@ void SourceBufferPrivateAVFObjC::notifyClientWhenReadyForMoreSamples(AtomicStrin
         [m_audioRenderers.get(trackID) requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^{
             didBecomeReadyForMoreSamples(trackID);
         }];
-    } else
-        ASSERT_NOT_REACHED();
+    }
 }
 
 }

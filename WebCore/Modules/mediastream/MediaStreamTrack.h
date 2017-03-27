@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2011, 2015 Ericsson AB. All rights reserved.
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,21 +30,18 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "ActiveDOMObject.h"
+#include "DoubleRange.h"
 #include "EventTarget.h"
+#include "JSDOMPromise.h"
+#include "LongRange.h"
 #include "MediaStreamTrackPrivate.h"
-#include "RealtimeMediaSource.h"
-#include "ScriptWrappable.h"
-#include <wtf/RefPtr.h>
-#include <wtf/Vector.h>
-#include <wtf/text/WTFString.h>
+#include "MediaTrackConstraints.h"
 
 namespace WebCore {
 
 class AudioSourceProvider;
-class Dictionary;
-class MediaConstraintsImpl;
-class MediaSourceSettings;
-class MediaTrackConstraints;
+
+struct MediaTrackConstraints;
 
 class MediaStreamTrack final : public RefCounted<MediaStreamTrack>, public ActiveDOMObject, public EventTargetWithInlineData, private MediaStreamTrackPrivate::Observer {
 public:
@@ -54,7 +51,7 @@ public:
         virtual void trackDidEnd() = 0;
     };
 
-    static Ref<MediaStreamTrack> create(ScriptExecutionContext&, MediaStreamTrackPrivate&);
+    static Ref<MediaStreamTrack> create(ScriptExecutionContext&, Ref<MediaStreamTrackPrivate>&&);
     virtual ~MediaStreamTrack();
 
     const AtomicString& kind() const;
@@ -73,32 +70,55 @@ public:
 
     bool ended() const;
 
-    RefPtr<MediaStreamTrack> clone();
+    Ref<MediaStreamTrack> clone();
     void stopProducingData();
 
-    RefPtr<MediaTrackConstraints> getConstraints() const;
-    RefPtr<MediaSourceSettings> getSettings() const;
-    RefPtr<RealtimeMediaSourceCapabilities> getCapabilities() const;
-    void applyConstraints(const Dictionary&);
-    void applyConstraints(const MediaConstraints&);
+    struct TrackSettings {
+        std::optional<int> width;
+        std::optional<int> height;
+        std::optional<double> aspectRatio;
+        std::optional<double> frameRate;
+        String facingMode;
+        std::optional<double> volume;
+        std::optional<int> sampleRate;
+        std::optional<int> sampleSize;
+        std::optional<bool> echoCancellation;
+        String deviceId;
+        String groupId;
+    };
+    TrackSettings getSettings() const;
 
-    RealtimeMediaSource& source() const { return m_private->source(); }
+    struct TrackCapabilities {
+        std::optional<LongRange> width;
+        std::optional<LongRange> height;
+        std::optional<DoubleRange> aspectRatio;
+        std::optional<DoubleRange> frameRate;
+        std::optional<Vector<String>> facingMode;
+        std::optional<DoubleRange> volume;
+        std::optional<LongRange> sampleRate;
+        std::optional<LongRange> sampleSize;
+        std::optional<Vector<bool>> echoCancellation;
+        String deviceId;
+        String groupId;
+    };
+    TrackCapabilities getCapabilities() const;
+
+    const MediaTrackConstraints& getConstraints() const { return m_constraints; }
+    void applyConstraints(const std::optional<MediaTrackConstraints>&, DOMPromise<void>&&);
+
+    RealtimeMediaSource& source() { return m_private->source(); }
     MediaStreamTrackPrivate& privateTrack() { return m_private.get(); }
 
     AudioSourceProvider* audioSourceProvider();
 
-    void addObserver(Observer*);
-    void removeObserver(Observer*);
+    void addObserver(Observer&);
+    void removeObserver(Observer&);
 
-    // EventTarget
-    EventTargetInterface eventTargetInterface() const final { return MediaStreamTrackEventTargetInterfaceType; }
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
-
-    using RefCounted<MediaStreamTrack>::ref;
-    using RefCounted<MediaStreamTrack>::deref;
+    using RefCounted::ref;
+    using RefCounted::deref;
 
 private:
-    MediaStreamTrack(ScriptExecutionContext&, MediaStreamTrackPrivate&);
+    MediaStreamTrack(ScriptExecutionContext&, Ref<MediaStreamTrackPrivate>&&);
     explicit MediaStreamTrack(MediaStreamTrack&);
 
     void configureTrackRendering();
@@ -111,6 +131,8 @@ private:
     // EventTarget
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
+    EventTargetInterface eventTargetInterface() const final { return MediaStreamTrackEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
 
     // MediaStreamTrackPrivate::Observer
     void trackEnded(MediaStreamTrackPrivate&) override;
@@ -118,10 +140,14 @@ private:
     void trackSettingsChanged(MediaStreamTrackPrivate&) override;
     void trackEnabledChanged(MediaStreamTrackPrivate&) override;
 
+    WeakPtr<MediaStreamTrack> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
+
     Vector<Observer*> m_observers;
     Ref<MediaStreamTrackPrivate> m_private;
 
-    RefPtr<MediaConstraintsImpl> m_constraints;
+    MediaTrackConstraints m_constraints;
+    std::optional<DOMPromise<void>> m_promise;
+    WeakPtrFactory<MediaStreamTrack> m_weakPtrFactory;
 
     bool m_ended { false };
 };

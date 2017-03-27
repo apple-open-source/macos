@@ -28,7 +28,5 @@
     NoInterfaceObject,
     EnabledAtRuntime=ShadowDOM,
 ] interface Slotable {
-#if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
     [ImplementedAs=assignedSlotForBindings] readonly attribute HTMLSlotElement? assignedSlot;
-#endif
 };

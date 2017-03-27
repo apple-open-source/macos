@@ -3,22 +3,9 @@
 //  CCRegress
 //
 
-#include <Availability.h>
 
 #ifndef __CAPABILITIES_H__
 #define __CAPABILITIES_H__
-
-#define entryPoint(testname,supportname) \
-int testname(int __unused argc, char *const * __unused argv) { \
-char prString[80];\
-sprintf(prString, "No %s Support in this release\n", supportname);\
-plan_tests(1); \
-diag(prString); \
-ok(1, prString); \
-return 0; \
-}
-
-
 
 #define CC_RMD128_DIGEST_LENGTH 16
 #define CC_RMD160_DIGEST_LENGTH 20

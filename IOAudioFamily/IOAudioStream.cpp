@@ -1761,7 +1761,7 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
                         }
                     }
                 } else {
-                    IOLog("IOAudioStream::processOutputSamples - Error: 0x%lx returned from audioEngine->mixOutputSamples\n", (long unsigned int)result);
+                    audioErrorIOLog("IOAudioStream::processOutputSamples - Error: 0x%lx returned from audioEngine->mixOutputSamples\n", (long unsigned int)result);
                 }
                 
                 if (mixBufferWrapped) {
@@ -1861,7 +1861,7 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
 				result = reserved->mClipOutputStatus;
             }
         } else {
-            IOLog("IOAudioStream::processOutputSamples - Internal Error: No mix buffer\n");
+            audioErrorIOLog("IOAudioStream::processOutputSamples - Internal Error: No mix buffer\n");
             result = kIOReturnError;
         }
     } else {
@@ -2135,7 +2135,7 @@ IOReturn IOAudioStream::addDefaultAudioControl(IOAudioControl *defaultAudioContr
             if (((getDirection() == kIOAudioStreamDirectionOutput) && (defaultAudioControl->getUsage() == kIOAudioControlUsageInput)) ||
                 ((getDirection() == kIOAudioStreamDirectionInput) && (defaultAudioControl->getUsage() == kIOAudioControlUsageOutput))) {
                 result = kIOReturnError;
-                IOLog("IOAudioStream::addDefaultAudioControl() - Error: invalid audio control - stream direction is opposite of control usage.\n");
+                audioErrorIOLog("IOAudioStream::addDefaultAudioControl() - Error: invalid audio control - stream direction is opposite of control usage.\n");
                 goto Done;
             }
             
@@ -2143,7 +2143,7 @@ IOReturn IOAudioStream::addDefaultAudioControl(IOAudioControl *defaultAudioContr
             
             if ((controlChannelID != 0) && ((controlChannelID < startingChannelID) || (controlChannelID >= (startingChannelID + maxNumChannels)))) {
                 result = kIOReturnError;
-                IOLog("IOAudioStream::addDefaultAudioControl() - Error: audio control channel is not in this stream.\n");
+                audioErrorIOLog("IOAudioStream::addDefaultAudioControl() - Error: audio control channel is not in this stream.\n");
                 goto Done;
             }
             

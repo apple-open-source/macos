@@ -143,6 +143,7 @@ struct TcpSession {
   /* For MidBoxTTL test */
   int curr_ttl;
 
+  int dont_send_reset;
 };
 
 //void SendSessionPacket(struct IPPacket *packet, 

@@ -85,7 +85,7 @@ uint16 InetChecksum(uint16 *ip, uint16 *tcp, uint16 ip_len, uint16 tcp_len) {
   uint16 *ip_addr = ip;
   uint16 *tcp_addr = tcp;
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("In InetChecksum...\n");
     printf("iplen: %d, tcplen: %d\n", ip_len, tcp_len);
   }
@@ -115,7 +115,7 @@ uint16 InetChecksum(uint16 *ip, uint16 *tcp, uint16 ip_len, uint16 tcp_len) {
     sum = (sum & 0xffff) + (sum >> 16);
   }
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out InetChecksum...\n");
   }
 
@@ -144,7 +144,7 @@ void WriteIPPacket(struct IPPacket *p,
   struct IpHeader *ip = p->ip;
   struct TcpHeader *tcp = p->tcp;
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("In WriteIPPacket...\n");
   }
 
@@ -191,7 +191,12 @@ void WriteIPPacket(struct IPPacket *p,
   ip->ip_off = IP_DF;
   ip->ip_len = (uint16)(sizeof(struct IpHeader) + ip_optlen + sizeof(struct TcpHeader) + optlen + datalen);
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  ip->ip_xsum = 0;
+  ip->ip_xsum = InetChecksum((uint16 *)ip, NULL,
+			       (uint16)sizeof(struct IpHeader) + ip_optlen, /* IP Options should aren't included */
+			       0);
+
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out WriteIPPacket...\n");
   }
 
@@ -445,7 +450,7 @@ AllocateIPPacket(int ip_optlen, int tcp_optlen, int datalen, char *str)
 {
 	struct IPPacket *p;
 
-	if (session.debug == SESSION_DEBUG_HIGH) {
+	if (session.debug >= SESSION_DEBUG_HIGH) {
 		printf("In AllocateIPPacket: %s...\n", str);
 	}
 
@@ -470,7 +475,7 @@ AllocateIPPacket(int ip_optlen, int tcp_optlen, int datalen, char *str)
 		Quit(ERR_MEM_ALLOC);
 	}
 
-	if (session.debug == SESSION_DEBUG_HIGH) {
+	if (session.debug >= SESSION_DEBUG_HIGH) {
 		printf("Out of AllocateIPPacket: %s...\n", str);
 	}
 	return(p);

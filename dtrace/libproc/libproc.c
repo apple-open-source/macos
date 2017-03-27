@@ -179,6 +179,13 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 
 	CSSymbolicatorRef symbolicator = CSSymbolicatorCreateWithTaskFlagsAndNotification(task, flags, ^(uint32_t notification_type, CSNotificationData data) {
 		switch (notification_type) {
+			case kCSNotificationTaskMain:
+				dt_dprintf("pid %d: kCSNotificationTaskMain\n", CSSymbolicatorGetPid(data.symbolicator));
+				// We're faking a "POSTINIT" breakpoint here.
+				if (should_queue_proc_activity_notices)
+					Pcreate_sync_proc_activity(proc, RD_POSTINIT);
+				break;
+
 			case kCSNotificationPing:
 				dt_dprintf("pid %d: kCSNotificationPing (value: %d)\n", CSSymbolicatorGetPid(data.symbolicator), data.u.ping.value);
 				// We're faking a "POSTINIT" breakpoint here.
@@ -224,6 +231,7 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 		}
 	});
 	if (!CSIsNull(symbolicator)) {
+		CSSymbolicatorSubscribeToTaskMainNotification(symbolicator);
 		proc->symbolicator = symbolicator; // Starts with a retain count of 1
 		proc->status.pr_dmodel = CSArchitectureIs64Bit(CSSymbolicatorGetArchitecture(symbolicator)) ? PR_MODEL_LP64 : PR_MODEL_ILP32;
 	} else {
@@ -233,24 +241,6 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 	}
 	
 	return proc;
-}
-
-/**
- * Kills a process that has been launched with posix_spawn with
- * POSIX_SPAWN_START_SUSPENDED
- */
-static void
-kill_process(pid_t pid)
-{
-	/**
-	 * <rdar://problem/25700569> We cannot send a SIGKILL signal to a
-	 * process that has just been launched with POSIX_SPAWN_START_SUSPENDED,
-	 * we need to send a SIGCONT first so that task_resume is called
-	 */
-	if (kill(pid, SIGCONT))
-		perror("kill(SIGCONT)");
-	if (kill(pid, SIGKILL))
-		perror("kill(SIGKILL)");
 }
 
 struct ps_prochandle *
@@ -278,13 +268,8 @@ Pcreate(const char *file,	/* executable file name */
 	
 	*perr = posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED);
 	if (0 != *perr) goto destroy_attr;
-		
-	setenv("DYLD_INSERT_LIBRARIES", "/usr/lib/dtrace/libdtrace_dyld.dylib", 1);
-	
 	*perr = posix_spawnp(&pid, file, NULL, &attr, argv, *_NSGetEnviron());
 	
-	unsetenv("DYLD_INSERT_LIBRARIES"); /* children must not have this present in their env */
-		
 destroy_attr:
 	posix_spawnattr_destroy(&attr);
 	
@@ -299,7 +284,8 @@ destroy_attr:
 		if (csr_check(CSR_ALLOW_UNRESTRICTED_DTRACE) != 0 && csops(pid, CS_OPS_STATUS, &flags, sizeof(flags)) != -1
 			&& (flags & CS_RESTRICT))
 		{
-			kill_process(pid);
+			if (kill(pid, SIGKILL))
+				perror("kill()");
 			*perr = APPLE_EXECUTABLE_RESTRICTED;
 			return NULL;
 		}
@@ -308,7 +294,9 @@ destroy_attr:
 		 * Check if DTrace will be able to attach to the process.
 		 */
 		if (!canAttachToProcess(pid)) {
-			kill_process(pid);
+			if (kill(pid, SIGKILL))
+				perror("kill()");
+
 			*perr = APPLE_EXECUTABLE_NOT_ATTACHABLE;
 			return NULL;
 		}

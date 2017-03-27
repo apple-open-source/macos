@@ -27,6 +27,8 @@
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecTrustedApplicationPriv.h>
 #include <security_keychain/Access.h>
+#include <security_utilities/casts.h>
+#include <utilities/SecCFRelease.h>
 #include "SecBridge.h"
 #include <sys/param.h>
 
@@ -230,6 +232,7 @@ CFStringRef GetAuthStringFromACLAuthorizationTag(sint32 tag)
 	{
 		result = (CFStringRef)CFDictionaryGetValue(gTagMapping, aNum);
 	}
+    CFReleaseSafe(aNum);
 	return result;
 }
 
@@ -291,7 +294,7 @@ SecAccessRef SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAcce
 	CSSM_ACL_PROCESS_SUBJECT_SELECTOR selector =
 	{
 		CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION,	// selector version
-		ownerType,
+		int_cast<UInt32, uint16>(ownerType),
 		userId,
 		groupId
 	};

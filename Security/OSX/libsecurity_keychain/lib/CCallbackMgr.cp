@@ -114,6 +114,7 @@ ModuleNexus<CallbackMaker> gCallbackMaker;
 
 CCallbackMgr::CCallbackMgr() : EventListener (kNotificationDomainDatabase, kNotificationAllEvents)
 {
+    mInitialized = true;
     EventListener::FinishedInitialization(this);
 }
 
@@ -154,7 +155,7 @@ void CCallbackMgr::AddCallback( SecKeychainCallback inCallbackFunction,
     ctx.info = info.mRunLoop;
 
     CFRunLoopTimerRef timerRef = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent(), 0, 0, 0, CCallbackMgr::cfrunLoopActive, &ctx);
-    secdebug("kcnotify", "adding a activate callback on run loop %p", info.mRunLoop);
+    secdebug("kcnotify", "adding an activate callback on run loop %p", info.mRunLoop);
     CFRunLoopAddTimer(info.mRunLoop, timerRef, kCFRunLoopDefaultMode);
 }
 
@@ -177,7 +178,6 @@ void CCallbackMgr::cfrunLoopActive(CFRunLoopTimerRef timer, void* info) {
 
     CFRelease(timer);
 }
-
 
 class Predicate
 {
@@ -222,14 +222,13 @@ static SecKeychainItemRef createItemReference(const Item &inItem)
 	SecKeychainItemRef itemRef = (inItem) ? inItem->handle() : 0;
 	if(!itemRef) { return NULL; }
 
-#if SECTRUST_OSX
 	SecItemClass itemClass = Schema::itemClassFor(inItem->recordType());
 	if (itemClass == kSecCertificateItemClass) {
 		SecCertificateRef certRef = SecCertificateCreateFromItemImplInstance((SecCertificateRef)itemRef);
 		CFRelease(itemRef); /* certRef maintains its own internal reference to itemRef */
 		itemRef = (SecKeychainItemRef) certRef;
 	}
-#endif
+
 	return itemRef;
 }
 
@@ -296,7 +295,7 @@ void CCallbackMgr::consume (SecurityServer::NotificationDomain domain, SecurityS
     NameValueDictionary dictionary (data);
 
     // Decode from userInfo the event type, 'keychain' CFDict, and 'item' CFDict
-	SecKeychainEvent thisEvent = whichEvent;
+	SecKeychainEvent thisEvent = (SecKeychainEvent) whichEvent;
 
     pid_t thisPid;
 	const NameValuePair* pidRef = dictionary.FindByName(PID_KEY);

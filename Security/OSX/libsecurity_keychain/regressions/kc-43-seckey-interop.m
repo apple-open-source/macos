@@ -125,7 +125,7 @@ static void test_generate_access_control() {
     NSDictionary *params = @{
         (id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA,
         (id)kSecAttrKeySizeInBits: @1024,
-        (id)kSecAttrAccessControl: (id)ac,
+        (id)kSecAttrAccessControl: (__bridge id)ac,
         (id)kSecAttrIsPermanent: @YES,
         (id)kSecAttrLabel: @"sectests:generate-access-control",
     };
@@ -166,7 +166,7 @@ static void test_add_ios_key() {
     ok_status(SecKeyGeneratePair((__bridge CFDictionaryRef)params, &pubKey, &privKey));
 
     NSDictionary *attrs = @{
-        (id)kSecValueRef: (id)privKey,
+        (id)kSecValueRef: (__bridge id)privKey,
         (id)kSecAttrLabel: @"sectests:add-ios-key",
     };
     ok_status(SecItemAdd((__bridge CFDictionaryRef)attrs, NULL));
@@ -250,7 +250,7 @@ static void test_store_cert_to_ios() {
 
     // Store certificate to modern keychain.
     NSDictionary *attrs = @{
-        (id)kSecValueRef: (id)cert,
+        (id)kSecValueRef: (__bridge id)cert,
         (id)kSecAttrLabel: @"sectests:store_cert_to_ios",
         (id)kSecAttrNoLegacy: @YES,
         (id)kSecReturnPersistentRef: @YES,
@@ -294,7 +294,7 @@ static void test_store_identity_to_ios() {
 
     // Store identity to the iOS keychain.
     NSDictionary *attrs = @{
-        (id)kSecValueRef: (id)identity,
+        (id)kSecValueRef: (__bridge id)identity,
         (id)kSecAttrLabel: @"sectests:store_identity_to_ios",
         (id)kSecAttrNoLegacy: @YES,
         (id)kSecReturnPersistentRef: @YES,
@@ -336,7 +336,7 @@ static void test_transform_with_ioskey() {
     ok(signer != NULL, "create signing transform");
     ok(SecTransformSetAttribute(signer, kSecTransformInputAttributeName, (CFDataRef)testData, NULL),
        "set input data to verify transform");
-    NSData *signature = (NSData *)SecTransformExecute(signer, NULL);
+    NSData *signature = (__bridge_transfer NSData *)SecTransformExecute(signer, NULL);
     ok(signature != nil, "create signature with transform");
 
     // Create verify transform with public key.
@@ -347,7 +347,7 @@ static void test_transform_with_ioskey() {
     ok(SecTransformSetAttribute(verifier, kSecTransformInputAttributeName, (CFDataRef)testData, NULL),
        "set input data to verify transform");
 
-    NSNumber *result = (NSNumber *)SecTransformExecute(verifier, NULL);
+    NSNumber *result = (__bridge_transfer NSNumber *)SecTransformExecute(verifier, NULL);
     ok(result != nil, "transform execution succeeded");
     ok(result.boolValue, "transform verified signature");
 
@@ -379,7 +379,7 @@ static void test_convert_key_to_persistent_ref() {
     {
         NSDictionary *query = @{
             (id)kSecAttrLabel: label,
-            (id)kSecValueRef: (id)privKey,
+            (id)kSecValueRef: (__bridge id)privKey,
             (id)kSecAttrNoLegacy: @YES,
         };
         ok_status(SecItemAdd((CFDictionaryRef)query, NULL));
@@ -390,14 +390,14 @@ static void test_convert_key_to_persistent_ref() {
     SecKeyRef queriedKeyRef = NULL;
     {
         NSDictionary *query = @{
-            (id)kSecValueRef: (id)privKey,
+            (id)kSecValueRef: (__bridge id)privKey,
             (id)kSecReturnPersistentRef: @YES,
             (id)kSecAttrNoLegacy: @YES,
         };
         ok_status(SecItemCopyMatching((CFDictionaryRef)query, (CFTypeRef *)&queriedPersistentKeyRef));
     }{
         NSDictionary *query = @{
-            (id)kSecValuePersistentRef: (id)queriedPersistentKeyRef,
+            (id)kSecValuePersistentRef: (__bridge id)queriedPersistentKeyRef,
             (id)kSecReturnRef: @YES,
             (id)kSecAttrNoLegacy: @YES,
         };
@@ -446,7 +446,7 @@ static void test_convert_cert_to_persistent_ref() {
     {
         NSDictionary *query = @{
             (id)kSecAttrLabel: label,
-            (id)kSecValueRef: (id)cert,
+            (id)kSecValueRef: (__bridge id)cert,
             (id)kSecAttrNoLegacy: @YES,
         };
         ok_status(SecItemAdd((CFDictionaryRef)query, NULL));
@@ -457,14 +457,14 @@ static void test_convert_cert_to_persistent_ref() {
     SecCertificateRef queriedCertRef = NULL;
     {
         NSDictionary *query = @{
-            (id)kSecValueRef: (id)cert,
+            (id)kSecValueRef: (__bridge id)cert,
             (id)kSecReturnPersistentRef: @YES,
             (id)kSecAttrNoLegacy: @YES,
         };
         ok_status(SecItemCopyMatching((CFDictionaryRef)query, (CFTypeRef *)&queriedPersistentCertRef));
     }{
         NSDictionary *query = @{
-            (id)kSecValuePersistentRef: (id)queriedPersistentCertRef,
+            (id)kSecValuePersistentRef: (__bridge id)queriedPersistentCertRef,
             (id)kSecReturnRef: @YES,
             (id)kSecAttrNoLegacy: @YES,
         };
@@ -523,7 +523,7 @@ static void test_convert_identity_to_persistent_ref() {
     {
         NSDictionary *query = @{
             (id)kSecAttrLabel: label,
-            (id)kSecValueRef: (id)idnt,
+            (id)kSecValueRef: (__bridge id)idnt,
             (id)kSecAttrNoLegacy: @YES,
         };
         ok_status(SecItemAdd((CFDictionaryRef)query, NULL));
@@ -534,14 +534,14 @@ static void test_convert_identity_to_persistent_ref() {
     SecIdentityRef queriedIdntRef = NULL;
     {
         NSDictionary *query = @{
-            (id)kSecValueRef: (id)idnt,
+            (id)kSecValueRef: (__bridge id)idnt,
             (id)kSecReturnPersistentRef: @YES,
             (id)kSecAttrNoLegacy: @YES,
         };
         ok_status(SecItemCopyMatching((CFDictionaryRef)query, (CFTypeRef *)&queriedPersistentIdntRef));
     }{
         NSDictionary *query = @{
-            (id)kSecValuePersistentRef: (id)queriedPersistentIdntRef,
+            (id)kSecValuePersistentRef: (__bridge id)queriedPersistentIdntRef,
             (id)kSecReturnRef: @YES,
             (id)kSecAttrNoLegacy: @YES,
         };
@@ -564,7 +564,7 @@ static void test_convert_identity_to_persistent_ref() {
     {
         NSDictionary *query = @{
             // identities can't be filtered out using 'label', so we will use directly the ValueRef here:
-            (id)kSecValueRef: (id)idnt,
+            (id)kSecValueRef: (__bridge id)idnt,
             (id)kSecAttrNoLegacy: @YES,
         };
         ok_status(SecItemDelete((CFDictionaryRef)query));
@@ -572,6 +572,41 @@ static void test_convert_identity_to_persistent_ref() {
     }
     CFReleaseNull(idnt);
 }
+
+static void test_cssm_from_ios_key_single(CFTypeRef keyType, int keySize) {
+    NSDictionary *params = @{
+                             (id)kSecAttrKeyType: (__bridge id)keyType,
+                             (id)kSecAttrKeySizeInBits: @(keySize),
+                             (id)kSecAttrNoLegacy: @YES,
+                             (id)kSecAttrIsPermanent: @NO,
+                             (id)kSecAttrLabel: @"sectests:cssm-from-ios-key",
+                             };
+    NSError *error;
+    id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
+    ok(privateKey != nil, "Failed to generate key, err %@", error);
+    id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    ok(publicKey != nil, "Failed to get public key from private key");
+
+    const CSSM_KEY *cssmKey = NULL;
+    OSStatus status = SecKeyGetCSSMKey((SecKeyRef)publicKey, &cssmKey);
+    ok_status(status, "Failed to get CSSM key");
+    isnt(cssmKey, NULL, "Got NULL CSSM key");
+
+    CSSM_CSP_HANDLE cspHandle = 0;
+    status = SecKeyGetCSPHandle((SecKeyRef)publicKey, &cspHandle);
+    ok_status(status, "Failed to get CSP handle");
+    isnt(cssmKey, NULL, "Got 0 CSP handle");
+}
+static const int kTestCSSMFromIOSKeySingleCount = 5;
+
+static void test_cssm_from_ios_key() {
+    test_cssm_from_ios_key_single(kSecAttrKeyTypeECSECPrimeRandom, 256);
+    test_cssm_from_ios_key_single(kSecAttrKeyTypeECSECPrimeRandom, 384);
+    test_cssm_from_ios_key_single(kSecAttrKeyTypeECSECPrimeRandom, 521);
+    test_cssm_from_ios_key_single(kSecAttrKeyTypeRSA, 1024);
+    test_cssm_from_ios_key_single(kSecAttrKeyTypeRSA, 2048);
+}
+static const int kTestCSSMFromIOSKeyCount = kTestCSSMFromIOSKeySingleCount * 5;
 
 static const int kTestCount =
     kTestGenerateNoLegacyCount +
@@ -582,7 +617,8 @@ static const int kTestCount =
     kTestTransformWithIOSKey +
     kTestConvertKeyToPersistentRef +
     kTestConvertCertToPersistentRef +
-    kTestConvertIdentityToPersistentRef;
+    kTestConvertIdentityToPersistentRef +
+    kTestCSSMFromIOSKeyCount;
 
 int kc_43_seckey_interop(int argc, char *const *argv) {
     plan_tests(kTestCount);
@@ -598,6 +634,7 @@ int kc_43_seckey_interop(int argc, char *const *argv) {
     test_convert_key_to_persistent_ref();
     test_convert_cert_to_persistent_ref();
     test_convert_identity_to_persistent_ref();
+    test_cssm_from_ios_key();
 
     return 0;
 }

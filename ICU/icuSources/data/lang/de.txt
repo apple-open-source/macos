@@ -615,7 +615,7 @@ de{
         was{"Washo-Sprache"}
         wbp{"Warlpiri"}
         wo{"Wolof"}
-        wuu{"Wu"}
+        wuu{"Shanghainesisch"}
         xal{"Kalmückisch"}
         xh{"Xhosa"}
         xmf{"Mingrelisch"}

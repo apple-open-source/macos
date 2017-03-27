@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Igalia S.L.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -20,15 +21,21 @@
 #include "UserMediaPermissionRequestProxy.h"
 
 #include "UserMediaPermissionRequestManagerProxy.h"
-#include <WebCore/MediaStreamTrackSourcesRequestClient.h>
 #include <WebCore/RealtimeMediaSourceCenter.h>
+#include <WebCore/SecurityOrigin.h>
+#include <WebCore/SecurityOriginData.h>
 #include <wtf/text/StringHash.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
-UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, const Vector<String>& audioDeviceUIDs, const Vector<String>& videoDeviceUIDs)
+UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, uint64_t frameID, const String& userMediaDocumentOriginIdentifier, const String& topLevelDocumentOriginIdentifier, const Vector<String>& audioDeviceUIDs, const Vector<String>& videoDeviceUIDs)
     : m_manager(&manager)
     , m_userMediaID(userMediaID)
+    , m_frameID(frameID)
+    , m_userMediaDocumentSecurityOrigin((SecurityOriginData::fromDatabaseIdentifier(userMediaDocumentOriginIdentifier)->securityOrigin()))
+    , m_topLevelDocumentSecurityOrigin(SecurityOriginData::fromDatabaseIdentifier(topLevelDocumentOriginIdentifier)->securityOrigin())
     , m_videoDeviceUIDs(videoDeviceUIDs)
     , m_audioDeviceUIDs(audioDeviceUIDs)
 {
@@ -40,18 +47,18 @@ void UserMediaPermissionRequestProxy::allow(const String& audioDeviceUID, const 
     if (!m_manager)
         return;
 
-    m_manager->didReceiveUserMediaPermissionDecision(m_userMediaID, true, audioDeviceUID, videoDeviceUID);
-    m_manager = nullptr;
+    m_manager->userMediaAccessWasGranted(m_userMediaID, audioDeviceUID, videoDeviceUID);
+    invalidate();
 }
 
-void UserMediaPermissionRequestProxy::deny()
+void UserMediaPermissionRequestProxy::deny(UserMediaAccessDenialReason reason)
 {
     ASSERT(m_manager);
     if (!m_manager)
         return;
 
-    m_manager->didReceiveUserMediaPermissionDecision(m_userMediaID, false, emptyString(), emptyString());
-    m_manager = nullptr;
+    m_manager->userMediaAccessWasDenied(m_userMediaID, reason);
+    invalidate();
 }
 
 void UserMediaPermissionRequestProxy::invalidate()

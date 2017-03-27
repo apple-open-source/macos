@@ -2200,7 +2200,9 @@ __mach_stack_logging_stop_reading(task_t task)
 			} else {
 				// remote_fds[i].in_use_count is 0 so don't decrement it!
 				fclose(remote_fds[i].index_file_stream);
+				remote_fds[i].index_file_stream = NULL;
 				destroy_cache_for_file_streams(&remote_fds[i]);
+				remote_fds[i].remote_task = 0;
 			}
 			break;
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -108,7 +108,10 @@ static const struct option longopts[] = {
 	{ "password",		required_argument,	NULL,	0	},
 	{ "secret",		required_argument,	NULL,	0	},
 	{ "log",		required_argument,	NULL,	0	},
-	{ "disable-until-needed", no_argument,	NULL,	0	},
+#if	!TARGET_OS_IPHONE
+	{ "allow-new-interfaces", no_argument,		NULL,	0	},
+#endif	// !TARGET_OS_IPHONE
+	{ "disable-until-needed", no_argument,		NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
 
@@ -365,6 +368,12 @@ usage(const char *command)
 		SCPrint(TRUE, stderr, CFSTR("\tmanage secondary interface demand.\n"));
 	}
 
+#if	!TARGET_OS_IPHONE
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --allow-new-interfaces [off|on]\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tmanage new interface creation with screen locked.\n"));
+#endif	// !TARGET_OS_IPHONE
+
 	if (getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
 		SCPrint(TRUE, stderr, CFSTR("\n"));
 		SCPrint(TRUE, stderr, CFSTR("   or: %s --net\n"), command);
@@ -393,29 +402,32 @@ prompt(EditLine *el)
 int
 main(int argc, char * const argv[])
 {
-	Boolean			disableUntilNeeded = FALSE;
-	Boolean			doDNS	= FALSE;
-	Boolean			doNet	= FALSE;
-	Boolean			doNWI	= FALSE;
-	Boolean			doPrefs	= FALSE;
-	Boolean			doProxy	= FALSE;
-	Boolean			doReach	= FALSE;
-	Boolean			doSnap	= FALSE;
-	char			*error	= NULL;
-	char			*get	= NULL;
-	char			*log	= NULL;
+#if	!TARGET_OS_IPHONE
+	Boolean			allowNewInterfaces	= FALSE;
+#endif	// !TARGET_OS_IPHONE
+	Boolean			disableUntilNeeded	= FALSE;
+	Boolean			doDNS			= FALSE;
+	Boolean			doNet			= FALSE;
+	Boolean			doNWI			= FALSE;
+	Boolean			doPrefs			= FALSE;
+	Boolean			doProxy			= FALSE;
+	Boolean			doReach			= FALSE;
+	Boolean			doSnap			= FALSE;
+	char			*error			= NULL;
+	char			*get			= NULL;
+	char			*log			= NULL;
 	extern int		optind;
 	int			opt;
 	int			opti;
-	const char		*prog	= argv[0];
-	char			*renew	= NULL;
-	char			*set	= NULL;
-	char			*nc_cmd	= NULL;
+	const char		*prog			= argv[0];
+	char			*renew			= NULL;
+	char			*set			= NULL;
+	char			*nc_cmd			= NULL;
 	InputRef		src;
-	int			timeout	= 15;	/* default timeout (in seconds) */
-	char			*wait	= NULL;
-	Boolean			watch	= FALSE;
-	int			xStore	= 0;	/* non dynamic store command line options */
+	int			timeout			= 15;	/* default timeout (in seconds) */
+	char			*wait			= NULL;
+	Boolean			watch			= FALSE;
+	int			xStore			= 0;	/* non dynamic store command line options */
 
 	/* process any arguments */
 
@@ -486,6 +498,11 @@ main(int argc, char * const argv[])
 			} else if (strcmp(longopts[opti].name, "log") == 0) {
 				log = optarg;
 				xStore++;
+#if	!TARGET_OS_IPHONE
+			} else if (strcmp(longopts[opti].name, "allow-new-interfaces") == 0) {
+				allowNewInterfaces = TRUE;
+				xStore++;
+#endif	// !TARGET_OS_IPHONE
 			} else if (strcmp(longopts[opti].name, "disable-until-needed") == 0) {
 				disableUntilNeeded = TRUE;
 				xStore++;
@@ -620,11 +637,20 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
+#if	!TARGET_OS_IPHONE
+	/* allowNewInterfaces */
+	if (allowNewInterfaces) {
+		do_ifnamer("allow-new-interfaces", argc, (char * *)argv);
+		/* NOT REACHED */
+	}
+#endif	// !TARGET_OS_IPHONE
+
 	/* disableUntilNeeded */
 	if (disableUntilNeeded) {
 		do_disable_until_needed(argc, (char * *)argv);
 		/* NOT REACHED */
 	}
+
 	/* network connection commands */
 	if (nc_cmd) {
 		if (find_nc_cmd(nc_cmd) < 0) {

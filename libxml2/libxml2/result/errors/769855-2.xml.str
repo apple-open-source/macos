@@ -1,0 +1,4 @@
+./test/errors/769855-2.xml:1: parser error : Extra content at the end of the document
+<!DOCTYPE x [<!ENTITY % x '&#37;z;<![INCLUDE[&#37;zxxxxxNTD&#307;zz&#37;zzzz;xxx
+            ^
+./test/errors/769855-2.xml : failed to parse

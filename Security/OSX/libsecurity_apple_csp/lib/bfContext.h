@@ -26,7 +26,7 @@
 
 #include "AppleCSPContext.h"
 #include "BlockCryptor.h"
-#include <openssl/blowfish.h>
+#include <openssl/blowfish_legacy.h>
 
 class BlowfishContext : public BlockCryptor {
 public:

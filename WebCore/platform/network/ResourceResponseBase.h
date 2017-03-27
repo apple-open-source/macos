@@ -29,8 +29,8 @@
 #include "CacheValidation.h"
 #include "CertificateInfo.h"
 #include "HTTPHeaderMap.h"
+#include "NetworkLoadTiming.h"
 #include "ParsedContentRange.h"
-#include "ResourceLoadTiming.h"
 #include "URL.h"
 
 namespace WebCore {
@@ -57,13 +57,16 @@ public:
         String httpStatusText;
         String httpVersion;
         HTTPHeaderMap httpHeaderFields;
-        ResourceLoadTiming resourceLoadTiming;
+        NetworkLoadTiming networkLoadTiming;
         Type type;
         bool isRedirected;
     };
 
     CrossThreadData crossThreadData() const;
     static ResourceResponse fromCrossThreadData(CrossThreadData&&);
+
+    enum class Tainting { Basic, Cors, Opaque };
+    static ResourceResponse filterResponse(const ResourceResponse&, Tainting);
 
     bool isNull() const { return m_isNull; }
     WEBCORE_EXPORT bool isHTTP() const;
@@ -89,14 +92,14 @@ public:
 
     WEBCORE_EXPORT const String& httpVersion() const;
     WEBCORE_EXPORT void setHTTPVersion(const String&);
-    bool isHttpVersion0_9() const;
+    WEBCORE_EXPORT bool isHTTP09() const;
 
     WEBCORE_EXPORT const HTTPHeaderMap& httpHeaderFields() const;
 
     String httpHeaderField(const String& name) const;
     WEBCORE_EXPORT String httpHeaderField(HTTPHeaderName) const;
     WEBCORE_EXPORT void setHTTPHeaderField(const String& name, const String& value);
-    void setHTTPHeaderField(HTTPHeaderName, const String& value);
+    WEBCORE_EXPORT void setHTTPHeaderField(HTTPHeaderName, const String& value);
 
     void addHTTPHeaderField(HTTPHeaderName, const String& value);
     void addHTTPHeaderField(const String& name, const String& value);
@@ -110,9 +113,10 @@ public:
 
     WEBCORE_EXPORT bool isAttachment() const;
     WEBCORE_EXPORT String suggestedFilename() const;
+    WEBCORE_EXPORT static String sanitizeSuggestedFilename(const String&);
 
     WEBCORE_EXPORT void includeCertificateInfo() const;
-    WEBCORE_EXPORT const Optional<CertificateInfo>& certificateInfo() const { return m_certificateInfo; };
+    const std::optional<CertificateInfo>& certificateInfo() const { return m_certificateInfo; };
     
     // These functions return parsed values of the corresponding response headers.
     // NaN means that the header was not present or had invalid value.
@@ -120,11 +124,11 @@ public:
     WEBCORE_EXPORT bool cacheControlContainsNoStore() const;
     WEBCORE_EXPORT bool cacheControlContainsMustRevalidate() const;
     WEBCORE_EXPORT bool hasCacheValidatorFields() const;
-    WEBCORE_EXPORT Optional<std::chrono::microseconds> cacheControlMaxAge() const;
-    WEBCORE_EXPORT Optional<std::chrono::system_clock::time_point> date() const;
-    WEBCORE_EXPORT Optional<std::chrono::microseconds> age() const;
-    WEBCORE_EXPORT Optional<std::chrono::system_clock::time_point> expires() const;
-    WEBCORE_EXPORT Optional<std::chrono::system_clock::time_point> lastModified() const;
+    WEBCORE_EXPORT std::optional<std::chrono::microseconds> cacheControlMaxAge() const;
+    WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> date() const;
+    WEBCORE_EXPORT std::optional<std::chrono::microseconds> age() const;
+    WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> expires() const;
+    WEBCORE_EXPORT std::optional<std::chrono::system_clock::time_point> lastModified() const;
     ParsedContentRange& contentRange() const;
 
     // This is primarily for testing support. It is not necessarily accurate in all scenarios.
@@ -132,7 +136,7 @@ public:
     WEBCORE_EXPORT Source source() const;
     WEBCORE_EXPORT void setSource(Source);
 
-    ResourceLoadTiming& resourceLoadTiming() const { return m_resourceLoadTiming; }
+    NetworkLoadTiming& networkLoadTiming() const { return m_networkLoadTiming; }
 
     // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
     unsigned memoryUsage() const
@@ -184,17 +188,17 @@ protected:
     AtomicString m_httpStatusText;
     AtomicString m_httpVersion;
     HTTPHeaderMap m_httpHeaderFields;
-    mutable ResourceLoadTiming m_resourceLoadTiming;
+    mutable NetworkLoadTiming m_networkLoadTiming;
 
-    mutable Optional<CertificateInfo> m_certificateInfo;
+    mutable std::optional<CertificateInfo> m_certificateInfo;
 
     int m_httpStatusCode;
 
 private:
-    mutable Optional<std::chrono::microseconds> m_age;
-    mutable Optional<std::chrono::system_clock::time_point> m_date;
-    mutable Optional<std::chrono::system_clock::time_point> m_expires;
-    mutable Optional<std::chrono::system_clock::time_point> m_lastModified;
+    mutable std::optional<std::chrono::microseconds> m_age;
+    mutable std::optional<std::chrono::system_clock::time_point> m_date;
+    mutable std::optional<std::chrono::system_clock::time_point> m_expires;
+    mutable std::optional<std::chrono::system_clock::time_point> m_lastModified;
     mutable ParsedContentRange m_contentRange;
     mutable CacheControlDirectives m_cacheControlDirectives;
 
@@ -229,7 +233,12 @@ void ResourceResponseBase::encode(Encoder& encoder) const
     encoder << m_httpStatusText;
     encoder << m_httpVersion;
     encoder << m_httpHeaderFields;
-    encoder << m_resourceLoadTiming;
+
+    // We don't want to put the networkLoadTiming info
+    // into the disk cache, because we will never use the old info.
+    if (Encoder::isIPCEncoder)
+        encoder << m_networkLoadTiming;
+
     encoder << m_httpStatusCode;
     encoder << m_certificateInfo;
     encoder.encodeEnum(m_source);
@@ -263,7 +272,8 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
         return false;
     if (!decoder.decode(response.m_httpHeaderFields))
         return false;
-    if (!decoder.decode(response.m_resourceLoadTiming))
+    // The networkLoadTiming info is only send over IPC and not stored in disk cache.
+    if (Decoder::isIPCDecoder && !decoder.decode(response.m_networkLoadTiming))
         return false;
     if (!decoder.decode(response.m_httpStatusCode))
         return false;

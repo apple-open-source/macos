@@ -103,6 +103,7 @@ protected:
 	bool mActive;					// loaded, attached, etc.
     RecursiveMutex mActivateMutex;
 	mutable Allocator *mAllocator; // allocator hierarchy (NULL => TBD)
+    mutable RecursiveMutex mAllocatorMutex; // protects allocator creation
 	
 	template <class Obj> Obj parent() const
 	{ assert(mParent); return Obj(static_cast<typename Obj::Impl *>(&(*mParent))); }

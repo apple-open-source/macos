@@ -34,11 +34,11 @@ IDBIndexInfo::IDBIndexInfo()
 {
 }
 
-IDBIndexInfo::IDBIndexInfo(uint64_t identifier, uint64_t objectStoreIdentifier, const String& name, const IDBKeyPath& keyPath, bool unique, bool multiEntry)
+IDBIndexInfo::IDBIndexInfo(uint64_t identifier, uint64_t objectStoreIdentifier, const String& name, IDBKeyPath&& keyPath, bool unique, bool multiEntry)
     : m_identifier(identifier)
     , m_objectStoreIdentifier(objectStoreIdentifier)
     , m_name(name)
-    , m_keyPath(keyPath)
+    , m_keyPath(WTFMove(keyPath))
     , m_unique(unique)
     , m_multiEntry(multiEntry)
 {
@@ -46,7 +46,7 @@ IDBIndexInfo::IDBIndexInfo(uint64_t identifier, uint64_t objectStoreIdentifier, 
 
 IDBIndexInfo IDBIndexInfo::isolatedCopy() const
 {
-    return { m_identifier, m_objectStoreIdentifier, m_name.isolatedCopy(), m_keyPath.isolatedCopy(), m_unique, m_multiEntry };
+    return { m_identifier, m_objectStoreIdentifier, m_name.isolatedCopy(), WebCore::isolatedCopy(m_keyPath), m_unique, m_multiEntry };
 }
 
 #if !LOG_DISABLED
@@ -57,6 +57,11 @@ String IDBIndexInfo::loggingString(int indent) const
         indentString.append(" ");
 
     return makeString(indentString, "Index: ", m_name, String::format(" (%" PRIu64 ") \n", m_identifier));
+}
+
+String IDBIndexInfo::condensedLoggingString() const
+{
+    return String::format("<Idx: %s (%" PRIu64 "), OS (%" PRIu64 ")>", m_name.utf8().data(), m_identifier, m_objectStoreIdentifier);
 }
 #endif
 

@@ -66,7 +66,6 @@ char **test_skip_leaks_test = NULL;
 static int current_dir = -1;
 static char scratch_dir[50];
 static char *home_var;
-static bool keep_scratch_dir = false;
 
 static int
 rmdir_recursive(const char *path)
@@ -91,61 +90,66 @@ rmdir_recursive(const char *path)
 static int tests_init(void) {
     int ok = 0;
 #ifdef NO_SERVER
-	char preferences_dir[80];
-	char library_dir[70];
 
 	setup("tests_init");
 
-    /* Create scratch dir for tests to run in. */
-    sprintf(scratch_dir, "/tmp/tst-%d", getpid());
-    if (keep_scratch_dir) {
-        printf("running tests with HOME=%s\n", scratch_dir);
-    }
+    // Get TMP directory
+    NSError* error = nil;
+    NSString* pid = [NSString stringWithFormat: @"tst-%d", [[NSProcessInfo processInfo] processIdentifier]];
+    NSURL* tmpDirURL = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:pid];
 
-    sprintf(library_dir, "%s/Library", scratch_dir);
-    sprintf(preferences_dir, "%s/Preferences", library_dir);
-    ok =  (ok_unix(mkdir(scratch_dir, 0755), "mkdir") &&
-           ok_unix(current_dir = open(".", O_RDONLY), "open") &&
-           ok_unix(chdir(scratch_dir), "chdir") &&
-           ok_unix(setenv("HOME", scratch_dir, 1), "setenv") &&
-           /* @@@ Work around a bug that the prefs code in
-            libsecurity_keychain never creates the Library/Preferences
-            dir. */
-           ok_unix(mkdir(library_dir, 0755), "mkdir") &&
-           ok_unix(mkdir(preferences_dir, 0755), "mkdir") &&
-           ok(home_var = getenv("HOME"), "getenv"));
-    
+    ok = ok(tmpDirURL, "Got error setting up tmp dir: %@", error);
+
+    ok = ok && ok([[NSFileManager defaultManager] createDirectoryAtURL:tmpDirURL
+                                           withIntermediateDirectories:NO
+                                                            attributes:NULL
+                                                                 error:&error],
+                  "Failed to make %@: %@", tmpDirURL, error);
+
+    NSURL* libraryURL = [tmpDirURL URLByAppendingPathComponent:@"Library"];
+    NSURL* preferencesURL = [tmpDirURL URLByAppendingPathComponent:@"Preferences"];
+
+    ok =  (ok && ok_unix(current_dir = open(".", O_RDONLY), "open")
+              && ok_unix(chdir([tmpDirURL fileSystemRepresentation]), "chdir")
+              && ok_unix(setenv("HOME", [tmpDirURL fileSystemRepresentation], 1), "setenv")
+              && ok(home_var = getenv("HOME"), "getenv"));
+
+    ok = ok && ok([[NSFileManager defaultManager] createDirectoryAtURL:libraryURL
+                                           withIntermediateDirectories:NO
+                                                            attributes:NULL
+                                                                 error:&error],
+                  "Failed to make %@: %@", libraryURL, error);
+
+    ok = ok && ok([[NSFileManager defaultManager] createDirectoryAtURL:preferencesURL
+                                           withIntermediateDirectories:NO
+                                                            attributes:NULL
+                                                                 error:&error],
+                  "Failed to make %@: %@", preferencesURL, error);
+
     if (ok > 0)
-        securityd_init(scratch_dir);
+        securityd_init((__bridge CFURLRef) tmpDirURL);
+
 #endif
 
     return ok;
 }
 
-static int
+static void
 tests_end(void)
 {
 #ifdef NO_SERVER
 	setup("tests_end");
+
 	/* Restore previous cwd and remove scratch dir. */
-	int ok = ok_unix(fchdir(current_dir), "fchdir");
-	if (ok)
-		ok = ok_unix(close(current_dir), "close");
-	if (ok) {
-		if (!keep_scratch_dir) {
-			ok = ok_unix(rmdir_recursive(scratch_dir), "rmdir_recursive");
-		}
-	}
-    
-	return ok;
-#else
-    return 0;
+    ok_unix(fchdir(current_dir), "fchdir");
+    ok_unix(close(current_dir), "close");
+    ok_unix(rmdir_recursive(scratch_dir), "rmdir_recursive");
 #endif
 }
 
 static void usage(const char *progname)
 {
-    fprintf(stderr, "usage: %s [-k][-w][testname [testargs] ...]\n", progname);
+    fprintf(stderr, "usage: %s [-w][testname [testargs] ...]\n", progname);
     exit(1);
 }
 
@@ -391,15 +395,10 @@ tests_begin(int argc, char * const *argv) {
 
 
     for (;;) {
-        while (!testcase && (ch = getopt(argc, argv, "bklL1vwqs")) != -1)
+        while (!testcase && (ch = getopt(argc, argv, "blL1vwqs")) != -1)
         {
             switch  (ch)
             {
-#ifdef NO_SERVER
-            case 'k':
-                keep_scratch_dir = true;
-                break;
-#endif
             case 's':
                 if (!print_security_logs) {
                     //add_security_log_handler(handle_logs);

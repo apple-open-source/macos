@@ -1,3 +1,95 @@
+2017-02-05  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r211551. rdar://problem/26685576
+
+    2017-02-02  Yongjun Zhang  <yongjun_zhang@apple.com>
+
+            In iOS, we should take background assertion when accessing localstorage databases.
+            https://bugs.webkit.org/show_bug.cgi?id=165478
+
+            Move application background task handling code from WebKit to WebCore.
+
+            Reviewed by Brady Eidson.
+
+            * Misc/WebUIKitSupport.h: Remove several methods that only used internally for background
+                task handling. They are not needed in WebKit any more since background task handling
+                is moved to WebCore and wrapped in WebBackgroundTaskController class.
+            * Misc/WebUIKitSupport.mm:
+            (WebKitSetInvalidWebBackgroundTaskIdentifier): Instead of storing the value in a static global
+                variable, save it in WebBackgroundTaskController.
+            (WebKitSetStartBackgroundTaskBlock): Ditto.
+            (WebKitSetEndBackgroundTaskBlock): Ditto.
+
+2016-12-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Stop reinterpret_casting UBreakIterators to the undefined type TextBreakIterator
+        https://bugs.webkit.org/show_bug.cgi?id=165931
+
+        Reviewed by Alex Christensen.
+
+        * Misc/WebUIKitSupport.mm:
+
+2016-11-01  Alex Christensen  <achristensen@webkit.org>
+
+        Remove PassRefPtr from DumpRenderTree
+        https://bugs.webkit.org/show_bug.cgi?id=164307
+
+        Reviewed by Sam Weinig.
+
+        * Misc/WebGeolocationProviderIOS.mm:
+
+2016-10-26  Dan Bernstein  <mitz@apple.com>
+
+        Tried to fix the iOS build after r207934.
+
+        * WebCoreSupport/WebFrameIOS.mm:
+        (-[WebFrame closestCaretRectInMarkedTextRangeForPoint:]): Removed commented-out code and
+          a comment that had a typo in it and looked like a bad Doxygen trailing comment.
+
+2016-08-16  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Migrate line breaking code from ints to Optional<unsigned>s
+        https://bugs.webkit.org/show_bug.cgi?id=160859
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebUIKitSupport.mm:
+        (WebKitGetLastLineBreakInBuffer):
+
+2016-08-15  Joseph Pecoraro  <pecoraro@apple.com>
+
+        Remove unused includes of wtf headers
+        https://bugs.webkit.org/show_bug.cgi?id=160839
+
+        Reviewed by Alex Christensen.
+
+        * Misc/WebGeolocationCoreLocationProvider.h:
+        * WebView/WebPDFViewIOS.mm:
+        * WebView/WebPlainWhiteView.mm:
+
+2016-08-09  George Ruan  <gruan@apple.com>
+
+        Implement functionality of media capture on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=158945
+        <rdar://problem/26893343>
+
+        Reviewed by Tim Horton.
+
+        * DefaultDelegates/WebDefaultUIKitDelegate.m:
+        (-[WebDefaultUIKitDelegate
+        webView:runOpenPanelForFileButtonWithResultListener:configuration:]):
+        Use a dictionary instead of passing each parameter in separately.
+        (-[WebDefaultUIKitDelegate webView:runOpenPanelForFileButtonWithResultListener:allowMultipleFiles:acceptMIMETypes:]): Deleted.
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (webMediaCaptureType): Converts from WebCore::MediaCaptureType to
+        WebMediaCaptureType.
+        (WebChromeClientIOS::runOpenPanel):
+        * WebKit.iOS.exp: Expose NSDictionary keys for
+        runOpenPanelForFileButtonWithResultListener.
+        * WebView/WebUIKitDelegate.h: Add WebMediaCaptureType enum and
+        NSDictionary keys for
+        runOpenPanelForFileButtonWithResultListener.
+
 2016-07-11  Enrica Casucci  <enrica@apple.com>
 
         Add synthetic click origin to WKNavigationAction.

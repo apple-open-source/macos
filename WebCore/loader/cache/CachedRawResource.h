@@ -20,8 +20,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef CachedRawResource_h
-#define CachedRawResource_h
+#pragma once
 
 #include "CachedResource.h"
 
@@ -32,7 +31,7 @@ class SubresourceLoader;
 
 class CachedRawResource final : public CachedResource {
 public:
-    CachedRawResource(ResourceRequest&, Type, SessionID);
+    CachedRawResource(CachedResourceRequest&&, Type, SessionID);
 
     // FIXME: AssociatedURLLoader shouldn't be a DocumentThreadableLoader and therefore shouldn't
     // use CachedRawResource. However, it is, and it needs to be able to defer loading.
@@ -40,7 +39,7 @@ public:
     virtual void setDefersLoading(bool);
 
     virtual void setDataBufferingPolicy(DataBufferingPolicy);
-    
+
     // FIXME: This is exposed for the InpsectorInstrumentation for preflights in DocumentThreadableLoader. It's also really lame.
     unsigned long identifier() const { return m_identifier; }
 
@@ -51,10 +50,10 @@ public:
     bool wasRedirected() const { return !m_redirectChain.isEmpty(); };
 
 private:
-    void didAddClient(CachedResourceClient*) override;
-    void addDataBuffer(SharedBuffer&) override;
-    void addData(const char* data, unsigned length) override;
-    void finishLoading(SharedBuffer*) override;
+    void didAddClient(CachedResourceClient&) final;
+    void addDataBuffer(SharedBuffer&) final;
+    void addData(const char* data, unsigned length) final;
+    void finishLoading(SharedBuffer*) final;
 
     bool shouldIgnoreHTTPStatusCodeErrors() const override { return true; }
     void allClientsRemoved() override;
@@ -97,5 +96,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CachedRawResource)
     static bool isType(const WebCore::CachedResource& resource) { return resource.isMainOrMediaOrRawResource(); }
 SPECIALIZE_TYPE_TRAITS_END()
-
-#endif // CachedRawResource_h

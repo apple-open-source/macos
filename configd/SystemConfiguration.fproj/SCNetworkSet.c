@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1728,7 +1728,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 
 				service = SCNetworkServiceCreate(setPrivate->prefs, interface);
 				if (service == NULL) {
-					SC_log(LOG_INFO, "could not create service for \"%@\": %s",
+					SC_log(LOG_ERR, "could not create service for \"%@\": %s",
 					       SCNetworkInterfaceGetLocalizedDisplayName(interface),
 					       SCErrorString(SCError()));
 					ok = FALSE;
@@ -1737,7 +1737,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 
 				ok = SCNetworkServiceEstablishDefaultConfiguration(service);
 				if (!ok) {
-					SC_log(LOG_INFO, "could not estabish default configuration for \"%@\": %s",
+					SC_log(LOG_ERR, "could not estabish default configuration for \"%@\": %s",
 					       SCNetworkInterfaceGetLocalizedDisplayName(interface),
 					       SCErrorString(SCError()));
 					SCNetworkServiceRemove(service);
@@ -1747,7 +1747,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 
 				ok = SCNetworkSetAddService(set, service);
 				if (!ok) {
-					SC_log(LOG_INFO, "could not add service for \"%@\": %s",
+					SC_log(LOG_ERR, "could not add service for \"%@\": %s",
 					       SCNetworkInterfaceGetLocalizedDisplayName(interface),
 					       SCErrorString(SCError()));
 					SCNetworkServiceRemove(service);

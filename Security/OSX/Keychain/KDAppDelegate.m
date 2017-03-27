@@ -27,7 +27,7 @@
 #import "NSArray+mapWithBlock.h"
 #include <notify.h>
 
-#define kSecServerKeychainChangedNotification "com.apple.security.keychainchanged"
+#include <Security/SecItemInternal.h>
 
 @implementation KDAppDelegate
 

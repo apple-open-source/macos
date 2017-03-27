@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014, 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ARM64Assembler_h
-#define ARM64Assembler_h
+#pragma once
 
 #if ENABLE(ASSEMBLER) && CPU(ARM64)
 
@@ -1073,6 +1072,12 @@ public:
         insn(excepnGeneration(ExcepnOp_HALT, imm, 0));
     }
 
+    // Only used for testing purposes.
+    void illegalInstruction()
+    {
+        insn(0x0);
+    }
+
     template<int datasize>
     ALWAYS_INLINE void ldp(RegisterID rt, RegisterID rt2, RegisterID rn, PairPostIndex simm)
     {
@@ -1497,9 +1502,14 @@ public:
         }
     }
     
-    ALWAYS_INLINE void dmbSY()
+    ALWAYS_INLINE void dmbISH()
     {
-        insn(0xd5033fbf);
+        insn(0xd5033bbf);
+    }
+
+    ALWAYS_INLINE void dmbISHST()
+    {
+        insn(0xd5033abf);
     }
 
     template<int datasize>
@@ -2512,6 +2522,11 @@ public:
     {
         return 4;
     }
+
+    static constexpr ptrdiff_t patchableJumpSize()
+    {
+        return 4;
+    }
     
     static void replaceWithLoad(void* where)
     {
@@ -2668,6 +2683,11 @@ public:
     {
         relinkJumpOrCall<false>(reinterpret_cast<int*>(from), reinterpret_cast<const int*>(from), to);
         cacheFlush(from, sizeof(int));
+    }
+    
+    static void relinkJumpToNop(void* from)
+    {
+        relinkJump(from, static_cast<char*>(from) + 4);
     }
     
     static void relinkCall(void* from, void* to)
@@ -3604,5 +3624,3 @@ private:
 #undef CHECK_FP_MEMOP_DATASIZE
 
 #endif // ENABLE(ASSEMBLER) && CPU(ARM64)
-
-#endif // ARM64Assembler_h

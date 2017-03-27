@@ -35,7 +35,7 @@ function then(onFulfilled, onRejected)
     "use strict";
 
     if (!@isPromise(this))
-        throw new @TypeError("|this| is not a object");
+        @throwTypeError("|this| is not a object");
 
     var constructor = @speciesConstructor(this, @Promise);
 
@@ -47,18 +47,13 @@ function then(onFulfilled, onRejected)
     if (typeof onRejected !== "function")
         onRejected = function (argument) { throw argument; };
 
-    var fulfillReaction = @newPromiseReaction(resultCapability, onFulfilled);
-    var rejectReaction = @newPromiseReaction(resultCapability, onRejected);
+    var reaction = @newPromiseReaction(resultCapability, onFulfilled, onRejected);
 
     var state = this.@promiseState;
-
-    if (state === @promiseStatePending) {
-        @putByValDirect(this.@promiseFulfillReactions, this.@promiseFulfillReactions.length, fulfillReaction)
-        @putByValDirect(this.@promiseRejectReactions, this.@promiseRejectReactions.length, rejectReaction)
-    } else if (state === @promiseStateFulfilled)
-        @enqueueJob(@promiseReactionJob, [fulfillReaction, this.@promiseResult]);
-    else if (state === @promiseStateRejected)
-        @enqueueJob(@promiseReactionJob, [rejectReaction, this.@promiseResult]);
+    if (state === @promiseStatePending)
+        @putByValDirect(this.@promiseReactions, this.@promiseReactions.length, reaction);
+    else
+        @enqueueJob(@promiseReactionJob, [state, reaction, this.@promiseResult]);
 
     return resultCapability.@promise;
 }

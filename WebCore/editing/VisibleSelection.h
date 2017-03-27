@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef VisibleSelection_h
-#define VisibleSelection_h
+#pragma once
 
 #include "TextGranularity.h"
 #include "VisiblePosition.h"
@@ -157,9 +156,7 @@ inline bool operator!=(const VisibleSelection& a, const VisibleSelection& b)
 } // namespace WebCore
 
 #if ENABLE(TREE_DEBUGGING)
-// Outside the WebCore namespace for ease of invocation from gdb.
+// Outside the WebCore namespace for ease of invocation from the debugger.
 void showTree(const WebCore::VisibleSelection&);
 void showTree(const WebCore::VisibleSelection*);
 #endif
-
-#endif // VisibleSelection_h

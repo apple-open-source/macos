@@ -28,6 +28,7 @@
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/errors.h>
 #include <security_utilities/debugging.h>
+#include <utilities/SecCFRelease.h>
 #include <cstdarg>
 #include <vector>
 
@@ -195,7 +196,7 @@ string cfString(CFStringRef str)
 	return ret;
 }
 
-string cfStringRelease(CFStringRef inStr)
+string cfStringRelease(CFStringRef CF_CONSUMED inStr)
 {
 	CFRef<CFStringRef> str(inStr);
 	return cfString(str);
@@ -213,7 +214,7 @@ string cfString(CFURLRef inUrl)
 		CFError::throwMe();
 }
     
-string cfStringRelease(CFURLRef inUrl)
+string cfStringRelease(CFURLRef CF_CONSUMED inUrl)
 {
 	CFRef<CFURLRef> bundle(inUrl);
 	return cfString(bundle);
@@ -226,7 +227,7 @@ string cfString(CFBundleRef inBundle)
 	return cfStringRelease(CFBundleCopyBundleURL(inBundle));
 }
 
-string cfStringRelease(CFBundleRef inBundle)
+string cfStringRelease(CFBundleRef CF_CONSUMED inBundle)
 {
 	CFRef<CFBundleRef> bundle(inBundle);
 	return cfString(bundle);
@@ -244,8 +245,9 @@ string cfString(CFTypeRef it, OSStatus err)
 		return cfString(CFURLRef(it));
 	else if (id == CFBundleGetTypeID())
 		return cfString(CFBundleRef(it));
-	else
-		return cfString(CFCopyDescription(it), true);
+    else {
+        return cfStringRelease(CFCopyDescription(it));
+    }
 }
 
 

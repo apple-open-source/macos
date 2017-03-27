@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2011, 2012, 2015 Ericsson AB. All rights reserved.
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,13 +33,12 @@
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
-#include "ExceptionCode.h"
+#include "Logging.h"
 #include "MediaStreamRegistry.h"
 #include "MediaStreamTrackEvent.h"
 #include "Page.h"
 #include "RealtimeMediaSource.h"
 #include "URL.h"
-#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -73,7 +72,7 @@ MediaStream::MediaStream(ScriptExecutionContext& context, const MediaStreamTrack
     trackPrivates.reserveCapacity(tracks.size());
 
     for (auto& track : tracks) {
-        track->addObserver(this);
+        track->addObserver(*this);
         m_trackSet.add(track->id(), track);
         trackPrivates.append(&track->privateTrack());
     }
@@ -97,7 +96,7 @@ MediaStream::MediaStream(ScriptExecutionContext& context, RefPtr<MediaStreamPriv
 
     for (auto& trackPrivate : m_private->tracks()) {
         auto track = MediaStreamTrack::create(context, *trackPrivate);
-        track->addObserver(this);
+        track->addObserver(*this);
         m_trackSet.add(track->id(), WTFMove(track));
     }
     document()->addAudioProducer(this);
@@ -111,9 +110,12 @@ MediaStream::~MediaStream()
     MediaStreamRegistry::shared().unregisterStream(*this);
     m_private->removeObserver(*this);
     for (auto& track : m_trackSet.values())
-        track->removeObserver(this);
-    if (Document* document = this->document())
+        track->removeObserver(*this);
+    if (Document* document = this->document()) {
         document->removeAudioProducer(this);
+        if (m_isWaitingUntilMediaCanStart)
+            document->removeMediaCanStartListener(this);
+    }
 }
 
 RefPtr<MediaStream> MediaStream::clone()
@@ -213,7 +215,7 @@ bool MediaStream::internalAddTrack(Ref<MediaStreamTrack>&& trackToAdd, StreamMod
 
     ASSERT(result.iterator->value);
     auto& track = *result.iterator->value;
-    track.addObserver(this);
+    track.addObserver(*this);
 
     if (streamModifier == StreamModifier::DomAPI)
         m_private->addTrack(&track.privateTrack(), MediaStreamPrivate::NotifyClientOption::DontNotify);
@@ -229,7 +231,7 @@ bool MediaStream::internalRemoveTrack(const String& trackId, StreamModifier stre
     if (!track)
         return false;
 
-    track->removeObserver(this);
+    track->removeObserver(*this);
 
     if (streamModifier == StreamModifier::DomAPI)
         m_private->removeTrack(track->privateTrack(), MediaStreamPrivate::NotifyClientOption::DontNotify);
@@ -248,6 +250,41 @@ void MediaStream::setIsActive(bool active)
     statusDidChange();
 }
 
+void MediaStream::mediaCanStart(Document& document)
+{
+    ASSERT_UNUSED(document, &document == this->document());
+    ASSERT(m_isWaitingUntilMediaCanStart);
+    if (m_isWaitingUntilMediaCanStart) {
+        m_isWaitingUntilMediaCanStart = false;
+        startProducingData();
+    }
+}
+
+void MediaStream::startProducingData()
+{
+    Document* document = this->document();
+    if (!document || !document->page())
+        return;
+
+    // If we can't start a load right away, start it later.
+    if (!document->page()->canStartMedia()) {
+        LOG(Media, "MediaStream::startProducingData(%p) - not allowed to start in background, waiting", this);
+        if (m_isWaitingUntilMediaCanStart)
+            return;
+
+        m_isWaitingUntilMediaCanStart = true;
+        document->addMediaCanStartListener(this);
+        return;
+    }
+
+    m_private->startProducingData();
+}
+
+void MediaStream::stopProducingData()
+{
+    m_private->stopProducingData();
+}
+
 void MediaStream::pageMutedStateDidChange()
 {
     if (!m_isActive)
@@ -257,15 +294,15 @@ void MediaStream::pageMutedStateDidChange()
     if (!document)
         return;
 
-    bool pageMuted = document->page()->isMuted();
+    bool pageMuted = document->page()->isMediaCaptureMuted();
     if (m_externallyMuted == pageMuted)
         return;
 
     m_externallyMuted = pageMuted;
     if (pageMuted)
-        m_private->stopProducingData();
+        stopProducingData();
     else
-        m_private->startProducingData();
+        startProducingData();
 }
 
 MediaProducer::MediaStateFlags MediaStream::mediaState() const
@@ -275,11 +312,17 @@ MediaProducer::MediaStateFlags MediaStream::mediaState() const
     if (!m_isActive)
         return state;
 
-    if (m_externallyMuted || m_private->isProducingData())
-        state |= HasActiveMediaCaptureDevice;
-
-    if (m_private->hasAudio() || m_private->hasVideo())
+    if (m_private->hasAudio()) {
         state |= HasAudioOrVideo;
+        if (m_private->hasLocalAudioSource() && m_private->isProducingData())
+            state |= HasActiveAudioCaptureDevice;
+    }
+
+    if (m_private->hasVideo()) {
+        state |= HasAudioOrVideo;
+        if (m_private->hasLocalVideoSource() && m_private->isProducingData())
+            state |= HasActiveVideoCaptureDevice;
+    }
 
     return state;
 }

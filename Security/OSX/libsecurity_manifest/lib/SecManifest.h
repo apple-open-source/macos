@@ -185,8 +185,6 @@ OSStatus SecManifestAddObject(SecManifestRef manifest,
 	@abstraact Compare one manifest to another.
 	@param manifest1 A manifest to be compared for equality.
 	@param manifest2 A manifest to be compared for equality.
-	@param verifyOwnerAndGroup If true, owner and group ID's will be checked as
-							   part of the verification process.
 	@result A result code.
 */
 OSStatus SecManifestCompare(SecManifestRef manifest1, 

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebGLSharedObject_h
-#define WebGLSharedObject_h
+#pragma once
 
 #include "WebGLObject.h"
 
@@ -53,7 +52,7 @@ public:
     virtual bool isTransformFeedback() const { return false; }
     virtual bool isVertexArrayObject() const { return false; }
 
-    bool validate(const WebGLContextGroup* contextGroup, const WebGLRenderingContextBase*) const override
+    bool validate(const WebGLContextGroup* contextGroup, const WebGLRenderingContextBase&) const override
     {
         return contextGroup == m_contextGroup;
     }
@@ -61,7 +60,7 @@ public:
     void detachContextGroup();
 
 protected:
-    WebGLSharedObject(WebGLRenderingContextBase*);
+    WebGLSharedObject(WebGLRenderingContextBase&);
 
     bool hasGroupOrContext() const override
     {
@@ -75,5 +74,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // WebGLSharedObject_h

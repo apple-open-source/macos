@@ -91,9 +91,9 @@ typedef enum {
 /** count of all options for sntp */
 #define OPTION_CT    23
 /** sntp version */
-#define SNTP_VERSION       "4.2.8p8"
+#define SNTP_VERSION       "4.2.8p9"
 /** Full sntp version text */
-#define SNTP_FULL_VERSION  "sntp 4.2.8p8"
+#define SNTP_FULL_VERSION  "sntp 4.2.8p9"
 
 /**
  *  Interface defines for all options.  Replace "n" with the UPPER_CASED

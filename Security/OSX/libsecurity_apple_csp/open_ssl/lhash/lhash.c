@@ -77,7 +77,7 @@
 /* Code for dynamic hash table routines
  * Author - Eric Young v 2.0
  *
- * 2.2 eay - added #include "crypto.h" so the memory leak checking code is
+ * 2.2 eay - added #include "crypto_legacy.h" so the memory leak checking code is
  *	     present. eay 18-Jun-98
  *
  * 2.1 eay - Added an 'error in last operation' flag. eay 6-May-98
@@ -115,8 +115,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <openssl/crypto.h>
-#include <openssl/lhash.h>
+#include <openssl/crypto_legacy.h>
+#include <openssl/lhash_legacy.h>
 
 const char *lh_version="lhash" OPENSSL_VERSION_PTEXT;
 

@@ -211,7 +211,7 @@ SecEMCSCreateNewiDMSKey(NSDictionary *options,
         *emcsKey = NULL;
 
     if (oldEMCSKey) {
-        if (CFGetTypeID(oldEMCSKey) != CFDataGetTypeID())
+        if (CFGetTypeID((__bridge CFTypeRef)(oldEMCSKey)) != CFDataGetTypeID())
             return NULL;
         if (CFDataGetLength((__bridge CFDataRef)oldEMCSKey) != KEY_LENGTH)
             return NULL;

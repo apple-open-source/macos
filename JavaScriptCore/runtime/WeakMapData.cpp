@@ -26,11 +26,8 @@
 #include "config.h"
 #include "WeakMapData.h"
 
-#include "CopiedAllocator.h"
-#include "CopyVisitorInlines.h"
 #include "ExceptionHelpers.h"
-#include "JSCJSValueInlines.h"
-#include "SlotVisitorInlines.h"
+#include "JSCInlines.h"
 
 #include <wtf/MathExtras.h>
 
@@ -115,7 +112,7 @@ void WeakMapData::DeadKeyCleaner::visitWeakReferences(SlotVisitor& visitor)
         if (!Heap::isMarked(it->key))
             continue;
         m_liveKeyCount++;
-        visitor.append(&it->value);
+        visitor.append(it->value);
     }
     RELEASE_ASSERT(m_liveKeyCount <= m_target->m_map.size());
 }

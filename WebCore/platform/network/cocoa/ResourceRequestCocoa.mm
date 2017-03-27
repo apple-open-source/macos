@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2014-2017 Apple, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if PLATFORM(COCOA)
 
+#import "FileSystem.h"
 #import "FormDataStreamMac.h"
 #import "HTTPHeaderNames.h"
 #import "ResourceRequestCFNet.h"
@@ -53,24 +54,54 @@ namespace WebCore {
 NSURLRequest *ResourceRequest::nsURLRequest(HTTPBodyUpdatePolicy bodyPolicy) const
 {
     updatePlatformRequest(bodyPolicy);
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
     if (!m_nsRequest)
         const_cast<ResourceRequest*>(this)->updateNSURLRequest();
 #endif
     return [[m_nsRequest.get() retain] autorelease];
 }
 
-#if !USE(CFNETWORK)
+#if !USE(CFURLCONNECTION)
 
 CFURLRequestRef ResourceRequest::cfURLRequest(HTTPBodyUpdatePolicy bodyPolicy) const
 {
     return [nsURLRequest(bodyPolicy) _CFURLRequest];
 }
 
+static inline ResourceRequestCachePolicy fromPlatformRequestCachePolicy(NSURLRequestCachePolicy policy)
+{
+    switch (policy) {
+    case NSURLRequestUseProtocolCachePolicy:
+        return UseProtocolCachePolicy;
+    case NSURLRequestReturnCacheDataElseLoad:
+        return ReturnCacheDataElseLoad;
+    case NSURLRequestReturnCacheDataDontLoad:
+        return ReturnCacheDataDontLoad;
+    default:
+        return ReloadIgnoringCacheData;
+    }
+}
+
+static inline NSURLRequestCachePolicy toPlatformRequestCachePolicy(ResourceRequestCachePolicy policy)
+{
+    switch (policy) {
+    case UseProtocolCachePolicy:
+        return NSURLRequestUseProtocolCachePolicy;
+    case ReturnCacheDataElseLoad:
+        return NSURLRequestReturnCacheDataElseLoad;
+    case ReturnCacheDataDontLoad:
+        return NSURLRequestReturnCacheDataDontLoad;
+    default:
+        return NSURLRequestReloadIgnoringLocalCacheData;
+    }
+}
+
 void ResourceRequest::doUpdateResourceRequest()
 {
     m_url = [m_nsRequest.get() URL];
-    m_cachePolicy = (ResourceRequestCachePolicy)[m_nsRequest.get() cachePolicy];
+
+    if (!m_cachePolicy)
+        m_cachePolicy = fromPlatformRequestCachePolicy([m_nsRequest.get() cachePolicy]);
     m_timeoutInterval = [m_nsRequest.get() timeoutInterval];
     m_firstPartyForCookies = [m_nsRequest.get() mainDocumentURL];
 
@@ -138,7 +169,7 @@ void ResourceRequest::doUpdatePlatformRequest()
     if (ResourceRequest::resourcePrioritiesEnabled())
         CFURLRequestSetRequestPriority([nsRequest _CFURLRequest], toPlatformRequestPriority(priority()));
 
-    [nsRequest setCachePolicy:(NSURLRequestCachePolicy)cachePolicy()];
+    [nsRequest setCachePolicy:toPlatformRequestCachePolicy(cachePolicy())];
     _CFURLRequestSetProtocolProperty([nsRequest _CFURLRequest], kCFURLRequestAllowAllPOSTCaching, kCFBooleanTrue);
 
     double timeoutInterval = ResourceRequestBase::timeoutInterval();
@@ -170,6 +201,17 @@ void ResourceRequest::doUpdatePlatformRequest()
     if (!partition.isNull() && !partition.isEmpty()) {
         NSString *partitionValue = [NSString stringWithUTF8String:partition.utf8().data()];
         [NSURLProtocol setProperty:partitionValue forKey:(NSString *)wkCachePartitionKey() inRequest:nsRequest];
+    }
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
+    if (m_url.isLocalFile()) {
+        auto fsRepFile = fileSystemRepresentation(m_url.fileSystemPath());
+        if (!fsRepFile.isNull()) {
+            auto fileDevice = getFileDeviceId(fsRepFile);
+            if (fileDevice && fileDevice.value())
+                [nsRequest _setProperty:[NSNumber numberWithInteger:fileDevice.value()] forKey:@"NSURLRequestFileProtocolExpectedDevice"];
+        }
     }
 #endif
 
@@ -208,21 +250,13 @@ void ResourceRequest::doUpdatePlatformHTTPBody()
     m_nsRequest = adoptNS(nsRequest);
 }
 
-#if !PLATFORM(IOS)
-void ResourceRequest::applyWebArchiveHackForMail()
-{
-    // Hack because Mail checks for this property to detect data / archive loads
-    [NSURLProtocol setProperty:@"" forKey:@"WebDataRequest" inRequest:(NSMutableURLRequest *)nsURLRequest(DoNotUpdateHTTPBody)];
-}
-#endif
-
 void ResourceRequest::setStorageSession(CFURLStorageSessionRef storageSession)
 {
     updatePlatformRequest();
     m_nsRequest = adoptNS(wkCopyRequestWithStorageSession(storageSession, m_nsRequest.get()));
 }
 
-#endif // USE(CFNETWORK)
+#endif // USE(CFURLCONNECTION)
 
 } // namespace WebCore
 

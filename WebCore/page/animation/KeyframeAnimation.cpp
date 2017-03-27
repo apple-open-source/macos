@@ -37,7 +37,9 @@
 #include "GeometryUtilities.h"
 #include "RenderBox.h"
 #include "RenderStyle.h"
+#include "StylePendingResources.h"
 #include "StyleResolver.h"
+#include "StyleScope.h"
 #include "WillChangeData.h"
 
 namespace WebCore {
@@ -47,9 +49,7 @@ KeyframeAnimation::KeyframeAnimation(const Animation& animation, RenderElement* 
     , m_keyframes(animation.name())
     , m_unanimatedStyle(RenderStyle::clonePtr(*unanimatedStyle))
 {
-    // Get the keyframe RenderStyles
-    if (m_object && m_object->element())
-        m_object->element()->styleResolver().keyframeStylesForAnimation(*m_object->element(), unanimatedStyle, m_keyframes);
+    resolveKeyframeStyles();
 
     // Update the m_transformFunctionListValid flag based on whether the function lists in the keyframes match.
     validateTransformFunctionList();
@@ -177,13 +177,7 @@ bool KeyframeAnimation::animate(CompositeAnimation* compositeAnimation, RenderEl
         double progress = 0;
         fetchIntervalEndpointsForProperty(propertyID, fromStyle, toStyle, progress);
 
-        bool needsAnim = CSSPropertyAnimation::blendProperties(this, propertyID, animatedStyle.get(), fromStyle, toStyle, progress);
-        if (!needsAnim)
-            // If we are running an accelerated animation, set a flag in the style
-            // to indicate it. This can be used to make sure we get an updated
-            // style for hit testing, etc.
-            // FIXME: still need this?
-            animatedStyle->setIsRunningAcceleratedAnimation();
+        CSSPropertyAnimation::blendProperties(this, propertyID, animatedStyle.get(), fromStyle, toStyle, progress);
     }
     
     didBlendStyle = true;
@@ -328,7 +322,7 @@ bool KeyframeAnimation::sendAnimationEvent(const AtomicString& eventType, double
         // Dispatch the event
         RefPtr<Element> element = m_object->element();
 
-        ASSERT(!element || !element->document().inPageCache());
+        ASSERT(!element || element->document().pageCacheState() == Document::NotInPageCache);
         if (!element)
             return false;
 
@@ -362,6 +356,22 @@ void KeyframeAnimation::resumeOverriddenAnimations()
 bool KeyframeAnimation::affectsProperty(CSSPropertyID property) const
 {
     return m_keyframes.containsProperty(property);
+}
+
+void KeyframeAnimation::resolveKeyframeStyles()
+{
+    if (!m_object || !m_object->element())
+        return;
+    auto& element = *m_object->element();
+
+    if (auto* styleScope = Style::Scope::forOrdinal(element, m_animation->nameStyleScopeOrdinal()))
+        styleScope->resolver().keyframeStylesForAnimation(*m_object->element(), m_unanimatedStyle.get(), m_keyframes);
+
+    // Ensure resource loads for all the frames.
+    for (auto& keyframe : m_keyframes.keyframes()) {
+        if (auto* style = const_cast<RenderStyle*>(keyframe.style()))
+            Style::loadPendingResources(*style, element.document(), &element);
+    }
 }
 
 void KeyframeAnimation::validateTransformFunctionList()

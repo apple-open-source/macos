@@ -21,22 +21,18 @@
  */
 
 #include "config.h"
-
-#if USE(COORDINATED_GRAPHICS)
 #include "CoordinatedGraphicsLayer.h"
 
+#if USE(COORDINATED_GRAPHICS)
+
 #include "FloatQuad.h"
-#include "Frame.h"
-#include "FrameView.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
 #include "GraphicsLayerFactory.h"
-#include "Page.h"
 #include "ScrollableArea.h"
 #include <wtf/CurrentTime.h>
-#include <wtf/HashMap.h>
 #ifndef NDEBUG
-#include <wtf/TemporaryChange.h>
+#include <wtf/SetForScope.h>
 #endif
 #include <wtf/text/CString.h>
 
@@ -55,14 +51,13 @@ static CoordinatedLayerID toCoordinatedLayerID(GraphicsLayer* layer)
     return is<CoordinatedGraphicsLayer>(layer) ? downcast<CoordinatedGraphicsLayer>(*layer).id() : 0;
 }
 
-bool CoordinatedGraphicsLayer::notifyFlushRequired()
+void CoordinatedGraphicsLayer::notifyFlushRequired()
 {
     ASSERT(m_coordinator);
-    if (!m_coordinator->isFlushingLayerChanges()) {
-        client().notifyFlushRequired(this);
-        return true;
-    }
-    return false;
+    if (m_coordinator->isFlushingLayerChanges())
+        return;
+
+    client().notifyFlushRequired(this);
 }
 
 void CoordinatedGraphicsLayer::didChangeLayerState()
@@ -431,16 +426,35 @@ void CoordinatedGraphicsLayer::setContentsToPlatformLayer(PlatformLayer* platfor
 #endif
 }
 
-bool CoordinatedGraphicsLayer::setFilters(const FilterOperations& newFilters)
+bool CoordinatedGraphicsLayer::filtersCanBeComposited(const FilterOperations& filters) const
 {
-    if (filters() == newFilters)
-        return true;
-
-    if (!GraphicsLayer::setFilters(newFilters))
+    if (!filters.size())
         return false;
 
-    didChangeFilters();
+    for (const auto& filterOperation : filters.operations()) {
+        if (filterOperation->type() == FilterOperation::REFERENCE)
+            return false;
+    }
+
     return true;
+}
+
+bool CoordinatedGraphicsLayer::setFilters(const FilterOperations& newFilters)
+{
+    bool canCompositeFilters = filtersCanBeComposited(newFilters);
+    if (filters() == newFilters)
+        return canCompositeFilters;
+
+    if (canCompositeFilters) {
+        if (!GraphicsLayer::setFilters(newFilters))
+            return false;
+        didChangeFilters();
+    } else if (filters().size()) {
+        clearFilters();
+        didChangeFilters();
+    }
+
+    return canCompositeFilters;
 }
 
 void CoordinatedGraphicsLayer::setContentsToSolidColor(const Color& color)
@@ -585,21 +599,18 @@ void CoordinatedGraphicsLayer::setFixedToViewport(bool isFixed)
     didChangeLayerState();
 }
 
-void CoordinatedGraphicsLayer::flushCompositingState(const FloatRect& rect, bool viewportIsStable)
+void CoordinatedGraphicsLayer::flushCompositingState(const FloatRect& rect)
 {
-    if (notifyFlushRequired())
-        return;
-
     if (CoordinatedGraphicsLayer* mask = downcast<CoordinatedGraphicsLayer>(maskLayer()))
-        mask->flushCompositingStateForThisLayerOnly(viewportIsStable);
+        mask->flushCompositingStateForThisLayerOnly();
 
     if (CoordinatedGraphicsLayer* replica = downcast<CoordinatedGraphicsLayer>(replicaLayer()))
-        replica->flushCompositingStateForThisLayerOnly(viewportIsStable);
+        replica->flushCompositingStateForThisLayerOnly();
 
-    flushCompositingStateForThisLayerOnly(viewportIsStable);
+    flushCompositingStateForThisLayerOnly();
 
     for (auto& child : children())
-        child->flushCompositingState(rect, viewportIsStable);
+        child->flushCompositingState(rect);
 }
 
 void CoordinatedGraphicsLayer::syncChildren()
@@ -773,10 +784,8 @@ void CoordinatedGraphicsLayer::createPlatformLayerIfNeeded()
 }
 #endif
 
-void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly(bool)
+void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
 {
-    ASSERT(m_coordinator->isFlushingLayerChanges());
-
     // When we have a transform animation, we need to update visible rect every frame to adjust the visible rect of a backing store.
     bool hasActiveTransformAnimation = selfOrAncestorHasActiveTransformAnimation();
     if (hasActiveTransformAnimation)
@@ -938,7 +947,7 @@ IntRect CoordinatedGraphicsLayer::transformedVisibleRect()
     // Return a projection of the visible rect (surface coordinates) onto the layer's plane (layer coordinates).
     // The resulting quad might be squewed and the visible rect is the bounding box of this quad,
     // so it might spread further than the real visible area (and then even more amplified by the cover rect multiplier).
-    ASSERT(m_cachedInverseTransform == m_layerTransform.combined().inverse().valueOr(TransformationMatrix()));
+    ASSERT(m_cachedInverseTransform == m_layerTransform.combined().inverse().value_or(TransformationMatrix()));
     FloatRect rect = m_cachedInverseTransform.clampedBoundsOfProjectedQuad(FloatQuad(m_coordinator->visibleContentsRect()));
     clampToContentsRectIfRectIsInfinite(rect, size());
     return enclosingIntRect(rect);
@@ -1032,7 +1041,7 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
 void CoordinatedGraphicsLayer::purgeBackingStores()
 {
 #ifndef NDEBUG
-    TemporaryChange<bool> updateModeProtector(m_isPurging, true);
+    SetForScope<bool> updateModeProtector(m_isPurging, true);
 #endif
     m_mainBackingStore = nullptr;
     m_previousBackingStore = nullptr;
@@ -1130,7 +1139,7 @@ void CoordinatedGraphicsLayer::computeTransformedVisibleRect()
     m_layerTransform.setChildrenTransform(childrenTransform());
     m_layerTransform.combineTransforms(parent() ? downcast<CoordinatedGraphicsLayer>(*parent()).m_layerTransform.combinedForChildren() : TransformationMatrix());
 
-    m_cachedInverseTransform = m_layerTransform.combined().inverse().valueOr(TransformationMatrix());
+    m_cachedInverseTransform = m_layerTransform.combined().inverse().value_or(TransformationMatrix());
 
     // The combined transform will be used in tiledBackingStoreVisibleRect.
     setNeedsVisibleRectAdjustment();
@@ -1172,6 +1181,16 @@ bool CoordinatedGraphicsLayer::addAnimation(const KeyframeValueList& valueList, 
 
     if (!anim || anim->isEmptyOrZeroDuration() || valueList.size() < 2 || (valueList.property() != AnimatedPropertyTransform && valueList.property() != AnimatedPropertyOpacity && valueList.property() != AnimatedPropertyFilter))
         return false;
+
+    if (valueList.property() == AnimatedPropertyFilter) {
+        int listIndex = validateFilterOperations(valueList);
+        if (listIndex < 0)
+            return false;
+
+        const auto& filters = static_cast<const FilterAnimationValue&>(valueList.at(listIndex)).value();
+        if (!filtersCanBeComposited(filters))
+            return false;
+    }
 
     bool listsMatch = false;
     bool ignoredHasBigRotation;

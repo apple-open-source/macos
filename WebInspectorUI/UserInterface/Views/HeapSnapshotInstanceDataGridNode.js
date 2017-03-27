@@ -84,7 +84,7 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
                 });
             } else {
                 HeapAgent.getRemoteObject(heapObjectIdentifier, WebInspector.RuntimeManager.ConsoleObjectGroup, function(error, remoteObjectPayload) {
-                    let remoteObject = error ? WebInspector.RemoteObject.fromPrimitiveValue(undefined) : WebInspector.RemoteObject.fromPayload(remoteObjectPayload);
+                    let remoteObject = error ? WebInspector.RemoteObject.fromPrimitiveValue(undefined) : WebInspector.RemoteObject.fromPayload(remoteObjectPayload, WebInspector.assumingMainTarget());
                     WebInspector.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, shouldRevealConsole);
                 });
             }
@@ -95,7 +95,16 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
 
     get data() { return this._node; }
     get node() { return this._node; }
-    get selectable() { return false; }
+
+    get propertyName()
+    {
+        if (!this._edge)
+            return "";
+
+        if (!this._propertyName)
+            this._propertyName = WebInspector.HeapSnapshotRootPath.pathComponentForIndividualEdge(this._edge);
+        return this._propertyName;
+    }
 
     createCells()
     {
@@ -146,9 +155,9 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
 
             if (this._edge) {
                 let nameElement = containerElement.appendChild(document.createElement("span"));
-                let edgeText = WebInspector.HeapSnapshotRootPath.pathComponentForIndividualEdge(this._edge);
-                if (edgeText)
-                    nameElement.textContent = edgeText + ": " + this._node.className + " ";
+                let propertyName = this.propertyName;
+                if (propertyName)
+                    nameElement.textContent = propertyName + ": " + this._node.className + " ";
                 else
                     nameElement.textContent = this._node.className + " ";
             }
@@ -208,21 +217,29 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
     {
         this.removeEventListener("populate", this._populate, this);
 
+        function propertyName(edge) {
+            return edge ? WebInspector.HeapSnapshotRootPath.pathComponentForIndividualEdge(edge) : "";
+        }
+
         this._node.retainedNodes((instances, edges) => {
             // Reference edge from instance so we can get it after sorting.
             for (let i = 0; i < instances.length; ++i)
                 instances[i].__edge = edges[i];
 
             instances.sort((a, b) => {
-                let fakeDataGridNodeA = {data: a};
-                let fakeDataGridNodeB = {data: b};
+                let fakeDataGridNodeA = {data: a, propertyName: propertyName(a.__edge)};
+                let fakeDataGridNodeB = {data: b, propertyName: propertyName(b.__edge)};
                 return this._tree._sortComparator(fakeDataGridNodeA, fakeDataGridNodeB);
             });
 
             // FIXME: This should gracefully handle a node that references many objects.
 
-            for (let instance of instances)
+            for (let instance of instances) {
+                if (instance.__edge && instance.__edge.isPrivateSymbol())
+                    continue;
+
                 this.appendChild(new WebInspector.HeapSnapshotInstanceDataGridNode(instance, this._tree, instance.__edge, this._base || this));
+            }
         });
     }
 
@@ -247,7 +264,7 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
     {
         HeapAgent.getRemoteObject(this._node.id, (error, remoteObjectPayload) => {
             if (error) {
-                this._populateError(containerElement)
+                this._populateError(containerElement);
                 return;
             }
 
@@ -255,7 +272,7 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
                 return this.location.href;
             }
 
-            let remoteObject = WebInspector.RemoteObject.fromPayload(remoteObjectPayload);
+            let remoteObject = WebInspector.RemoteObject.fromPayload(remoteObjectPayload, WebInspector.assumingMainTarget());
             remoteObject.callFunctionJSON(inspectedPage_window_getLocationHref, undefined, (href) => {
                 remoteObject.release();
 
@@ -288,7 +305,7 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
                 let functionNameElement = containerElement.appendChild(document.createElement("span"));
                 functionNameElement.classList.add("function-name");
                 functionNameElement.textContent = name || displayName || WebInspector.UIString("(anonymous function)");
-                let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId);
+                let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId, WebInspector.assumingMainTarget());
                 if (sourceCode) {
                     let locationElement = containerElement.appendChild(document.createElement("span"));
                     locationElement.classList.add("location");
@@ -318,10 +335,11 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
         if (!targetFrame.size.width && !targetFrame.size.height)
             return;
 
-        if (this._tree.popoverNode === this._node)
+        if (this._tree.popoverGridNode === this._node)
             return;
 
-        this._tree.popoverNode = this._node;
+        this._tree.popoverGridNode = this._node;
+        this._tree.popoverTargetElement = event.target;
 
         let popoverContentElement = document.createElement("div");
         popoverContentElement.classList.add("heap-snapshot", "heap-snapshot-instance-popover-content");
@@ -406,7 +424,7 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
                 HeapAgent.getPreview(node.id, function(error, string, functionDetails, objectPreviewPayload) {
                     if (functionDetails) {
                         let location = functionDetails.location;
-                        let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId);
+                        let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId, WebInspector.assumingMainTarget());
                         if (sourceCode) {
                             const dontFloat = true;
                             const useGoToArrowButton = true;
@@ -426,7 +444,7 @@ WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGr
         }
 
         function stringifyEdge(edge) {
-            switch(edge.type) {
+            switch (edge.type) {
             case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Property:
             case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Variable:
                 if (/^(?![0-9])\w+$/.test(edge.data))

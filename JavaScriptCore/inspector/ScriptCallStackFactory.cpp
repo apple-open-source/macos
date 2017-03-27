@@ -43,7 +43,6 @@
 #include "ScriptCallStack.h"
 #include "ScriptValue.h"
 #include "StackVisitor.h"
-#include <wtf/RefCountedArray.h>
 #include <wtf/text/WTFString.h>
 
 using namespace JSC;
@@ -67,10 +66,6 @@ public:
         }
 
         if (m_remainingCapacityForFrameCapture) {
-#if ENABLE(WEBASSEMBLY)
-            if (visitor->codeBlock()->ownerExecutable()->isWebAssemblyExecutable())
-                return StackVisitor::Continue;
-#endif
             unsigned line;
             unsigned column;
             visitor->computeLineAndColumn(line, column);
@@ -124,14 +119,17 @@ Ref<ScriptCallStack> createScriptCallStackForConsole(JSC::ExecState* exec, size_
 
 static void extractSourceInformationFromException(JSC::ExecState* exec, JSObject* exceptionObject, int* lineNumber, int* columnNumber, String* sourceURL)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+
     // FIXME: <http://webkit.org/b/115087> Web Inspector: Should not need to evaluate JavaScript handling exceptions
     JSValue lineValue = exceptionObject->getDirect(exec->vm(), Identifier::fromString(exec, "line"));
     *lineNumber = lineValue && lineValue.isNumber() ? int(lineValue.toNumber(exec)) : 0;
     JSValue columnValue = exceptionObject->getDirect(exec->vm(), Identifier::fromString(exec, "column"));
     *columnNumber = columnValue && columnValue.isNumber() ? int(columnValue.toNumber(exec)) : 0;
     JSValue sourceURLValue = exceptionObject->getDirect(exec->vm(), Identifier::fromString(exec, "sourceURL"));
-    *sourceURL = sourceURLValue && sourceURLValue.isString() ? sourceURLValue.toString(exec)->value(exec) : ASCIILiteral("undefined");
-    exec->clearException();
+    *sourceURL = sourceURLValue && sourceURLValue.isString() ? sourceURLValue.toWTFString(exec) : ASCIILiteral("undefined");
+    scope.clearException();
 }
 
 Ref<ScriptCallStack> createScriptCallStackFromException(JSC::ExecState* exec, JSC::Exception* exception, size_t maxStackSize)
@@ -158,7 +156,7 @@ Ref<ScriptCallStack> createScriptCallStackFromException(JSC::ExecState* exec, JS
             extractSourceInformationFromException(exec, exceptionObject, &lineNumber, &columnNumber, &exceptionSourceURL);
             frames.append(ScriptCallFrame(String(), exceptionSourceURL, noSourceID, lineNumber, columnNumber));
         } else {
-            if (stackTrace[0].isNative() || stackTrace[0].sourceURL().isEmpty()) {
+            if (!stackTrace[0].hasLineAndColumnInfo() || stackTrace[0].sourceURL().isEmpty()) {
                 const ScriptCallFrame& firstCallFrame = frames.first();
                 extractSourceInformationFromException(exec, exceptionObject, &lineNumber, &columnNumber, &exceptionSourceURL);
                 frames[0] = ScriptCallFrame(firstCallFrame.functionName(), exceptionSourceURL, stackTrace[0].sourceID(), lineNumber, columnNumber);

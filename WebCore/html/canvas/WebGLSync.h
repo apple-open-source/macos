@@ -23,12 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebGLSync_h
-#define WebGLSync_h
+#pragma once
 
 #include "WebGLSharedObject.h"
-
-#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
@@ -36,10 +33,10 @@ class WebGLSync final : public WebGLSharedObject {
 public:
     virtual ~WebGLSync();
 
-    static Ref<WebGLSync> create(WebGLRenderingContextBase*);
+    static Ref<WebGLSync> create(WebGLRenderingContextBase&);
 
 protected:
-    WebGLSync(WebGLRenderingContextBase*);
+    WebGLSync(WebGLRenderingContextBase&);
 
     void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 
@@ -48,5 +45,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // WebGLSync_h

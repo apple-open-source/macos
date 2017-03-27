@@ -19,10 +19,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGGlyphElement_h
-#define SVGGlyphElement_h
+#pragma once
 
 #if ENABLE(SVG_FONTS)
+
 #include "SVGElement.h"
 
 namespace WebCore {
@@ -37,10 +37,9 @@ public:
 private:
     SVGGlyphElement(const QualifiedName&, Document&);
 
-    bool rendererIsNeeded(const RenderStyle&) override { return false; }
+    bool rendererIsNeeded(const RenderStyle&) final { return false; }
 };
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG_FONTS)
-#endif

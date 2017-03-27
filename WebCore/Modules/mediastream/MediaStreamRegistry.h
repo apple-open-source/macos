@@ -23,14 +23,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MediaStreamRegistry_h
-#define MediaStreamRegistry_h
+#pragma once
 
 #if ENABLE(MEDIA_STREAM)
 
 #include "URLRegistry.h"
 #include <wtf/HashMap.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -47,7 +45,7 @@ public:
     static MediaStreamRegistry& shared();
 
     // Registers a blob URL referring to the specified stream data.
-    void registerURL(SecurityOrigin*, const URL&, URLRegistrable*) override;
+    void registerURL(SecurityOrigin*, const URL&, URLRegistrable&) override;
     void unregisterURL(const URL&) override;
 
     URLRegistrable* lookup(const String&) const override;
@@ -66,5 +64,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(MEDIA_STREAM)
-
-#endif // MediaStreamRegistry_h

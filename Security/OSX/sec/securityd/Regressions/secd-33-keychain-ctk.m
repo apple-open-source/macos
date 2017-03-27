@@ -44,6 +44,7 @@
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
+#include <utilities/SecCFRelease.h>
 #include <SecBase64.h>
 
 #include <libaks_acl_cf_keys.h>
@@ -491,8 +492,6 @@ static const int kKeyGenerateTestCount = 14;
 
 static void test_key_sign(void) {
 
-#if TKTOKEN_CLIENT_INTERFACE_VERSION >= 1
-
     static const UInt8 data[] = { 0x01, 0x02, 0x03, 0x04 };
     CFDataRef valueData = CFDataCreate(NULL, data, sizeof(data));
 
@@ -615,16 +614,12 @@ static void test_key_sign(void) {
     CFReleaseSafe(cryptoError);
     CFRelease(sig);
     CFRelease(privateKey);
-#endif
 }
-#if TKTOKEN_CLIENT_INTERFACE_VERSION >= 1
-  #if LA_CONTEXT_IMPLEMENTED
+
+#if LA_CONTEXT_IMPLEMENTED
 static const int kKeySignTestCount = 20;
-  #else
-static const int kKeySignTestCount = 15;
-  #endif
 #else
-static const int kKeySignTestCount = 0;
+static const int kKeySignTestCount = 15;
 #endif
 
 static void test_key_generate_with_params(void) {
@@ -691,10 +686,10 @@ static void test_error_codes(void) {
     ctk_error = kTKErrorCodeBadParameter;
     is_status(SecItemAdd(attrs, NULL), errSecParam);
 
-    ctk_error = -1 /* kTKErrorCodeNotImplemented */;
+    ctk_error = kTKErrorCodeNotImplemented;
     is_status(SecItemAdd(attrs, NULL), errSecUnimplemented);
 
-    ctk_error = -4 /* kTKErrorCodeCanceledByUser */;
+    ctk_error = kTKErrorCodeCanceledByUser;
     is_status(SecItemAdd(attrs, NULL), errSecUserCanceled);
 
     CFRelease(attrs);
@@ -1010,6 +1005,117 @@ static void test_identity_on_two_tokens() {
 }
 static const int kIdentityonTwoTokensCount = 20;
 
+static void test_ies(SecKeyRef privateKey, SecKeyAlgorithm algorithm) {
+    TKTokenTestSetHook(^(CFDictionaryRef attributes, TKTokenTestBlocks *blocks) {
+
+        blocks->createOrUpdateObject = ^CFDataRef(CFDataRef objectID, CFMutableDictionaryRef at, CFErrorRef *error) {
+            is(objectID, NULL);
+            return CFBridgingRetain([@"oid" dataUsingEncoding:NSUTF8StringEncoding]);
+        };
+
+        blocks->copyPublicKeyData = ^CFDataRef(CFDataRef objectID, CFErrorRef *error) {
+            SecKeyRef publicKey = SecKeyCopyPublicKey(privateKey);
+            CFDataRef data = SecKeyCopyExternalRepresentation(publicKey, error);
+            CFReleaseNull(publicKey);
+            return data;
+        };
+
+        blocks->copyObjectData = ^CFTypeRef(CFDataRef oid, CFErrorRef *error) {
+            return kCFNull;
+        };
+
+        blocks->copyObjectAccessControl = ^CFDataRef(CFDataRef oid, CFErrorRef *error) {
+            SecAccessControlRef ac = SecAccessControlCreate(NULL, NULL);
+            SecAccessControlSetProtection(ac, kSecAttrAccessibleAlwaysPrivate, NULL);
+            SecAccessControlAddConstraintForOperation(ac, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL);
+            CFDataRef acData = SecAccessControlCopyData(ac);
+            CFRelease(ac);
+            return acData;
+        };
+
+        blocks->copyOperationResult = ^CFTypeRef(CFDataRef objectID, CFIndex operation, CFArrayRef algorithms, CFIndex secKeyOperationMode, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+            CFTypeRef result = kCFNull;
+            CFTypeRef algorithm = CFArrayGetValueAtIndex(algorithms, CFArrayGetCount(algorithms) - 1);
+            switch (operation) {
+                case kSecKeyOperationTypeKeyExchange: {
+                    if (CFEqual(algorithm, kSecKeyAlgorithmECDHKeyExchangeStandard) ||
+                        CFEqual(algorithm, kSecKeyAlgorithmECDHKeyExchangeCofactor)) {
+                        NSDictionary *attrs = CFBridgingRelease(SecKeyCopyAttributes(privateKey));
+                        NSDictionary *params = @{
+                                                 (id)kSecAttrKeyType: attrs[(id)kSecAttrKeyType],
+                                                 (id)kSecAttrKeySizeInBits: attrs[(id)kSecAttrKeySizeInBits],
+                                                 (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPublic,
+                                                 };
+                        SecKeyRef pubKey = SecKeyCreateWithData(in1, (CFDictionaryRef)params, error);
+                        if (pubKey == NULL) {
+                            return NULL;
+                        }
+                        result = SecKeyCopyKeyExchangeResult(privateKey, algorithm, pubKey, in2, error);
+                        CFReleaseSafe(pubKey);
+                    }
+                    break;
+                }
+                case kSecKeyOperationTypeDecrypt: {
+                    if (CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRaw)) {
+                        result = SecKeyCreateDecryptedData(privateKey, algorithm, in1, error);
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+            return result;
+        };
+    });
+
+    NSDictionary *privateParams = CFBridgingRelease(SecKeyCopyAttributes(privateKey));
+    NSDictionary *params = @{ (id)kSecAttrKeyType : privateParams[(id)kSecAttrKeyType],
+                              (id)kSecAttrKeySizeInBits : privateParams[(id)kSecAttrKeySizeInBits],
+                              (id)kSecAttrTokenID : @"tid-ies",
+                              (id)kSecPrivateKeyAttrs : @{ (id)kSecAttrIsPermanent : @YES }
+                              };
+    NSError *error;
+    SecKeyRef tokenKey = SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error);
+    ok(tokenKey != NULL, "create token-based key (err %@)", error);
+    SecKeyRef tokenPublicKey = SecKeyCopyPublicKey(tokenKey);
+
+    NSData *plaintext = [@"plaintext" dataUsingEncoding:NSUTF8StringEncoding];
+
+    error = nil;
+    NSData *ciphertext = CFBridgingRelease(SecKeyCreateEncryptedData(tokenPublicKey, algorithm, (CFDataRef)plaintext, (void *)&error));
+    ok(ciphertext, "failed to encrypt IES, err %@", error);
+
+    NSData *decrypted = CFBridgingRelease(SecKeyCreateDecryptedData(tokenKey, algorithm, (CFDataRef)ciphertext, (void *)&error));
+    ok(decrypted, "failed to decrypt IES, err %@", error);
+
+    eq_cf((__bridge CFDataRef)plaintext, (__bridge CFDataRef)decrypted, "decrypted(%@) != plaintext(%@)", decrypted, plaintext);
+
+    CFReleaseNull(tokenKey);
+    CFReleaseNull(tokenPublicKey);
+}
+static const int kIESCount = 4;
+
+static void test_ecies() {
+    NSError *error;
+    SecKeyRef privateKey = SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256}, (void *)&error);
+    ok(privateKey != NULL, "failed to generate CPU EC key: %@", error);
+
+    test_ies(privateKey, kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM);
+
+    CFReleaseNull(privateKey);
+}
+static const int kECIESCount = kIESCount + 1;
+
+static void test_rsawrap() {
+    NSError *error;
+    SecKeyRef privateKey = SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeRSA, (id)kSecAttrKeySizeInBits: @2048}, (void *)&error);
+    ok(privateKey != NULL, "failed to generate CPU RSA key: %@", error);
+
+    test_ies(privateKey, kSecKeyAlgorithmRSAEncryptionOAEPSHA256AESGCM);
+
+    CFReleaseNull(privateKey);
+}
+static const int kRSAWrapCount = kIESCount + 1;
 
 static void tests(void) {
     /* custom keychain dir */
@@ -1025,6 +1131,8 @@ static void tests(void) {
     test_error_codes();
     test_propagate_token_items();
     test_identity_on_two_tokens();
+    test_rsawrap();
+    test_ecies();
 }
 
 int secd_33_keychain_ctk(int argc, char *const *argv) {
@@ -1038,6 +1146,8 @@ int secd_33_keychain_ctk(int argc, char *const *argv) {
                kErrorCodesCount +
                kPropagateCount +
                kIdentityonTwoTokensCount +
+               kECIESCount +
+               kRSAWrapCount +
                kSecdTestSetupTestCount);
     tests();
 

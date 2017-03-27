@@ -110,11 +110,11 @@ void SearchInputType::createShadowSubtree()
     auto resultsButton = SearchFieldResultsButtonElement::create(element().document());
     m_resultsButton = resultsButton.ptr();
     updateResultButtonPseudoType(resultsButton.get(), element().maxResults());
-    container->insertBefore(resultsButton, textWrapper, IGNORE_EXCEPTION);
+    container->insertBefore(resultsButton, textWrapper);
 
     auto cancelButton = SearchFieldCancelButtonElement::create(element().document());
     m_cancelButton = cancelButton.ptr();
-    container->insertBefore(cancelButton, textWrapper->nextSibling(), IGNORE_EXCEPTION);
+    container->insertBefore(cancelButton, textWrapper->nextSibling());
 }
 
 HTMLElement* SearchInputType::resultsButtonElement() const
@@ -127,19 +127,19 @@ HTMLElement* SearchInputType::cancelButtonElement() const
     return m_cancelButton;
 }
 
-void SearchInputType::handleKeydownEvent(KeyboardEvent* event)
+void SearchInputType::handleKeydownEvent(KeyboardEvent& event)
 {
     if (element().isDisabledOrReadOnly()) {
         TextFieldInputType::handleKeydownEvent(event);
         return;
     }
 
-    const String& key = event->keyIdentifier();
+    const String& key = event.keyIdentifier();
     if (key == "U+001B") {
         Ref<HTMLInputElement> input(this->element());
         input->setValueForUser(emptyString());
         input->onSearch();
-        event->setDefaultHandled();
+        event.setDefaultHandled();
         return;
     }
     TextFieldInputType::handleKeydownEvent(event);

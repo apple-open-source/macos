@@ -28,8 +28,6 @@
 #include "ScrollableArea.h"
 #include "Scrollbar.h"
 #include <OleAcc.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/win/GDIObject.h>
 
@@ -136,6 +134,7 @@ private:
     bool m_wasClicked { false };
     bool m_scrollbarCapturingMouse { false };
     bool m_showPopup { false };
+    float m_scaleFactor { 1 };
 
     friend class AccessiblePopupMenu;
 };

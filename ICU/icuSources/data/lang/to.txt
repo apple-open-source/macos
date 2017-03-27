@@ -603,7 +603,7 @@ to{
         was{"lea fakaʻuasiō"}
         wbp{"lea fakaʻuālipili"}
         wo{"lea fakaʻuolofo"}
-        wuu{"lea fakasiaina-uū"}
+        wuu{"shanghainese"}
         xal{"lea fakakalimiki"}
         xh{"lea fakatōsa"}
         xmf{"lea fakamingilelia"}

@@ -216,7 +216,6 @@ CFTypeRef testGetObjectsFromCloud(CFArrayRef keysToGet, dispatch_queue_t process
         if (error)
         {
             secerror("SOSCloudKeychainGetObjectsFromCloud returned error: %@", error);
-     //       CFRelease(*error);
         }
         dispatch_group_leave(dgroup);
         secnotice("test", "SOSCloudKeychainGetObjectsFromCloud block exit: %@", object);

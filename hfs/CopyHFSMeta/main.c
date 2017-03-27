@@ -58,7 +58,7 @@ usage(const char *progname)
 	errx(kBadExit, "usage: %s [-vdpS] [-g gatherFile] [-C] [-r <bytes>] <src device> <destination>", progname);
 }
 
-
+int
 main(int ac, char **av)
 {
 	char *src = NULL;
@@ -66,7 +66,6 @@ main(int ac, char **av)
 	DeviceInfo_t *devp = NULL;
 	VolumeDescriptor_t *vdp = NULL;
 	VolumeObjects_t *vop = NULL;
-	IOWrapper_t *wrapper = NULL;
 	int ch;
 	off_t restart = 0;
 	int printEstimate = 0;
@@ -148,10 +147,12 @@ main(int ac, char **av)
 	 * If we're given a destination, initialize it.
  	 */
 	if (dst) {
-		wrapper = InitSparseBundle(dst, devp);
-	}
+		IOWrapper_t *wrapper = InitSparseBundle(dst, devp);
 
-	if (wrapper) {
+		if (wrapper == NULL) {
+			err(kBadExit, "cannot initialize destination container %s", dst);
+		}
+
 		// See if we're picking up from a previous copy
 		if (restart == 0) {
 			restart = wrapper->getprog(wrapper);

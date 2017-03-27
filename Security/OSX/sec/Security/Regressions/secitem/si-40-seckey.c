@@ -348,7 +348,7 @@ static void testkeygen(size_t keySizeInBits) {
 #define kKeyGen2TestCount 12
 static void testkeygen2(size_t keySizeInBits) {
 	SecKeyRef pubKey = NULL, privKey = NULL;
-	size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    int32_t keySizeInBytes = (int32_t)((keySizeInBits + 7) / 8);
 	CFNumberRef kzib;
 
     CFUUIDRef ourUUID = CFUUIDCreate(kCFAllocatorDefault);
@@ -378,8 +378,8 @@ static void testkeygen2(size_t keySizeInBits) {
 
 	OSStatus status;
 	ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
-              "Generate %ld bit (%ld byte) persistent RSA keypair",
-              keySizeInBits, keySizeInBytes);
+              "Generate %d bit (%d byte) persistent RSA keypair",
+              (int)keySizeInBits, (int)keySizeInBytes);
 	CFRelease(kzib);
 	CFRelease(kgp);
 
@@ -440,7 +440,7 @@ static const int kTestSupportedCount = 3 + (4 * 11) + 2 + (4 * 5);
 static void testsupportedalgos(size_t keySizeInBits)
 {
     SecKeyRef pubKey = NULL, privKey = NULL;
-    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    int32_t keySizeInBytes = (int)((keySizeInBits + 7) / 8);
     CFNumberRef kzib;
 
     int32_t iKeySizeInBits = (int32_t) keySizeInBits;
@@ -451,8 +451,8 @@ static void testsupportedalgos(size_t keySizeInBits)
 
     OSStatus status;
     ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
-              "Generate %ld bit (%ld byte) persistent RSA keypair",
-              keySizeInBits, keySizeInBytes);
+              "Generate %d bit (%d byte) persistent RSA keypair",
+              (int)keySizeInBits, (int)keySizeInBytes);
     CFRelease(kzib);
     CFRelease(kgp);
 

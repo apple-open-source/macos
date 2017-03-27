@@ -1415,6 +1415,7 @@ BRBLLogFunc(void *refcon __unused, int32_t level, const char *string)
  *
  * theVolRootURL == NULL means we want root volume.
  *******************************************************************************/
+// FIXME: doesn't work on non-/ volumes due to SIP check in copyBootCachesDictForURL()
 Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
                             char *      theBuffer,
                             int         theBufferSize)

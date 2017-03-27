@@ -24,9 +24,9 @@
 #include "AppleCSPUtils.h"
 #include "opensshCoding.h"
 #include <Security/osKeyTemplates.h>
-#include <openssl/err.h>
-#include <openssl/bn.h>
-#include <openssl/crypto.h>
+#include <openssl/opensslerr.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/crypto_legacy.h>
 
 #include <security_asn1/SecNssCoder.h>
 #include <security_asn1/secerr.h>

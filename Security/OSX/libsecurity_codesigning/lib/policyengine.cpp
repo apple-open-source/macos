@@ -616,49 +616,16 @@ void PolicyEngine::evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDi
 //
 // Create a suitable policy array for verification of installer signatures.
 //
-#if !SECTRUST_OSX
-static SecPolicyRef makeCRLPolicy()
-{
-	CFRef<SecPolicyRef> policy;
-	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_REVOCATION_CRL, &policy.aref()));
-	CSSM_APPLE_TP_CRL_OPTIONS options;
-	memset(&options, 0, sizeof(options));
-	options.Version = CSSM_APPLE_TP_CRL_OPTS_VERSION;
-	options.CrlFlags = CSSM_TP_ACTION_FETCH_CRL_FROM_NET | CSSM_TP_ACTION_CRL_SUFFICIENT;
-	CSSM_DATA optData = { sizeof(options), (uint8 *)&options };
-	MacOSError::check(SecPolicySetValue(policy, &optData));
-	return policy.yield();
-}
-
-static SecPolicyRef makeOCSPPolicy()
-{
-	CFRef<SecPolicyRef> policy;
-	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_REVOCATION_OCSP, &policy.aref()));
-	CSSM_APPLE_TP_OCSP_OPTIONS options;
-	memset(&options, 0, sizeof(options));
-	options.Version = CSSM_APPLE_TP_OCSP_OPTS_VERSION;
-	options.Flags = CSSM_TP_ACTION_OCSP_SUFFICIENT;
-	CSSM_DATA optData = { sizeof(options), (uint8 *)&options };
-	MacOSError::check(SecPolicySetValue(policy, &optData));
-	return policy.yield();
-}
-#else
 static SecPolicyRef makeRevocationPolicy()
 {
 	CFRef<SecPolicyRef> policy(SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod));
 	return policy.yield();
 }
-#endif
 
 static CFTypeRef installerPolicy()
 {
 	CFRef<SecPolicyRef> base = SecPolicyCreateBasicX509();
-#if !SECTRUST_OSX
-	CFRef<SecPolicyRef> crl = makeCRLPolicy();
-	CFRef<SecPolicyRef> ocsp = makeOCSPPolicy();
-#else
 	CFRef<SecPolicyRef> revoc = makeRevocationPolicy();
-#endif
 	return makeCFArray(2, base.get(), revoc.get());
 }
 

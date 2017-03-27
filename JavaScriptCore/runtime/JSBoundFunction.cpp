@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ const ClassInfo JSBoundFunction::s_info = { "Function", &Base::s_info, 0, CREATE
 
 EncodedJSValue JSC_HOST_CALL boundThisNoArgsFunctionCall(ExecState* exec)
 {
-    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->callee());
+    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->jsCallee());
 
     MarkedArgumentBuffer args;
     for (unsigned i = 0; i < exec->argumentCount(); ++i)
@@ -56,7 +56,7 @@ EncodedJSValue JSC_HOST_CALL boundThisNoArgsFunctionCall(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL boundFunctionCall(ExecState* exec)
 {
-    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->callee());
+    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->jsCallee());
 
     JSArray* boundArgs = boundFunction->boundArgs();
 
@@ -77,7 +77,7 @@ EncodedJSValue JSC_HOST_CALL boundFunctionCall(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL boundThisNoArgsFunctionConstruct(ExecState* exec)
 {
-    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->callee());
+    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->jsCallee());
 
     MarkedArgumentBuffer args;
     for (unsigned i = 0; i < exec->argumentCount(); ++i)
@@ -92,7 +92,7 @@ EncodedJSValue JSC_HOST_CALL boundThisNoArgsFunctionConstruct(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL boundFunctionConstruct(ExecState* exec)
 {
-    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->callee());
+    JSBoundFunction* boundFunction = jsCast<JSBoundFunction*>(exec->jsCallee());
 
     JSArray* boundArgs = boundFunction->boundArgs();
 
@@ -126,9 +126,9 @@ EncodedJSValue JSC_HOST_CALL hasInstanceBoundFunction(ExecState* exec)
 
 inline Structure* getBoundFunctionStructure(VM& vm, ExecState* exec, JSGlobalObject* globalObject, JSObject* targetFunction)
 {
+    auto scope = DECLARE_THROW_SCOPE(vm);
     JSValue prototype = targetFunction->getPrototype(vm, exec);
-    if (UNLIKELY(vm.exception()))
-        return nullptr;
+    RETURN_IF_EXCEPTION(scope, nullptr);
     JSFunction* targetJSFunction = jsDynamicCast<JSFunction*>(targetFunction);
 
     // We only cache the structure of the bound function if the bindee is a JSFunction since there
@@ -145,7 +145,7 @@ inline Structure* getBoundFunctionStructure(VM& vm, ExecState* exec, JSGlobalObj
     // currently. Whoever works on caching structure changes for prototype transistions should consider this problem as well.
     // See: https://bugs.webkit.org/show_bug.cgi?id=152738
     if (prototype.isObject() && prototype.getObject()->globalObject() == globalObject) {
-        result = vm.prototypeMap.emptyStructureForPrototypeFromBaseStructure(prototype.getObject(), result);
+        result = vm.prototypeMap.emptyStructureForPrototypeFromBaseStructure(globalObject, prototype.getObject(), result);
         ASSERT_WITH_SECURITY_IMPLICATION(result->globalObject() == globalObject);
     } else
         result = Structure::create(vm, globalObject, prototype, result->typeInfo(), result->classInfo());
@@ -158,6 +158,7 @@ inline Structure* getBoundFunctionStructure(VM& vm, ExecState* exec, JSGlobalObj
 
 JSBoundFunction* JSBoundFunction::create(VM& vm, ExecState* exec, JSGlobalObject* globalObject, JSObject* targetFunction, JSValue boundThis, JSArray* boundArgs, int length, const String& name)
 {
+    auto scope = DECLARE_THROW_SCOPE(vm);
     ConstructData constructData;
     ConstructType constructType = JSC::getConstructData(targetFunction, constructData);
     bool canConstruct = constructType != ConstructType::None;
@@ -167,14 +168,13 @@ JSBoundFunction* JSBoundFunction::create(VM& vm, ExecState* exec, JSGlobalObject
     NativeExecutable* executable = vm.getHostFunction(
         slowCase ? boundFunctionCall : boundThisNoArgsFunctionCall,
         slowCase ? NoIntrinsic : BoundThisNoArgsFunctionCallIntrinsic,
-        canConstruct ? (slowCase ? boundFunctionConstruct : boundThisNoArgsFunctionConstruct) : callHostFunctionAsConstructor,
+        canConstruct ? (slowCase ? boundFunctionConstruct : boundThisNoArgsFunctionConstruct) : callHostFunctionAsConstructor, nullptr,
         name);
     Structure* structure = getBoundFunctionStructure(vm, exec, globalObject, targetFunction);
-    if (UNLIKELY(vm.exception()))
-        return nullptr;
+    RETURN_IF_EXCEPTION(scope, nullptr);
     JSBoundFunction* function = new (NotNull, allocateCell<JSBoundFunction>(vm.heap)) JSBoundFunction(vm, globalObject, structure, targetFunction, boundThis, boundArgs);
 
-    function->finishCreation(vm, executable, length, makeString("bound ", name));
+    function->finishCreation(vm, executable, length);
     return function;
 }
 
@@ -191,8 +191,9 @@ JSBoundFunction::JSBoundFunction(VM& vm, JSGlobalObject* globalObject, Structure
 {
 }
 
-void JSBoundFunction::finishCreation(VM& vm, NativeExecutable* executable, int length, const String& name)
+void JSBoundFunction::finishCreation(VM& vm, NativeExecutable* executable, int length)
 {
+    String name; // We lazily create our 'name' string property.
     Base::finishCreation(vm, executable, length, name);
     ASSERT(inherits(info()));
 
@@ -206,9 +207,9 @@ void JSBoundFunction::visitChildren(JSCell* cell, SlotVisitor& visitor)
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
 
-    visitor.append(&thisObject->m_targetFunction);
-    visitor.append(&thisObject->m_boundThis);
-    visitor.append(&thisObject->m_boundArgs);
+    visitor.append(thisObject->m_targetFunction);
+    visitor.append(thisObject->m_boundThis);
+    visitor.append(thisObject->m_boundArgs);
 }
 
 } // namespace JSC

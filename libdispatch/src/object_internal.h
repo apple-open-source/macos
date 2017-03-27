@@ -613,6 +613,9 @@ size_t _dispatch_objc_debug(dispatch_object_t dou, char* buf, size_t bufsiz);
 #define _os_object_refcnt_dispose_barrier(o) \
 		_os_atomic_refcnt_dispose_barrier2o(o, os_obj_ref_cnt)
 
+void _os_object_atfork_child(void);
+void _os_object_atfork_parent(void);
+void _os_object_atfork_prepare(void);
 void _os_object_init(void);
 unsigned long _os_object_retain_count(_os_object_t obj);
 bool _os_object_retain_weak(_os_object_t obj);

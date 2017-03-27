@@ -37,7 +37,7 @@
 #include <CommonCrypto/CommonDigest.h>
 
 //#include "p12import.h"
-#include "SecImportExport.h"
+#include <Security/SecImportExport.h>
 
 const CFStringRef __nonnull kSecImportExportPassphrase = CFSTR("passphrase");
 const CFStringRef __nonnull kSecImportExportKeychain = CFSTR("keychain");

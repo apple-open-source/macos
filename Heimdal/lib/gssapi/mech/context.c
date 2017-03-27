@@ -36,8 +36,9 @@
 #include "mech_locl.h"
 #include "heim_threads.h"
 #include "heimbase.h"
+#include "gssapi_private.h"
 
-#include <asl.h>
+#include <os/log.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <krb5.h>
 #include <notify.h>
@@ -49,8 +50,7 @@ struct mg_thread_ctx {
     gss_OID mech;
     OM_uint32 min_stat;
     gss_buffer_desc min_error;
-    aslclient asl;
-    aslmsg msg;
+    os_log_t oslog;
 };
 
 static HEIMDAL_MUTEX context_mutex = HEIMDAL_MUTEX_INITIALIZER;
@@ -69,10 +69,8 @@ destroy_context(void *ptr)
 
     gss_release_buffer(&junk, &mg->min_error);
 
-    if (mg->msg)
-	asl_free(mg->msg);
-    if (mg->asl)
-	asl_close(mg->asl);
+    if (mg->oslog)
+	os_release(mg->oslog);
 
     free(mg);
 }
@@ -108,9 +106,7 @@ _gss_mechglue_thread(void)
 	    return NULL;
 	}
 
-	ctx->asl = asl_open(getprogname(), NULL, 0);
-	ctx->msg = asl_new(ASL_TYPE_MSG);
-	asl_set(ctx->msg, "org.h5l.asl", "gssapi");
+	ctx->oslog = os_log_create("org.h5l.gss", "gss");
     }
     return ctx;
 }
@@ -379,7 +375,6 @@ _gss_mg_copy_key(__nonnull CFStringRef domain,
 #endif
 
 static int log_level = 0;
-static int asl_level = ASL_LEVEL_ERR;
 static void *log_ctx = NULL;
 static HEIMDAL_MUTEX log_mutex = HEIMDAL_MUTEX_INITIALIZER;
 static int config_token = -1;
@@ -427,9 +422,6 @@ init_log(void)
 
     CFRelease(val);
 
-    if (log_level > 0)
-	asl_level = ASL_LEVEL_ERR;
- 
     HEIMDAL_MUTEX_unlock(&log_mutex);
 }
  
@@ -458,10 +450,11 @@ _gss_mg_log_level(int level)
 }
 
 void
-_gss_mg_log(int level, const char *__nonnull fmt, ...)
+_gss_mg_log(int level, const char *fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3))
 {
     struct mg_thread_ctx *mg;
+    char *str = NULL;
     va_list ap;
 
     if (!_gss_mg_log_level(level))
@@ -472,8 +465,11 @@ _gss_mg_log(int level, const char *__nonnull fmt, ...)
 	return;
 
     va_start(ap, fmt);
-    asl_vlog(mg->asl, mg->msg, asl_level, fmt, ap);
+    vasprintf(&str, fmt, ap);
     va_end(ap);
+
+    os_log(mg->oslog, "%{public}s", str);
+    free(str);
 
     if (log_func) {
 	va_start(ap, fmt);

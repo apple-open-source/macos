@@ -207,6 +207,11 @@ IOReturn IOFireWireAVCTargetSpace::findAVCRequestHandler(IOFireWireAVCProtocolUs
 	int i;
 	int firstIndex;
 
+    if( (pCmdBuf == NULL) || (cmdLen < 3) )
+    {
+        return kIOReturnBadArgument;
+    }
+    
 	// Parse the command a bit
 	subUnit = pCmdBuf[1];
 	opCode = pCmdBuf[2];

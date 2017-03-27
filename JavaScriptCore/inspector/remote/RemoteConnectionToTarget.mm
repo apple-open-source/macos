@@ -33,7 +33,6 @@
 #import "RemoteInspectionTarget.h"
 #import <dispatch/dispatch.h>
 #import <wtf/Optional.h>
-#import <wtf/Vector.h>
 
 #if PLATFORM(IOS)
 #import <wtf/ios/WebCoreThread.h>
@@ -120,9 +119,9 @@ RemoteConnectionToTarget::~RemoteConnectionToTarget()
     teardownRunLoop();
 }
 
-Optional<unsigned> RemoteConnectionToTarget::targetIdentifier() const
+std::optional<unsigned> RemoteConnectionToTarget::targetIdentifier() const
 {
-    return m_target ? Optional<unsigned>(m_target->targetIdentifier()) : Nullopt;
+    return m_target ? std::optional<unsigned>(m_target->targetIdentifier()) : std::nullopt;
 }
 
 NSString *RemoteConnectionToTarget::connectionIdentifier() const
@@ -164,7 +163,7 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
         {
             std::lock_guard<Lock> lock(m_targetMutex);
             if (!m_target || !m_target->remoteControlAllowed()) {
-                RemoteInspector::singleton().setupFailed(targetIdentifier().valueOr(0));
+                RemoteInspector::singleton().setupFailed(targetIdentifier().value_or(0));
                 m_target = nullptr;
             } else if (is<RemoteInspectionTarget>(m_target)) {
                 auto castedTarget = downcast<RemoteInspectionTarget>(m_target);
@@ -229,13 +228,12 @@ void RemoteConnectionToTarget::sendMessageToTarget(NSString *message)
     });
 }
 
-bool RemoteConnectionToTarget::sendMessageToFrontend(const String& message)
+void RemoteConnectionToTarget::sendMessageToFrontend(const String& message)
 {
-    if (!m_target)
-        return false;
+    if (!targetIdentifier())
+        return;
 
     RemoteInspector::singleton().sendMessageToRemote(targetIdentifier().value(), message);
-    return true;
 }
 
 void RemoteConnectionToTarget::setupRunLoop()

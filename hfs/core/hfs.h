@@ -61,6 +61,7 @@
 #include <kern/locks.h>
 #include <vm/vm_kern.h>
 #include <sys/sysctl.h>
+#include <uuid/uuid.h>
 
 #include "../hfs_encodings/hfs_encodings.h"
 
@@ -94,7 +95,6 @@ struct cprotect;
 // would touch enough data that we should break it into
 // multiple separate transactions)
 #define HFS_BIGFILE_SIZE (400LL * 1024LL * 1024LL)
-
 
 enum { kMDBSize = 512 };				/* Size of I/O transfer to read entire MDB */
 
@@ -399,6 +399,9 @@ typedef struct hfsmount {
 
 #endif
 
+	/* the full UUID of the volume, not the one stored in finderinfo */
+	uuid_t		 hfs_full_uuid;
+
 	/* Per mount cnode hash variables: */
 	lck_mtx_t      hfs_chash_mutex;	/* protects access to cnode hash table */
 	u_long         hfs_cnodehash;	/* size of cnode hash table - 1 */
@@ -430,21 +433,6 @@ typedef struct hfsmount {
 	};
 	// These lists are not sorted like a range list usually is
 	struct rl_head hfs_reserved_ranges[2];
-
-	// cnode zone
-	struct cnode_zone {
-		int elem_size;
-		int chunk_size;
-		int alloc_count;
-		int gcd;
-		int y;
-		struct chunk_hdr **heap;
-		int heap_max_count, heap_count;
-		lck_mtx_t alloc_mtx;
-		bool allocating : 1;
-		bool waiting : 1;
-		struct chunk_hdr *spare;
-	} z;
 } hfsmount_t;
 
 /*
@@ -822,6 +810,9 @@ int hfs_truncatefs(struct hfsmount *hfsmp, u_int64_t newsize, vfs_context_t cont
 /*****************************************************************************
 	Functions from hfs_vfsops.c
 ******************************************************************************/
+
+extern void hfs_getvoluuid(struct hfsmount *hfsmp, uuid_t result);
+
 /* used as a callback by the journaling code */
 extern void hfs_sync_metadata(void *arg);
 
@@ -993,6 +984,30 @@ int unicode_to_hfs(ExtendedVCB *vcb, ByteCount srcLen, u_int16_t* srcStr, Str31 
 void *hfs_malloc(size_t size);
 void hfs_free(void *ptr, size_t size);
 void *hfs_mallocz(size_t size);
+
+typedef enum {
+	HFS_CNODE_ZONE,
+	HFS_FILEFORK_ZONE,
+	HFS_DIRHINT_ZONE,
+	HFS_NUM_ZONES
+} hfs_zone_kind_t;
+
+typedef struct hfs_zone_entry {
+	hfs_zone_kind_t	hze_kind;
+	size_t			hze_elem_size;
+	const char *	hze_name;
+	boolean_t		hze_noencrypt;
+} hfs_zone_entry_t;
+
+typedef struct hfs_zone {
+	zone_t hz_zone;
+	size_t hz_elem_size;
+} hfs_zone_t;
+
+void hfs_init_zones(void);
+void *hfs_zalloc(hfs_zone_kind_t type);
+void hfs_zfree(void *ptr, hfs_zone_kind_t type);
+
 void hfs_sysctl_register(void);
 void hfs_sysctl_unregister(void);
 

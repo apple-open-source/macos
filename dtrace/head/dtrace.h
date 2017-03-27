@@ -26,6 +26,7 @@
 
 /*
  * Portions Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Portions Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 #ifndef	_DTRACE_H
@@ -123,6 +124,7 @@ extern "C" {
 #define	DTRACE_VERSION	3		/* library ABI interface version */
 
 struct ps_prochandle;
+struct dt_node;
 typedef struct dtrace_hdl dtrace_hdl_t;
 typedef struct dtrace_prog dtrace_prog_t;
 typedef struct dtrace_vector dtrace_vector_t;
@@ -192,6 +194,9 @@ extern dtrace_prog_t *dtrace_program_strcompile(dtrace_hdl_t *,
 
 extern dtrace_prog_t *dtrace_program_fcompile(dtrace_hdl_t *,
     FILE *, uint_t, int, char *const []);
+
+extern struct dt_node *dt_compile_sugar(dtrace_hdl_t *,
+	struct dt_node*);
 
 extern int dtrace_program_exec(dtrace_hdl_t *, dtrace_prog_t *,
     dtrace_proginfo_t *);

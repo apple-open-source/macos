@@ -41,7 +41,7 @@ const uint64_t kCKDXPCVersion = 1;
 
 // seems like launchd looks for the BundleIdentifier, not the name
 const char *xpcServiceName = "com.apple.security.cloudkeychainproxy3";   //"CloudKeychainProxy";
-const char *xpcIDSServiceName = "com.apple.security.idskeychainsyncingproxy";
+const char *xpcIDSServiceName = "com.apple.security.keychainsyncingoveridsproxy";
 
 const char *kMessageKeyOperation = "operation";
 const char *kMessageKeyKey = "key";
@@ -53,6 +53,9 @@ const char *kMessageKeyKeysToGet = "KeysToGet";
 const char *kMessageKeyKeysRequireFirstUnlock = "KeysRequireFirstUnlock";
 const char *kMessageKeyKeysRequiresUnlocked = "KeysRequiresUnlocked";
 const char *kMessageKeyNotificationFlags = "NotificationFlags";
+const char *kMessageKeyPeerIDList = "peerIDList";
+const char *kMesssgeKeyBackupPeerIDList = "backupPeerIDList";
+const char *kOperationSendDeviceList = "IDSDeviceList";
 
 /* parameters within the dictionary */
 const char *kMessageAlwaysKeys = "AlwaysKeys";
@@ -69,6 +72,7 @@ const char *kMessageKeyIDSDataMessage = "idsDataMessage";
 const char *kMessageKeyDeviceID = "deviceID";
 const char *kMessageKeyPeerID = "peerID";
 const char *kMessageKeySendersPeerID = "sendersPeerID";
+const char *kMessageKeyAccountUUID = "AcctUUID";
 
 const char *kMessageOperationItemChanged = "ItemChanged";
 
@@ -84,11 +88,14 @@ const char *kOperationGETv2 = "GETv2";
 const char *kOperationRegisterKeys = "RegisterKeys";
 const char *kOperationGetDeviceID = "DeviceID";
 
-const char *kOperationSendDeviceList = "IDSDeviceList";
+const char *kOperationHasPendingKey = "hasPendingKey";
+
 const char *kOperationSendIDSMessage = "IDSMessage";
 const char *kOperationSendFragmentedIDSMessage = "IDSMessageFragmented";
+const char *kOperationGetPendingMesages = "IDSPendingMessages";
 
-const char *kOperationRequestSyncWithAllPeers = "requestSyncWithAllPeers";
+const char *kOperationRequestSyncWithPeers = "requestSyncWithPeers";
+const char *kOperationHasPendingSyncWithPeer = "hasPendingSyncWithPeer";
 const char *kOperationRequestEnsurePeerRegistration = "requestEnsurePeerRegistration";
 
 

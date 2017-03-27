@@ -820,11 +820,29 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                 }
 
                 if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
+                {
 ///w:23678897:stop
-                if ( DAUnitGetState( disk, kDAUnitStateHasQuiesced ) )
+                if ( DAUnitGetState( disk, kDAUnitStateHasQuiescedNoTimeout ) )
                 {
                     DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
                 }
+                else
+                {
+                    DADiskRef unit;
+
+                    unit = _DAUnitGetParentUnit( disk );
+
+                    if ( unit )
+                    {
+                        if ( DAUnitGetState( unit, kDAUnitStateHasQuiescedNoTimeout ) )
+                        {
+                            DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
+                        }
+                    }
+                }
+///w:23678897:start
+                }
+///w:23678897:stop
 
                 /*
                  * Add the disk object to our tables.
@@ -949,7 +967,8 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
 ///w:23678897:start
                 DAUnitSetState( disk, _kDAUnitStateHasAPFS, FALSE );
 ///w:23678897:stop
-                DAUnitSetState( disk, kDAUnitStateHasQuiesced, FALSE );
+                DAUnitSetState( disk, kDAUnitStateHasQuiesced,          FALSE );
+                DAUnitSetState( disk, kDAUnitStateHasQuiescedNoTimeout, FALSE );
             }
 
             DADiskSetState( disk, kDADiskStateZombie, TRUE );

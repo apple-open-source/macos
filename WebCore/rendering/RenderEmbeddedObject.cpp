@@ -37,7 +37,6 @@
 #include "GraphicsContext.h"
 #include "HTMLAppletElement.h"
 #include "HTMLEmbedElement.h"
-#include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLParamElement.h"
@@ -75,25 +74,25 @@ static const float replacementArrowCirclePadding = 3;
 
 static const Color& replacementTextRoundedRectPressedColor()
 {
-    static const Color pressed(105, 105, 105, 242);
+    static NeverDestroyed<Color> pressed(105, 105, 105, 242);
     return pressed;
 }
 
 static const Color& replacementTextRoundedRectColor()
 {
-    static const Color standard(125, 125, 125, 242);
+    static NeverDestroyed<Color> standard(125, 125, 125, 242);
     return standard;
 }
 
 static const Color& replacementTextColor()
 {
-    static const Color standard(240, 240, 240, 255);
+    static NeverDestroyed<Color> standard(240, 240, 240, 255);
     return standard;
 }
 
 static const Color& unavailablePluginBorderColor()
 {
-    static const Color standard(255, 255, 255, 216);
+    static NeverDestroyed<Color> standard(255, 255, 255, 216);
     return standard;
 }
 
@@ -423,12 +422,14 @@ bool RenderEmbeddedObject::isReplacementObscured() const
     if (!rootRenderView)
         return true;
 
-    IntRect rootViewRect = view().frameView().convertToRootView(snappedIntRect(rect));
-    
+    // We should always start hit testing a clean tree.
+    view().frameView().updateLayoutAndStyleIfNeededRecursive();
+
     HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
     HitTestResult result;
     HitTestLocation location;
     
+    IntRect rootViewRect = view().frameView().convertToRootView(snappedIntRect(rect));
     LayoutUnit x = rootViewRect.x();
     LayoutUnit y = rootViewRect.y();
     LayoutUnit width = rootViewRect.width();

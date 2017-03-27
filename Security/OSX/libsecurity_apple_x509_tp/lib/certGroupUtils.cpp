@@ -516,7 +516,6 @@ CSSM_BOOL tpCompareHostNames(
 	} while(1);
 	/* NOT REACHED */
 	//assert(0):
-	return CSSM_FALSE;
 }
 
 /*

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BlobPart_h
-#define BlobPart_h
+#pragma once
 
 #include "URL.h"
 
@@ -42,7 +41,7 @@ public:
     {
     }
 
-    BlobPart(Vector<uint8_t> data)
+    BlobPart(Vector<uint8_t>&& data)
         : m_type(Data)
         , m_data(WTFMove(data))
     {
@@ -86,5 +85,3 @@ private:
 };
 
 }
-
-#endif // BlobPart_h

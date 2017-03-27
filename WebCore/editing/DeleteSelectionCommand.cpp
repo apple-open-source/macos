@@ -30,9 +30,9 @@
 #include "DocumentMarkerController.h"
 #include "Editor.h"
 #include "EditorClient.h"
+#include "ElementIterator.h"
 #include "Frame.h"
 #include "HTMLBRElement.h"
-#include "HTMLInputElement.h"
 #include "HTMLLinkElement.h"
 #include "HTMLNames.h"
 #include "HTMLStyleElement.h"
@@ -345,6 +345,37 @@ static Position firstEditablePositionInNode(Node* node)
     return next ? firstPositionInOrBeforeNode(next) : Position();
 }
 
+void DeleteSelectionCommand::insertBlockPlaceholderForTableCellIfNeeded(Element& element)
+{
+    // Make sure empty cell has some height.
+    auto* renderer = element.renderer();
+    if (!is<RenderTableCell>(renderer))
+        return;
+    if (downcast<RenderTableCell>(*renderer).contentHeight() > 0)
+        return;
+    insertBlockPlaceholder(firstEditablePositionInNode(&element));
+}
+    
+void DeleteSelectionCommand::removeNodeUpdatingStates(Node& node, ShouldAssumeContentIsAlwaysEditable shouldAssumeContentIsAlwaysEditable)
+{
+    if (&node == m_startBlock && !isEndOfBlock(VisiblePosition(firstPositionInNode(m_startBlock.get())).previous()))
+        m_needPlaceholder = true;
+    else if (&node == m_endBlock && !isStartOfBlock(VisiblePosition(lastPositionInNode(m_startBlock.get())).next()))
+        m_needPlaceholder = true;
+    
+    // FIXME: Update the endpoints of the range being deleted.
+    updatePositionForNodeRemoval(m_endingPosition, node);
+    updatePositionForNodeRemoval(m_leadingWhitespace, node);
+    updatePositionForNodeRemoval(m_trailingWhitespace, node);
+    
+    CompositeEditCommand::removeNode(&node, shouldAssumeContentIsAlwaysEditable);
+}
+    
+static inline bool shouldRemoveContentOnly(const Node& node)
+{
+    return isTableStructureNode(&node) || node.isRootEditableElement();
+}
+
 void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node, ShouldAssumeContentIsAlwaysEditable shouldAssumeContentIsAlwaysEditable)
 {
     if (!node)
@@ -372,38 +403,34 @@ void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node, ShouldAssumeConte
         }
     }
     
-    if (isTableStructureNode(node.get()) || node->isRootEditableElement()) {
+    if (shouldRemoveContentOnly(*node)) {
         // Do not remove an element of table structure; remove its contents.
         // Likewise for the root editable element.
-        Node* child = node->firstChild();
+        auto* child = NodeTraversal::next(*node, node.get());
         while (child) {
-            Node* remove = child;
-            child = child->nextSibling();
-            removeNode(remove, shouldAssumeContentIsAlwaysEditable);
+            if (shouldRemoveContentOnly(*child)) {
+                child = NodeTraversal::next(*child, node.get());
+                continue;
+            }
+            auto* remove = child;
+            child = NodeTraversal::nextSkippingChildren(*child, node.get());
+            removeNodeUpdatingStates(*remove, shouldAssumeContentIsAlwaysEditable);
         }
         
-        // Make sure empty cell has some height, if a placeholder can be inserted.
+        ASSERT(is<Element>(*node));
+        auto& element = downcast<Element>(*node);
         document().updateLayoutIgnorePendingStylesheets();
-        RenderObject* renderer = node->renderer();
-        if (is<RenderTableCell>(renderer) && downcast<RenderTableCell>(*renderer).contentHeight() <= 0) {
-            Position firstEditablePosition = firstEditablePositionInNode(node.get());
-            if (firstEditablePosition.isNotNull())
-                insertBlockPlaceholder(firstEditablePosition);
+        // Check if we need to insert a placeholder for descendant table cells.
+        auto* descendant = ElementTraversal::next(element, &element);
+        while (descendant) {
+            auto* placeholderCandidate = descendant;
+            descendant = ElementTraversal::next(*descendant, &element);
+            insertBlockPlaceholderForTableCellIfNeeded(*placeholderCandidate);
         }
+        insertBlockPlaceholderForTableCellIfNeeded(element);
         return;
     }
-    
-    if (node == m_startBlock && !isEndOfBlock(VisiblePosition(firstPositionInNode(m_startBlock.get())).previous()))
-        m_needPlaceholder = true;
-    else if (node == m_endBlock && !isStartOfBlock(VisiblePosition(lastPositionInNode(m_startBlock.get())).next()))
-        m_needPlaceholder = true;
-    
-    // FIXME: Update the endpoints of the range being deleted.
-    updatePositionForNodeRemoval(m_endingPosition, *node);
-    updatePositionForNodeRemoval(m_leadingWhitespace, *node);
-    updatePositionForNodeRemoval(m_trailingWhitespace, *node);
-    
-    CompositeEditCommand::removeNode(node, shouldAssumeContentIsAlwaysEditable);
+    removeNodeUpdatingStates(*node, shouldAssumeContentIsAlwaysEditable);
 }
 
 static void updatePositionForTextRemoval(Node* node, int offset, int count, Position& position)
@@ -520,7 +547,7 @@ void DeleteSelectionCommand::handleGeneralDelete()
             if (comparePositions(firstPositionInOrBeforeNode(node.get()), m_downstreamEnd) >= 0) {
                 // NodeTraversal::nextSkippingChildren just blew past the end position, so stop deleting
                 node = nullptr;
-            } else if (!m_downstreamEnd.deprecatedNode()->isDescendantOf(node.get())) {
+            } else if (!m_downstreamEnd.deprecatedNode()->isDescendantOf(*node)) {
                 RefPtr<Node> nextNode = NodeTraversal::nextSkippingChildren(*node);
                 // if we just removed a node from the end container, update end position so the
                 // check above will work
@@ -703,7 +730,7 @@ void DeleteSelectionCommand::removePreviouslySelectedEmptyTableRows()
     if (m_endTableRow && m_endTableRow->inDocument() && m_endTableRow != m_startTableRow)
         if (isTableRowEmpty(m_endTableRow.get())) {
             // Don't remove m_endTableRow if it's where we're putting the ending selection.
-            if (!m_endingPosition.deprecatedNode()->isDescendantOf(m_endTableRow.get())) {
+            if (!m_endingPosition.deprecatedNode()->isDescendantOf(*m_endTableRow)) {
                 // FIXME: We probably shouldn't remove m_endTableRow unless it's fully selected, even if it is empty.
                 // We'll need to start adjusting the selection endpoints during deletion to know whether or not m_endTableRow
                 // was fully selected here.
@@ -821,9 +848,10 @@ void DeleteSelectionCommand::doApply()
         // Don't need a placeholder when deleting a selection that starts just before a table
         // and ends inside it (we do need placeholders to hold open empty cells, but that's
         // handled elsewhere).
-        if (Node* table = isLastPositionBeforeTable(m_selectionToDelete.visibleStart()))
-            if (m_selectionToDelete.end().deprecatedNode()->isDescendantOf(table))
+        if (auto* table = isLastPositionBeforeTable(m_selectionToDelete.visibleStart())) {
+            if (m_selectionToDelete.end().deprecatedNode()->isDescendantOf(*table))
                 m_needPlaceholder = false;
+        }
     }
         
     

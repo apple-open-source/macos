@@ -37,6 +37,7 @@
 
 
 #pragma D option quiet
+#pragma D option nolibs
 
 tick-500000000nsec
 {

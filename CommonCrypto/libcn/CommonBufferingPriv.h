@@ -24,7 +24,7 @@
 #ifndef CC_CommonBufferingPriv_h
 #define CC_CommonBufferingPriv_h
 
-#include "CommonNumerics.h"
+#include <CommonNumerics/CommonNumerics.h>
 #include <stdbool.h>
 
 typedef struct CNBuffer_t {

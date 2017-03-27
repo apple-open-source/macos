@@ -29,6 +29,7 @@
 #include "cfmunge.h"
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/errors.h>
+#include <utilities/SecCFRelease.h>
 
 namespace Security {
 
@@ -242,7 +243,7 @@ CFTypeRef CFMake::makedictionary()
 	if (add(dict))
 		return dict;
 	else {
-		CFRelease(dict);
+		CFReleaseSafe(dict);
 		return NULL;
 	}
 }

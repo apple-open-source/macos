@@ -310,8 +310,8 @@ testExternalEntityLoader(const char *URL, const char *ID,
 static char testErrors[32769];
 static int testErrorsSize = 0;
 
-static void XMLCDECL
-channel(void *ctx  ATTRIBUTE_UNUSED, const char *msg, ...) {
+static void XMLCDECL LIBXML_ATTR_FORMAT(2,3)
+channel(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...) {
     va_list args;
     int res;
 

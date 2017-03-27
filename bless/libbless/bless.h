@@ -172,6 +172,12 @@ typedef struct {
 #define kBL_PATH_I386_BOOTDEV_EFI "/usr/standalone/i386/bootdev.efi"
 
 /*!
+ * @define kBL_PATH_I386_APFS_EFI
+ * @discussion APFS driver for Darwin x86 on EFI-based systems
+ */
+#define kBL_PATH_I386_APFS_EFI "/usr/standalone/i386/apfs.efi"
+
+/*!
  * @define kBL_PATH_I386_BOOT2_CONFIG_PLIST
  * @discussion Second stage loader config file for Darwin x86
  */
@@ -425,6 +431,78 @@ int BLIsMountHFS(BLContextPtr context,
 		 int *isHFS);
 
 /*!
+ * @function BLIsMountAPFS
+ * @abstract Test if the volume is APFS
+ * @discussion Perform a statfs(2) on the
+ *    the volume at <b>mountpoint</b> and
+ *    report whether it is an APFS volume
+ * @param context Bless Library context
+ * @param mountpt Mountpoint of volume
+ * @param isAPFS is the mount apfs?
+ */
+int BLIsMountAPFS(BLContextPtr context,
+                  const char * mountpt,
+                  int *isAPFS);
+
+
+/*!
+ * @function BLGetAPFSBlessData
+ * @abstract Retrieve the bless data from an APFS volume
+ * @discussion Make the necessary calls to
+ *    get blessed file/folder information
+ *    from the volume mounted at <b>mountpoint</b>.
+ * @param context Bless Library context
+ * @param mountpoint Mountpoint of volume
+ * @param pointer to space big enough to hold bless data, currently two 64-bit words.
+ */
+int BLGetAPFSBlessData(BLContextPtr context, const char *mountpoint, uint64_t *words);
+
+
+
+/*!
+ * @function BLSetAPFSBlessData
+ * @abstract Set the bless data for an APFS volume
+ * @discussion Make the necessary calls to
+ *    set blessed file/folder information
+ *    on the volume mounted at <b>mountpoint</b>.
+ * @param context Bless Library context
+ * @param mountpoint Mountpoint of volume
+ * @param pointer to bless data, currently two 64-bit words.
+ */
+int BLSetAPFSBlessData(BLContextPtr context, const char *mountpoint, uint64_t *words);
+
+
+
+/*!
+ * @function BLGetAPFSInodeNum
+ * @abstract Retrieve the inode number of a file/folder on an APFS volume.
+ * @discussion Find the 64-bit inode number of a filesystem object
+ *    given by <b>path</b>.
+ * @param context Bless Library context
+ * @param path Path to object.  Must be on an APFS mount point.
+ * @param pointer to 64-bit value which will hold the returned value.
+ */
+int BLGetAPFSInodeNum(BLContextPtr context, const char *path, uint64_t *inum);
+
+
+
+/*!
+ * @function BLCreateAPFSVolumeInformationDictionary
+ * @abstract Create a dictionary of boot information for an APFS volume.
+ * @discussion The returned dictionary contains the blessed file and folder
+ *    inums, along with their corresopnding paths.
+ * @param context Bless Library context
+ * @param mountpoint Mount point of the APFS volume.
+ * @param pointer to a CFDictionaryRef which will be set to point to 
+ *    a newly created dictionary with the relevant values.
+ */
+int BLCreateAPFSVolumeInformationDictionary(BLContextPtr context, const char *mountpoint, CFDictionaryRef *outDict);
+
+
+
+
+
+/*!
  * @function BLLookupFileIDOnMount
  * @abstract Get path of file with ID <b>fileID</b>
  *    on <b>mount</b>
@@ -439,6 +517,25 @@ int BLLookupFileIDOnMount(BLContextPtr context,
 			  const char * mountpoint,
 			  uint32_t fileID,
 			  char * out);
+
+
+
+/*!
+ * @function BLLookupFileIDOnMount64
+ * @abstract Get path of file with ID <b>fileID</b>
+ *    on <b>mount</b>, which uses 64-bit file IDs.
+ * @discussion Use volfs to do reverse-resolution of
+ *    <b>fileID</b> on <b>mount</b> to a full path
+ * @param context Bless Library context
+ * @param mount Mountpoint of volume
+ * @param fileID file ID to look up
+ * @param out resulting path (up to MAXPATHLEN characeters will be written)
+ */
+int BLLookupFileIDOnMount64(BLContextPtr context,
+                            const char * mountpoint,
+                            uint64_t fileID,
+                            char * out,
+                            int bufsize);
 
 
 /*!
@@ -812,6 +909,13 @@ int BLCreateEFIXMLRepresentationForPath(BLContextPtr context,
                                           CFStringRef *xmlString,
                                           bool shortForm);
 
+int BLCreateEFIXMLRepresentationForPartialPath(BLContextPtr context,
+                                               const char *bsdName,
+                                               const char *path,
+                                               const char *optionalData,
+                                               CFStringRef *xmlString,
+                                               bool shortForm);
+
 int BLCreateEFIXMLRepresentationForDevice(BLContextPtr context,
                                           const char *bsdName,
                                           const char *optionalData,
@@ -851,6 +955,13 @@ int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
                                             char *bsdName,
                                             int bsdNameLen);
 
+int BLInterpretEFIXMLRepresentationAsDeviceWithPath(BLContextPtr context,
+                                                    CFStringRef xmlString,
+                                                    char *bsdName,
+                                                    int bsdNameLen,
+                                                    char *path,
+                                                    int pathLen);
+
 int BLInterpretEFIXMLRepresentationAsLegacyDevice(BLContextPtr context,
                                             CFStringRef xmlString,
                                             char *bsdName,
@@ -882,6 +993,7 @@ int BLPreserveBootArgs(BLContextPtr context,
 #define kBLDataPartitionsKey        CFSTR("Data Partitions")
 #define kBLAuxiliaryPartitionsKey   CFSTR("Auxiliary Partitions")
 #define kBLSystemPartitionsKey      CFSTR("System Partitions")
+#define kBLAPFSPrebootVolumesKey    CFSTR("Preboot Volumes")
 
 int BLCreateBooterInformationDictionary(BLContextPtr context, const char * bsdName,
                                         CFDictionaryRef *outDict);

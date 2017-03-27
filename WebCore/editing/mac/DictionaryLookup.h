@@ -23,14 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DictionaryLookup_h
-#define DictionaryLookup_h
+#pragma once
 
 #if PLATFORM(MAC)
 
 #include "DictionaryPopupInfo.h"
 #include <functional>
-#include <wtf/PassRefPtr.h>
 
 OBJC_CLASS NSString;
 OBJC_CLASS NSView;
@@ -67,5 +65,3 @@ public:
 } // namespace WebCore
 
 #endif // PLATFORM(MAC)
-
-#endif // DictionaryLookup_h

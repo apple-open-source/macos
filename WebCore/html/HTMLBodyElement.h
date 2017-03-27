@@ -21,8 +21,7 @@
  *
  */
 
-#ifndef HTMLBodyElement_h
-#define HTMLBodyElement_h
+#pragma once
 
 #include "HTMLElement.h"
 
@@ -56,6 +55,8 @@ private:
     
     int scrollTop() final;
     void setScrollTop(int) final;
+
+    void scrollTo(const ScrollToOptions&) final;
     
     int scrollHeight() final;
     int scrollWidth() final;
@@ -66,5 +67,3 @@ private:
 };
 
 } //namespace
-
-#endif

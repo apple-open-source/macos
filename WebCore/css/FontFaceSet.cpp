@@ -125,15 +125,15 @@ void FontFaceSet::clear()
 
 void FontFaceSet::load(const String& font, const String& text, LoadPromise&& promise)
 {
-    ExceptionCode ec = 0;
-    auto matchingFaces = m_backing->matchingFaces(font, text, ec);
-    if (ec) {
-        promise.reject(ec);
+    auto matchingFacesResult = m_backing->matchingFaces(font, text);
+    if (matchingFacesResult.hasException()) {
+        promise.reject(matchingFacesResult.releaseException());
         return;
     }
+    auto matchingFaces = matchingFacesResult.releaseReturnValue();
 
     if (matchingFaces.isEmpty()) {
-        promise.resolve(Vector<RefPtr<FontFace>>());
+        promise.resolve({ });
         return;
     }
 
@@ -155,16 +155,17 @@ void FontFaceSet::load(const String& font, const String& text, LoadPromise&& pro
         if (face.get().status() == CSSFontFace::Status::Success)
             continue;
         waiting = true;
-        m_pendingPromises.add(&face.get(), Vector<Ref<PendingPromise>>()).iterator->value.append(pendingPromise.copyRef());
+        ASSERT(face.get().existingWrapper());
+        m_pendingPromises.add(face.get().existingWrapper(), Vector<Ref<PendingPromise>>()).iterator->value.append(pendingPromise.copyRef());
     }
 
     if (!waiting)
         pendingPromise->promise.resolve(pendingPromise->faces);
 }
 
-bool FontFaceSet::check(const String& family, const String& text, ExceptionCode& ec)
+ExceptionOr<bool> FontFaceSet::check(const String& family, const String& text)
 {
-    return m_backing->check(family, text, ec);
+    return m_backing->check(family, text);
 }
 
 void FontFaceSet::registerReady(ReadyPromise&& promise)
@@ -203,13 +204,16 @@ void FontFaceSet::startedLoading()
 void FontFaceSet::completedLoading()
 {
     if (m_promise)
-        std::exchange(m_promise, Nullopt)->resolve(*this);
+        std::exchange(m_promise, std::nullopt)->resolve(*this);
     m_isReady = true;
 }
 
 void FontFaceSet::faceFinished(CSSFontFace& face, CSSFontFace::Status newStatus)
 {
-    auto iterator = m_pendingPromises.find(&face);
+    if (!face.existingWrapper())
+        return;
+
+    auto iterator = m_pendingPromises.find(face.existingWrapper());
     if (iterator == m_pendingPromises.end())
         return;
 

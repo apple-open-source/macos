@@ -1,0 +1,4 @@
+Much of the historical content of these SecurityTests has been archived to:
+
+https://stash.sd.apple.com/projects/COREOSINT/repos/securitytech/browse/Archive/SecurityTests
+

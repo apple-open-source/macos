@@ -78,5 +78,4 @@ bool SSFactory::setup(SSCSPSession &session, CSPFullPluginSession::CSPContext * 
             return true;
     }
 #endif
-    return false;
 }

@@ -35,6 +35,7 @@
 #include <security_keychain/KCCursor.h>
 #include <security_cdsa_utilities/Schema.h>
 #include <security_utilities/simpleprefs.h>
+#include <utilities/SecCFRelease.h>
 #include <sys/param.h>
 #include <syslog.h>
 
@@ -128,7 +129,7 @@ SecIdentityCopyCertificate(
 	if (itemType == SecIdentityGetTypeID()) {
 		SecPointer<Certificate> certificatePtr(Identity::required(identityRef)->certificate());
 		Required(certificateRef) = certificatePtr->handle();
-#if SECTRUST_OSX
+
 		/* convert outgoing certificate item to a unified SecCertificateRef */
 		CssmData certData = certificatePtr->data();
 		CFDataRef data = NULL;
@@ -149,16 +150,12 @@ SecIdentityCopyCertificate(
 		if (tmpRef) {
 			CFRelease(tmpRef);
 		}
-#endif
 	}
 	else if (itemType == SecCertificateGetTypeID()) {
 		// rdar://24483382
 		// reconstituting a persistent identity reference could return the certificate
 		SecCertificateRef certificate = (SecCertificateRef)identityRef;
-#if !SECTRUST_OSX
-		SecPointer<Certificate> certificatePtr(Certificate::required(certificate));
-		Required(certificateRef) = certificatePtr->handle();
-#else
+
 		/* convert outgoing certificate item to a unified SecCertificateRef, if needed */
 		if (SecCertificateIsItemImplInstance(certificate)) {
 			*certificateRef = SecCertificateCreateFromItemImplInstance(certificate);
@@ -166,7 +163,6 @@ SecIdentityCopyCertificate(
 		else {
 			*certificateRef = (SecCertificateRef) CFRetain(certificate);
 		}
-#endif
 		return errSecSuccess;
 	}
 	else {
@@ -257,19 +253,20 @@ SecIdentityCompare(
 			return kCFCompareGreaterThan;
 	}
 
-	BEGIN_SECAPI
+    try {
+        SecPointer<Identity> id1(Identity::required(identity1));
+        SecPointer<Identity> id2(Identity::required(identity2));
 
-	SecPointer<Identity> id1(Identity::required(identity1));
-	SecPointer<Identity> id2(Identity::required(identity2));
+        if (id1 == id2)
+            return kCFCompareEqualTo;
+        else if (id1 < id2)
+            return kCFCompareLessThan;
+        else
+            return kCFCompareGreaterThan;
+    } catch(...)
+    {}
 
-	if (id1 == id2)
-		return kCFCompareEqualTo;
-	else if (id1 < id2)
-		return kCFCompareLessThan;
-	else
-		return kCFCompareGreaterThan;
-
-	END_SECAPI1(kCFCompareGreaterThan);
+    return kCFCompareGreaterThan;
 }
 
 static
@@ -425,25 +422,12 @@ OSStatus _SecIdentityCopyPreferenceMatchingName(
     }
 
 	// create identity reference, given certificate
-#if SECTRUST_OSX
-    status = SecIdentityCreateWithCertificate(NULL, (SecCertificateRef)certItemRef, identity);
-#else
-    try {
-        Item certItem = ItemImpl::required(SecKeychainItemRef(certItemRef));
-        SecPointer<Certificate> certificate(static_cast<Certificate *>(certItem.get()));
-        SecPointer<Identity> identity_ptr(new Identity(keychains, certificate));
-        if (certItemRef) {
-            CFRelease(certItemRef); // retained by identity
-        }
-        Required(identity) = identity_ptr->handle();
-    }
-    catch (const MacOSError &err)   { status=err.osStatus(); }
-    catch (const CommonError &err)  { status=SecKeychainErrFromOSStatus(err.osStatus()); }
-    catch (const std::bad_alloc &)  { status=errSecAllocate; }
-    catch (...)                     { status=errSecInvalidItemRef; }
-#endif
+	status = SecIdentityCreateWithCertificate(NULL, (SecCertificateRef)certItemRef, identity);
+	if (certItemRef) {
+		CFRelease(certItemRef);
+	}
 
-    return status;
+	return status;
 }
 
 SecIdentityRef SecIdentityCopyPreferred(CFStringRef name, CFArrayRef keyUsage, CFArrayRef validIssuers)
@@ -485,8 +469,8 @@ OSStatus SecIdentityCopyPreference(
     Boolean logging = false;
     if (val && CFGetTypeID(val) == CFBooleanGetTypeID()) {
         logging = CFBooleanGetValue((CFBooleanRef)val);
-        CFRelease(val);
     }
+     CFReleaseNull(val);
 
     OSStatus status = errSecItemNotFound;
     CFArrayRef names = _SecIdentityCopyPossiblePaths(name);
@@ -762,7 +746,7 @@ OSStatus SecIdentityDeletePreferenceItemWithNameAndKeyUsage(
 	// cut things off at that point if we're still finding items (if they can't
 	// be deleted for some reason, we'd never break out of the loop.)
 
-	OSStatus status;
+	OSStatus status = errSecInternalError;
 	SecKeychainItemRef item = NULL;
 	int count = 0, maxUsages = 12;
 	while (++count <= maxUsages &&

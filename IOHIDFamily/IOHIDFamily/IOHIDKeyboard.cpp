@@ -300,9 +300,9 @@ IOHIDKeyboard::Set_LED_States(UInt8 ledState)
         UInt32 value = (ledState >> i) & 1;
         
         if (resync)
-            ;//_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value ? 0 : 1);
+            _provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value ? 0 : 1);
 		
-        ;//_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
+        _provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
         // TODO: fully remove old keyboard LED management
     }    
     }

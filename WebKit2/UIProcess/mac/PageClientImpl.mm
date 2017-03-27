@@ -67,6 +67,7 @@
 #import <WebCore/TextIndicator.h>
 #import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/TextUndoInsertionMarkupMac.h>
+#import <WebCore/ValidationBubble.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
@@ -439,6 +440,11 @@ RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page, con
 }
 #endif
 
+Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& message)
+{
+    return ValidationBubble::create(m_view, message);
+}
+
 void PageClientImpl::setTextIndicator(Ref<TextIndicator> textIndicator, WebCore::TextIndicatorWindowLifetime lifetime)
 {
     m_impl->setTextIndicator(textIndicator.get(), lifetime);
@@ -478,10 +484,6 @@ void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext& la
 
     CALayer *renderLayer = WKMakeRenderLayer(layerTreeContext.contextID);
     m_impl->setAcceleratedCompositingRootLayer(renderLayer);
-}
-
-void PageClientImpl::willEnterAcceleratedCompositingMode()
-{
 }
 
 void PageClientImpl::setAcceleratedCompositingRootLayer(CALayer *rootLayer)
@@ -566,10 +568,24 @@ String PageClientImpl::dismissCorrectionPanelSoon(WebCore::ReasonForDismissingAl
 #endif
 }
 
-void PageClientImpl::recordAutocorrectionResponse(AutocorrectionResponseType responseType, const String& replacedString, const String& replacementString)
+static inline NSCorrectionResponse toCorrectionResponse(AutocorrectionResponse response)
 {
-    NSCorrectionResponse response = responseType == AutocorrectionReverted ? NSCorrectionResponseReverted : NSCorrectionResponseEdited;
-    CorrectionPanel::recordAutocorrectionResponse(m_view, m_impl->spellCheckerDocumentTag(), response, replacedString, replacementString);
+    switch (response) {
+    case WebCore::AutocorrectionResponse::Reverted:
+        return NSCorrectionResponseReverted;
+    case WebCore::AutocorrectionResponse::Edited:
+        return NSCorrectionResponseEdited;
+    case WebCore::AutocorrectionResponse::Accepted:
+        return NSCorrectionResponseAccepted;
+    }
+
+    ASSERT_NOT_REACHED();
+    return NSCorrectionResponseAccepted;
+}
+
+void PageClientImpl::recordAutocorrectionResponse(AutocorrectionResponse response, const String& replacedString, const String& replacementString)
+{
+    CorrectionPanel::recordAutocorrectionResponse(m_impl->spellCheckerDocumentTag(), toCorrectionResponse(response), replacedString, replacementString);
 }
 
 void PageClientImpl::recommendedScrollbarStyleDidChange(ScrollbarStyle newStyle)

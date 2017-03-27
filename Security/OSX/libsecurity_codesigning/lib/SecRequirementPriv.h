@@ -68,7 +68,13 @@ OSStatus SecRequirementsCreateFromRequirements(CFDictionaryRef requirements, Sec
 OSStatus SecRequirementsCopyRequirements(CFDataRef requirementSet, SecCSFlags flags,
 	CFDictionaryRef *requirements);
 
-	
+
+
+typedef CF_OPTIONS(uint32_t, SecCSFlagsPriv) {
+    kSecCSParseRequirement = 0x0001,		// accept single requirements
+    kSecCSParseRequirementSet = 0x0002,		// accept requirement sets
+};
+
 /*!
 	@function SecRequirementsCreateWithString
 	Create a SecRequirement object or requirement set based on the string provided.
@@ -87,11 +93,6 @@ OSStatus SecRequirementsCopyRequirements(CFDataRef requirementSet, SecCSFlags fl
 	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
-typedef CF_OPTIONS(uint32_t, SecCSFlagsPriv) {
-	kSecCSParseRequirement = 0x0001,		// accept single requirements
-	kSecCSParseRequirementSet = 0x0002,		// accept requirement sets
-};
-
 OSStatus SecRequirementsCreateWithString(CFStringRef text, SecCSFlags flags,
 	CFTypeRef *result, CFErrorRef *errors);
 

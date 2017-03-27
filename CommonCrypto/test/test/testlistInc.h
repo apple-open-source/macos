@@ -24,7 +24,9 @@ ONE_TEST(CommonDH)
 ONE_TEST(CommonDigest)
 ONE_TEST(CommonHMac)
 ONE_TEST(CommonCryptoReset)
-ONE_TEST(CommonBigNum)
+#if !defined(_WIN32)
+ONE_TEST(CommonBigNum) /* BignNm is not ported to Windows */
+#endif
 ONE_TEST(CommonBigDigest)
 ONE_TEST(CommonCryptoWithData)
 ONE_TEST(CommonCryptoBlowfish)

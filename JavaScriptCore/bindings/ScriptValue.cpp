@@ -32,8 +32,8 @@
 
 #include "APICast.h"
 #include "InspectorValues.h"
+#include "JSCInlines.h"
 #include "JSLock.h"
-#include "StructureInlines.h"
 
 using namespace JSC;
 using namespace Inspector;
@@ -53,7 +53,7 @@ static RefPtr<InspectorValue> jsToInspectorValue(ExecState& scriptState, JSValue
     maxDepth--;
 
     if (value.isUndefinedOrNull())
-        return InspectorValue::null(); // FIXME: Why is it OK to turn undefined into null?
+        return InspectorValue::null();
     if (value.isBoolean())
         return InspectorValue::create(value.asBoolean());
     if (value.isNumber() && value.isDouble())
@@ -61,7 +61,7 @@ static RefPtr<InspectorValue> jsToInspectorValue(ExecState& scriptState, JSValue
     if (value.isNumber() && value.isAnyInt())
         return InspectorValue::create(static_cast<int>(value.asAnyInt()));
     if (value.isString())
-        return InspectorValue::create(value.getString(&scriptState));
+        return InspectorValue::create(asString(value)->value(&scriptState));
 
     if (value.isObject()) {
         if (isJSArray(value)) {
@@ -121,10 +121,13 @@ bool ScriptValue::getString(ExecState* scriptState, String& result) const
 
 String ScriptValue::toString(ExecState* scriptState) const
 {
-    String result = m_value.get().toString(scriptState)->value(scriptState);
+    VM& vm = scriptState->vm();
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+
+    String result = m_value.get().toWTFString(scriptState);
     // Handle the case where an exception is thrown as part of invoking toString on the object.
-    if (scriptState->hadException())
-        scriptState->clearException();
+    if (UNLIKELY(scope.exception()))
+        scope.clearException();
     return result;
 }
 

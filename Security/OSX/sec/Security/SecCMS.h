@@ -147,7 +147,7 @@ OSStatus SecCMSCreateSignedData(SecIdentityRef identity, CFDataRef data,
 /*!
     @function SecCMSCreateEnvelopedData
     @abstract create a enveloped cms blob for recipients
-    @param recipients SecCertificateRef for each recipient
+    @param recipient_or_cfarray_thereof SecCertificateRef for each recipient
     @param params CFDictionaryRef with encryption parameters
     @param data Data to be encrypted
     @param enveloped_data (output) return enveloped message.

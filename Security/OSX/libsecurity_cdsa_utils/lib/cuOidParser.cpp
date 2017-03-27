@@ -37,7 +37,7 @@
 
 /* get config file from .. or from . */
 #define 		CONFIG_FILE_NAME	"dumpasn1.cfg"
-static const char 	*CONFIG_FILE1 = 	"../"CONFIG_FILE_NAME;
+static const char 	*CONFIG_FILE1 = 	"../" CONFIG_FILE_NAME;
 static const char 	*CONFIG_FILE2 = 	CONFIG_FILE_NAME;
 /* or from here via getenv */
 #define 		CONFIG_FILE_ENV 	"LOCAL_BUILD_DIR"
@@ -56,7 +56,7 @@ int readFileExtra(
 {
 	int rtn;
 	int fd;
-	unsigned char *buf;
+	unsigned char *buf = NULL;
 	struct stat	sb;
 	size_t size;
 
@@ -92,7 +92,10 @@ int readFileExtra(
 		*bytes = buf;
 		*numBytes = size;
 	}
+    goto finish;
 errOut:
+    if(buf) { free(buf); buf = NULL; }
+finish:
 	close(fd);
 	return rtn;
 }

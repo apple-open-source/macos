@@ -24,7 +24,7 @@
 #include <Security/Security.h>
 #include <security_utilities/security_utilities.h>
 #include <security_cdsa_utilities/cssmbridge.h>
-#include <../sec/Security/SecBase.h>
+#include <../../base/SecBase.h>
 #include "Download.h"
 #include "SecureDownload.h"
 

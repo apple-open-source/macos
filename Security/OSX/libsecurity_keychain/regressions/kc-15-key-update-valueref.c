@@ -35,6 +35,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreServices/CoreServices.h>
 #include <Security/Security.h>
+#include <utilities/SecCFRelease.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -43,7 +44,6 @@
 #include <time.h>
 #include <sys/param.h>
 
-static int quiet = 0;
 static int debug = 1;
 static int verbose = 1;
 
@@ -127,7 +127,7 @@ static int CreateSymmetricKey(
 	CFDictionaryAddValue( params, kSecAttrAccess, access );
 	CFDictionaryAddValue( params, kSecAttrKeyClass, kSecAttrKeyClassSymmetric );
 	CFDictionaryAddValue( params, kSecAttrKeyType, kSecAttrKeyTypeAES );
-	CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize );
+    CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize ); CFRelease(keySize);
 	CFDictionaryAddValue( params, kSecAttrIsPermanent, kCFBooleanTrue );
 	CFDictionaryAddValue( params, kSecAttrCanEncrypt, kCFBooleanTrue );
 	CFDictionaryAddValue( params, kSecAttrCanDecrypt, kCFBooleanTrue );
@@ -184,6 +184,7 @@ static int TestUpdateItems(SecKeychainRef keychain)
 	CFStringRef curAppTag = CFSTR("SecItemUpdate");
 
 	status = CreateSymmetricKey(keychain, curDateLabel, gUUID, curAppTag, noErr);
+    CFReleaseNull(curDateLabel);
 	if (status && status != errSecDuplicateItem)
 		++result;
     
@@ -200,7 +201,7 @@ static int TestUpdateItems(SecKeychainRef keychain)
 	CFNumberRef keySize = CFNumberCreate(NULL, kCFNumberIntType, &keySizeValue);
 
 	CFDictionaryAddValue( params, kSecAttrKeyType, kSecAttrKeyTypeRSA );
-	CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize );
+    CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize ); CFReleaseNull(keySize);
 	CFDictionaryAddValue( params, kSecAttrLabel, keyLabel );
 //	CFDictionaryAddValue( params, kSecAttrAccess, access );
 // %%% note that SecKeyGeneratePair will create the key pair in the default keychain
@@ -215,8 +216,8 @@ static int TestUpdateItems(SecKeychainRef keychain)
 	PrintTestResult("TestUpdateItems: generating key pair", status, noErr);
     
     // Make sure we have the key of interest
-    checkN(testName, makeQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, keyLabel), 1);
-    checkN(testName, makeQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, newLabel), 0);
+    checkN(testName, createQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, keyLabel), 1);
+    checkN(testName, createQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, newLabel), 0);
 
 	// create a query which will match just the private key item (based on its known reference)
 	CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 0,
@@ -262,8 +263,8 @@ static int TestUpdateItems(SecKeychainRef keychain)
 	PrintTestResult("TestUpdateItems: updating item", status, noErr);
     
     // Make sure label changed
-    checkN(testName, makeQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, keyLabel), 0);
-    checkN(testName, makeQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, newLabel), 1);
+    checkN(testName, createQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, keyLabel), 0);
+    checkN(testName, createQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, newLabel), 1);
 
 	if (publicKey)
 		CFRelease(publicKey);

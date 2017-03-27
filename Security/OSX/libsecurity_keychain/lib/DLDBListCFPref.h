@@ -73,7 +73,7 @@ public:
 											  const char* dbName, CSSM_NET_ADDRESS *dbLocation);
 
 	static DLDbIdentifier cfDictionaryRefToDLDbIdentifier(CFDictionaryRef theDict);
-    static CFDictionaryRef dlDbIdentifierToCFDictionaryRef(const DLDbIdentifier& dldbIdentifier);
+    static CF_RETURNS_RETAINED CFDictionaryRef dlDbIdentifierToCFDictionaryRef(const DLDbIdentifier& dldbIdentifier);
 	bool revert(bool force);
 
 	void add(const DLDbIdentifier &);

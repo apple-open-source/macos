@@ -75,8 +75,8 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
-#include <openssl/dh.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/dh_legacy.h>
 
 const char *DH_version="Diffie-Hellman" OPENSSL_VERSION_PTEXT;
 

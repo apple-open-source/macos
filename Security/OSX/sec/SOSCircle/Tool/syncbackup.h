@@ -35,6 +35,7 @@ SECURITY_COMMAND(
                  "syncbackup", syncbackup,
                  "[options]\n"
                  "    -i     info (current status)\n"
+                 "    -l     list backup slice keybag membership and recovery status"
                  "\n",
                  "iCloud Circle Backup Information")
 

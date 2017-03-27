@@ -376,7 +376,7 @@ static CFDataRef SecECKeyCopyWrapKey(SecKeyRef key, SecKeyWrapType type, CFDataR
 
     num = CFDictionaryGetValue(parameters, _kSecKeyWrapRFC6637Flags);
     if (isNumber(num)) {
-        if (!CFNumberGetValue(num, kCFNumberLongType, &flags)) {
+        if (!CFNumberGetValue(num, kCFNumberSInt32Type, &flags)) {
             SecError(errSecUnsupportedOperation, error, CFSTR("invalid flags: %@"), num);
             return NULL;
         }
@@ -814,7 +814,7 @@ SecECNamedCurve SecECKeyGetNamedCurve(SecKeyRef key) {
     require_quiet(SecKeyGetAlgorithmId(key) == kSecECDSAAlgorithmID, out);
     require_quiet(attributes = SecKeyCopyAttributes(key), out);
     CFTypeRef bitsRef = CFDictionaryGetValue(attributes, kSecAttrKeySizeInBits);
-    CFIndex bits;
+    CFIndex bits = 0;
     require_quiet(bitsRef != NULL && CFGetTypeID(bitsRef) == CFNumberGetTypeID() &&
                   CFNumberGetValue(bitsRef, kCFNumberCFIndexType, &bits), out);
     switch (bits) {

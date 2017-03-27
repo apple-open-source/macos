@@ -29,14 +29,13 @@
 
 EsprimaFormatter = class EsprimaFormatter
 {
-    constructor(sourceText, indentString = "    ")
+    constructor(sourceText, sourceType, indentString = "    ")
     {
         this._success = false;
 
         let tree = (function() {
             try {
-                // FIXME: Support "module" sourceType as well.
-                return esprima.parse(sourceText, {attachComment: true, range: true, tokens: true});
+                return esprima.parse(sourceText, {attachComment: true, range: true, tokens: true, sourceType});
             } catch (error) {
                 return null;
             }
@@ -210,8 +209,16 @@ EsprimaFormatter = class EsprimaFormatter
         let tokenOffset = token.range[0];
 
         // Very common types that just pass through.
-        if (nodeType === "Identifier" || nodeType === "MemberExpression" || nodeType === "Literal" || nodeType === "ThisExpression" || nodeType === "UpdateExpression") {
+        if (nodeType === "MemberExpression" || nodeType === "Literal" || nodeType === "ThisExpression" || nodeType === "UpdateExpression") {
             builder.appendToken(tokenValue, tokenOffset);
+            return;
+        }
+
+        // Most identifiers just pass through, but a few are special.
+        if (nodeType === "Identifier") {
+            builder.appendToken(tokenValue, tokenOffset);
+            if (tokenValue === "async" && node.parent.type === "Property" && node.parent.value.async && token.range[1] !== node.range[1])
+                builder.appendSpace();
             return;
         }
 
@@ -262,7 +269,7 @@ EsprimaFormatter = class EsprimaFormatter
         }
 
         if (nodeType === "LogicalExpression" || nodeType === "BinaryExpression") {
-            if ((tokenValue !== "(" && tokenValue !== ")")) {
+            if (tokenValue !== "(" && tokenValue !== ")") {
                 builder.appendSpace();
                 builder.appendToken(tokenValue, tokenOffset);
                 builder.appendSpace();
@@ -425,6 +432,11 @@ EsprimaFormatter = class EsprimaFormatter
                 builder.appendToken(tokenValue, tokenOffset);
                 if (tokenValue === ")" || tokenValue === ",")
                     builder.appendSpace();
+                return;
+            }
+            if (tokenType === "Identifier" && tokenValue === "async") {
+                builder.appendToken(tokenValue, tokenOffset);
+                builder.appendSpace();
                 return;
             }
             builder.appendToken(tokenValue, tokenOffset);
@@ -662,12 +674,30 @@ EsprimaFormatter = class EsprimaFormatter
                 }
             }
             builder.appendToken(tokenValue, tokenOffset);
+            if (tokenType === "Identifier" && tokenValue === "async")
+                builder.appendSpace();
+            return;
+        }
+
+        if (nodeType === "AwaitExpression") {
+            builder.appendToken(tokenValue, tokenOffset);
+            if (tokenType === "Identifier" && tokenValue === "await")
+                builder.appendSpace();
             return;
         }
 
         if (nodeType === "Property") {
+            console.assert(tokenValue === ":" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async" || tokenValue === "*" || tokenValue === "[" || tokenValue === "]", token);
             builder.appendToken(tokenValue, tokenOffset);
-            if (tokenValue === ":" || tokenValue === "get" || tokenValue === "set")
+            if (tokenValue === ":" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async")
+                builder.appendSpace();
+            return;
+        }
+
+        if (nodeType === "MethodDefinition") {
+            console.assert(tokenValue === "static" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async" || tokenValue === "*" || tokenValue === "[" || tokenValue === "]", token);
+            builder.appendToken(tokenValue, tokenOffset);
+            if (tokenValue === "static" || tokenValue === "get" || tokenValue === "set" || tokenValue === "async")
                 builder.appendSpace();
             return;
         }
@@ -738,7 +768,8 @@ EsprimaFormatter = class EsprimaFormatter
 
         if (nodeType === "ClassBody") {
             if (tokenValue === "{") {
-                builder.appendSpace();
+                if (node.parent.id)
+                    builder.appendSpace();
                 builder.appendToken(tokenValue, tokenOffset);
                 if (node.body.length)
                     builder.appendNewline();
@@ -758,14 +789,6 @@ EsprimaFormatter = class EsprimaFormatter
             return;
         }
 
-        if (nodeType === "MethodDefinition") {
-            console.assert(tokenValue === "static" || tokenValue === "get" || tokenValue === "set" || tokenValue === "*", token);
-            builder.appendToken(tokenValue, tokenOffset);
-            if (tokenValue !== "*")
-                builder.appendSpace();
-            return;
-        }
-
         if (nodeType === "YieldExpression") {
             if (tokenType === "Keyword") {
                 console.assert(tokenValue === "yield", token);
@@ -778,6 +801,30 @@ EsprimaFormatter = class EsprimaFormatter
             return;
         }
 
+        if (nodeType === "ImportDeclaration" || nodeType === "ExportNamedDeclaration") {
+            if (tokenValue === "}" || (tokenType === "Identifier" && tokenValue === "from"))
+                builder.appendSpace();
+            builder.appendToken(tokenValue, tokenOffset);
+            if (tokenValue !== "}")
+                builder.appendSpace();
+            return;
+        }
+
+        if (nodeType === "ExportSpecifier" || nodeType === "ImportSpecifier") {
+            if (tokenType === "Identifier" && tokenValue === "as")
+                builder.appendSpace();
+            builder.appendToken(tokenValue, tokenOffset);
+            builder.appendSpace();
+            return;            
+        }
+
+        if (nodeType === "ExportAllDeclaration" || nodeType === "ExportDefaultDeclaration" || nodeType === "ImportDefaultSpecifier" || nodeType === "ImportNamespaceSpecifier") {
+            builder.appendToken(tokenValue, tokenOffset);
+            if (tokenValue !== "(" && tokenValue !== ")")
+                builder.appendSpace();
+            return;
+        }
+
         // Include these here so we get only get warnings about unhandled nodes.
         if (nodeType === "ExpressionStatement"
             || nodeType === "SpreadElement"
@@ -786,7 +833,8 @@ EsprimaFormatter = class EsprimaFormatter
             || nodeType === "RestElement"
             || nodeType === "TemplateElement"
             || nodeType === "TemplateLiteral"
-            || nodeType === "DebuggerStatement") {
+            || nodeType === "DebuggerStatement"
+            || nodeType === "AssignmentPattern") {
             builder.appendToken(tokenValue, tokenOffset);
             return;
         }
@@ -875,4 +923,9 @@ EsprimaFormatter = class EsprimaFormatter
             console.assert(!programNode.trailingComments);
         }
     }
-}
+};
+
+EsprimaFormatter.SourceType = {
+    Script: "script",
+    Module: "module",
+};

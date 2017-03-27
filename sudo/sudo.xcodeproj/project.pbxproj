@@ -456,7 +456,7 @@
 		FE801C3D1C6AD2B9006A214E /* zh_CN.po */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zh_CN.po; sourceTree = "<group>"; };
 		FE801C3E1C6AD2B9006A214E /* policy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = policy.c; sourceTree = "<group>"; };
 		FE801C3F1C6AD2B9006A214E /* prompt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = prompt.c; sourceTree = "<group>"; };
-		FE801C401C6AD2B9006A214E /* pwutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pwutil.c; sourceTree = "<group>"; };
+		FE801C401C6AD2B9006A214E /* pwutil.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.c; path = pwutil.c; sourceTree = "<group>"; tabWidth = 4; };
 		FE801C411C6AD2B9006A214E /* pwutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pwutil.h; sourceTree = "<group>"; };
 		FE801C421C6AD2B9006A214E /* pwutil_impl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pwutil_impl.c; sourceTree = "<group>"; };
 		FE801C431C6AD2B9006A214E /* redblack.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = redblack.c; sourceTree = "<group>"; };
@@ -1820,6 +1820,8 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "sudo-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

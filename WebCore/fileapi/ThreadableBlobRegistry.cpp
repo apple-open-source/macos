@@ -42,7 +42,6 @@
 #include <wtf/CrossThreadTask.h>
 #include <wtf/HashMap.h>
 #include <wtf/MainThread.h>
-#include <wtf/MessageQueue.h>
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSpecific.h>
 #include <wtf/text/StringHash.h>
@@ -93,7 +92,7 @@ void ThreadableBlobRegistry::registerFileBlobURL(const URL& url, const String& p
     }
 }
 
-void ThreadableBlobRegistry::registerBlobURL(const URL& url, Vector<BlobPart> blobParts, const String& contentType)
+void ThreadableBlobRegistry::registerBlobURL(const URL& url, Vector<BlobPart>&& blobParts, const String& contentType)
 {
     if (isMainThread())
         blobRegistry().registerBlobURL(url, WTFMove(blobParts), contentType);
@@ -151,7 +150,7 @@ unsigned long long ThreadableBlobRegistry::blobSize(const URL& url)
             resultSize = blobRegistry().blobSize(url);
             semaphore.signal();
         });
-        semaphore.wait(std::numeric_limits<double>::max());
+        semaphore.wait(WallTime::infinity());
     }
     return resultSize;
 }

@@ -96,8 +96,23 @@ int CommonKeyDerivation(int __unused argc, char *const * __unused argv) {
 	plan_tests((int) (kdfvLen*testsPerVector));
     
     for(size_t testcase = 0; testcase < kdfvLen; testcase++) {
-        diag("Test %lu\n", testcase + 1);
+        diag("Test %lu", testcase + 1);
         ok(PBKDF2Test(&kdfv[testcase]), "Successful full test of KDF Vector");
     }
+
+    {   unsigned iter;
+        // Password of length 10byte, salt 16bytes, output 32bytes, 100msec
+        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA1, 32, 100);
+        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA1:   %7lu", iter);
+        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA224, 32, 100);
+        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA224: %7lu", iter);
+        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA256, 32, 100);
+        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA256: %7lu", iter);
+        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA384, 32, 100);
+        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA384: %7lu", iter);
+        iter=CCCalibratePBKDF(kCCPBKDF2, 10, 16, kCCPRFHmacAlgSHA512, 32, 100);
+        diag("CCCalibratePBKDF kCCPBKDF2 100ms for kCCPRFHmacAlgSHA512: %7lu", iter);
+    }
+
     return 0;
 }

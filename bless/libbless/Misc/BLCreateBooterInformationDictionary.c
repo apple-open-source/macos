@@ -75,6 +75,11 @@ static int addPreferredSystemPartitionInfo(BLContextPtr context,
                                 CFMutableArrayRef systemPartitions,
                                            bool foundPreferred);
 
+static int addAPFSPrebootInfo(BLContextPtr context, io_service_t systemVolMedia,
+                              CFStringRef prebootData,
+                              CFMutableArrayRef prebootVolumes);
+
+
 
 bool isPreferredSystemPartition(BLContextPtr context, CFStringRef bsdName);
 
@@ -95,11 +100,13 @@ int BLCreateBooterInformationDictionary(BLContextPtr context, const char * bsdNa
     CFMutableArrayRef dataPartitions = NULL;
     CFMutableArrayRef booterPartitions = NULL;
     CFMutableArrayRef systemPartitions = NULL;
+    CFMutableArrayRef apfsPrebootVolumes = NULL;
     CFMutableDictionaryRef booters = NULL;
     
     CFArrayRef      array;
     
     CFTypeRef               bootData = NULL;
+    CFTypeRef               apfsPrebootData = NULL;
     
     io_service_t            rootDev;
     int                     ret = 0;
@@ -155,7 +162,10 @@ int BLCreateBooterInformationDictionary(BLContextPtr context, const char * bsdNa
                                             kIORegistryIterateRecursively|
                                             kIORegistryIterateParents);
     
-	if(bootData) {
+    apfsPrebootData = IORegistryEntrySearchCFProperty(rootDev, kIOServicePlane, CFSTR("IOAPFSPreBootDevice"),
+                                                      kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents);
+    
+	if (bootData) {
 
         // if there's boot data, this is an IOMedia filter/aggregate publishing
         // its data members
@@ -184,7 +194,7 @@ int BLCreateBooterInformationDictionary(BLContextPtr context, const char * bsdNa
             contextprintf(context, kBLLogLevelError,
                           "Invalid boot data for %s\n", bsdName);
 
-            ret = 5;;
+            ret = 5;
         }
         
         if(ret) {
@@ -202,7 +212,71 @@ int BLCreateBooterInformationDictionary(BLContextPtr context, const char * bsdNa
 		
 		CFRelease(bootData);
 
-	} else {
+    } else if (apfsPrebootData) {
+        // This is a volume in an APFS container.  The property
+        // is an array of final path components of the preboot
+        // volumes for this container (there should be only one).
+        // Full path should be path to AppleAPFSContainer object
+        // (which is the parent of the volume IOMedia), with the
+        // preboot path component appended.
+        apfsPrebootVolumes = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        if (!apfsPrebootVolumes) {
+            CFRelease(booters);
+            CFRelease(dataPartitions);
+            CFRelease(booterPartitions);
+            CFRelease(systemPartitions);
+            IOObjectRelease(rootDev);
+            return 1;
+        }
+        
+        if (CFGetTypeID(apfsPrebootData) == CFStringGetTypeID()) {
+            // Just in case the property is a string instead of
+            // an array with a single string.
+            ret = addAPFSPrebootInfo(context, rootDev, apfsPrebootData, apfsPrebootVolumes);
+            if (ret) {
+                CFRelease(booters);
+                CFRelease(dataPartitions);
+                CFRelease(booterPartitions);
+                CFRelease(systemPartitions);
+                CFRelease(apfsPrebootVolumes);
+                IOObjectRelease(rootDev);
+                return ret;
+            }
+        } else if (CFGetTypeID(apfsPrebootData) == CFArrayGetTypeID()) {
+            CFIndex i, count = CFArrayGetCount(apfsPrebootData);
+            
+            ret = 0;
+            for (i=0; i < count; i++) {
+                CFStringRef str = CFArrayGetValueAtIndex(apfsPrebootData,i);
+                
+                ret = addAPFSPrebootInfo(context, rootDev, str, apfsPrebootVolumes);
+                if (ret) break;
+            }
+            if (ret) {
+                CFRelease(booters);
+                CFRelease(dataPartitions);
+                CFRelease(booterPartitions);
+                CFRelease(systemPartitions);
+                CFRelease(apfsPrebootVolumes);
+                IOObjectRelease(rootDev);
+                return ret;
+            }
+        } else {
+            contextprintf(context, kBLLogLevelError,
+                          "Invalid APFS preboot data for %s\n", bsdName);
+            ret = 5;
+        }
+        ret = addDataPartitionInfo(context, rootDev, dataPartitions, booterPartitions, systemPartitions);
+        if (ret) {
+            CFRelease(booters);
+            CFRelease(dataPartitions);
+            CFRelease(booterPartitions);
+            CFRelease(systemPartitions);
+            IOObjectRelease(rootDev);
+            CFRelease(apfsPrebootVolumes);
+            return ret;
+        }
+    } else {
         ret = addDataPartitionInfo(context, rootDev,
                                    dataPartitions,
                                    booterPartitions,
@@ -288,6 +362,13 @@ gotinfo:
     CFRelease(array);
     CFRelease(systemPartitions);
     
+    if (apfsPrebootVolumes) {
+        array = CFArrayCreateCopy(kCFAllocatorDefault, apfsPrebootVolumes);
+        CFDictionaryAddValue(booters, kBLAPFSPrebootVolumesKey, array);
+        CFRelease(array);
+        CFRelease(apfsPrebootVolumes);
+    }
+    
 	contextprintf(context, kBLLogLevelVerbose, "Returning booter information dictionary:\n%s\n",
 				  BLGetCStringDescription(booters));
 	
@@ -369,18 +450,24 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
     CFRelease(bsdName);
 
 	if (IOObjectConformsTo(dataPartition, "AppleAPFSVolume")) {
-		// The partition IOMedia is two levels up...
-		kret = IORegistryEntryGetParentEntry(dataPartition, kIOServicePlane, &parent);
-		if (!kret) {
-			io_service_t p = parent;
-			kret = IORegistryEntryGetParentEntry(p, kIOServicePlane, &parent);
-			IOObjectRelease(p);
-			if (!kret) {
-				p = parent;
-				kret = IORegistryEntryGetParentEntry(p, kIOServicePlane, &parent);
-				IOObjectRelease(p);
-			}
-		}
+        char            bsd[1024];
+        CFArrayRef      physStores;
+        io_service_t    p;
+        
+        bsdName = IORegistryEntryCreateCFProperty(dataPartition, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+        CFStringGetCString(bsdName, bsd, sizeof bsd, kCFStringEncodingUTF8);
+        kret = BLAPFSCreatePhysicalStoreBSDsFromVolumeBSD(context, bsd, &physStores);
+        if (kret != KERN_SUCCESS) {
+            contextprintf(context, kBLLogLevelError, "Could not get physical store for APFS volume %s", bsd);
+            CFRelease(bsdName);
+            return 1;
+        }
+        CFRelease(bsdName);
+        bsdName = CFArrayGetValueAtIndex(physStores, 0);
+        CFStringGetCString(bsdName, bsd, sizeof bsd, kCFStringEncodingUTF8);
+        p = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                              IOBSDNameMatching(kIOMasterPortDefault, 0, bsd));
+		kret = IORegistryEntryGetParentEntry(p, kIOServicePlane, &parent);
 		if (kret != KERN_SUCCESS) {
 			contextprintf(context, kBLLogLevelError,  "Could not get parent path in service plane for APFS volume\n" );
 			return 1;
@@ -670,4 +757,45 @@ static int addPreferredSystemPartitionInfo(BLContextPtr context,
     
     return 0;
 }
+
+
+
+static int addAPFSPrebootInfo(BLContextPtr context, io_service_t systemVolMedia,
+                              CFStringRef prebootData,
+                              CFMutableArrayRef prebootVolumes)
+{
+    kern_return_t       kret;
+    io_registry_entry_t containerRef;
+    CFStringRef         containerPath;
+    CFStringRef         fullPath;
+    io_registry_entry_t prebootMedia;
+    CFStringRef         prebootBSD;
+    
+    kret = IORegistryEntryGetParentEntry(systemVolMedia, kIOServicePlane, &containerRef);
+    if (kret) return kret;
+    containerPath = IORegistryEntryCopyPath(containerRef, kIOServicePlane);
+    if (!containerPath) {
+        IOObjectRelease(containerRef);
+        return 2;
+    }
+    fullPath = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@/%@"), containerPath, prebootData);
+    IOObjectRelease(containerRef);
+    CFRelease(containerPath);
+    prebootMedia = IORegistryEntryCopyFromPath(kIOMasterPortDefault, fullPath);
+    CFRelease(fullPath);
+    if (!prebootMedia) {
+        return 3;
+    }
+    prebootBSD = IORegistryEntryCreateCFProperty(prebootMedia, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+    IOObjectRelease(prebootMedia);
+    if (!prebootBSD) {
+        return 4;
+    }
+    CFArrayAppendValue(prebootVolumes, prebootBSD);
+    CFRelease(prebootBSD);
+    return 0;
+}
+
+
+
 

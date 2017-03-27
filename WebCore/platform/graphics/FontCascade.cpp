@@ -294,14 +294,14 @@ void FontCascade::update(RefPtr<FontSelector>&& fontSelector) const
     m_requiresShaping = computeRequiresShaping();
 }
 
-float FontCascade::glyphBufferForTextRun(CodePath codePathToUse, const TextRun& run, int from, int to, GlyphBuffer& glyphBuffer) const
+float FontCascade::glyphBufferForTextRun(CodePath codePathToUse, const TextRun& run, unsigned from, unsigned to, GlyphBuffer& glyphBuffer) const
 {
     if (codePathToUse != Complex)
         return getGlyphsAndAdvancesForSimpleText(run, from, to, glyphBuffer);
     return getGlyphsAndAdvancesForComplexText(run, from, to, glyphBuffer);
 }
 
-float FontCascade::drawText(GraphicsContext& context, const TextRun& run, const FloatPoint& point, int from, int to, CustomFontNotReadyAction customFontNotReadyAction) const
+float FontCascade::drawText(GraphicsContext& context, const TextRun& run, const FloatPoint& point, unsigned from, std::optional<unsigned> to, CustomFontNotReadyAction customFontNotReadyAction) const
 {
     // Don't draw anything while we are using custom fonts that are in the process of loading,
     // except if the 'force' argument is set to true (in which case it will use a fallback
@@ -309,15 +309,15 @@ float FontCascade::drawText(GraphicsContext& context, const TextRun& run, const 
     if (isLoadingCustomFonts() && customFontNotReadyAction == DoNotPaintIfFontNotReady)
         return 0;
 
-    to = (to == -1 ? run.length() : to);
+    unsigned destination = to.value_or(run.length());
 
     CodePath codePathToUse = codePath(run);
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
-    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()))
+    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || destination != run.length()))
         codePathToUse = Complex;
 
     GlyphBuffer glyphBuffer;
-    float startX = point.x() + glyphBufferForTextRun(codePathToUse, run, from, to, glyphBuffer);
+    float startX = point.x() + glyphBufferForTextRun(codePathToUse, run, from, destination, glyphBuffer);
     // We couldn't generate any glyphs for the run. Give up.
     if (glyphBuffer.isEmpty())
         return 0;
@@ -327,23 +327,22 @@ float FontCascade::drawText(GraphicsContext& context, const TextRun& run, const 
     return startPoint.x() - startX;
 }
 
-void FontCascade::drawEmphasisMarks(GraphicsContext& context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
+void FontCascade::drawEmphasisMarks(GraphicsContext& context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, unsigned from, std::optional<unsigned> to) const
 {
     if (isLoadingCustomFonts())
         return;
 
-    if (to < 0)
-        to = run.length();
+    unsigned destination = to.value_or(run.length());
 
     CodePath codePathToUse = codePath(run);
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
-    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()))
+    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || destination != run.length()))
         codePathToUse = Complex;
 
     if (codePathToUse != Complex)
-        drawEmphasisMarksForSimpleText(context, run, mark, point, from, to);
+        drawEmphasisMarksForSimpleText(context, run, mark, point, from, destination);
     else
-        drawEmphasisMarksForComplexText(context, run, mark, point, from, to);
+        drawEmphasisMarksForComplexText(context, run, mark, point, from, destination);
 }
 
 float FontCascade::width(const TextRun& run, HashSet<const Font*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
@@ -491,19 +490,19 @@ bool FontCascade::fastAverageCharWidthIfAvailable(float& width) const
     return success;
 }
 
-void FontCascade::adjustSelectionRectForText(const TextRun& run, LayoutRect& selectionRect, int from, int to) const
+void FontCascade::adjustSelectionRectForText(const TextRun& run, LayoutRect& selectionRect, unsigned from, std::optional<unsigned> to) const
 {
-    to = (to == -1 ? run.length() : to);
+    unsigned destination = to.value_or(run.length());
 
     CodePath codePathToUse = codePath(run);
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
-    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()))
+    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || destination != run.length()))
         codePathToUse = Complex;
 
     if (codePathToUse != Complex)
-        return adjustSelectionRectForSimpleText(run, selectionRect, from, to);
+        return adjustSelectionRectForSimpleText(run, selectionRect, from, destination);
 
-    return adjustSelectionRectForComplexText(run, selectionRect, from, to);
+    return adjustSelectionRectForComplexText(run, selectionRect, from, destination);
 }
 
 int FontCascade::offsetForPosition(const TextRun& run, float x, bool includePartialGlyphs) const
@@ -959,7 +958,7 @@ bool FontCascade::isCJKIdeographOrSymbol(UChar32 c)
     return isCJKIdeograph(c);
 }
 
-std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const LChar* characters, size_t length, TextDirection direction, ExpansionBehavior expansionBehavior)
+std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const LChar* characters, unsigned length, TextDirection direction, ExpansionBehavior expansionBehavior)
 {
     unsigned count = 0;
     bool isAfterExpansion = (expansionBehavior & LeadingExpansionMask) == ForbidLeadingExpansion;
@@ -968,7 +967,7 @@ std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const L
         isAfterExpansion = true;
     }
     if (direction == LTR) {
-        for (size_t i = 0; i < length; ++i) {
+        for (unsigned i = 0; i < length; ++i) {
             if (treatAsSpace(characters[i])) {
                 count++;
                 isAfterExpansion = true;
@@ -976,7 +975,7 @@ std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const L
                 isAfterExpansion = false;
         }
     } else {
-        for (size_t i = length; i > 0; --i) {
+        for (unsigned i = length; i > 0; --i) {
             if (treatAsSpace(characters[i - 1])) {
                 count++;
                 isAfterExpansion = true;
@@ -988,13 +987,14 @@ std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const L
         ++count;
         isAfterExpansion = true;
     } else if (isAfterExpansion && (expansionBehavior & TrailingExpansionMask) == ForbidTrailingExpansion) {
+        ASSERT(count);
         --count;
         isAfterExpansion = false;
     }
     return std::make_pair(count, isAfterExpansion);
 }
 
-std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const UChar* characters, size_t length, TextDirection direction, ExpansionBehavior expansionBehavior)
+std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const UChar* characters, unsigned length, TextDirection direction, ExpansionBehavior expansionBehavior)
 {
     static bool expandAroundIdeographs = canExpandAroundIdeographsInComplexText();
     unsigned count = 0;
@@ -1004,7 +1004,7 @@ std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const U
         isAfterExpansion = true;
     }
     if (direction == LTR) {
-        for (size_t i = 0; i < length; ++i) {
+        for (unsigned i = 0; i < length; ++i) {
             UChar32 character = characters[i];
             if (treatAsSpace(character)) {
                 count++;
@@ -1025,7 +1025,7 @@ std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const U
             isAfterExpansion = false;
         }
     } else {
-        for (size_t i = length; i > 0; --i) {
+        for (unsigned i = length; i > 0; --i) {
             UChar32 character = characters[i - 1];
             if (treatAsSpace(character)) {
                 count++;
@@ -1050,6 +1050,7 @@ std::pair<unsigned, bool> FontCascade::expansionOpportunityCountInternal(const U
         ++count;
         isAfterExpansion = true;
     } else if (isAfterExpansion && (expansionBehavior & TrailingExpansionMask) == ForbidTrailingExpansion) {
+        ASSERT(count);
         --count;
         isAfterExpansion = false;
     }
@@ -1123,7 +1124,7 @@ bool FontCascade::isLoadingCustomFonts() const
     return m_fonts && m_fonts->isLoadingCustomFonts();
 }
     
-GlyphToPathTranslator::GlyphUnderlineType computeUnderlineType(const TextRun& textRun, const GlyphBuffer& glyphBuffer, int index)
+GlyphToPathTranslator::GlyphUnderlineType computeUnderlineType(const TextRun& textRun, const GlyphBuffer& glyphBuffer, unsigned index)
 {
     // In general, we want to skip descenders. However, skipping descenders on CJK characters leads to undesirable renderings,
     // so we want to draw through CJK characters (on a character-by-character basis).
@@ -1178,27 +1179,27 @@ GlyphToPathTranslator::GlyphUnderlineType computeUnderlineType(const TextRun& te
 
 // FIXME: This function may not work if the emphasis mark uses a complex script, but none of the
 // standard emphasis marks do so.
-Optional<GlyphData> FontCascade::getEmphasisMarkGlyphData(const AtomicString& mark) const
+std::optional<GlyphData> FontCascade::getEmphasisMarkGlyphData(const AtomicString& mark) const
 {
     if (mark.isEmpty())
-        return Nullopt;
+        return std::nullopt;
 
     UChar32 character;
     if (!mark.is8Bit()) {
         SurrogatePairAwareTextIterator iterator(mark.characters16(), 0, mark.length(), mark.length());
         unsigned clusterLength;
         if (!iterator.consume(character, clusterLength))
-            return Nullopt;
+            return std::nullopt;
     } else
         character = mark[0];
 
-    Optional<GlyphData> glyphData(glyphDataForCharacter(character, false, EmphasisMarkVariant));
-    return glyphData.value().isValid() ? glyphData : Nullopt;
+    std::optional<GlyphData> glyphData(glyphDataForCharacter(character, false, EmphasisMarkVariant));
+    return glyphData.value().isValid() ? glyphData : std::nullopt;
 }
 
 int FontCascade::emphasisMarkAscent(const AtomicString& mark) const
 {
-    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    std::optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
     if (!markGlyphData)
         return 0;
 
@@ -1212,7 +1213,7 @@ int FontCascade::emphasisMarkAscent(const AtomicString& mark) const
 
 int FontCascade::emphasisMarkDescent(const AtomicString& mark) const
 {
-    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    std::optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
     if (!markGlyphData)
         return 0;
 
@@ -1226,7 +1227,7 @@ int FontCascade::emphasisMarkDescent(const AtomicString& mark) const
 
 int FontCascade::emphasisMarkHeight(const AtomicString& mark) const
 {
-    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    std::optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
     if (!markGlyphData)
         return 0;
 
@@ -1238,7 +1239,7 @@ int FontCascade::emphasisMarkHeight(const AtomicString& mark) const
     return markFontData->fontMetrics().height();
 }
 
-float FontCascade::getGlyphsAndAdvancesForSimpleText(const TextRun& run, int from, int to, GlyphBuffer& glyphBuffer, ForTextEmphasisOrNot forTextEmphasis) const
+float FontCascade::getGlyphsAndAdvancesForSimpleText(const TextRun& run, unsigned from, unsigned to, GlyphBuffer& glyphBuffer, ForTextEmphasisOrNot forTextEmphasis) const
 {
     float initialAdvance;
 
@@ -1268,7 +1269,7 @@ float FontCascade::getGlyphsAndAdvancesForSimpleText(const TextRun& run, int fro
     return initialAdvance;
 }
 
-void FontCascade::drawEmphasisMarksForSimpleText(GraphicsContext& context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
+void FontCascade::drawEmphasisMarksForSimpleText(GraphicsContext& context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, unsigned from, unsigned to) const
 {
     GlyphBuffer glyphBuffer;
     float initialAdvance = getGlyphsAndAdvancesForSimpleText(run, from, to, glyphBuffer, ForTextEmphasis);
@@ -1287,8 +1288,8 @@ void FontCascade::drawGlyphBuffer(GraphicsContext& context, const GlyphBuffer& g
     FloatPoint startPoint(point.x(), point.y() - glyphBuffer.initialAdvance().height());
     float nextX = startPoint.x() + glyphBuffer.advanceAt(0).width();
     float nextY = startPoint.y() + glyphBuffer.advanceAt(0).height();
-    int lastFrom = 0;
-    int nextGlyph = 1;
+    unsigned lastFrom = 0;
+    unsigned nextGlyph = 1;
     while (nextGlyph < glyphBuffer.size()) {
         const Font* nextFontData = glyphBuffer.fontAt(nextGlyph);
         FloatSize nextOffset = glyphBuffer.offsetAt(nextGlyph);
@@ -1321,14 +1322,14 @@ inline static float offsetToMiddleOfGlyph(const Font* fontData, Glyph glyph)
     return fontData->widthForGlyph(glyph) / 2;
 }
 
-inline static float offsetToMiddleOfGlyphAtIndex(const GlyphBuffer& glyphBuffer, size_t i)
+inline static float offsetToMiddleOfGlyphAtIndex(const GlyphBuffer& glyphBuffer, unsigned i)
 {
     return offsetToMiddleOfGlyph(glyphBuffer.fontAt(i), glyphBuffer.glyphAt(i));
 }
 
 void FontCascade::drawEmphasisMarks(GraphicsContext& context, const GlyphBuffer& glyphBuffer, const AtomicString& mark, const FloatPoint& point) const
 {
-    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    std::optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
     if (!markGlyphData)
         return;
 
@@ -1344,7 +1345,7 @@ void FontCascade::drawEmphasisMarks(GraphicsContext& context, const GlyphBuffer&
     FloatPoint startPoint(point.x() + middleOfLastGlyph - offsetToMiddleOfGlyph(markFontData, markGlyph), point.y());
 
     GlyphBuffer markBuffer;
-    for (int i = 0; i + 1 < glyphBuffer.size(); ++i) {
+    for (unsigned i = 0; i + 1 < glyphBuffer.size(); ++i) {
         float middleOfNextGlyph = offsetToMiddleOfGlyphAtIndex(glyphBuffer, i + 1);
         float advance = glyphBuffer.advanceAt(i).width() - middleOfLastGlyph + middleOfNextGlyph;
         markBuffer.add(glyphBuffer.glyphAt(i) ? markGlyph : spaceGlyph, markFontData, advance);
@@ -1371,7 +1372,7 @@ float FontCascade::floatWidthForSimpleText(const TextRun& run, HashSet<const Fon
     return it.m_runWidthSoFar;
 }
 
-void FontCascade::adjustSelectionRectForSimpleText(const TextRun& run, LayoutRect& selectionRect, int from, int to) const
+void FontCascade::adjustSelectionRectForSimpleText(const TextRun& run, LayoutRect& selectionRect, unsigned from, unsigned to) const
 {
     GlyphBuffer glyphBuffer;
     WidthIterator it(this, run);

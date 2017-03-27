@@ -198,10 +198,14 @@ public:
     void setShadowDOMEnabled(bool isEnabled) { m_isShadowDOMEnabled = isEnabled; }
     bool shadowDOMEnabled() const { return m_isShadowDOMEnabled; }
 
-#if ENABLE(CUSTOM_ELEMENTS)
+    void setInputEventsEnabled(bool isEnabled) { m_inputEventsEnabled = isEnabled; }
+    bool inputEventsEnabled() const { return m_inputEventsEnabled; }
+
+    void setInteractiveFormValidationEnabled(bool isEnabled) { m_isInteractiveFormValidationEnabled = isEnabled; }
+    bool interactiveFormValidationEnabled() const { return m_isInteractiveFormValidationEnabled; }
+
     void setCustomElementsEnabled(bool areEnabled) { m_areCustomElementsEnabled = areEnabled; }
     bool customElementsEnabled() const { return m_areCustomElementsEnabled; }
-#endif
 
 #if ENABLE(WEBGL2)
     void setWebGL2Enabled(bool isEnabled) { m_isWebGL2Enabled = isEnabled; }
@@ -223,6 +227,24 @@ public:
     bool isCSSGridLayoutEnabled() const { return m_cssGridLayoutEnabled; }
 #endif
 
+#if ENABLE(INTERSECTION_OBSERVER)
+    void setIntersectionObserverEnabled(bool isEnabled) { m_intersectionObserverEnabled = isEnabled; }
+    bool intersectionObserverEnabled() const { return m_intersectionObserverEnabled; }
+#endif
+
+    void setModernMediaControlsEnabled(bool areEnabled) { m_areModernMediaControlsEnabled = areEnabled; }
+    bool modernMediaControlsEnabled() const { return m_areModernMediaControlsEnabled; }
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    void setEncryptedMediaAPIEnabled(bool isEnabled) { m_encryptedMediaAPIEnabled = isEnabled; }
+    bool encryptedMediaAPIEnabled() const { return m_encryptedMediaAPIEnabled; }
+#endif
+
+#if ENABLE(SUBTLE_CRYPTO)
+    void setSubtleCryptoEnabled(bool isEnabled) { m_isSubtleCryptoEnabled = isEnabled; }
+    bool subtleCryptoEnabled() const { return m_isSubtleCryptoEnabled; }
+#endif
+
     WEBCORE_EXPORT static RuntimeEnabledFeatures& sharedFeatures();
 
     WEBCORE_EXPORT void reset();
@@ -231,6 +253,7 @@ private:
     // Never instantiate.
     RuntimeEnabledFeatures();
 
+    bool m_areModernMediaControlsEnabled { false };
     bool m_isLocalStorageEnabled;
     bool m_isSessionStorageEnabled;
     bool m_isWebkitNotificationsEnabled;
@@ -301,7 +324,7 @@ private:
 #endif
 
 #if ENABLE(GAMEPAD)
-    bool m_areGamepadsEnabled;
+    bool m_areGamepadsEnabled { false };
 #endif
 
 #if ENABLE(CSS_ANIMATIONS_LEVEL_2)
@@ -314,9 +337,11 @@ private:
     
     bool m_isShadowDOMEnabled;
 
-#if ENABLE(CUSTOM_ELEMENTS)
-    bool m_areCustomElementsEnabled;
-#endif
+    bool m_inputEventsEnabled;
+
+    bool m_isInteractiveFormValidationEnabled { false };
+
+    bool m_areCustomElementsEnabled { true };
 
 #if ENABLE(WEBGL2)
     bool m_isWebGL2Enabled;
@@ -332,6 +357,18 @@ private:
 
 #if ENABLE(CSS_GRID_LAYOUT)
     bool m_cssGridLayoutEnabled;
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    bool m_encryptedMediaAPIEnabled { false };
+#endif
+
+#if ENABLE(INTERSECTION_OBSERVER)
+    bool m_intersectionObserverEnabled { false };
+#endif
+
+#if ENABLE(SUBTLE_CRYPTO)
+    bool m_isSubtleCryptoEnabled;
 #endif
 
     friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;

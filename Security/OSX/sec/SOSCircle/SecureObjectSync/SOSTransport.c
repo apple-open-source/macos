@@ -11,7 +11,6 @@
 #include <Security/SecureObjectSync/SOSRing.h>
 
 #include <SOSCloudKeychainClient.h>
-#include <SOSCloudKeychainLogging.h>
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
 #include <CoreFoundation/CFBase.h>
@@ -189,12 +188,14 @@ void SOSUpdateKeyInterest(SOSAccountRef account)
     //
     secnotice("key-interests", "Updating interests: %@", keyDict);
 
-    SOSCloudKeychainUpdateKeys(keyDict, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef error) {
+    CFStringRef uuid = SOSAccountCopyUUID(account);
+    SOSCloudKeychainUpdateKeys(keyDict, uuid, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef error) {
         if (error) {
             secerror("Error updating keys: %@", error);
         }
     });
-    
+    CFReleaseNull(uuid);
+
     CFReleaseNull(alwaysKeys);
     CFReleaseNull(afterFirstUnlockKeys);
     CFReleaseNull(whenUnlockedKeys);
@@ -230,15 +231,15 @@ static void showWhatWasHandled(CFDictionaryRef updates, CFMutableArrayRef handle
 #define KVS_STATE_INTERVAL 50
 
 CF_RETURNS_RETAINED
-CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictionaryRef updates, CFErrorRef *error){
-    static int KVSLogCountDown = 0;
+CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountTransactionRef txn, CFDictionaryRef updates, CFErrorRef *error){
+    SOSAccountRef account = txn->account;
     
     CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFStringRef dsid = NULL;
     
     if(CFDictionaryGetValueIfPresent(updates, kSOSKVSAccountChangedKey, (const void**)&dsid)){
         secnotice("accountChange", "SOSTransportDispatchMessages received kSOSKVSAccountChangedKey");
-        KVSLogCountDown = 0; // Get an initial check on KVS values
+
         // While changing accounts we may modify the key params array. To avoid stepping on ourselves we
         // copy the list for iteration.  Now modifying the transport outside of the list iteration.
         CFMutableArrayRef transportsToUse = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -439,81 +440,39 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
     }
     if(CFDictionaryGetCount(circle_peer_messages_table)) {
         CFArrayForEach(SOSGetTransportMessages(), ^(const void *value) {
-            SOSTransportMessageRef tkvs = (SOSTransportMessageRef) value;
-            
-            if(SOSTransportMessageGetTransportType(tkvs, error) == kIDSTest){ //this case is for the IDS test transport
-                if(CFEqualSafe(SOSTransportMessageGetAccount((SOSTransportMessageRef)value), account)){
-                    CFErrorRef handleMessagesError = NULL;
-                    CFDictionaryRef handledPeers = SOSTransportMessageHandleMessages(account->ids_message_transport, circle_peer_messages_table, &handleMessagesError);
-                    
-                    if (handledPeers) {
-                        // We need to look for and send responses.
-                        SOSAccountSendIKSPSyncList(account, error);
-                        SOSAccountSyncWithAllKVSPeers(account, error);
+            SOSTransportMessageRef tmsg = (SOSTransportMessageRef) value;
+            CFDictionaryRef circleToPeersHandled = NULL;
+            CFErrorRef handleMessagesError = NULL;
+            CFErrorRef flushError = NULL;
+
+            require_quiet(CFEqualSafe(SOSTransportMessageGetAccount(tmsg), account), done);
+
+            circleToPeersHandled = SOSTransportMessageHandleMessages(tmsg, circle_peer_messages_table, &handleMessagesError);
+            require_action_quiet(circleToPeersHandled, done, secnotice("msg", "No messages handled: %@", handleMessagesError));
+
+            CFArrayRef handledPeers = asArray(CFDictionaryGetValue(circleToPeersHandled, SOSTransportMessageGetCircleName(tmsg)), NULL);
+
+            if (handledPeers) {
+                CFArrayForEach(handledPeers, ^(const void *value) {
+                    CFStringRef peerID = asString(value, NULL);
+                    if (peerID) {
                         
-                        CFDictionaryForEach(handledPeers, ^(const void *key, const void *value) {
-                            if (isString(key) && isArray(value)) {
-                                CFArrayForEach(value, ^(const void *value) {
-                                    if (isString(value)) {
-                                        CFStringRef peerID = (CFStringRef) value;
-                                        CFStringRef kvsHandledKey = SOSMessageKeyCreateFromPeerToTransport(account->ids_message_transport, peerID);
-                                        CFArrayAppendValue(handledKeys, kvsHandledKey);
-                                        CFReleaseSafe(kvsHandledKey);
-                                    }
-                                });
-                            }
-                        });
-                        CFErrorRef flushError = NULL;
-                        if (!SOSTransportMessageFlushChanges((SOSTransportMessageRef)account->kvs_message_transport, &flushError)) {
-                            secerror("Flush failed: %@", flushError);
+                        CFStringRef kvsHandledKey = SOSMessageKeyCreateFromPeerToTransport(tmsg, peerID);
+                        if (kvsHandledKey) {
+                            CFArrayAppendValue(handledKeys, kvsHandledKey);
                         }
+                        CFReleaseNull(kvsHandledKey);
                     }
-                    else {
-                        secerror("Didn't handle? : %@", handleMessagesError);
-                    }
-                    CFReleaseNull(handledPeers);
-                    CFReleaseNull(handleMessagesError);
-                }
+                });
             }
 
-            else if(SOSTransportMessageGetTransportType(tkvs, error) != kIDS){
-                if(CFEqualSafe(SOSTransportMessageGetAccount((SOSTransportMessageRef)value), account)){
-                    CFErrorRef handleMessagesError = NULL;
-                    CFDictionaryRef handledPeers = SOSTransportMessageHandleMessages(account->kvs_message_transport, circle_peer_messages_table, &handleMessagesError);
+            require_action_quiet(SOSTransportMessageFlushChanges(tmsg, &flushError), done, secnotice("msg", "Flush failed: %@", flushError););
 
-                    if (handledPeers) {
-                        // We need to look for and send responses.
-                        SOSAccountSendIKSPSyncList(account, error);
-                        SOSAccountSyncWithAllKVSPeers(account, error);
-                        
-                        CFDictionaryForEach(handledPeers, ^(const void *key, const void *value) {
-                            if (isString(key) && isArray(value)) {
-                                CFArrayForEach(value, ^(const void *value) {
-                                    if (isString(value)) {
-                                        CFStringRef peerID = (CFStringRef) value;
-
-                                        CFStringRef kvsHandledKey = SOSMessageKeyCreateFromPeerToTransport(account->kvs_message_transport, peerID);
-                                        if(kvsHandledKey != NULL)
-                                            CFArrayAppendValue(handledKeys, kvsHandledKey);
-                                        CFReleaseSafe(kvsHandledKey);
-                                    }
-                                });
-                            }
-                        });
-                        CFErrorRef flushError = NULL;
-                        if (!SOSTransportMessageFlushChanges((SOSTransportMessageRef)account->kvs_message_transport, &flushError)) {
-                            secerror("Flush failed: %@", flushError);
-                        }
-                    }
-                    else {
-                        secerror("Didn't handle? : %@", handleMessagesError);
-                    }
-                    CFReleaseNull(handledPeers);
-                    CFReleaseNull(handleMessagesError);
-                }
-            }
+        done:
+            CFReleaseNull(flushError);
+            CFReleaseNull(circleToPeersHandled);
+            CFReleaseNull(handleMessagesError);
         });
-
     }
     if(CFDictionaryGetCount(circle_circle_messages_table)) {
         CFArrayForEach(SOSGetTransportCircles(), ^(const void *value) {
@@ -583,11 +542,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
     CFReleaseNull(ring_update_message_table);
     CFReleaseNull(peer_info_message_table);
     CFReleaseNull(debug_info_message_table);
-    
-    if(KVSLogCountDown <= 0) {
-        SOSCloudKVSLogState();
-        KVSLogCountDown = KVS_STATE_INTERVAL;
-    } else KVSLogCountDown--;
 
     showWhatWasHandled(updates, handledKeys);
     

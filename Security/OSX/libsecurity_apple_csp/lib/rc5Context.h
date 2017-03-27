@@ -23,7 +23,7 @@
 #define _RC5_CONTEXT_H_
 
 #include <BlockCryptor.h>
-#include <openssl/rc5.h>
+#include <openssl/rc5_legacy.h>
 
 class RC5Context : public BlockCryptor {
 public:

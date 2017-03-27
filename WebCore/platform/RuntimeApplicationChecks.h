@@ -32,6 +32,7 @@
 namespace WebCore {
 
 WEBCORE_EXPORT void setApplicationBundleIdentifier(const String&);
+String applicationBundleIdentifier();
 
 #if PLATFORM(MAC)
 
@@ -51,6 +52,8 @@ WEBCORE_EXPORT bool isSafari();
 bool isSolidStateNetworksDownloader();
 WEBCORE_EXPORT bool isVersions();
 WEBCORE_EXPORT bool isHRBlock();
+WEBCORE_EXPORT bool isAppStore();
+WEBCORE_EXPORT bool isIAdProducer();
 
 } // MacApplication
 

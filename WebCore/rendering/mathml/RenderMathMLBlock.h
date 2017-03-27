@@ -34,15 +34,14 @@
 #include "RenderTable.h"
 #include "StyleInheritedData.h"
 
-#define ENABLE_DEBUG_MATH_LAYOUT 0
-
 namespace WebCore {
 
 class RenderMathMLOperator;
+class MathMLPresentationElement;
 
 class RenderMathMLBlock : public RenderBlock {
 public:
-    RenderMathMLBlock(Element&, RenderStyle&&);
+    RenderMathMLBlock(MathMLPresentationElement&, RenderStyle&&);
     RenderMathMLBlock(Document&, RenderStyle&&);
     virtual ~RenderMathMLBlock();
 
@@ -80,10 +79,11 @@ protected:
 
     static LayoutUnit ascentForChild(const RenderBox& child)
     {
-        return child.firstLineBaseline().valueOr(child.logicalHeight());
+        return child.firstLineBaseline().value_or(child.logicalHeight());
     }
 
     void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0) override;
+    void layoutInvalidMarkup();
 
 private:
     bool isRenderMathMLBlock() const final { return true; }
@@ -97,7 +97,7 @@ private:
 
 class RenderMathMLTable final : public RenderTable {
 public:
-    explicit RenderMathMLTable(Element& element, RenderStyle&& style)
+    explicit RenderMathMLTable(MathMLElement& element, RenderStyle&& style)
         : RenderTable(element, WTFMove(style))
         , m_mathMLStyle(MathMLStyle::create())
     {
@@ -109,13 +109,11 @@ public:
 private:
     bool isRenderMathMLTable() const final { return true; }
     const char* renderName() const final { return "RenderMathMLTable"; }
-    Optional<int> firstLineBaseline() const final;
+    std::optional<int> firstLineBaseline() const final;
 
     Ref<MathMLStyle> m_mathMLStyle;
 };
 
-// Parsing functions for MathML Length values
-bool parseMathMLLength(const String&, LayoutUnit&, const RenderStyle*, bool allowNegative = true);
 LayoutUnit toUserUnits(const MathMLElement::Length&, const RenderStyle&, const LayoutUnit& referenceValue);
 
 } // namespace WebCore

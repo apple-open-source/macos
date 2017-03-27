@@ -75,12 +75,12 @@
  */
 
 #include <stdio.h>
-#include <openssl/lhash.h>
-#include <openssl/crypto.h>
+#include <openssl/lhash_legacy.h>
+#include <openssl/crypto_legacy.h>
 #include "cryptlib.h"
-#include <openssl/buffer.h>
-#include <openssl/err.h>
-#include <openssl/crypto.h>
+#include <openssl/buffer_legacy.h>
+#include <openssl/opensslerr.h>
+#include <openssl/crypto_legacy.h>
 
 #ifndef NO_FP_API
 void ERR_print_errors_fp(FILE *fp)

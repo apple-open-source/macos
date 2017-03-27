@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef StorageMap_h
-#define StorageMap_h
+#pragma once
 
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
@@ -52,7 +51,7 @@ public:
 
     unsigned quota() const { return m_quotaSize; }
 
-    static const unsigned noQuota = UINT_MAX;
+    static const constexpr unsigned noQuota = UINT_MAX;
 
 private:
     explicit StorageMap(unsigned quota);
@@ -69,5 +68,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // StorageMap_h

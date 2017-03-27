@@ -561,7 +561,8 @@ _asl_evaluate_send(asl_object_t client, asl_object_t m, int slevel)
 
 	/* don't send lastlog/utmp messages to Activity Tracing */
 	val = NULL;
-	if ((asl_msg_lookup(msg, ASL_KEY_FACILITY, &val, NULL) == 0) && (val != NULL) && (!strcmp(val, ASL_KEY_LASTLOG))) eval &= ~EVAL_SEND_TRACE;
+	if ((asl_msg_lookup(msg, ASL_KEY_FACILITY, &val, NULL) == 0) && (val != NULL) &&
+		(!strcmp(val, FACILITY_LASTLOG) || !strcmp(val, FACILITY_UTMPX))) eval &= ~EVAL_SEND_TRACE;
 
 	/* don't send CFLog messages to Activity Tracing */
 	val = NULL;
@@ -1021,8 +1022,7 @@ asl_base_msg(asl_client_t *asl, uint32_t level, const struct timeval *tv, const 
 	char aux_val[64];
 	asl_msg_t *aux;
 	int status;
-	unsigned int osacount = 1;
-	os_activity_t osaid = 0;
+	os_activity_id_t osaid;
 
 	aux = asl_msg_new(ASL_TYPE_MSG);
 	if (aux == NULL) return NULL;
@@ -1048,9 +1048,10 @@ asl_base_msg(asl_client_t *asl, uint32_t level, const struct timeval *tv, const 
 	asl_msg_set_key_val(aux, ASL_KEY_PID, aux_val);
 
 	/* OSActivityID */
-	if (os_activity_get_active(&osaid, &osacount) == 1)
+	osaid = os_activity_get_identifier(OS_ACTIVITY_CURRENT, NULL);
+	if (osaid)
 	{
-		snprintf(aux_val, sizeof(aux_val), "0x%016llx", (uint64_t)osaid);
+		snprintf(aux_val, sizeof(aux_val), "0x%016llx", osaid);
 		asl_msg_set_key_val(aux, ASL_KEY_OS_ACTIVITY_ID, aux_val);
 	}
 

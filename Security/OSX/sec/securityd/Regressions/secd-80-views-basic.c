@@ -84,7 +84,7 @@ static void testViewLists(void) {
 
     is(CFSetGetCount(allViews), 22, "make sure count of allViews is correct");
     is(CFSetGetCount(defaultViews), 18, "make sure count of defaultViews is correct");
-    is(CFSetGetCount(initialViews), 5, "make sure count of initialViews is correct");
+    is(CFSetGetCount(initialViews), 14, "make sure count of initialViews is correct");
     is(CFSetGetCount(alwaysOnViews), 18, "make sure count of alwaysOnViews is correct");
     is(CFSetGetCount(backupRequiredViews), 3, "make sure count of backupRequiredViews is correct");
     is(CFSetGetCount(V0Views), 6, "make sure count of V0Views is correct");
@@ -168,14 +168,7 @@ static void tests(void)
     SOSDataSourceRelease(test_source, NULL);
     SOSDataSourceFactoryRelease(test_factory);
 
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-    
+    SOSTestCleanup();
 }
 
 int secd_80_views_basic(int argc, char *const *argv)

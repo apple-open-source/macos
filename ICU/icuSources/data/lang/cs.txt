@@ -606,7 +606,7 @@ cs{
         was{"waština"}
         wbp{"warlpiri"}
         wo{"wolofština"}
-        wuu{"čínština (dialekty Wu)"}
+        wuu{"shanghainese"}
         xal{"kalmyčtina"}
         xh{"xhoština"}
         xmf{"mingrelština"}

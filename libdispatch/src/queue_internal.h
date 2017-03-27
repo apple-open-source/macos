@@ -610,6 +610,7 @@ void _dispatch_barrier_async_detached_f(dispatch_queue_t dq, void *ctxt,
 		dispatch_function_t func);
 void _dispatch_barrier_trysync_or_async_f(dispatch_queue_t dq, void *ctxt,
 		dispatch_function_t func);
+void _dispatch_queue_atfork_child(void);
 
 #if DISPATCH_DEBUG
 void dispatch_debug_queue(dispatch_queue_t dq, const char* str);

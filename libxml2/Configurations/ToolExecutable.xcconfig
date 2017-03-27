@@ -1,0 +1,6 @@
+PRODUCT_NAME = $(TARGET_NAME);
+INSTALL_PATH = /usr/local/libexec/libxml2;
+
+// Export 'main' for Libxml2XCTests.xctest.
+GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+OTHER_LDFLAGS = $(inherited) -Xlinker -exported_symbol -Xlinker _main;

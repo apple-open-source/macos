@@ -4479,6 +4479,8 @@ int ipsec_stop(struct service *serv, int signal)
 	}
 	serv->u.ipsec.eventfd	= -1;
 
+	memset(&serv->u.ipsec.nat64_prefix, 0, sizeof(serv->u.ipsec.nat64_prefix));
+
 	scnc_bootstrap_dealloc(serv);
 	scnc_ausession_dealloc(serv);
      

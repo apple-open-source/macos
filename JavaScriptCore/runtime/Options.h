@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef Options_h
-#define Options_h
+#pragma once
 
 #include "GCLogging.h"
 #include "JSExportMacros.h"
@@ -109,6 +108,7 @@ typedef const char* optionString;
     v(bool, useJIT,    true, Normal, "allows the baseline JIT to be used if true") \
     v(bool, useDFGJIT, true, Normal, "allows the DFG JIT to be used if true") \
     v(bool, useRegExpJIT, true, Normal, "allows the RegExp JIT to be used if true") \
+    v(bool, useDOMJIT, true, Normal, "allows the DOMJIT to be used if true") \
     \
     v(bool, reportMustSucceedExecutableAllocations, false, Normal, nullptr) \
     \
@@ -153,11 +153,12 @@ typedef const char* optionString;
     v(bool, dumpBytecodeAtDFGTime, false, Normal, "dumps bytecode of JS function being DFG compiled") \
     v(bool, dumpGraphAfterParsing, false, Normal, nullptr) \
     v(bool, dumpGraphAtEachPhase, false, Normal, nullptr) \
-    v(bool, dumpDFGGraphAtEachPhase, false, Normal, "dumps the DFG graph at each phase DFG of complitaion (note this excludes DFG graphs during FTL compilation)") \
-    v(bool, dumpDFGFTLGraphAtEachPhase, false, Normal, "dumps the DFG graph at each phase DFG of complitaion when compiling FTL code") \
+    v(bool, dumpDFGGraphAtEachPhase, false, Normal, "dumps the DFG graph at each phase of DFG compilation (note this excludes DFG graphs during FTL compilation)") \
+    v(bool, dumpDFGFTLGraphAtEachPhase, false, Normal, "dumps the DFG graph at each phase of DFG compilation when compiling FTL code") \
     v(bool, dumpB3GraphAtEachPhase, false, Normal, "dumps the B3 graph at each phase of compilation") \
     v(bool, dumpAirGraphAtEachPhase, false, Normal, "dumps the Air graph at each phase of compilation") \
     v(bool, verboseDFGByteCodeParsing, false, Normal, nullptr) \
+    v(bool, safepointBeforeEachPhase, true, Normal, nullptr) \
     v(bool, verboseCompilation, false, Normal, nullptr) \
     v(bool, verboseFTLCompilation, false, Normal, nullptr) \
     v(bool, logCompilationChanges, false, Normal, nullptr) \
@@ -173,6 +174,7 @@ typedef const char* optionString;
     v(bool, reportBaselineCompileTimes, false, Normal, "dumps JS function signature and the time it took to BaselineJIT compile") \
     v(bool, reportDFGCompileTimes, false, Normal, "dumps JS function signature and the time it took to DFG and FTL compile") \
     v(bool, reportFTLCompileTimes, false, Normal, "dumps JS function signature and the time it took to FTL compile") \
+    v(bool, reportDFGPhaseTimes, false, Normal, "dumps JS function name and the time is took for each DFG phase") \
     v(bool, reportTotalCompileTimes, false, Normal, nullptr) \
     v(bool, verboseExitProfile, false, Normal, nullptr) \
     v(bool, verboseCFA, false, Normal, nullptr) \
@@ -182,6 +184,33 @@ typedef const char* optionString;
     v(bool, testTheFTL, false, Normal, nullptr) \
     v(bool, verboseSanitizeStack, false, Normal, nullptr) \
     v(bool, useGenerationalGC, true, Normal, nullptr) \
+    v(bool, useConcurrentBarriers, true, Normal, nullptr) \
+    v(bool, useConcurrentGC, true, Normal, nullptr) \
+    v(bool, collectContinuously, false, Normal, nullptr) \
+    v(double, collectContinuouslyPeriodMS, 1, Normal, nullptr) \
+    v(bool, forceFencedBarrier, false, Normal, nullptr) \
+    v(bool, verboseVisitRace, false, Normal, nullptr) \
+    v(bool, optimizeParallelSlotVisitorsForStoppedMutator, false, Normal, nullptr) \
+    v(unsigned, largeHeapSize, 32 * 1024 * 1024, Normal, nullptr) \
+    v(unsigned, smallHeapSize, 1 * 1024 * 1024, Normal, nullptr) \
+    v(double, smallHeapRAMFraction, 0.25, Normal, nullptr) \
+    v(double, smallHeapGrowthFactor, 2, Normal, nullptr) \
+    v(double, mediumHeapRAMFraction, 0.5, Normal, nullptr) \
+    v(double, mediumHeapGrowthFactor, 1.5, Normal, nullptr) \
+    v(double, largeHeapGrowthFactor, 1.24, Normal, nullptr) \
+    v(double, minimumMutatorUtilization, 0, Normal, nullptr) \
+    v(double, maximumMutatorUtilization, 0.7, Normal, nullptr) \
+    v(double, concurrentGCMaxHeadroom, 1.5, Normal, nullptr) \
+    v(double, concurrentGCPeriodMS, 2, Normal, nullptr) \
+    v(bool, useStochasticMutatorScheduler, false, Normal, nullptr) \
+    v(double, minimumGCPauseMS, 0.3, Normal, nullptr) \
+    v(double, gcPauseScale, 0.3, Normal, nullptr) \
+    v(bool, scribbleFreeCells, false, Normal, nullptr) \
+    v(double, sizeClassProgression, 1.4, Normal, nullptr) \
+    v(unsigned, largeAllocationCutoff, 100000, Normal, nullptr) \
+    v(bool, dumpSizeClasses, false, Normal, nullptr) \
+    v(bool, useBumpAllocator, true, Normal, nullptr) \
+    v(bool, stealEmptyBlocksFromOtherAllocators, true, Normal, nullptr) \
     v(bool, eagerlyUpdateTopCallFrame, false, Normal, nullptr) \
     \
     v(bool, useOSREntryToDFG, true, Normal, nullptr) \
@@ -203,6 +232,7 @@ typedef const char* optionString;
     v(bool, usePolymorphicCallInliningForNonStubStatus, false, Normal, nullptr) \
     v(unsigned, maxPolymorphicCallVariantListSize, 15, Normal, nullptr) \
     v(unsigned, maxPolymorphicCallVariantListSizeForTopTier, 5, Normal, nullptr) \
+    v(unsigned, maxPolymorphicCallVariantListSizeForWebAssemblyToJS, 5, Normal, nullptr) \
     v(unsigned, maxPolymorphicCallVariantsForInlining, 5, Normal, nullptr) \
     v(unsigned, frequentCallThreshold, 2, Normal, nullptr) \
     v(double, minimumCallToKnownRate, 0.51, Normal, nullptr) \
@@ -293,15 +323,14 @@ typedef const char* optionString;
     v(double, structureCheckVoteRatioForHoisting, 1, Normal, nullptr) \
     v(double, checkArrayVoteRatioForHoisting, 1, Normal, nullptr) \
     \
+    v(unsigned, maximumDirectCallStackSize, 200, Normal, nullptr) \
+    \
     v(unsigned, minimumNumberOfScansBetweenRebalance, 100, Normal, nullptr) \
-    v(unsigned, numberOfGCMarkers, computeNumberOfGCMarkers(7), Normal, nullptr) \
+    v(unsigned, numberOfGCMarkers, computeNumberOfGCMarkers(8), Normal, nullptr) \
     v(unsigned, opaqueRootMergeThreshold, 1000, Normal, nullptr) \
     v(double, minHeapUtilization, 0.8, Normal, nullptr) \
-    v(double, minCopiedBlockUtilization, 0.9, Normal, nullptr) \
     v(double, minMarkedBlockUtilization, 0.9, Normal, nullptr) \
     v(unsigned, slowPathAllocsBetweenGCs, 0, Normal, "force a GC on every Nth slow path alloc, where N is specified by this option") \
-    v(bool, deferGCShouldCollectWithProbability, false, Normal, "If true, we perform a collection based on flipping a coin according the probability in the 'deferGCProbability' option when DeferGC is destructed.") \
-    v(double, deferGCProbability, 1.0, Normal, "Should be a number between 0 and 1. 1 means DeferGC always GCs when it's destructed and GCing is safe. 0.7 means we force GC 70% the time on DeferGC destruction.") \
     \
     v(double, percentCPUPerMBForFullTimer, 0.0003125, Normal, nullptr) \
     v(double, percentCPUPerMBForEdenTimer, 0.0025, Normal, nullptr) \
@@ -313,6 +342,7 @@ typedef const char* optionString;
     v(bool, useZombieMode, false, Normal, "debugging option to scribble over dead objects with 0xdeadbeef") \
     v(bool, useImmortalObjects, false, Normal, "debugging option to keep all objects alive forever") \
     v(bool, dumpObjectStatistics, false, Normal, nullptr) \
+    v(unsigned, maxSingleAllocationSize, 0, Configurable, "debugging option to limit individual allocations to a max size (0 = limit not set, N = limit size in bytes)") \
     \
     v(gcLogLevel, logGC, GCLogging::None, Normal, "debugging option to log GC activity (0 = None, 1 = Basic, 2 = Verbose)") \
     v(bool, useGC, true, Normal, nullptr) \
@@ -322,6 +352,8 @@ typedef const char* optionString;
     v(unsigned, forceRAMSize, 0, Normal, nullptr) \
     v(bool, recordGCPauseTimes, false, Normal, nullptr) \
     v(bool, logHeapStatisticsAtExit, false, Normal, nullptr) \
+    v(bool, forceCodeBlockToJettisonDueToOldAge, false, Normal, "If true, this means that anytime we can jettison a CodeBlock due to old age, we do.") \
+    v(bool, useEagerCodeBlockJettisonTiming, false, Normal, "If true, the time slices for jettisoning a CodeBlock due to old age are shrunk significantly.") \
     \
     v(bool, useTypeProfiler, false, Normal, nullptr) \
     v(bool, useControlFlowProfiler, false, Normal, nullptr) \
@@ -339,6 +371,8 @@ typedef const char* optionString;
     v(bool, useExceptionFuzz, false, Normal, nullptr) \
     v(unsigned, fireExceptionFuzzAt, 0, Normal, nullptr) \
     v(bool, validateDFGExceptionHandling, false, Normal, "Causes the DFG to emit code validating exception handling for each node that can exit") /* This is true by default on Debug builds */\
+    v(bool, dumpSimulatedThrows, false, Normal, "Dumps the call stack at each simulated throw for exception scope verification") \
+    v(bool, validateExceptionChecks, false, Normal, "Verifies that needed exception checks are performed.") \
     \
     v(bool, useExecutableAllocationFuzz, false, Normal, nullptr) \
     v(unsigned, fireExecutableAllocationFuzzAt, 0, Normal, nullptr) \
@@ -359,6 +393,7 @@ typedef const char* optionString;
     \
     v(bool, useDollarVM, false, Restricted, "installs the $vm debugging tool in global objects") \
     v(optionString, functionOverrides, nullptr, Restricted, "file with debugging overrides for function bodies") \
+    v(bool, useSigillCrashAnalyzer, false, Configurable, "logs data about SIGILL crashes") \
     \
     v(unsigned, watchdog, 0, Normal, "watchdog timeout (0 = Disabled, N = a timeout period of N milliseconds)") \
     \
@@ -377,6 +412,13 @@ typedef const char* optionString;
     \
     v(bool, reportLLIntStats, false, Configurable, "Reports LLInt statistics") \
     v(optionString, llintStatsFile, nullptr, Configurable, "File to collect LLInt statistics in") \
+    \
+    v(bool, useSourceProviderCache, true, Normal, "If false, the parser will not use the source provider cache. It's good to verify everything works when this is false. Because the cache is so successful, it can mask bugs.") \
+    v(bool, useCodeCache, true, Normal, "If false, the unlinked byte code cache will not be used.") \
+    \
+    v(bool, useWebAssembly, false, Normal, "Expose the WebAssembly global object.") \
+    \
+    v(bool, useConcurrentGCSplitTesting, false, Normal, "If true, A/B split testing will be performed on the concurrent GC, yielding a 50% chance that concurrent GC is disabled.") \
 
 enum OptionEquivalence {
     SameOption,
@@ -414,6 +456,7 @@ enum OptionEquivalence {
     v(enableExecutableAllocationFuzz, useExecutableAllocationFuzz, SameOption) \
     v(enableOSRExitFuzz, useOSRExitFuzz, SameOption) \
     v(enableDollarVM, useDollarVM, SameOption) \
+    v(enableWebAssembly, useWebAssembly, SameOption) \
 
 class Options {
 public:
@@ -467,6 +510,8 @@ public:
     JS_EXPORT_PRIVATE static void dumpAllOptionsInALine(StringBuilder&);
 
     JS_EXPORT_PRIVATE static void ensureOptionsAreCoherent();
+
+    JS_EXPORT_PRIVATE static void enableRestrictedOptions(bool enableOrNot);
 
     // Declare accessors for each option:
 #define FOR_EACH_OPTION(type_, name_, defaultValue_, availability_, description_) \
@@ -629,5 +674,3 @@ inline GCLogging::Level& Option::gcLogLevelVal()
 }
 
 } // namespace JSC
-
-#endif // Options_h

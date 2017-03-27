@@ -59,8 +59,9 @@ enum {
 
 extern uint32_t gBMDebugFlags;
 enum {
-    BM_LOG_LEVEL1 = 0x00000001,     // basic logging for completions and errors
-    BM_LOG_LEVEL2 = 0x00000002,     // log individual transactions
+    BM_LOG_LEVEL0 = 0x00000001,     // errors
+    BM_LOG_LEVEL1 = 0x00000002,     // basic logging for completions
+    BM_LOG_LEVEL2 = 0x00000004,     // log individual transactions
 };
 
 #define BM_LOG1(fmt, args...)           \
@@ -76,7 +77,10 @@ enum {
 }
 
 #define BM_ERRLOG(fmt, args...)         \
-    IOLog(fmt, ##args);
+{                                       \
+    if (gBMDebugFlags & BM_LOG_LEVEL0)  \
+        IOLog(fmt, ## args);            \
+}
 
 // * WriteBlock note
 // rdar://5433060

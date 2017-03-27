@@ -118,6 +118,8 @@ bool com_apple_filesystems_hfs::start(IOService *provider)
 		return false;
 	}
 
+	hfs_init_zones();
+	
 	hfs_sysctl_register();
 
 	return true;

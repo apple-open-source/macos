@@ -36,13 +36,6 @@
 
 __BEGIN_DECLS
 
-typedef struct SecRSAPublicKeyParams {
-	uint8_t             *modulus;			/* modulus */
-	CFIndex             modulusLength;
-	uint8_t             *exponent;			/* public exponent */
-	CFIndex             exponentLength;
-} SecRSAPublicKeyParams;
-
 /* Given an RSA public key in encoded form return a SecKeyRef representing
    that key. Supported encodings are kSecKeyEncodingPkcs1. */
 SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,

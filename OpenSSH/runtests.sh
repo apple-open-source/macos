@@ -64,6 +64,7 @@ echo "running test from ${OBJ}"
 
 # The OpenSSH test suite relies heavily on /var/run, which is group-writable on OS X.
 # Temporarily disable group writing so that auth_secure_path() does not fail when running unit tests.
+umask 022
 trap "${SUDO} chmod g+w /private/var/run" EXIT SIGQUIT SIGTERM
 ${SUDO} chmod g-w /private/var/run
 if [ "x${test_file}" == "x" ] ; then

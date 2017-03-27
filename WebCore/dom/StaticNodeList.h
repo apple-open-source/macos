@@ -26,12 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef StaticNodeList_h
-#define StaticNodeList_h
+#pragma once
 
 #include "Element.h"
 #include "NodeList.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
@@ -74,5 +72,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // StaticNodeList_h

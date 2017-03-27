@@ -60,10 +60,10 @@ FormAssociatedElement::~FormAssociatedElement()
     setForm(nullptr);
 }
 
-void FormAssociatedElement::didMoveToNewDocument(Document* oldDocument)
+void FormAssociatedElement::didMoveToNewDocument(Document&)
 {
     HTMLElement& element = asHTMLElement();
-    if (oldDocument && element.hasAttributeWithoutSynchronization(formAttr))
+    if (element.hasAttributeWithoutSynchronization(formAttr) && element.inDocument())
         resetFormAttributeTargetObserver();
 }
 
@@ -222,6 +222,11 @@ bool FormAssociatedElement::stepMismatch() const
     return false;
 }
 
+bool FormAssociatedElement::tooShort() const
+{
+    return false;
+}
+
 bool FormAssociatedElement::tooLong() const
 {
     return false;
@@ -232,10 +237,10 @@ bool FormAssociatedElement::typeMismatch() const
     return false;
 }
 
-bool FormAssociatedElement::valid() const
+bool FormAssociatedElement::isValid() const
 {
     bool someError = typeMismatch() || stepMismatch() || rangeUnderflow() || rangeOverflow()
-        || tooLong() || patternMismatch() || valueMissing() || hasBadInput() || customError();
+        || tooShort() || tooLong() || patternMismatch() || valueMissing() || hasBadInput() || customError();
     return !someError;
 }
 
@@ -261,6 +266,7 @@ void FormAssociatedElement::setCustomValidity(const String& error)
 
 void FormAssociatedElement::resetFormAttributeTargetObserver()
 {
+    ASSERT_WITH_SECURITY_IMPLICATION(asHTMLElement().inDocument());
     m_formAttributeTargetObserver = std::make_unique<FormAttributeTargetObserver>(asHTMLElement().attributeWithoutSynchronization(formAttr), *this);
 }
 

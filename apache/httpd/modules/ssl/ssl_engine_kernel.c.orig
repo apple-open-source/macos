@@ -884,7 +884,14 @@ int ssl_hook_Access(request_rec *r)
 
             cert = SSL_get_peer_certificate(ssl);
 
-            if (!cert_stack && cert) {
+            if (!cert_stack || (sk_X509_num(cert_stack) == 0)) {
+                if (!cert) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02222)
+                                  "Cannot find peer certificate chain");
+
+                    return HTTP_FORBIDDEN;
+                }
+
                 /* client cert is in the session cache, but there is
                  * no chain, since ssl3_get_client_certificate()
                  * sk_X509_shift-ed the peer cert out of the chain.
@@ -892,13 +899,6 @@ int ssl_hook_Access(request_rec *r)
                  */
                 cert_stack = sk_X509_new_null();
                 sk_X509_push(cert_stack, cert);
-            }
-
-            if (!cert_stack || (sk_X509_num(cert_stack) == 0)) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02222)
-                              "Cannot find peer certificate chain");
-
-                return HTTP_FORBIDDEN;
             }
 
             if (!(cert_store ||
@@ -1017,7 +1017,7 @@ int ssl_hook_Access(request_rec *r)
                 return HTTP_FORBIDDEN;
             }
 
-            /* Full renegotiation successfull, we now have handshaken with
+            /* Full renegotiation successful, we now have handshaken with
              * this server's parameters.
              */
             sslconn->server = r->server;
@@ -1159,7 +1159,7 @@ int ssl_hook_Access(request_rec *r)
  *  Fake a Basic authentication from the X509 client certificate.
  *
  *  This must be run fairly early on to prevent a real authentication from
- *  occuring, in particular it must be run before anything else that
+ *  occurring, in particular it must be run before anything else that
  *  authenticates a user.  This means that the Module statement for this
  *  module should be LAST in the Configuration file.
  */

@@ -75,6 +75,13 @@ extern const CFStringRef kSecCodeInfoDiskRepNoLibraryValidation; /* String */
  */
 OSStatus SecCodeGetStatus(SecCodeRef code, SecCSFlags flags, SecCodeStatus *status);
 
+typedef uint32_t SecCodeStatusOperation;
+enum {
+    kSecCodeOperationNull = 0,
+    kSecCodeOperationInvalidate = 1,
+    kSecCodeOperationSetHard = 2,
+    kSecCodeOperationSetKill = 3,
+};
 
 /*!
 	@function SecCodeSetStatus
@@ -83,20 +90,10 @@ OSStatus SecCodeGetStatus(SecCodeRef code, SecCSFlags flags, SecCodeStatus *stat
 	@param code A valid SecCode object reference representing code running
 	on the system.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@param status Upon successful return, contains the dynamic status of code as
-	determined by its host.
 	
 	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
  */
-typedef uint32_t SecCodeStatusOperation;
-enum {
-	kSecCodeOperationNull = 0,
-	kSecCodeOperationInvalidate = 1,
-	kSecCodeOperationSetHard = 2,
-	kSecCodeOperationSetKill = 3,
-};
-
 OSStatus SecCodeSetStatus(SecCodeRef code, SecCodeStatusOperation operation,
 	CFDictionaryRef arguments, SecCSFlags flags);
 

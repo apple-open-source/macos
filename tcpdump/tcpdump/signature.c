@@ -15,25 +15,26 @@
  * Original code by Hannes Gredler (hannes@juniper.net)
  */
 
-#define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <tcpdump-stdinc.h>
+#include <netdissect-stdinc.h>
 
 #include <string.h>
+#include <stdlib.h>
 
-#include "interface.h"
+#include "netdissect.h"
 #include "signature.h"
 
 #ifdef HAVE_LIBCRYPTO
-#include <CommonCrypto/CommonDigest.h>
+#include <openssl/md5.h>
 #endif
 
 const struct tok signature_check_values[] = {
     { SIGNATURE_VALID, "valid"},
     { SIGNATURE_INVALID, "invalid"},
+    { CANT_ALLOCATE_COPY, "can't allocate memory"},
     { CANT_CHECK_SIGNATURE, "unchecked"},
     { 0, NULL }
 };
@@ -44,11 +45,12 @@ const struct tok signature_check_values[] = {
  * Compute a HMAC MD5 sum.
  * Taken from rfc2104, Appendix.
  */
+USES_APPLE_DEPRECATED_API
 static void
 signature_compute_hmac_md5(const uint8_t *text, int text_len, unsigned char *key,
                            unsigned int key_len, uint8_t *digest)
 {
-    CC_MD5_CTX context;
+    MD5_CTX context;
     unsigned char k_ipad[65];    /* inner padding - key XORd with ipad */
     unsigned char k_opad[65];    /* outer padding - key XORd with opad */
     unsigned char tk[16];
@@ -57,11 +59,11 @@ signature_compute_hmac_md5(const uint8_t *text, int text_len, unsigned char *key
     /* if key is longer than 64 bytes reset it to key=MD5(key) */
     if (key_len > 64) {
 
-        CC_MD5_CTX tctx;
+        MD5_CTX tctx;
 
-        CC_MD5_Init(&tctx);
-        CC_MD5_Update(&tctx, key, key_len);
-        CC_MD5_Final(tk, &tctx);
+        MD5_Init(&tctx);
+        MD5_Update(&tctx, key, key_len);
+        MD5_Final(tk, &tctx);
 
         key = tk;
         key_len = 16;
@@ -93,58 +95,114 @@ signature_compute_hmac_md5(const uint8_t *text, int text_len, unsigned char *key
     /*
      * perform inner MD5
      */
-    CC_MD5_Init(&context);                   /* init context for 1st pass */
-    CC_MD5_Update(&context, k_ipad, 64);     /* start with inner pad */
-    CC_MD5_Update(&context, text, text_len); /* then text of datagram */
-    CC_MD5_Final(digest, &context);          /* finish up 1st pass */
+    MD5_Init(&context);                   /* init context for 1st pass */
+    MD5_Update(&context, k_ipad, 64);     /* start with inner pad */
+    MD5_Update(&context, text, text_len); /* then text of datagram */
+    MD5_Final(digest, &context);          /* finish up 1st pass */
 
     /*
      * perform outer MD5
      */
-    CC_MD5_Init(&context);                   /* init context for 2nd pass */
-    CC_MD5_Update(&context, k_opad, 64);     /* start with outer pad */
-    CC_MD5_Update(&context, digest, 16);     /* then results of 1st hash */
-    CC_MD5_Final(digest, &context);          /* finish up 2nd pass */
+    MD5_Init(&context);                   /* init context for 2nd pass */
+    MD5_Update(&context, k_opad, 64);     /* start with outer pad */
+    MD5_Update(&context, digest, 16);     /* then results of 1st hash */
+    MD5_Final(digest, &context);          /* finish up 2nd pass */
 }
-#endif
+USES_APPLE_RST
 
-#ifdef HAVE_LIBCRYPTO
 /*
  * Verify a cryptographic signature of the packet.
  * Currently only MD5 is supported.
  */
 int
-signature_verify(netdissect_options *ndo,
-                 const u_char *pptr, u_int plen, u_char *sig_ptr)
+signature_verify(netdissect_options *ndo, const u_char *pptr, u_int plen,
+                 const u_char *sig_ptr, void (*clear_rtn)(void *),
+                 const void *clear_arg)
 {
-    uint8_t rcvsig[16];
+    uint8_t *packet_copy, *sig_copy;
     uint8_t sig[16];
     unsigned int i;
-
-    /*
-     * Save the signature before clearing it.
-     */
-    memcpy(rcvsig, sig_ptr, sizeof(rcvsig));
-    memset(sig_ptr, 0, sizeof(rcvsig));
 
     if (!ndo->ndo_sigsecret) {
         return (CANT_CHECK_SIGNATURE);
     }
 
-    signature_compute_hmac_md5(pptr, plen, (unsigned char *)ndo->ndo_sigsecret,
+    /*
+     * Do we have all the packet data to be checked?
+     */
+    if (!ND_TTEST2(pptr, plen)) {
+        /* No. */
+        return (CANT_CHECK_SIGNATURE);
+    }
+
+    /*
+     * Do we have the entire signature to check?
+     */
+    if (!ND_TTEST2(sig_ptr, sizeof(sig))) {
+        /* No. */
+        return (CANT_CHECK_SIGNATURE);
+    }
+    if (sig_ptr + sizeof(sig) > pptr + plen) {
+        /* No. */
+        return (CANT_CHECK_SIGNATURE);
+    }
+
+    /*
+     * Make a copy of the packet, so we don't overwrite the original.
+     */
+    packet_copy = malloc(plen);
+    if (packet_copy == NULL) {
+        return (CANT_ALLOCATE_COPY);
+    }
+
+    memcpy(packet_copy, pptr, plen);
+
+    /*
+     * Clear the signature in the copy.
+     */
+    sig_copy = packet_copy + (sig_ptr - pptr);
+    memset(sig_copy, 0, sizeof(sig));
+
+    /*
+     * Clear anything else that needs to be cleared in the copy.
+     * Our caller is assumed to have vetted the clear_arg pointer.
+     */
+    (*clear_rtn)((void *)(packet_copy + ((const uint8_t *)clear_arg - pptr)));
+
+    /*
+     * Compute the signature.
+     */
+    signature_compute_hmac_md5(packet_copy, plen,
+                               (unsigned char *)ndo->ndo_sigsecret,
                                strlen(ndo->ndo_sigsecret), sig);
 
-    if (memcmp(rcvsig, sig, sizeof(sig)) == 0) {
+    /*
+     * Free the copy.
+     */
+    free(packet_copy);
+
+    /*
+     * Does the computed signature match the signature in the packet?
+     */
+    if (memcmp(sig_ptr, sig, sizeof(sig)) == 0) {
+        /* Yes. */
         return (SIGNATURE_VALID);
-
     } else {
-
+        /* No - print the computed signature. */
         for (i = 0; i < sizeof(sig); ++i) {
             ND_PRINT((ndo, "%02x", sig[i]));
         }
 
         return (SIGNATURE_INVALID);
     }
+}
+#else
+int
+signature_verify(netdissect_options *ndo _U_, const u_char *pptr _U_,
+                 u_int plen _U_, const u_char *sig_ptr _U_,
+                 void (*clear_rtn)(void *) _U_, const void *clear_arg _U_)
+{
+    return (CANT_CHECK_SIGNATURE);
 }
 #endif
 

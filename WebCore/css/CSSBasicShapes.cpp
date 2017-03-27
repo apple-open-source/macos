@@ -31,7 +31,7 @@
 
 #include "CSSBasicShapes.h"
 
-#include "CSSParser.h"
+#include "CSSMarkup.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSValuePool.h"
 #include "Pair.h"
@@ -45,8 +45,8 @@ namespace WebCore {
 
 static String serializePositionOffset(const Pair& offset, const Pair& other)
 {
-    if ((offset.first()->getValueID() == CSSValueLeft && other.first()->getValueID() == CSSValueTop)
-        || (offset.first()->getValueID() == CSSValueTop && other.first()->getValueID() == CSSValueLeft))
+    if ((offset.first()->valueID() == CSSValueLeft && other.first()->valueID() == CSSValueTop)
+        || (offset.first()->valueID() == CSSValueTop && other.first()->valueID() == CSSValueLeft))
         return offset.second()->cssText();
     return offset.cssText();
 }
@@ -59,22 +59,24 @@ static Ref<CSSPrimitiveValue> buildSerializablePositionOffset(CSSPrimitiveValue*
     if (!offset)
         side = CSSValueCenter;
     else if (offset->isValueID())
-        side = offset->getValueID();
-    else if (Pair* pair = offset->getPairValue()) {
-        side = pair->first()->getValueID();
+        side = offset->valueID();
+    else if (Pair* pair = offset->pairValue()) {
+        side = pair->first()->valueID();
         amount = pair->second();
     } else
         amount = offset;
 
     auto& cssValuePool = CSSValuePool::singleton();
-    if (side == CSSValueCenter) {
+    if (!amount)
+        amount = cssValuePool.createValue(Length(side == CSSValueCenter ? 50 : 0, Percent));
+    
+    if (side == CSSValueCenter)
         side = defaultSide;
-        amount = cssValuePool.createValue(Length(50, Percent));
-    } else if ((side == CSSValueRight || side == CSSValueBottom)
+    else if ((side == CSSValueRight || side == CSSValueBottom)
         && amount->isPercentage()) {
         side = defaultSide;
-        amount = cssValuePool.createValue(Length(100 - amount->getFloatValue(), Percent));
-    } else if (amount->isLength() && !amount->getFloatValue()) {
+        amount = cssValuePool.createValue(Length(100 - amount->floatValue(), Percent));
+    } else if (amount->isLength() && !amount->floatValue()) {
         if (side == CSSValueRight || side == CSSValueBottom)
             amount = cssValuePool.createValue(Length(100, Percent));
         else
@@ -114,12 +116,12 @@ String CSSBasicShapeCircle::cssText() const
     Ref<CSSPrimitiveValue> normalizedCY = buildSerializablePositionOffset(m_centerY.get(), CSSValueTop);
 
     String radius;
-    if (m_radius && m_radius->getValueID() != CSSValueClosestSide)
+    if (m_radius && m_radius->valueID() != CSSValueClosestSide)
         radius = m_radius->cssText();
 
     return buildCircleString(radius,
-        serializePositionOffset(*normalizedCX->getPairValue(), *normalizedCY->getPairValue()),
-        serializePositionOffset(*normalizedCY->getPairValue(), *normalizedCX->getPairValue()));
+        serializePositionOffset(*normalizedCX->pairValue(), *normalizedCY->pairValue()),
+        serializePositionOffset(*normalizedCY->pairValue(), *normalizedCX->pairValue()));
 }
 
 bool CSSBasicShapeCircle::equals(const CSSBasicShape& shape) const
@@ -173,11 +175,11 @@ String CSSBasicShapeEllipse::cssText() const
     String radiusX;
     String radiusY;
     if (m_radiusX) {
-        bool shouldSerializeRadiusXValue = m_radiusX->getValueID() != CSSValueClosestSide;
+        bool shouldSerializeRadiusXValue = m_radiusX->valueID() != CSSValueClosestSide;
         bool shouldSerializeRadiusYValue = false;
 
         if (m_radiusY) {
-            shouldSerializeRadiusYValue = m_radiusY->getValueID() != CSSValueClosestSide;
+            shouldSerializeRadiusYValue = m_radiusY->valueID() != CSSValueClosestSide;
             if (shouldSerializeRadiusYValue)
                 radiusY = m_radiusY->cssText();
         }
@@ -185,8 +187,8 @@ String CSSBasicShapeEllipse::cssText() const
             radiusX = m_radiusX->cssText();
     }
     return buildEllipseString(radiusX, radiusY,
-        serializePositionOffset(*normalizedCX->getPairValue(), *normalizedCY->getPairValue()),
-        serializePositionOffset(*normalizedCY->getPairValue(), *normalizedCX->getPairValue()));
+        serializePositionOffset(*normalizedCX->pairValue(), *normalizedCY->pairValue()),
+        serializePositionOffset(*normalizedCY->pairValue(), *normalizedCX->pairValue()));
 }
 
 bool CSSBasicShapeEllipse::equals(const CSSBasicShape& shape) const
@@ -214,7 +216,7 @@ static String buildPathString(const WindRule& windRule, const String& path, cons
     else
         result.appendLiteral("path(");
 
-    result.append(quoteCSSString(path));
+    serializeString(path, result);
     result.append(')');
 
     if (box.length()) {
@@ -383,7 +385,7 @@ static inline void updateCornerRadiusWidthAndHeight(CSSPrimitiveValue* corner, S
     if (!corner)
         return;
 
-    Pair* radius = corner->getPairValue();
+    Pair* radius = corner->pairValue();
     width = radius->first() ? radius->first()->cssText() : String("0");
     if (radius->second())
         height = radius->second()->cssText();

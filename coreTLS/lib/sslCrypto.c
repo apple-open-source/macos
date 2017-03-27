@@ -25,7 +25,7 @@
  * sslCrypto.c - internally implemented handshake layer crypto.
  */
 
-#include <tls_handshake_priv.h>
+#include "tls_handshake_priv.h"
 
 #include "sslCrypto.h"
 #include "CipherSuite.h"
@@ -259,9 +259,7 @@ int sslRand(tls_buffer *buf)
         abort();
     }
 
-    ccrng_generate(rng, buf->length, buf->data);
-
-    return 0;
+    return ccrng_generate(rng, buf->length, buf->data);
 }
 
 /*
@@ -271,7 +269,7 @@ int sslFreePubKey(SSLPubKey *pubKey)
 {
     if (pubKey) {
         sslFree(pubKey->rsa.pub);
-        pubKey->rsa.pub=NULL;
+        pubKey->rsa.pub = NULL;
         sslFree(pubKey->ecc.pub);
         pubKey->ecc.pub = NULL;
     }
@@ -308,8 +306,10 @@ int sslRawSign(
         status = privKey->desc.rsa.sign(privKey->ctx, tls_hash_algorithm_None, plainText, plainTextLen, sig, &inOutSigLen);
     } else if (privKey->desc.type == tls_private_key_type_ecdsa) {
         status = privKey->desc.ecdsa.sign(privKey->ctx, plainText, plainTextLen, sig, &inOutSigLen);
-    } else
+    } else {
         status = errSSLParam;
+    }
+
     if (status) {
         sslErrorLog("privKey->desc.rsa.sign: failed (error %d)\n", (int)status);
     }
@@ -434,7 +434,7 @@ int sslRawEccVerify(
     int status = errSSLCrypto;
     bool valid;
 
-    if(pubKey->isRSA || pubKey->ecc.pub==NULL) {
+    if (pubKey->isRSA || pubKey->ecc.pub==NULL) {
         sslErrorLog("Internal Error: Invalid EC public key\n");
         return errSSLInternal;
     }
@@ -574,7 +574,8 @@ int sslRsaEncrypt(
         abort();
     }
 
-    ccrng_generate(rng, pad_size - 3, sBytes);
+    require(ccrng_generate(rng, pad_size - 3, sBytes) == 0, errOut);
+
     // Remove zeroes from the random pad
 
     const uint8_t* sEndOfPad = sBytes + (pad_size - 3);
@@ -592,12 +593,10 @@ int sslRsaEncrypt(
 
     ccn_swap(ccrsa_ctx_n(pubkey), s);
 
-    ccrsa_pub_crypt(pubkey, s, s);
+    require(ccrsa_pub_crypt(pubkey, s, s) == 0, errOut);
 
     ccn_write_uint_padded(ccrsa_ctx_n(pubkey), s, m_size, cipherText);
     ctlen = m_size;
-
-
 
     /* Since the KeyExchange already allocated modulus size bytes we'll
      use all of them.  SecureTransport has always sent that many bytes,
@@ -609,8 +608,9 @@ int sslRsaEncrypt(
         ctlen = cipherTextLen;
     }
 
-    if (actualBytes)
+    if (actualBytes) {
         *actualBytes = ctlen;
+    }
 
     return errSSLSuccess;
 

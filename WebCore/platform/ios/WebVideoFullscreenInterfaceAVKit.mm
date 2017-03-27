@@ -73,6 +73,7 @@ SOFT_LINK_CLASS(UIKit, UIWindow)
 SOFT_LINK_CLASS(UIKit, UIView)
 SOFT_LINK_CLASS(UIKit, UIViewController)
 SOFT_LINK_CLASS(UIKit, UIColor)
+SOFT_LINK_CONSTANT(UIKit, UIRemoteKeyboardLevel, UIWindowLevel)
 
 #if !LOG_DISABLED
 static const char* boolString(bool val)
@@ -397,7 +398,7 @@ static UIView *WebAVPlayerLayerView_videoView(id aSelf, SEL)
     __AVPlayerLayerView *playerLayer = aSelf;
     WebAVPlayerLayer *webAVPlayerLayer = (WebAVPlayerLayer *)[playerLayer playerLayer];
     CALayer* videoLayer = [webAVPlayerLayer videoSublayer];
-    if (!videoLayer)
+    if (!videoLayer || !videoLayer.delegate)
         return nil;
     ASSERT([[videoLayer delegate] isKindOfClass:getUIViewClass()]);
     return (UIView *)[videoLayer delegate];
@@ -430,7 +431,8 @@ static void WebAVPlayerLayerView_startRoutingVideoToPictureInPicturePlayerLayerV
 static void WebAVPlayerLayerView_stopRoutingVideoToPictureInPicturePlayerLayerView(id aSelf, SEL)
 {
     WebAVPlayerLayerView *playerLayerView = aSelf;
-    [playerLayerView addSubview:playerLayerView.videoView];
+    if (UIView *videoView = playerLayerView.videoView)
+        [playerLayerView addSubview:videoView];
     WebAVPictureInPicturePlayerLayerView *pipView = (WebAVPictureInPicturePlayerLayerView *)[playerLayerView pictureInPicturePlayerLayerView];
     WebAVPlayerLayer *playerLayer = (WebAVPlayerLayer *)[playerLayerView playerLayer];
     WebAVPlayerLayer *pipPlayerLayer = (WebAVPlayerLayer *)[pipView layer];
@@ -605,6 +607,7 @@ void WebVideoFullscreenInterfaceAVKit::setupFullscreen(UIView& videoView, const 
         [[m_viewController view] setFrame:[m_window bounds]];
         [m_viewController _setIgnoreAppSupportedOrientations:YES];
         [m_window setRootViewController:m_viewController.get()];
+        [m_window setWindowLevel:getUIRemoteKeyboardLevel() + 1];
         [m_window makeKeyAndVisible];
     }
 
@@ -981,8 +984,7 @@ bool WebVideoFullscreenInterfaceAVKit::shouldExitFullscreenWithReason(WebVideoFu
     if (webPlaybackSessionModel() && (reason == ExitFullScreenReason::DoneButtonTapped || reason == ExitFullScreenReason::RemoteControlStopEventReceived))
         webPlaybackSessionModel()->pause();
     
-
-    m_videoFullscreenModel->requestFullscreenMode(HTMLMediaElementEnums::VideoFullscreenModeNone);
+    m_videoFullscreenModel->requestFullscreenMode(HTMLMediaElementEnums::VideoFullscreenModeNone, reason == ExitFullScreenReason::DoneButtonTapped);
 
     if (!m_watchdogTimer.isActive())
         m_watchdogTimer.startOneShot(DefaultWatchdogTimerInterval);

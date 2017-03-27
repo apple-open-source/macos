@@ -223,13 +223,7 @@ static void tests(void)
     CFReleaseNull(carol_account);
     CFReleaseNull(cfnewpassword);
     
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-    
+    SOSTestCleanup();
 }
 
 int secd_58_password_change(int argc, char *const *argv)

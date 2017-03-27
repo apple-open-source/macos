@@ -595,7 +595,7 @@ lb{
         war{"Waray"}
         was{"Washo-Sprooch"}
         wo{"Wolof"}
-        wuu{"Wu-Chinesesch"}
+        wuu{"Shanghainese"}
         xal{"Kalmückesch"}
         xh{"Xhosa"}
         xmf{"Mingrelesch Sprooch"}

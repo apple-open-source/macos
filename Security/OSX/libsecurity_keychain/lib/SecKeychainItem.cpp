@@ -496,7 +496,6 @@ OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainA
 	END_SECAPI
 }
 
-#if SECTRUST_OSX
 static OSStatus SecKeychainItemCreatePersistentReferenceFromCertificate(SecCertificateRef certRef,
     CFDataRef *persistentItemRef, Boolean isIdentity)
 {
@@ -581,35 +580,9 @@ static OSStatus SecKeychainItemCreatePersistentReferenceFromCertificate(SecCerti
 
 	return __secapiresult;
 }
-#endif
 
 OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CFDataRef *persistentItemRef)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-
-	KCThrowParamErrIf_(!itemRef || !persistentItemRef);
-	Item item;
-    CFTypeID itemType = (itemRef) ? CFGetTypeID(itemRef) ? 0;
-    bool isIdentityRef = (itemType == SecIdentityGetTypeID()) ? true : false;
-    bool isCertificateRef = (itemType == SecCertificateGetTypeID()) ? true : false;
-	if (isIdentityRef) {
-		SecPointer<Certificate> certificatePtr(Identity::required((SecIdentityRef)itemRef)->certificate());
-		SecCertificateRef certificateRef = certificatePtr->handle(false);
-		item = ItemImpl::required((SecKeychainItemRef)certificateRef);
-		item->copyPersistentReference(*persistentItemRef, true);
-	}
-	else if (isCertificateRef) {
-		item = ItemImpl::required(itemRef);
-		item->copyPersistentReference(*persistentItemRef, false);
-	}
-	else {
-		item = ItemImpl::required(itemRef);
-		item->copyPersistentReference(*persistentItemRef, false);
-	}
-
-	END_SECAPI
-#else
     /* We're in the unified world, where SecCertificateRef is not a SecKeychainItemRef. */
     if (!itemRef || !persistentItemRef) {
         return errSecParam;
@@ -649,8 +622,6 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
     Item item = ItemImpl::required(itemRef);
     item->copyPersistentReference(*persistentItemRef, false);
     END_SECAPI
-
-#endif
 }
 
 OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef, SecKeychainItemRef *itemRef)
@@ -689,7 +660,6 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
     }
     *itemRef = (SecKeychainItemRef) result;
 
-#if SECTRUST_OSX
     /* see if we should convert outgoing item to a unified SecCertificateRef */
     SecItemClass tmpItemClass = Schema::itemClassFor(item->recordType());
     if (tmpItemClass == kSecCertificateItemClass && !isIdentityRef) {
@@ -719,7 +689,6 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
         if (tmpRef)
             CFRelease(tmpRef);
     }
-#endif
 
 	END_SECAPI
 }

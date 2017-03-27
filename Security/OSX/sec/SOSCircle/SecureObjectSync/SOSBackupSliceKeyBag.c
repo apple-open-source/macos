@@ -23,6 +23,7 @@
 
 
 // Our Header
+
 #include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
 
 
@@ -45,7 +46,12 @@
 
 #include <limits.h>
 
+#include "SecRecoveryKey.h"
+#include "SOSKeyedPubKeyIdentifier.h"
 #include "SOSInternal.h"
+#include "SecADWrapper.h"
+
+CFStringRef bskbRkbgPrefix = CFSTR("RK");
 
 //
 // MARK: Type creation
@@ -72,15 +78,29 @@ static void SOSBackupSliceKeyBagDestroy(CFTypeRef aObj) {
     CFReleaseNull(vb->wrapped_keys);
 }
 
+static CFSetRef SOSBackupSliceKeyBagCopyPeerNames(SOSBackupSliceKeyBagRef bksb) {
+    CFMutableSetRef retval = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+    if(!retval) return NULL;
+    CFSetForEach(bksb->peers, ^(const void *value) {
+        SOSPeerInfoRef pi = (SOSPeerInfoRef) value;
+        CFSetAddValue(retval, SOSPeerInfoGetPeerName(pi));
+    });
+    return retval;
+}
+
 static CFStringRef SOSBackupSliceKeyBagCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
     SOSBackupSliceKeyBagRef vb = (SOSBackupSliceKeyBagRef) aObj;
 
-    CFMutableStringRef description = CFStringCreateMutable(kCFAllocatorDefault, 0);
+    CFMutableStringRef retval = CFStringCreateMutable(kCFAllocatorDefault, 0);
+    
+    CFSetRef peerIDs = SOSBackupSliceKeyBagCopyPeerNames(vb);
+    CFStringSetPerformWithDescription(peerIDs, ^(CFStringRef description) {
+        CFStringAppendFormat(retval, NULL, CFSTR("<SOSBackupSliceKeyBag@%p %ld %@"), vb, vb->peers ? CFSetGetCount(vb->peers) : 0, description);
+    });
+    CFReleaseNull(peerIDs);
+    CFStringAppend(retval, CFSTR(">"));
 
-    CFStringAppendFormat(description, NULL, CFSTR("<SOSBackupSliceKeyBag@%p %ld"), vb, vb->peers ? CFSetGetCount(vb->peers) : 0);
-    CFStringAppend(description, CFSTR(">"));
-
-    return description;
+    return retval;
 }
 
 
@@ -165,6 +185,7 @@ fail:
 }
 
 
+
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateFromData(CFAllocatorRef allocator, CFDataRef data, CFErrorRef *error) {
     SOSBackupSliceKeyBagRef result = NULL;
     SOSBackupSliceKeyBagRef decodedBag = NULL;
@@ -219,7 +240,7 @@ exit:
 }
 
 
-static CFDictionaryRef SOSBackupSliceKeyBagCopyWrappedKeys(SOSBackupSliceKeyBagRef vb, CFDataRef secret, CFErrorRef *error) {
+static CFDictionaryRef SOSBackupSliceKeyBagCopyWrappedKeys(SOSBackupSliceKeyBagRef vb, CFDataRef secret, CFDictionaryRef additionalKeys, CFErrorRef *error) {
     CFDictionaryRef result = NULL;
     CFMutableDictionaryRef wrappedKeys = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
 
@@ -256,6 +277,41 @@ static CFDictionaryRef SOSBackupSliceKeyBagCopyWrappedKeys(SOSBackupSliceKeyBagR
         }
     });
 
+    CFDictionaryForEach(additionalKeys, ^(const void *key, const void *value) {
+        CFStringRef prefix = asString(key, NULL);
+        CFDataRef backupKey = asData(value, NULL);
+        if (backupKey) {
+            CFDataRef wrappedKey = NULL;
+            CFErrorRef localError = NULL;
+            CFStringRef id = SOSKeyedPubKeyIdentifierCreateWithData(prefix, backupKey);
+            require_quiet(id, done);
+
+            wrappedKey = SOSCopyECWrapped(backupKey, secret, &localError);
+            require_quiet(wrappedKey, done);
+
+            CFDictionaryAddValue(wrappedKeys, id, wrappedKey);
+
+        done:
+            if (!localError) {
+                CFDataPerformWithHexString(backupKey, ^(CFStringRef backupKeyString) {
+                    CFDataPerformWithHexString(wrappedKey, ^(CFStringRef wrappedKeyString) {
+                        secnotice("bskb", "Add for bk: %@, wrapped: %@", backupKeyString, wrappedKeyString);
+                    });
+                });
+            } else {
+                CFDataPerformWithHexString(backupKey, ^(CFStringRef backupKeyString) {
+                    secnotice("bskb", "Failed at bk: %@ error: %@", backupKeyString, localError);
+                });
+                CFErrorPropagate(localError, error);
+                success = false;
+            }
+            CFReleaseNull(wrappedKey);
+            CFReleaseNull(id);
+        } else {
+            secnotice("bskb", "Skipping %@, not data.", value);
+        }
+    });
+
     if (success)
         CFTransferRetained(result, wrappedKeys);
 
@@ -263,7 +319,7 @@ static CFDictionaryRef SOSBackupSliceKeyBagCopyWrappedKeys(SOSBackupSliceKeyBagR
     return result;
 }
 
-static bool SOSBackupSliceKeyBagCreateBackupBag(SOSBackupSliceKeyBagRef vb, CFErrorRef* error) {
+static bool SOSBackupSliceKeyBagCreateBackupBag(SOSBackupSliceKeyBagRef vb, CFDictionaryRef/*CFDataRef*/ additionalKeys, CFErrorRef* error) {
     CFReleaseNull(vb->aks_bag);
 
     // Choose a random key.
@@ -274,7 +330,7 @@ static bool SOSBackupSliceKeyBagCreateBackupBag(SOSBackupSliceKeyBagRef vb, CFEr
 
         secret = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, buffer, size, kCFAllocatorNull);
 
-        CFAssignRetained(vb->wrapped_keys, SOSBackupSliceKeyBagCopyWrappedKeys(vb, secret, error));
+        CFAssignRetained(vb->wrapped_keys, SOSBackupSliceKeyBagCopyWrappedKeys(vb, secret, additionalKeys, error));
         CFAssignRetained(vb->aks_bag, SecAKSCopyBackupBagWithSecret(size, buffer, error));
 
     fail:
@@ -317,6 +373,19 @@ static CFSetRef SOSBackupSliceKeyBagCreatePeerSet(CFAllocatorRef allocator, CFSe
 }
 
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreate(CFAllocatorRef allocator, CFSetRef peers, CFErrorRef* error) {
+    CFMutableDictionaryRef additionalKeys = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+
+    SOSBackupSliceKeyBagRef result = SOSBackupSliceKeyBagCreateWithAdditionalKeys(allocator, peers, additionalKeys, NULL);
+
+    CFReleaseNull(additionalKeys);
+
+    return result;
+}
+
+SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateWithAdditionalKeys(CFAllocatorRef allocator,
+                                                                     CFSetRef /*SOSPeerInfoRef*/ peers,
+                                                                     CFDictionaryRef /*CFStringRef (prefix) CFDataRef (keydata) */ additionalKeys,
+                                                                     CFErrorRef* error) {
     SOSBackupSliceKeyBagRef result = NULL;
     SOSBackupSliceKeyBagRef vb = CFTypeAllocate(SOSBackupSliceKeyBag, struct __OpaqueSOSBackupSliceKeyBag, allocator);
     require_quiet(SecAllocationError(vb, error, CFSTR("View bag allocation failed")), fail);
@@ -326,7 +395,7 @@ SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreate(CFAllocatorRef allocator, CFS
     vb->peers = SOSBackupSliceKeyBagCreatePeerSet(allocator, peers);
     vb->wrapped_keys = CFDictionaryCreateMutableForCFTypes(allocator);
 
-    require_quiet(SOSBackupSliceKeyBagCreateBackupBag(vb, error), fail);
+    require_quiet(SOSBackupSliceKeyBagCreateBackupBag(vb, additionalKeys, error), fail);
 
     CFTransferRetained(result, vb);
 
@@ -334,6 +403,7 @@ fail:
     CFReleaseNull(vb);
     return result;
 }
+
 
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateDirect(CFAllocatorRef allocator, CFDataRef aks_bag, CFErrorRef *error)
 {
@@ -379,6 +449,35 @@ int SOSBSKBCountPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag) {
 bool SOSBSKBPeerIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, SOSPeerInfoRef pi) {
     return CFSetGetValue(backupSliceKeyBag->peers, pi) != NULL;
 }
+
+
+
+bool SOSBKSBKeyIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFDataRef publicKey) {
+    bool result = false;
+    CFStringRef keyID = SOSCopyIDOfDataBuffer(publicKey, NULL);
+    require_quiet(keyID, done);
+
+    result = CFDictionaryContainsKey(backupSliceKeyBag->wrapped_keys, keyID);
+
+done:
+    CFReleaseSafe(keyID);
+    return result;
+}
+
+bool SOSBKSBPrefixedKeyIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFStringRef prefix, CFDataRef publicKey) {
+    bool result = false;
+    CFStringRef kpkid = SOSKeyedPubKeyIdentifierCreateWithData(prefix, publicKey);
+    require_quiet(kpkid, done);
+    
+    result = CFDictionaryContainsKey(backupSliceKeyBag->wrapped_keys, kpkid);
+    
+done:
+    CFReleaseSafe(kpkid);
+    return result;
+
+}
+
+
 
 bskb_keybag_handle_t SOSBSKBLoadLocked(SOSBackupSliceKeyBagRef backupSliceKeyBag,
                                        CFErrorRef *error)
@@ -496,3 +595,108 @@ keybag_handle_t SOSBSKBLoadAndUnlockWithDirectSecret(SOSBackupSliceKeyBagRef bac
 exit:
     return result;
 }
+
+#include "SecRecoveryKey.h"
+
+static bool SOSPerformWithRecoveryKeyFullKey(CFDataRef wrappingSecret, CFErrorRef *error, void (^operation)(ccec_full_ctx_t fullKey, CFStringRef keyID)) {
+    bool     result = false;
+
+    CFStringRef keyID = NULL;
+    SecRecoveryKey *sRecKey = NULL;
+    CFDataRef fullKeyBytes = NULL;
+    CFDataRef pubKeyBytes = NULL;
+    CFStringRef restoreKeySecret = CFStringCreateWithBytes(kCFAllocatorDefault, CFDataGetBytePtr(wrappingSecret), CFDataGetLength(wrappingSecret), kCFStringEncodingUTF8, false);
+    require_action_quiet(restoreKeySecret, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to create key string from data.")));
+    sRecKey = SecRKCreateRecoveryKey(restoreKeySecret);
+    require_action_quiet(sRecKey, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to create recovery key from string.")));
+    fullKeyBytes = SecRKCopyBackupFullKey(sRecKey);
+    pubKeyBytes = SecRKCopyBackupPublicKey(sRecKey);
+    require_action_quiet(fullKeyBytes && pubKeyBytes, errOut, SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("Unable to create recovery key public and private keys.")));
+    keyID = SOSCopyIDOfDataBuffer(pubKeyBytes, error);
+    require_quiet(keyID, errOut);
+    {
+        size_t keysize = ccec_compact_import_priv_size(CFDataGetLength(fullKeyBytes));
+        ccec_const_cp_t cp = ccec_curve_for_length_lookup(keysize, ccec_cp_256(), ccec_cp_384(), ccec_cp_521());
+        ccec_full_ctx_decl_cp(cp, fullKey);
+        int res = ccec_compact_import_priv(cp, CFDataGetLength(fullKeyBytes), CFDataGetBytePtr(fullKeyBytes), fullKey);
+        if(res == 0) {
+            operation(fullKey, keyID);
+            result = true;
+            ccec_full_ctx_clear_cp(cp, fullKey);
+        }
+    }
+    if(!result) SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Unable to perform crypto operation from fullKeyBytes."));
+
+errOut:
+    CFReleaseNull(keyID);
+    CFReleaseNull(sRecKey);
+    CFReleaseNull(fullKeyBytes);
+    CFReleaseNull(pubKeyBytes);
+    CFReleaseNull(restoreKeySecret);
+    return result;
+}
+
+bskb_keybag_handle_t SOSBSKBLoadAndUnlockWithWrappingSecret(SOSBackupSliceKeyBagRef backupSliceKeyBag,
+                                                            CFDataRef wrappingSecret,
+                                                            CFErrorRef *error) {
+    __block keybag_handle_t result = bad_keybag_handle;
+
+    CFDataRef lookedUpData = SOSBSKBCopyRecoveryKey(backupSliceKeyBag);
+    require_quiet(SecRequirementError(lookedUpData != NULL, error, CFSTR("no recovery key found in %@"), backupSliceKeyBag), errOut);
+
+    SOSPerformWithRecoveryKeyFullKey(wrappingSecret, error, ^(ccec_full_ctx_t fullKey, CFStringRef keyID) {
+        SOSPerformWithUnwrappedData(fullKey, lookedUpData, error, ^(size_t size, uint8_t *buffer) {
+            result = SOSBSKBLoadAndUnlockBagWithSecret(backupSliceKeyBag, size, buffer, error);
+        });
+    });
+
+errOut:
+    CFReleaseSafe(lookedUpData);
+    return result;
+}
+
+static CFDictionaryRef SOSBSKBCopyAdditionalKeysWithPrefix(CFAllocatorRef allocator, SOSBackupSliceKeyBagRef bskb, CFStringRef prefix) {
+    CFMutableDictionaryRef retval = CFDictionaryCreateMutableForCFTypes(allocator);
+    if(!retval) return NULL;
+    CFDictionaryForEach(bskb->wrapped_keys, ^(const void *key, const void *value) {
+        CFStringRef kpkid = asString(key, NULL);
+        CFDataRef keyData = asData(value, NULL);
+        if(kpkid && keyData && SOSKeyedPubKeyIdentifierIsPrefixed(kpkid)) {
+            CFStringRef idPrefix = SOSKeyedPubKeyIdentifierCopyPrefix(kpkid);
+            if(CFEqualSafe(idPrefix, prefix)) {
+                CFDictionaryAddValue(retval, kpkid, keyData);
+            }
+            CFReleaseNull(idPrefix);
+        }
+    });
+    return retval;
+}
+
+static bool SOSBSKBHasPrefixedKey(SOSBackupSliceKeyBagRef bskb, CFStringRef prefix) {
+    CFDictionaryRef keyDict = SOSBSKBCopyAdditionalKeysWithPrefix(kCFAllocatorDefault, bskb, prefix);
+    bool haveKeys = CFDictionaryGetCount(keyDict) > 0;
+    CFReleaseNull(keyDict);
+    return haveKeys;
+}
+
+CFDataRef SOSBSKBCopyRecoveryKey(SOSBackupSliceKeyBagRef bskb) {
+    CFDictionaryRef keyDict = SOSBSKBCopyAdditionalKeysWithPrefix(kCFAllocatorDefault, bskb, bskbRkbgPrefix);
+    if(CFDictionaryGetCount(keyDict) == 1) {
+        __block CFDataRef keyData = NULL;
+        CFDictionaryForEach(keyDict, ^(const void *key, const void *value) {
+            keyData = asData(value, NULL);
+        });
+        return CFDataCreateCopy(kCFAllocatorDefault, keyData);
+    }
+    CFReleaseNull(keyDict);
+    return NULL;
+}
+
+bool SOSBSKBHasRecoveryKey(SOSBackupSliceKeyBagRef bskb) {
+    if(SOSBSKBHasPrefixedKey(bskb, bskbRkbgPrefix)) return true;
+    // old way for RecoveryKeys
+    int keyCount = (int) CFDictionaryGetCount(bskb->wrapped_keys);
+    int peerCount = SOSBSKBCountPeers(bskb);
+    return !SOSBSKBIsDirect(bskb) && ((keyCount - peerCount) > 0);
+}
+

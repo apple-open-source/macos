@@ -43,14 +43,19 @@
 #include <Security/SecureObjectSync/SOSTransport.h>
 #include <Security/SecureObjectSync/SOSTransportMessageIDS.h>
 #include <Security/SecureObjectSync/SOSAccountHSAJoin.h>
+#include <Security/SecureObjectSync/SOSBackupInformation.h>
 
 #include <Security/SecureObjectSync/SOSKVSKeys.h>
 
+#include <utilities/SecADWrapper.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFRelease.h>
+
 #include <utilities/SecCFError.h>
 #include <utilities/debugging.h>
 #include <utilities/SecCoreCrypto.h>
+#include <utilities/SecTrace.h>
+
 #include <SOSCircle/CKBridge/SOSCloudKeychainClient.h>
 
 #include <corecrypto/ccrng.h>
@@ -66,7 +71,6 @@
 #include <utilities/SecAKSWrappers.h>
 #include <securityd/SecItemServer.h>
 #include <Security/SecItemPriv.h>
-#include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 
 #include <TargetConditionals.h>
 
@@ -90,6 +94,13 @@
 #import <SystemConfiguration/SystemConfiguration.h>
 
 #include <notify.h>
+
+#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+static int64_t getTimeDifference(time_t start);
+CFStringRef const SOSAggdSyncCompletionKey  = CFSTR("com.apple.security.sos.synccompletion");
+CFStringRef const SOSAggdSyncTimeoutKey = CFSTR("com.apple.security.sos.timeout");
+
+#endif
 
 static SOSCCAccountDataSourceFactoryBlock accountDataSourceOverride = NULL;
 
@@ -243,7 +254,11 @@ static SOSAccountRef SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_g
     SOSAccountRef account = NULL;
     SOSDataSourceFactoryRef factory = accountDataSourceOverride ? accountDataSourceOverride()
                                                                 : SecItemDataSourceFactoryGetDefault();
-
+    if (!factory) {
+        CFReleaseNull(savedAccount);
+        return NULL;
+    }
+    
     if (savedAccount) {
         CFErrorRef inflationError = NULL;
 
@@ -367,6 +382,7 @@ static CFDictionaryRef CreateDeviceGestaltDictionary(SCDynamicStoreRef store, CF
                                                            kPIMessageProtocolVersionKey, protocolVersion,
                                                            kPIOSVersionKey,              osVersion,
                                                            NULL);
+    CFReleaseSafe(osVersion);
     CFReleaseSafe(modelName);
     CFReleaseSafe(computerName);
     CFReleaseSafe(protocolVersion);
@@ -470,12 +486,12 @@ static SOSAccountRef GetSharedAccount(void) {
                                                    CFSetRef peer_additions,      CFSetRef peer_removals,
                                                    CFSetRef applicant_additions, CFSetRef applicant_removals) {
             CFErrorRef pi_error = NULL;
-            SOSPeerInfoRef me = SOSFullPeerInfoGetPeerInfo(sSharedAccount->my_identity);
+            SOSPeerInfoRef me = SOSAccountGetMyPeerInfo(sSharedAccount);
             if (!me) {
                 secerror("Error finding me for change: %@", pi_error);
             } else {
                 // TODO: Figure out why peer_additions isn't right in some cases (like when joining a v2 circle with a v0 peer.
-                if (SOSCircleHasPeer(circle, me, NULL) /* && CFSetGetCount(peer_additions) != 0 */) {
+                if (SOSCircleHasPeer(circle, me, NULL) && CFSetGetCount(peer_additions) != 0) {
                     secnotice("updates", "Requesting Ensure Peer Registration.");
                     SOSCloudKeychainRequestEnsurePeerRegistration(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
                 } else {
@@ -484,14 +500,18 @@ static SOSAccountRef GetSharedAccount(void) {
                 
                 if (CFSetContainsValue(peer_additions, me)) {
                     // TODO: Potentially remove from here and move this to the engine
-                    // TODO: We also need to do this when our views change.        
-                    SOSCCSyncWithAllPeers();
+                    // TODO: We also need to do this when our views change.
+                    CFMutableSetRef peers = SOSCircleCopyPeers(circle, kCFAllocatorDefault);
+                    CFSetRemoveValue(peers, me);
+                    if (!CFSetIsEmpty(peers)) {
+                        SOSCCRequestSyncWithPeers(peers);
+                    }
+                    CFReleaseNull(peers);
                 }
             }
             
             CFReleaseNull(pi_error);
 
-            // TODO: We should notify the engine of these changes here
             if (CFSetGetCount(peer_additions) != 0 ||
                 CFSetGetCount(peer_removals) != 0 ||
                 CFSetGetCount(applicant_additions) != 0 ||
@@ -511,9 +531,6 @@ static SOSAccountRef GetSharedAccount(void) {
                     CFReleaseNull(removed);
                 }
                 notify_post(kSOSCCCircleChangedNotification);
-                // This might be a bit chatty for now, but it will get things moving for clients.
-                notify_post(kSOSCCViewMembershipChangedNotification);
-
            }
         });
     
@@ -526,7 +543,7 @@ static SOSAccountRef GetSharedAccount(void) {
                 CFReleaseSafe(changeDescription);
                 
                 CFErrorRef error = NULL;
-                handledKeys = SOSTransportDispatchMessages(account, changes, &error);
+                handledKeys = SOSTransportDispatchMessages(txn, changes, &error);
                 if (!handledKeys) {
                     secerror("Error handling updates: %@", error);
                     CFReleaseNull(error);
@@ -1085,7 +1102,7 @@ bool SOSCCSetDeviceID_Server(CFStringRef IDS, CFErrorRef *error){
     __block bool result = false;
     
     didSetID = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
-        result = SOSAccountSetMyDSID(account, IDS, error);
+        result = SOSAccountSetMyDSID(txn, IDS, error);
         
         if(block_error && error != NULL ){
             *error = *block_error;
@@ -1096,23 +1113,12 @@ bool SOSCCSetDeviceID_Server(CFStringRef IDS, CFErrorRef *error){
     return didSetID;
 }
 
-bool SOSCCRequestSyncWithPeerOverKVS_Server(CFStringRef deviceID, CFErrorRef *error)
+bool SOSCCRequestSyncWithPeerOverKVS_Server(CFStringRef peerid, CFDataRef message, CFErrorRef *error)
 {
     __block bool result = NULL;
     
     result = do_with_account_while_unlocked(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
-        result = SOSAccountSyncWithKVSUsingIDSID(account, deviceID, error);
-        return result;
-    });
-    return result;
-}
-
-bool SOSCCRequestSyncWithPeerOverIDS_Server(CFStringRef deviceID, CFErrorRef *error)
-{
-    __block bool result = NULL;
-    
-    result = do_with_account_while_unlocked(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
-        result = SOSAccountSyncWithIDSPeer(account, deviceID, error);
+        result = SOSAccountSyncWithKVSPeerWithMessage(txn, peerid, message, error);
         return result;
     });
     return result;
@@ -1128,10 +1134,9 @@ HandleIDSMessageReason SOSCCHandleIDSMessage_Server(CFDictionaryRef messageDict,
         return true;
     })) {
         if (action_error) {
-            CFStringRef errorMessage = CFErrorCopyDescription(action_error);
-            if (CFEqualSafe(errorMessage, CFSTR("The operation couldn’t be completed. (Mach error -536870174 - Kern return error)")) ) {
-                secnotice("updates", "SOSCCHandleIDSMessage_Server failed because device is locked; letting IDSKeychainSyncingProxy know");
-                result = kHandleIDSMessageLocked;        // tell IDSKeychainSyncingProxy to call us back when device unlocks
+            if(CFErrorIsMalfunctioningKeybagError(action_error)){
+                secnotice("updates", "SOSCCHandleIDSMessage_Server failed because device is locked; letting KeychainSyncingOverIDSProxy know");
+                result = kHandleIDSMessageLocked;        // tell KeychainSyncingOverIDSProxy to call us back when device unlock
             } else {
                 secerror("Unexpected error: %@", action_error);
             }
@@ -1140,41 +1145,49 @@ HandleIDSMessageReason SOSCCHandleIDSMessage_Server(CFDictionaryRef messageDict,
                 *error = action_error;
                 action_error = NULL;
             }
-            CFReleaseNull(errorMessage);
             CFReleaseNull(action_error);
         }
     }
     return result;
 }
 
+bool SOSCCClearPeerMessageKeyInKVS_Server(CFStringRef peerID, CFErrorRef *error)
+{
+    __block bool result = false;
+
+    result = do_with_account_while_unlocked(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        SOSAccountClearPeerMessageKey(txn, peerID, error);
+        return true;
+    });
+
+    return result;
+}
+
 bool SOSCCIDSPingTest_Server(CFStringRef message, CFErrorRef *error){
-    bool didSendTestMessages = false;
     __block bool result = true;
     __block CFErrorRef blockError = NULL;
     
-    didSendTestMessages = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
-        result = SOSAccountStartPingTest(account, message, &blockError);
+    result = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
+        result &= SOSAccountStartPingTest(account, message, &blockError);
         return result;
     });
     if(blockError && error != NULL)
         *error = blockError;
     
-    return didSendTestMessages;
+    return result;
 }
 
 bool SOSCCIDSServiceRegistrationTest_Server(CFStringRef message, CFErrorRef *error){
-    bool didSendTestMessages = false;
     __block bool result = true;
     __block CFErrorRef blockError = NULL;
     
-    didSendTestMessages = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
-        result = SOSAccountSendIDSTestMessage(account, message, &blockError);
-        return result;
+    result = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
+        return SOSAccountSendIDSTestMessage(account, message, &blockError);
     });
     if(blockError != NULL && error != NULL)
         *error = blockError;
     
-    return didSendTestMessages;
+    return result;
 }
 
 bool SOSCCIDSDeviceIDIsAvailableTest_Server(CFErrorRef *error){
@@ -1183,7 +1196,7 @@ bool SOSCCIDSDeviceIDIsAvailableTest_Server(CFErrorRef *error){
     __block CFErrorRef blockError = NULL;
 
     didSendTestMessages = do_with_account_while_unlocked(error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
-        result = SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(account, &blockError);
+        result = SOSAccountRetrieveDeviceIDFromKeychainSyncingOverIDSProxy(account, &blockError);
         return result;
     });
     if(blockError != NULL && error != NULL)
@@ -1383,7 +1396,19 @@ CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error)
 
     return result;
 }
+#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+static int64_t getTimeDifference(time_t start)
+{
+    time_t stop;
+    int64_t duration;
 
+    stop = time(NULL);
+
+    duration = stop - start;
+
+    return SecBucket1Significant(duration);
+}
+#endif
 bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
     
     __block dispatch_semaphore_t inSyncSema = NULL;
@@ -1391,13 +1416,19 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
     __block bool synced = false;
     bool timed_out = false;
     __block CFStringRef inSyncCallID = NULL;
-    
+#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+    __block time_t start;
+#endif
+
     secnotice("initial sync", "Wait for initial sync start!");
     
     result = do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
         bool alreadyInSync = SOSAccountHasCompletedInitialSync(account);
 
         if (!alreadyInSync) {
+#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+            start = time(NULL);
+#endif
             inSyncSema = dispatch_semaphore_create(0);
             dispatch_retain(inSyncSema); // For the block
             
@@ -1447,8 +1478,21 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
 
         SOSErrorCreate(kSOSInitialSyncFailed, error, NULL, CFSTR("Initial sync timed out."));
     }
+
+#if TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+
+    if(result)
+    {
+        SecADClientPushValueForDistributionKey(SOSAggdSyncCompletionKey, getTimeDifference(start));
+    }
+    else if(!result)
+    {
+        SecADAddValueForScalarKey(SOSAggdSyncTimeoutKey, 1);
+    }
+#endif
+
     secnotice("initial sync", "Finished!: %d", result);
-    
+
 fail:
     CFReleaseNull(inSyncCallID);
     return result;
@@ -1588,6 +1632,16 @@ CFDictionaryRef SOSCCCopyEscrowRecord_Server(CFErrorRef *error){
         return true;
     });
     
+    return result;
+}
+
+CFDictionaryRef SOSCCCopyBackupInformation_Server(CFErrorRef *error) {
+    __block CFDictionaryRef result = NULL;
+    
+    (void) do_with_account_if_after_first_unlock(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        result = SOSBackupInformation(txn, error);
+        return true;
+    });
     return result;
 }
 
@@ -1911,6 +1965,19 @@ bool SOSCCProcessEnsurePeerRegistration_Server(CFErrorRef* error)
     });
 }
 
+CF_RETURNS_RETAINED CFSetRef SOSCCProcessSyncWithPeers_Server(CFSetRef peers, CFSetRef backupPeers, CFErrorRef *error) {
+    __block CFSetRef result = NULL;
+    if (!do_with_account_while_unlocked(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        result = SOSAccountProcessSyncWithPeers(txn, peers, backupPeers, error);
+        return result != NULL;
+    })) {
+        // Be sure we don't return a result if we got an error
+        CFReleaseNull(result);
+    }
+
+    return result;
+}
+
 SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers_Server(CFErrorRef* error)
 {
     /*
@@ -1918,22 +1985,11 @@ SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers_Server(CFErrorRef* error)
      #define kIOReturnLockedWrite     iokit_common_err(0x2c4) // device write locked
     */
     __block SyncWithAllPeersReason result = kSyncWithAllPeersSuccess;
+
     CFErrorRef action_error = NULL;
     
     if (!do_with_account_while_unlocked(&action_error, ^bool (SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef* block_error) {
-        CFErrorRef localError = NULL;
-
-        SOSAccountSendIKSPSyncList(account, &localError);
-        
-        if (!SOSAccountSyncWithAllKVSPeers(account, &localError)) {
-            secerror("sync with all peers failed: %@", localError);
-            CFReleaseSafe(localError);
-            // This isn't a device-locked error, but returning false will
-            // have CloudKeychainProxy ask us to try sync again after next unlock
-            result = kSyncWithAllPeersOtherFail;
-            return false;
-        }
-        return true;
+        return SOSAccountRequestSyncWithAllPeers(txn, block_error);
     })) {
         if (action_error) {
             if (SecErrorGetOSStatus(action_error) == errSecInteractionNotAllowed) {
@@ -1943,26 +1999,89 @@ SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers_Server(CFErrorRef* error)
             } else {
                 secerror("Unexpected error: %@", action_error);
             }
-
-            if (error && *error == NULL) {
-                *error = action_error;
-                action_error = NULL;
-            }
-
-            CFReleaseNull(action_error);
         }
+
+        SecErrorPropagate(action_error, error);
     }
 
     return result;
 }
 
-void SOSCCSyncWithAllPeers(void)
+//
+// Sync requesting
+//
+
+void SOSCCRequestSyncWithPeer(CFStringRef peerID) {
+    CFArrayRef peers = CFArrayCreateForCFTypes(kCFAllocatorDefault, peerID, NULL);
+
+    SOSCCRequestSyncWithPeersList(peers);
+
+    CFReleaseNull(peers);
+}
+
+bool SOSCCRequestSyncWithPeerOverKVSUsingIDOnly_Server(CFStringRef deviceID, CFErrorRef *error)
 {
-    os_activity_initiate("CloudCircle SyncWithAllPeers", OS_ACTIVITY_FLAG_DEFAULT, ^(void) {
-
-        SOSCloudKeychainRequestSyncWithAllPeers(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
-
+    __block bool result = NULL;
+    
+    result = do_with_account_while_unlocked(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        result = SOSAccountSyncWithKVSUsingIDSID(account, deviceID, error);
+        return result;
     });
+    return result;
+}
+
+void SOSCCRequestSyncWithPeers(CFSetRef /*SOSPeerInfoRef/CFStringRef*/ peerIDs) {
+    CFMutableArrayRef peerIDArray = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+
+    CFSetForEach(peerIDs, ^(const void *value) {
+        if (isString(value)) {
+            CFArrayAppendValue(peerIDArray, value);
+        } else if (isSOSPeerInfo(value)) {
+            SOSPeerInfoRef peer = asSOSPeerInfo(value);
+            CFArrayAppendValue(peerIDArray, SOSPeerInfoGetPeerID(peer));
+        } else {
+            secerror("Bad element, skipping: %@", value);
+        }
+    });
+
+    SOSCCRequestSyncWithPeersList(peerIDArray);
+
+    CFReleaseNull(peerIDArray);
+}
+
+void SOSCCRequestSyncWithPeersList(CFArrayRef /*CFStringRef*/ peerIDs) {
+    os_activity_initiate("CloudCircle RequestSyncWithPeersList", OS_ACTIVITY_FLAG_DEFAULT, ^(void) {
+        CFArrayRef empty = CFArrayCreateForCFTypes(kCFAllocatorDefault, NULL);
+
+        CFStringArrayPerfromWithDescription(peerIDs, ^(CFStringRef description) {
+            secnotice("syncwith", "Request Sync With: %@", description);
+        });
+
+        SOSCloudKeychainRequestSyncWithPeers(peerIDs, empty,
+                                             dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
+        CFReleaseNull(empty);
+    });
+}
+
+void SOSCCRequestSyncWithBackupPeer(CFStringRef backupPeerId) {
+    os_activity_initiate("CloudCircle RequestSyncWithPeersList", OS_ACTIVITY_FLAG_DEFAULT, ^(void) {
+        CFArrayRef empty = CFArrayCreateForCFTypes(kCFAllocatorDefault, NULL);
+        CFArrayRef backupPeerList = CFArrayCreateForCFTypes(kCFAllocatorDefault, backupPeerId, NULL);
+
+        CFStringArrayPerfromWithDescription(backupPeerList, ^(CFStringRef description) {
+            secnotice("syncwith", "Request backup sync With: %@", description);
+        });
+
+        SOSCloudKeychainRequestSyncWithPeers(empty, backupPeerList,
+                                             dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
+
+        CFReleaseNull(empty);
+        CFReleaseNull(backupPeerList);
+    });
+}
+
+bool SOSCCIsSyncPendingFor(CFStringRef peerID, CFErrorRef *error) {
+    return SOSCloudKeychainHasPendingSyncWithPeer(peerID, error);
 }
 
 void SOSCCEnsurePeerRegistration(void)
@@ -2018,3 +2137,39 @@ CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef 
     return result;
 }
 
+bool SOSCCRegisterRecoveryPublicKey_Server(CFDataRef recovery_key, CFErrorRef *error){
+
+    __block bool result = NULL;
+    do_with_account_if_after_first_unlock(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        if(recovery_key != NULL && CFDataGetLength(recovery_key) != 0)
+            result = SOSAccountRegisterRecoveryPublicKey(txn, recovery_key, error);
+        else
+            result = SOSAccountClearRecoveryPublicKey(txn, recovery_key, error);
+        return result;
+    });
+
+    return result;
+}
+
+CFDataRef SOSCCCopyRecoveryPublicKey_Server(CFErrorRef *error){
+
+    __block CFDataRef result = NULL;
+    do_with_account_if_after_first_unlock(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        result = SOSAccountCopyRecoveryPublicKey(txn, error);
+        return result != NULL;
+    });
+
+    return result;
+}
+
+bool SOSCCMessageFromPeerIsPending_Server(SOSPeerInfoRef peer, CFErrorRef *error) {
+    return do_with_account_if_after_first_unlock(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        return SOSAccountMessageFromPeerIsPending(txn, peer, error);
+    });
+}
+
+bool SOSCCSendToPeerIsPending_Server(SOSPeerInfoRef peer, CFErrorRef *error) {
+    return do_with_account_if_after_first_unlock(error, ^bool(SOSAccountRef account, SOSAccountTransactionRef txn, CFErrorRef *error) {
+        return SOSAccountSendToPeerIsPending(txn, peer, error);
+    });
+}

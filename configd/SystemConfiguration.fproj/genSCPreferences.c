@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,7 +62,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2016 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2017 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " *\n"
@@ -207,6 +207,7 @@ typedef enum {
 #define CCP			"CCP"
 #define CELLULAR		"Cellular"
 #define CERTIFICATE		"Certificate"
+#define CGA			"CGA"
 #define CHAP			"CHAP"
 #define COMM			"Comm"
 #define COMPATIBLE		"Compatible"
@@ -843,6 +844,7 @@ static schemaDefinition names[] = {
 
   { GROUP_PRIVATE, NETPROP IPV6, KEY_PREFIX NETENT IPV6 " Entity Keys", NULL, NULL },
     { SC_10_10_IPHONE_8_0_PRIVATE, NETPROP IPV6, ADDITIONAL ROUTES, NULL, CFARRAY_CFDICTIONARY },
+    { SC_10_12_IPHONE_10_0_PRIVATE, NETPROP IPV6, ENABLE CGA, NULL, CFNUMBER_BOOL },
     { SC_10_7_IPHONE_4_0_PRIVATE, NETPROP IPV6, EXCLUDED ROUTES, NULL, CFARRAY_CFDICTIONARY },
     { SC_10_7_IPHONE_4_0_PRIVATE, NETPROP IPV6, INCLUDED ROUTES, NULL, CFARRAY_CFDICTIONARY },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },

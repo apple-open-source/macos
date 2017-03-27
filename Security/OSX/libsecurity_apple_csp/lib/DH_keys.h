@@ -27,7 +27,7 @@
 #include <AppleCSPSession.h>
 #include "AppleCSPKeys.h"
 #include <DH_csp.h>
-#include <openssl/dh.h>
+#include <openssl/dh_legacy.h>
 #include <security_cdsa_utilities/context.h>
 #include <security_utilities/debugging.h>
 #include <security_asn1/SecNssCoder.h>

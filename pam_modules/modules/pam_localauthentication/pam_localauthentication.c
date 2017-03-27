@@ -74,7 +74,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     }
     
     /* get the externalized context */
-    tmpval = pam_get_data(pamh, "token", (void *)&externalized_context);
+    tmpval = pam_get_data(pamh, "token_la", (void *)&externalized_context);
     if (tmpval != PAM_SUCCESS) {
         openpam_log(PAM_LOG_ERROR, "error obtaining the token: %d", tmpval);
         retval = PAM_AUTHINFO_UNAVAIL;

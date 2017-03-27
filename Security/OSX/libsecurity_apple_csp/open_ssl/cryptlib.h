@@ -86,11 +86,11 @@ extern "C" {
 
 #include "openssl/e_os.h"
 
-#include <openssl/crypto.h>
-#include <openssl/buffer.h> 
-#include <openssl/bio.h> 
-#include <openssl/err.h>
-#include <openssl/opensslconf.h>
+#include <openssl/crypto_legacy.h>
+#include <openssl/buffer_legacy.h>
+#include <openssl/bio_legacy.h>
+#include <openssl/opensslerr.h>
+#include <openssl/opensslconf_legacy.h>
 
 #ifndef VMS
 #define X509_CERT_AREA		OPENSSLDIR

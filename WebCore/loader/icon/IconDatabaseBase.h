@@ -23,10 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
  
-#ifndef IconDatabaseBase_h
-#define IconDatabaseBase_h
+#pragma once
 
-#include "NativeImagePtr.h"
+#include "NativeImage.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
@@ -218,5 +217,3 @@ WEBCORE_EXPORT void setGlobalIconDatabase(IconDatabaseBase*);
 bool documentCanHaveIcon(const String&);
 
 } // namespace WebCore
-
-#endif // IconDatabaseBase_h

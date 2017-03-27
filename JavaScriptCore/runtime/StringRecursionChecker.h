@@ -17,13 +17,11 @@
  *
  */
 
-#ifndef StringRecursionChecker_h
-#define StringRecursionChecker_h
+#pragma once
 
 #include "Interpreter.h"
 #include "VMInlines.h"
 #include <wtf/StackStats.h>
-#include <wtf/WTFThreadData.h>
 
 namespace JSC {
 
@@ -93,6 +91,4 @@ inline StringRecursionChecker::~StringRecursionChecker()
     }
 }
 
-}
-
-#endif
+} // namespace JSC

@@ -63,8 +63,10 @@
 #define ASL_KEY_FREE_NOTE "ASLFreeNotify"
 #define ASL_KEY_MESSAGETRACER "com.apple.message.domain"
 #define ASL_KEY_POWERMANAGEMENT "com.apple.iokit.domain"
-#define ASL_KEY_LASTLOG "com.apple.system.lastlog"
 #define ASL_KEY_CFLOG_LOCAL_TIME "CFLog Local Time"
+
+#define FACILITY_LASTLOG "com.apple.system.lastlog"
+#define FACILITY_UTMPX "com.apple.system.utmpx"
 
 /* remote control bits */
 #define EVAL_LEVEL_MASK   0x000000ff

@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     44
+#define IOGRAPHICSTYPES_REV     46
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -218,6 +218,11 @@ enum {
 
 //// CLUTs
 
+// IOFBSetGamma Sync Types
+#define kIOFBSetGammaSyncNotSpecified       -1
+#define kIOFBSetGammaSyncNoSync             0
+#define kIOFBSetGammaSyncVerticalBlankSync  1
+
 typedef UInt16 IOColorComponent;
 
 /*!
@@ -268,6 +273,19 @@ enum {
     kIOClamshellStateAttribute          = 'clam',
 
 	kIOFBDisplayPortTrainingAttribute   = 'dpta',
+
+    kIOFBDisplayState                   = 'dstt',
+};
+
+// <rdar://problem/29184178> IOGraphics: Implement display state attribute for deteriming display state post wake
+// kIOFBDisplayState
+enum {
+    kIOFBDisplayState_AlreadyActive     = (1 << 0),
+    kIOFBDisplayState_RestoredProfile   = (1 << 1),
+    kIOFBDisplayState_PipelineBlack     = (1 << 2),
+    kIOFBDisplayState_Mask              = (kIOFBDisplayState_AlreadyActive |
+                                           kIOFBDisplayState_RestoredProfile |
+                                           kIOFBDisplayState_PipelineBlack)
 };
 
 // values for kIOWindowServerActiveAttribute

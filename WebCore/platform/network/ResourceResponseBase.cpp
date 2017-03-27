@@ -71,7 +71,7 @@ ResourceResponseBase::CrossThreadData ResourceResponseBase::crossThreadData() co
     data.httpVersion = httpVersion().isolatedCopy();
 
     data.httpHeaderFields = httpHeaderFields().isolatedCopy();
-    data.resourceLoadTiming = m_resourceLoadTiming.isolatedCopy();
+    data.networkLoadTiming = m_networkLoadTiming.isolatedCopy();
     data.type = m_type;
     data.isRedirected = m_isRedirected;
 
@@ -92,11 +92,45 @@ ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& dat
     response.setHTTPVersion(data.httpVersion);
 
     response.m_httpHeaderFields = WTFMove(data.httpHeaderFields);
-    response.m_resourceLoadTiming = data.resourceLoadTiming;
+    response.m_networkLoadTiming = data.networkLoadTiming;
     response.m_type = data.type;
     response.m_isRedirected = data.isRedirected;
 
     return response;
+}
+
+ResourceResponse ResourceResponseBase::filterResponse(const ResourceResponse& response, ResourceResponse::Tainting tainting)
+{
+    if (tainting == ResourceResponse::Tainting::Opaque) {
+        ResourceResponse opaqueResponse;
+        opaqueResponse.setType(ResourceResponse::Type::Opaque);
+        return opaqueResponse;
+    }
+
+    ResourceResponse filteredResponse = response;
+    // Let's initialize filteredResponse to remove some header fields.
+    filteredResponse.lazyInit(AllFields);
+
+    if (tainting == ResourceResponse::Tainting::Basic) {
+        filteredResponse.setType(ResourceResponse::Type::Basic);
+        filteredResponse.m_httpHeaderFields.remove(HTTPHeaderName::SetCookie);
+        filteredResponse.m_httpHeaderFields.remove(HTTPHeaderName::SetCookie2);
+        return filteredResponse;
+    }
+
+    ASSERT(tainting == ResourceResponse::Tainting::Cors);
+    filteredResponse.setType(ResourceResponse::Type::Cors);
+
+    HTTPHeaderSet accessControlExposeHeaderSet;
+    parseAccessControlExposeHeadersAllowList(response.httpHeaderField(HTTPHeaderName::AccessControlExposeHeaders), accessControlExposeHeaderSet);
+    filteredResponse.m_httpHeaderFields.uncommonHeaders().removeIf([&](auto& entry) {
+        return !isCrossOriginSafeHeader(entry.key, accessControlExposeHeaderSet);
+    });
+    filteredResponse.m_httpHeaderFields.commonHeaders().removeIf([&](auto& entry) {
+        return !isCrossOriginSafeHeader(entry.key, accessControlExposeHeaderSet);
+    });
+
+    return filteredResponse;
 }
 
 // FIXME: Name does not make it clear this is true for HTTPS!
@@ -111,7 +145,7 @@ const URL& ResourceResponseBase::url() const
 {
     lazyInit(CommonFieldsOnly);
 
-    return m_url; 
+    return m_url;
 }
 
 void ResourceResponseBase::setURL(const URL& url)
@@ -190,6 +224,19 @@ String ResourceResponseBase::suggestedFilename() const
     return static_cast<const ResourceResponse*>(this)->platformSuggestedFilename();
 }
 
+String ResourceResponseBase::sanitizeSuggestedFilename(const String& suggestedFilename)
+{
+    if (suggestedFilename.isEmpty())
+        return suggestedFilename;
+
+    ResourceResponse response(URL(ParsedURLString, "http://example.com/"), String(), -1, String());
+    response.setHTTPStatusCode(200);
+    String escapedSuggestedFilename = String(suggestedFilename).replace('\"', "\\\"");
+    String value = makeString("attachment; filename=\"", escapedSuggestedFilename, '"');
+    response.setHTTPHeaderField(HTTPHeaderName::ContentDisposition, value);
+    return response.suggestedFilename();
+}
+
 bool ResourceResponseBase::isSuccessful() const
 {
     int code = httpStatusCode();
@@ -244,7 +291,7 @@ void ResourceResponseBase::setHTTPVersion(const String& versionText)
     // FIXME: Should invalidate or update platform response if present.
 }
 
-bool ResourceResponseBase::isHttpVersion0_9() const
+bool ResourceResponseBase::isHTTP09() const
 {
     lazyInit(AllFields);
 
@@ -399,14 +446,14 @@ bool ResourceResponseBase::hasCacheValidatorFields() const
     return !m_httpHeaderFields.get(HTTPHeaderName::LastModified).isEmpty() || !m_httpHeaderFields.get(HTTPHeaderName::ETag).isEmpty();
 }
 
-Optional<std::chrono::microseconds> ResourceResponseBase::cacheControlMaxAge() const
+std::optional<std::chrono::microseconds> ResourceResponseBase::cacheControlMaxAge() const
 {
     if (!m_haveParsedCacheControlHeader)
         parseCacheControlDirectives();
     return m_cacheControlDirectives.maxAge;
 }
 
-static Optional<std::chrono::system_clock::time_point> parseDateValueInHeader(const HTTPHeaderMap& headers, HTTPHeaderName headerName)
+static std::optional<std::chrono::system_clock::time_point> parseDateValueInHeader(const HTTPHeaderMap& headers, HTTPHeaderName headerName)
 {
     String headerValue = headers.get(headerName);
     if (headerValue.isEmpty())
@@ -418,7 +465,7 @@ static Optional<std::chrono::system_clock::time_point> parseDateValueInHeader(co
     return parseHTTPDate(headerValue);
 }
 
-Optional<std::chrono::system_clock::time_point> ResourceResponseBase::date() const
+std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::date() const
 {
     lazyInit(CommonFieldsOnly);
 
@@ -429,7 +476,7 @@ Optional<std::chrono::system_clock::time_point> ResourceResponseBase::date() con
     return m_date;
 }
 
-Optional<std::chrono::microseconds> ResourceResponseBase::age() const
+std::optional<std::chrono::microseconds> ResourceResponseBase::age() const
 {
     using namespace std::chrono;
 
@@ -446,7 +493,7 @@ Optional<std::chrono::microseconds> ResourceResponseBase::age() const
     return m_age;
 }
 
-Optional<std::chrono::system_clock::time_point> ResourceResponseBase::expires() const
+std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::expires() const
 {
     lazyInit(CommonFieldsOnly);
 
@@ -457,7 +504,7 @@ Optional<std::chrono::system_clock::time_point> ResourceResponseBase::expires() 
     return m_expires;
 }
 
-Optional<std::chrono::system_clock::time_point> ResourceResponseBase::lastModified() const
+std::optional<std::chrono::system_clock::time_point> ResourceResponseBase::lastModified() const
 {
     lazyInit(CommonFieldsOnly);
 
@@ -468,7 +515,7 @@ Optional<std::chrono::system_clock::time_point> ResourceResponseBase::lastModifi
         // an invalid value (rdar://problem/22352838).
         const std::chrono::system_clock::time_point epoch;
         if (m_lastModified && m_lastModified.value() == epoch)
-            m_lastModified = Nullopt;
+            m_lastModified = std::nullopt;
 #endif
         m_haveParsedLastModifiedHeader = true;
     }
@@ -541,7 +588,7 @@ bool ResourceResponseBase::compare(const ResourceResponse& a, const ResourceResp
         return false;
     if (a.httpHeaderFields() != b.httpHeaderFields())
         return false;
-    if (a.resourceLoadTiming() != b.resourceLoadTiming())
+    if (a.networkLoadTiming() != b.networkLoadTiming())
         return false;
     return ResourceResponse::platformCompare(a, b);
 }

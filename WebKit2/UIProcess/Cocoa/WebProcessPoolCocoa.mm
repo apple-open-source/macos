@@ -27,6 +27,7 @@
 #import "WebProcessPool.h"
 
 #import "NetworkProcessCreationParameters.h"
+#import "NetworkProcessMessages.h"
 #import "NetworkProcessProxy.h"
 #import "PluginProcessManager.h"
 #import "SandboxUtilities.h"
@@ -82,6 +83,14 @@ static NSString * const WebKitNetworkCacheEfficacyLoggingEnabledDefaultsKey = @"
 #endif
 
 static NSString * const WebKitSuppressMemoryPressureHandlerDefaultsKey = @"WebKitSuppressMemoryPressureHandler";
+static NSString * const WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey = @"WebKitNetworkLoadThrottleLatencyMilliseconds";
+
+static NSString * const WebKitVariationFontsEnabledDefaultsKey = @"ExperimentalVariationFontsEnabled";
+
+#if ENABLE(NETWORK_CAPTURE)
+static NSString * const WebKitRecordReplayModeDefaultsKey = @"WebKitRecordReplayMode";
+static NSString * const WebKitRecordReplayCacheLocationDefaultsKey = @"WebKitRecordReplayCacheLocation";
+#endif
 
 namespace WebKit {
 
@@ -104,6 +113,8 @@ static void registerUserDefaultsIfNeeded()
     [registrationDictionary setObject:[NSNumber numberWithBool:YES] forKey:WebKitNetworkCacheEnabledDefaultsKey];
     [registrationDictionary setObject:[NSNumber numberWithBool:NO] forKey:WebKitNetworkCacheEfficacyLoggingEnabledDefaultsKey];
 #endif
+
+    [registrationDictionary setObject:[NSNumber numberWithBool:YES] forKey:WebKitVariationFontsEnabledDefaultsKey];
 
     [[NSUserDefaults standardUserDefaults] registerDefaults:registrationDictionary];
 }
@@ -153,6 +164,17 @@ String WebProcessPool::cookieStorageDirectory() const
 }
 #endif
 
+void WebProcessPool::platformResolvePathsForSandboxExtensions()
+{
+    m_resolvedPaths.uiProcessBundleResourcePath = resolvePathForSandboxExtension([[NSBundle mainBundle] resourcePath]);
+
+#if PLATFORM(IOS)
+    m_resolvedPaths.cookieStorageDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(cookieStorageDirectory());
+    m_resolvedPaths.containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(webContentCachesDirectory());
+    m_resolvedPaths.containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(containerTemporaryDirectory());
+#endif
+}
+
 void WebProcessPool::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
     parameters.presenterApplicationPid = getpid();
@@ -180,10 +202,21 @@ void WebProcessPool::platformInitializeWebProcess(WebProcessCreationParameters& 
 #endif
 
     // FIXME: This should really be configurable; we shouldn't just blindly allow read access to the UI process bundle.
-    parameters.uiProcessBundleResourcePath = [[NSBundle mainBundle] resourcePath];
-    SandboxExtension::createHandle(parameters.uiProcessBundleResourcePath, SandboxExtension::ReadOnly, parameters.uiProcessBundleResourcePathExtensionHandle);
+    parameters.uiProcessBundleResourcePath = m_resolvedPaths.uiProcessBundleResourcePath;
+    SandboxExtension::createHandleWithoutResolvingPath(parameters.uiProcessBundleResourcePath, SandboxExtension::ReadOnly, parameters.uiProcessBundleResourcePathExtensionHandle);
 
     parameters.uiProcessBundleIdentifier = String([[NSBundle mainBundle] bundleIdentifier]);
+
+#if PLATFORM(IOS)
+    if (!m_resolvedPaths.cookieStorageDirectory.isEmpty())
+        SandboxExtension::createHandleWithoutResolvingPath(m_resolvedPaths.cookieStorageDirectory, SandboxExtension::ReadWrite, parameters.cookieStorageDirectoryExtensionHandle);
+
+    if (!m_resolvedPaths.containerCachesDirectory.isEmpty())
+        SandboxExtension::createHandleWithoutResolvingPath(m_resolvedPaths.containerCachesDirectory, SandboxExtension::ReadWrite, parameters.containerCachesDirectoryExtensionHandle);
+
+    if (!m_resolvedPaths.containerTemporaryDirectory.isEmpty())
+        SandboxExtension::createHandleWithoutResolvingPath(m_resolvedPaths.containerTemporaryDirectory, SandboxExtension::ReadWrite, parameters.containerTemporaryDirectoryExtensionHandle);
+#endif
 
     parameters.fontWhitelist = m_fontWhitelist;
 
@@ -240,12 +273,28 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
     parameters.shouldEnableNetworkCacheEfficacyLogging = [defaults boolForKey:WebKitNetworkCacheEfficacyLoggingEnabledDefaultsKey];
 #endif
 
+    parameters.sourceApplicationBundleIdentifier = m_configuration->sourceApplicationBundleIdentifier();
+    parameters.sourceApplicationSecondaryIdentifier = m_configuration->sourceApplicationSecondaryIdentifier();
+#if PLATFORM(IOS)
+    parameters.ctDataConnectionServiceType = m_configuration->ctDataConnectionServiceType();
+#endif
+
     parameters.shouldSuppressMemoryPressureHandler = [defaults boolForKey:WebKitSuppressMemoryPressureHandlerDefaultsKey];
+    parameters.loadThrottleLatency = std::chrono::milliseconds([defaults integerForKey:WebKitNetworkLoadThrottleLatencyMillisecondsDefaultsKey]);
 
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
     RetainPtr<CFDataRef> cookieStorageData = adoptCF(CFHTTPCookieStorageCreateIdentifyingData(kCFAllocatorDefault, [[NSHTTPCookieStorage sharedHTTPCookieStorage] _cookieStorage]));
     ASSERT(parameters.uiProcessCookieStorageIdentifier.isEmpty());
     parameters.uiProcessCookieStorageIdentifier.append(CFDataGetBytePtr(cookieStorageData.get()), CFDataGetLength(cookieStorageData.get()));
+#endif
+
+    parameters.cookieStoragePartitioningEnabled = cookieStoragePartitioningEnabled();
+
+#if ENABLE(NETWORK_CAPTURE)
+    parameters.recordReplayMode = [defaults stringForKey:WebKitRecordReplayModeDefaultsKey];
+    parameters.recordReplayCacheLocation = [defaults stringForKey:WebKitRecordReplayCacheLocationDefaultsKey];
+    if (parameters.recordReplayCacheLocation.isEmpty())
+        parameters.recordReplayCacheLocation = parameters.diskCacheDirectory;
 #endif
 }
 
@@ -414,7 +463,7 @@ bool WebProcessPool::isNetworkCacheEnabled()
 
     bool networkCacheEnabledByDefaults = [defaults boolForKey:WebKitNetworkCacheEnabledDefaultsKey];
 
-    return networkCacheEnabledByDefaults && linkedOnOrAfter(LibraryVersion::FirstWithNetworkCache);
+    return networkCacheEnabledByDefaults && linkedOnOrAfter(SDKVersion::FirstWithNetworkCache);
 #else
     return false;
 #endif
@@ -422,11 +471,7 @@ bool WebProcessPool::isNetworkCacheEnabled()
 
 String WebProcessPool::platformDefaultIconDatabasePath() const
 {
-    // FIXME: <rdar://problem/9138817> - After this "backwards compatibility" radar is removed, this code should be removed to only return an empty String.
-    NSString *databasesDirectory = [[NSUserDefaults standardUserDefaults] objectForKey:WebIconDatabaseDirectoryDefaultsKey];
-    if (!databasesDirectory || ![databasesDirectory isKindOfClass:[NSString class]])
-        databasesDirectory = @"~/Library/Icons/WebpageIcons.db";
-    return stringByResolvingSymlinksInPath([databasesDirectory stringByStandardizingPath]);
+    return "";
 }
 
 bool WebProcessPool::omitPDFSupport()
@@ -514,6 +559,12 @@ void WebProcessPool::resetHSTSHostsAddedAfterDate(double startDateIntervalSince1
 #if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     _CFNetworkResetHSTSHostsSinceDate(privateBrowsingSession(), (__bridge CFDateRef)startDate);
 #endif
+}
+
+void WebProcessPool::setCookieStoragePartitioningEnabled(bool enabled)
+{
+    m_cookieStoragePartitioningEnabled = enabled;
+    sendToNetworkingProcess(Messages::NetworkProcess::SetCookieStoragePartitioningEnabled(enabled));
 }
 
 int networkProcessLatencyQOS()

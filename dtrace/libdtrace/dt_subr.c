@@ -40,8 +40,6 @@
 #include <limits.h>
 #include <sys/sysctl.h>
 
-int pidFromProcessName(char* name);
-
 #include <dt_impl.h>
 
 static const struct {
@@ -121,19 +119,11 @@ dtrace_xstr2desc(dtrace_hdl_t *dtp, dtrace_probespec_t spec,
 
 				(void) strncpy(vstr, v + 1, vlen - 1);
 				vstr[vlen - 1] = '\0';
-				idp = dt_idhash_lookup(dtp->dt_macros, vstr);
+				idp = dt_macro_lookup(dtp->dt_macros, vstr);
 
 				if (idp != NULL) {
 					v = buf;
 					vlen = snprintf(buf, 32, "%d", idp->di_id);
-				} else if (strncmp(vstr, "pid_", strlen("pid_")) == 0) {
-					int pid = pidFromProcessName(vstr + strlen("pid_"));
-					if (pid != -1) {
-						v = buf;
-						vlen = snprintf(buf, 32, "%d", pid);
-					} else {
-						return (dt_set_errno(dtp, EDT_BADSPCV));
-					}
 				} else {
 					return (dt_set_errno(dtp, EDT_BADSPCV));
 				}

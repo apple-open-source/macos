@@ -4,6 +4,7 @@
 //
 
 #include "SOSAccountPriv.h"
+#include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
 #include <Security/SecureObjectSync/SOSTransportKeyParameterKVS.h>
 #include <Security/SecureObjectSync/SOSTransportCircleKVS.h>
@@ -142,3 +143,16 @@ fail:
     return success;
 }
 
+CFSetRef SOSAccountCopyPeerSetMatching(SOSAccountRef account, bool (^action)(SOSPeerInfoRef peer)) {
+    CFMutableSetRef result = CFSetCreateMutableForSOSPeerInfosByID(kCFAllocatorDefault);
+    
+    if (account->trusted_circle) {
+        SOSCircleForEachPeer(account->trusted_circle, ^(SOSPeerInfoRef peer) {
+            if (action(peer)) {
+                CFSetAddValue(result, peer);
+            }
+        });
+    }
+    
+    return result;
+}

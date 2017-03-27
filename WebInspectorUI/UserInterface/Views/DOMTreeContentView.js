@@ -46,6 +46,11 @@ WebInspector.DOMTreeContentView = class DOMTreeContentView extends WebInspector.
         this._showsShadowDOMButtonNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._toggleShowsShadowDOMSetting, this);
         this._showShadowDOMSettingChanged();
 
+        WebInspector.showPrintStylesSetting.addEventListener(WebInspector.Setting.Event.Changed, this._showPrintStylesSettingChanged, this);
+        this._showPrintStylesButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("print-styles", WebInspector.UIString("Enable print styles"), WebInspector.UIString("Disable print styles"), "Images/Printer.svg", 16, 16);
+        this._showPrintStylesButtonNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._togglePrintStylesSetting, this);
+        this._showPrintStylesSettingChanged();
+
         this.element.classList.add("dom-tree");
         this.element.addEventListener("click", this._mouseWasClicked.bind(this), false);
 
@@ -68,7 +73,7 @@ WebInspector.DOMTreeContentView = class DOMTreeContentView extends WebInspector.
 
     get navigationItems()
     {
-        return [this._showsShadowDOMButtonNavigationItem, this._compositingBordersButtonNavigationItem, this._paintFlashingButtonNavigationItem];
+        return [this._showPrintStylesButtonNavigationItem, this._showsShadowDOMButtonNavigationItem, this._compositingBordersButtonNavigationItem, this._paintFlashingButtonNavigationItem];
     }
 
     get domTreeOutline()
@@ -83,18 +88,24 @@ WebInspector.DOMTreeContentView = class DOMTreeContentView extends WebInspector.
 
     shown()
     {
+        super.shown();
+
         this._domTreeOutline.setVisible(true, WebInspector.isConsoleFocused());
         this._updateCompositingBordersButtonToMatchPageSettings();
     }
 
     hidden()
     {
+        super.hidden();
+
         WebInspector.domTreeManager.hideDOMNodeHighlight();
         this._domTreeOutline.setVisible(false);
     }
 
     closed()
     {
+        super.closed();
+
         WebInspector.showPaintRectsSetting.removeEventListener(null, null, this);
         WebInspector.showShadowDOMSetting.removeEventListener(null, null, this);
         WebInspector.domTreeManager.removeEventListener(null, null, this);
@@ -165,7 +176,7 @@ WebInspector.DOMTreeContentView = class DOMTreeContentView extends WebInspector.
             WebInspector.archiveMainFrame();
         }
 
-        return { customSaveHandler: saveHandler };
+        return {customSaveHandler: saveHandler};
     }
 
     get supportsSearch()
@@ -472,6 +483,21 @@ WebInspector.DOMTreeContentView = class DOMTreeContentView extends WebInspector.
     _toggleShowsShadowDOMSetting(event)
     {
         WebInspector.showShadowDOMSetting.value = !WebInspector.showShadowDOMSetting.value;
+    }
+
+    _showPrintStylesSettingChanged(event)
+    {
+        this._showPrintStylesButtonNavigationItem.activated = WebInspector.showPrintStylesSetting.value;
+    }
+
+    _togglePrintStylesSetting(event)
+    {
+        WebInspector.showPrintStylesSetting.value = !WebInspector.showPrintStylesSetting.value;
+
+        let mediaType = WebInspector.showPrintStylesSetting.value ? "print" : "";
+        PageAgent.setEmulatedMedia(mediaType);
+
+        WebInspector.cssStyleManager.mediaTypeChanged();
     }
 
     _showSearchHighlights()

@@ -28,8 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GridPositionsResolver_h
-#define GridPositionsResolver_h
+#pragma once
 
 #if ENABLE(CSS_GRID_LAYOUT)
 
@@ -66,7 +65,8 @@ private:
 
     unsigned m_insertionPoint;
     unsigned m_lastLine;
-    unsigned m_repetitions;
+    unsigned m_autoRepeatTotalTracks;
+    unsigned m_autoRepeatTrackListLength;
 };
 
 // Class with all the code related to grid items positions resolution.
@@ -81,5 +81,3 @@ public:
 } // namespace WebCore
 
 #endif // ENABLE(CSS_GRID_LAYOUT)
-
-#endif // GridPositionsResolver_h

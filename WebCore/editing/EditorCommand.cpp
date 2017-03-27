@@ -36,7 +36,6 @@
 #include "EditorClient.h"
 #include "Event.h"
 #include "EventHandler.h"
-#include "ExceptionCodePlaceholder.h"
 #include "FormatBlockCommand.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -166,9 +165,7 @@ static bool executeInsertFragment(Frame& frame, PassRefPtr<DocumentFragment> fra
 static bool executeInsertNode(Frame& frame, Ref<Node>&& content)
 {
     auto fragment = DocumentFragment::create(*frame.document());
-    ExceptionCode ec = 0;
-    fragment->appendChild(content, ec);
-    if (ec)
+    if (fragment->appendChild(content).hasException())
         return false;
     return executeInsertFragment(frame, WTFMove(fragment));
 }
@@ -230,8 +227,8 @@ static unsigned verticalScrollDistance(Frame& frame)
 
 static RefPtr<Range> unionDOMRanges(Range& a, Range& b)
 {
-    Range& start = a.compareBoundaryPoints(Range::START_TO_START, b, ASSERT_NO_EXCEPTION) <= 0 ? a : b;
-    Range& end = a.compareBoundaryPoints(Range::END_TO_END, b, ASSERT_NO_EXCEPTION) <= 0 ? b : a;
+    Range& start = a.compareBoundaryPoints(Range::START_TO_START, b).releaseReturnValue() <= 0 ? a : b;
+    Range& end = a.compareBoundaryPoints(Range::END_TO_END, b).releaseReturnValue() <= 0 ? b : a;
     return Range::create(a.ownerDocument(), &start.startContainer(), start.startOffset(), &end.endContainer(), end.endOffset());
 }
 
@@ -380,7 +377,7 @@ static bool executeDeleteWordForward(Frame& frame, Event*, EditorCommandSource, 
 
 static bool executeFindString(Frame& frame, Event*, EditorCommandSource, const String& value)
 {
-    return frame.editor().findString(value, CaseInsensitive | WrapAround);
+    return frame.editor().findString(value, CaseInsensitive | WrapAround | DoNotTraverseFlatTree);
 }
 
 static bool executeFontName(Frame& frame, Event*, EditorCommandSource source, const String& value)
@@ -412,14 +409,13 @@ static bool executeFormatBlock(Frame& frame, Event*, EditorCommandSource, const 
     if (tagName[0] == '<' && tagName[tagName.length() - 1] == '>')
         tagName = tagName.substring(1, tagName.length() - 2);
 
-    String localName, prefix;
-    if (!Document::parseQualifiedName(tagName, prefix, localName, IGNORE_EXCEPTION))
+    auto qualifiedTagName = Document::parseQualifiedName(xhtmlNamespaceURI, tagName);
+    if (qualifiedTagName.hasException())
         return false;
-    QualifiedName qualifiedTagName(prefix, localName, xhtmlNamespaceURI);
 
     ASSERT(frame.document());
-    RefPtr<FormatBlockCommand> command = FormatBlockCommand::create(*frame.document(), qualifiedTagName);
-    applyCommand(command);
+    auto command = FormatBlockCommand::create(*frame.document(), qualifiedTagName.releaseReturnValue());
+    applyCommand(command.copyRef());
     return command->didApply();
 }
 

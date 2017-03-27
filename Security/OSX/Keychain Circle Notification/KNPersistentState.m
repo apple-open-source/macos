@@ -23,6 +23,7 @@
 
 
 #import "KNPersistentState.h"
+#import <utilities/debugging.h>
 
 @implementation KNPersistentState
 
@@ -43,13 +44,13 @@
     NSError *error = nil;
     NSData *stateData = [NSData dataWithContentsOfURL:[state urlForStorage] options:0 error:&error];
     if (!stateData) {
-        NSLog(@"Can't read state data (p=%@, err=%@)", [state urlForStorage], error);
+        secdebug("kcn", "Can't read state data (p=%@, err=%@)", [state urlForStorage], error);
     } else {
         NSPropertyListFormat format;
         plist = [NSPropertyListSerialization propertyListWithData:stateData options: NSPropertyListMutableContainersAndLeaves format:&format error:&error];
         
         if (plist == nil) {
-            NSLog(@"Can't deserialize %@, e=%@", stateData, error);
+            secdebug("kcn", "Can't deserialize %@, e=%@", stateData, error);
         }
     }
     
@@ -79,16 +80,16 @@
 								   } mutableCopy];
 	if (self.debugLeftReason)
 		plist[@"debugLeftReason"] = self.debugLeftReason;
-    NSLog(@"writeToStorage plist=%@", plist);
+    secdebug("kcn", "writeToStorage plist=%@", plist);
 	
     NSError *error = nil;
     NSData *stateData = [NSPropertyListSerialization dataWithPropertyList:plist format:NSPropertyListXMLFormat_v1_0 options:kCFPropertyListImmutable error:&error];
     if (!stateData) {
-        NSLog(@"Can't serialize %@: %@", plist, error);
+        secdebug("kcn", "Can't serialize %@: %@", plist, error);
         return;
     }
     if (![stateData writeToURL:[self urlForStorage] options:NSDataWritingAtomic error:&error]) {
-        NSLog(@"Can't write to %@, error=%@", [self urlForStorage], error);
+        secdebug("kcn", "Can't write to %@, error=%@", [self urlForStorage], error);
     }
 }
 

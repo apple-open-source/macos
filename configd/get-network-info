@@ -25,6 +25,10 @@ process_opts () {
 			   COLLECT_NDF_INFO="Y"
 			   shift
 			   ;;
+		   -P)
+			   COLLECT_PCAP="N"
+			   shift
+			   ;;
 		    -s)
 			   COLLECT_SENSITIVE_INFO="Y"
 			   shift
@@ -560,11 +564,34 @@ run_lsof () {
 
 }
 
+start_pcap() {
+
+	#
+	# collect a packet capture if netdiagnose is available
+	#
+	if [ -x /usr/local/bin/netdiagnose ]; then
+		/usr/local/bin/netdiagnose -p "${REQUESTED_OUTDIR}" start sysdiagpcap			2>&1
+
+		PCAP_STARTED=1
+	fi
+}
+
+stop_pcap () {
+	if [ ${PCAP_STARTED} -ne 0 ]; then
+		/usr/local/bin/netdiagnose stop sysdiagpcap						2>&1
+	fi
+}
+
 collect_ndf_info () {
 	run_lsof
 }
 
 collect_sensitive_info () {
+
+	if [ "${COLLECT_PCAP}" == "Y" ]; then
+		start_pcap
+	fi
+
 	collect_state_dump_sensitive
 	run_ndp
 	run_arp
@@ -595,6 +622,8 @@ collect_info () {
 	if [ "${COLLECT_CONFIGURATION_FILES}" == "Y" ]; then
 		collect_configuration_files
 	fi
+
+	stop_pcap
 }
 
 # __COMMAND_ROUTINES_END__
@@ -606,6 +635,7 @@ usage () {
 	echo "Usage: get-network-info [-c] [-n] [-s] <info-directory>"
 	echo "		-c		    collects system configuration files"
 	echo "		-n		    collects NDF information (lsof)"
+	echo "		-P		    do not collect a packet capture"
 	echo "		-s		    collects sensitive information (ARP/NDP/mDNS cache)"
 	echo "		<info-directory>    path to directory where all the information will be collected"
 
@@ -642,6 +672,9 @@ init_globals () {
 	REQUESTED_OUTDIR=""
 	COLLECT_SENSITIVE_INFO=""
 	COLLECT_CONFIGURATION_FILES=""
+	COLLECT_PCAP="Y"
+	PCAP_STARTED=0
+
 }
 
 # __HELPER_ROUTINES_END__
@@ -649,7 +682,7 @@ init_globals () {
 #
 # __MAIN__
 #
-ARGS=`getopt cns $*`
+ARGS=`getopt cnPs $*`
 if [ $? != 0 ]; then
 	usage
 	exit 1

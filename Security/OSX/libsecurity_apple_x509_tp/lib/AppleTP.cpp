@@ -57,6 +57,5 @@ PluginSession *AppleTP::makeSession(
                                        upcalls);
         default:
             CssmError::throwMe(CSSMERR_CSSM_INVALID_SERVICE_MASK);
-            return 0;	// placebo
     }
 }

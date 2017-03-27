@@ -37,53 +37,53 @@ static void tests()
     SecKeychainItemRef item = NULL;
 
     // Find passwords
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContents(item, CFSTR("test_password"));
     CFReleaseNull(item);
     checkPrompts(0, "after reading a password");
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL); // we don't expect to be able to read this
     CFReleaseNull(item);
     checkPrompts(1, "trying to read password without access");
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service"), CFSTR("test_service"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service"), CFSTR("test_service"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContents(item, CFSTR("test_password"));
     CFReleaseNull(item);
     checkPrompts(0, "after reading a password");
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL); // we don't expect to be able to read this
     CFReleaseNull(item);
     checkPrompts(1, "trying to read password without access");
 
     // Find symmetric keys
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
-    item = checkN(testName, query, 2);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
+    item = checkNCopyFirst(testName, query, 2);
     CFReleaseNull(item);
 
     // Find asymmetric keys
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
-    item = checkN(testName, query, 2);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
+    item = checkNCopyFirst(testName, query, 2);
     CFReleaseNull(item);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
-    item = checkN(testName, query, 2);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
+    item = checkNCopyFirst(testName, query, 2);
     CFReleaseNull(item);
 
     // Find certificates
     query = makeBaseQueryDictionary(kc, kSecClassCertificate);
-    item = checkN(testName, query, 3);
+    item = checkNCopyFirst(testName, query, 3);
     CFReleaseNull(item);
 
     // ensure we can pull data from a certificate
     query = makeBaseQueryDictionary(kc, kSecClassCertificate);
     CFDictionarySetValue(query, kSecMatchSubjectWholeString, CFSTR("test_codesigning"));
-    item = checkN(testName, query, 1);
+    item = checkNCopyFirst(testName, query, 1);
     const unsigned char expectedSHA1[] = { 0x94, 0xdf, 0x22, 0x4a, 0x4d, 0x49, 0x33, 0x27, 0x9e, 0xc5, 0x7e, 0x91, 0x95, 0xcc, 0xbd, 0x51, 0x3d, 0x59, 0xae, 0x34 };
     CFDataRef expectedSHAData = CFDataCreateWithBytesNoCopy(NULL, expectedSHA1, sizeof(expectedSHA1), kCFAllocatorNull);
     eq_cf(SecCertificateGetSHA1Digest((SecCertificateRef) item), expectedSHAData, "%s: expected SHA1 of certificate does not match", testName);

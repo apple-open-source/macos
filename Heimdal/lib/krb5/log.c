@@ -289,7 +289,7 @@ log_oslog(const char *timestr,
 	  void *data)
 {
     os_log_t t = data;
-    os_log(t, "%s", msg);
+    os_log(t, "%{public}s", msg);
 }
 
 static void KRB5_CALLCONV
@@ -298,7 +298,7 @@ log_oslog_debug(const char *timestr,
 		void *data)
 {
     os_log_t t = data;
-    os_log_debug(t, "%s", msg);
+    os_log_debug(t, "%{public}s", msg);
 }
 
 static void KRB5_CALLCONV
@@ -494,7 +494,7 @@ krb5_addlog_dest(krb5_context context, krb5_log_facility *f, const char *orig)
 	krb5_set_error_message (context, ret,
 				N_("asl is not supported on this platform", ""), p);
 #endif /* __APPLE__ */
-    }else if(strncmp(p, "OSLOG", 3) == 0 && (p[3] == '\0' || p[3] == ':')){
+    }else if(strncmp(p, "OSLOG", 5) == 0 && (p[5] == '\0' || p[5] == ':')){
 #ifdef __APPLE__
 	char type[128] = "";
 	char facility[128] = "";

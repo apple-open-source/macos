@@ -33,6 +33,7 @@
 #include <kern/thread_call.h>
 #include <sys/pthread_shims.h>
 #include <sys/queue.h>
+#include <kern/kcdata.h>
 #endif
 
 #include "kern/synch_internal.h"
@@ -309,6 +310,9 @@ int _psynch_rw_rdlock(proc_t p, user_addr_t rwlock, uint32_t lgenval, uint32_t u
 int _psynch_rw_unlock(proc_t p, user_addr_t rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags, uint32_t *retval);
 int _psynch_rw_wrlock(proc_t p, user_addr_t rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags, uint32_t *retval);
 int _psynch_rw_yieldwrlock(proc_t p, user_addr_t rwlock, uint32_t lgenval, uint32_t ugenval, uint32_t rw_wc, int flags, uint32_t *retval);
+
+void _pthread_find_owner(thread_t thread, struct stackshot_thread_waitinfo *waitinfo);
+void * _pthread_get_thread_kwq(thread_t thread);
 
 extern lck_grp_attr_t *pthread_lck_grp_attr;
 extern lck_grp_t *pthread_lck_grp;

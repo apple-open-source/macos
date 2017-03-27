@@ -38,7 +38,7 @@ typedef uint32_t CCKDFAlgorithm;
 
 CCStatus
 CCKeyDerivationHMac(CCKDFAlgorithm algorithm, CCDigestAlgorithm digest,
-                    uint rounds, // ignored except for PBKDF
+                    unsigned rounds, // ignored except for PBKDF
                     const void *keyDerivationKey, size_t keyDerivationKeyLen,
                     const void *label, size_t labelLen,
                     const void *context, size_t contextLen, // or FIXED buffer (label | context)

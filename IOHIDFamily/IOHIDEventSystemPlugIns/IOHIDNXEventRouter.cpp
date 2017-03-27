@@ -37,7 +37,6 @@ __BEGIN_DECLS
 #include <asl.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
-#include <IOKit/iokitmig.h>
 #include <IOKit/IOMessage.h>
 #include <mach/mach_time.h>
 __END_DECLS

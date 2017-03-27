@@ -902,7 +902,10 @@ static OSStatus get_enc_params(struct encryptOptionsStr *encryptOptions)
         envelopeOptions.options = encryptOptions->options;
         envelopeOptions.recipients = encryptOptions->recipients;
         env_cmsg = enveloped_data(&envelopeOptions);
-        SecCmsMessageEncode(env_cmsg, &dummyIn, tmparena, &dummyOut);
+        rv = SecCmsMessageEncode(env_cmsg, &dummyIn, tmparena, &dummyOut);
+        if (rv) {
+            goto loser;
+        }
         fwrite(dummyOut.Data, 1, dummyOut.Length,encryptOptions->envFile);
 
         SecArenaPoolFree(tmparena, false);

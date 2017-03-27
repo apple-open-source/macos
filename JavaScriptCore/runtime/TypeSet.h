@@ -23,10 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TypeSet_h
-#define TypeSet_h
+#pragma once
 
-#include "ConcurrentJITLock.h"
+#include "ConcurrentJSLock.h"
 #include "RuntimeType.h"
 #include "StructureSet.h"
 #include <wtf/HashSet.h>
@@ -62,7 +61,7 @@ public:
     String stringRepresentation();
     String toJSONString() const;
     Ref<Inspector::Protocol::Runtime::StructureDescription> inspectorRepresentation();
-    void setConstructorName(String name) { m_constructorName = (name.isEmpty() ? "Object" : name); }
+    void setConstructorName(String name) { m_constructorName = (name.isEmpty() ? ASCIILiteral("Object") : name); }
     String constructorName() { return m_constructorName; }
     void setProto(PassRefPtr<StructureShape> shape) { m_proto = shape; }
     void enterDictionaryMode();
@@ -98,9 +97,9 @@ public:
     bool isEmpty() const { return m_seenTypes == TypeNothing; }
     bool doesTypeConformTo(RuntimeTypeMask test) const;
     RuntimeTypeMask seenTypes() const { return m_seenTypes; }
-    StructureSet structureSet(const ConcurrentJITLocker&) const { return m_structureSet; }
+    StructureSet structureSet(const ConcurrentJSLocker&) const { return m_structureSet; }
 
-    ConcurrentJITLock m_lock;
+    ConcurrentJSLock m_lock;
 private:
     bool m_isOverflown;
     RuntimeTypeMask m_seenTypes;
@@ -108,6 +107,4 @@ private:
     StructureSet m_structureSet;
 };
 
-} //namespace JSC
-
-#endif //TypeSet_h
+} // namespace JSC

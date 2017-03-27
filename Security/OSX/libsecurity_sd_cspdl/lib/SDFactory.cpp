@@ -84,5 +84,4 @@ bool SDFactory::setup(SDCSPSession &session, CSPFullPluginSession::CSPContext * 
             return true;
     }
 #endif
-    return false;
 }

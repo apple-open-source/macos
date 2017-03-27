@@ -38,6 +38,7 @@
 #include "ImageObserver.h"
 #include "IntRect.h"
 #include "Length.h"
+#include "NotImplemented.h"
 #include "SharedBuffer.h"
 #include "TextStream.h"
 #include <CoreGraphics/CGContext.h>
@@ -182,7 +183,7 @@ void PDFDocumentImage::decodedSizeChanged(size_t newCachedBytes)
         return;
 
     if (imageObserver())
-        imageObserver()->decodedSizeChanged(this, -safeCast<long long>(m_cachedBytes) + newCachedBytes);
+        imageObserver()->decodedSizeChanged(this, -static_cast<long long>(m_cachedBytes) + newCachedBytes);
 
     ASSERT(s_allDecodedDataSize >= m_cachedBytes);
     // Update with the difference in two steps to avoid unsigned underflow subtraction.
@@ -235,7 +236,7 @@ void PDFDocumentImage::updateCachedImageIfNeeded(GraphicsContext& context, const
     // Cache the PDF image only if the size of the new image won't exceed the cache threshold.
     if (m_pdfImageCachingPolicy == PDFImageCachingBelowMemoryLimit) {
         IntSize scaledSize = ImageBuffer::compatibleBufferSize(cachedImageSize, context);
-        if (s_allDecodedDataSize + safeCast<size_t>(scaledSize.width()) * scaledSize.height() * 4 - m_cachedBytes > s_maxDecodedDataSize) {
+        if (s_allDecodedDataSize + scaledSize.unclampedArea() * 4 - m_cachedBytes > s_maxDecodedDataSize) {
             destroyDecodedData();
             return;
         }
@@ -259,7 +260,7 @@ void PDFDocumentImage::updateCachedImageIfNeeded(GraphicsContext& context, const
     m_cachedSourceRect = srcRect;
 
     IntSize internalSize = m_cachedImageBuffer->internalSize();
-    decodedSizeChanged(safeCast<size_t>(internalSize.width()) * internalSize.height() * 4);
+    decodedSizeChanged(internalSize.unclampedArea() * 4);
 }
 
 void PDFDocumentImage::draw(GraphicsContext& context, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator op, BlendMode, ImageOrientationDescription)
@@ -344,8 +345,16 @@ void PDFDocumentImage::drawPDFPage(GraphicsContext& context)
 
     context.translate(-m_cropBox.x(), -m_cropBox.y());
 
+#if USE(DIRECT2D)
+    notImplemented();
+#else
     // CGPDF pages are indexed from 1.
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000)
+    CGContextDrawPDFPageWithAnnotations(context.platformContext(), CGPDFDocumentGetPage(m_document.get(), 1), nullptr);
+#else
     CGContextDrawPDFPage(context.platformContext(), CGPDFDocumentGetPage(m_document.get(), 1));
+#endif
+#endif
 }
 
 #endif // !USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)

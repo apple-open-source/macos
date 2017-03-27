@@ -20,4 +20,13 @@ void pam_cf_cleanup(__unused pam_handle_t *, void *, __unused int );
 
 int cfstring_to_cstring(const CFStringRef val, char **buffer);
 
+#ifndef CFReleaseSafe
+#define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
+#endif
+
+#ifndef CFReleaseNull
+#define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
+if (_cf) { (CF) = NULL; CFRelease(_cf); } }
+#endif
+
 #endif /* _COMMON_H_ */

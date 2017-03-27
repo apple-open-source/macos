@@ -33,19 +33,24 @@ _SecPasswordIsPasswordWeak2
 _SecPasswordGenerate
 _SecPasswordCopyDefaultPasswordLength
 _SecPasswordCreateWithRandomDigits
+_SecPasswordValidatePasswordFormat
 
 //
 // Base64
 //
 
 _SecBase64Encode
+#if TARGET_OS_IPHONE
 _SecBase64Encode2
+#endif
 
 //
 // Trust
 //
+_SecIsInternalRelease
 
 // Policies
+
 _kSecPolicyAppleAST2DiagnosticsServerAuth
 _kSecPolicyAppleATVVPNProfileSigning
 _kSecPolicyAppleCodeSigning
@@ -61,6 +66,8 @@ _kSecPolicyAppleGenericAppleSSLPinned
 _kSecPolicyAppleGSService
 _kSecPolicyAppleHomeKitServerAuth
 _kSecPolicyAppleiAP
+_kSecPolicyAppleiCloudSetupServerAuth
+_kSecPolicyAppleiCloudSetupCompatibilityServerAuth
 _kSecPolicyAppleIDAuthority
 _kSecPolicyAppleIDSService
 _kSecPolicyAppleIDSServiceContext
@@ -136,23 +143,27 @@ _kSecPolicyCheckExtendedValidation
 _kSecPolicyCheckGrayListedKey
 _kSecPolicyCheckGrayListedLeaf
 _kSecPolicyCheckIdLinkage
+_kSecPolicyCheckIntermediateCountry
 _kSecPolicyCheckIntermediateEKU
 _kSecPolicyCheckIntermediateMarkerOid
+_kSecPolicyCheckIntermediateOrganization
 _kSecPolicyCheckIntermediateSPKISHA256
 _kSecPolicyCheckIssuerCommonName
 _kSecPolicyCheckKeySize
 _kSecPolicyCheckKeyUsage
 _kSecPolicyCheckLeafMarkerOid
 _kSecPolicyCheckLeafMarkerOidWithoutValueCheck
+_kSecPolicyCheckLeafMarkersProdAndQA
 _kSecPolicyCheckNoNetworkAccess
 _kSecPolicyCheckNonEmptySubject
 _kSecPolicyCheckNotValidBefore
 _kSecPolicyCheckQualifiedCertStatements
 _kSecPolicyCheckRevocation
-_kSecPolicyCheckRevocationResponseRequired
-_kSecPolicyCheckRevocationOCSP
-_kSecPolicyCheckRevocationCRL
 _kSecPolicyCheckRevocationAny
+_kSecPolicyCheckRevocationCRL
+_kSecPolicyCheckRevocationOCSP
+_kSecPolicyCheckRevocationOnline
+_kSecPolicyCheckRevocationResponseRequired
 _kSecPolicyCheckSignatureHashAlgorithms
 _kSecPolicyCheckSSLHostname
 _kSecPolicyCheckSubjectCommonName
@@ -160,6 +171,7 @@ _kSecPolicyCheckSubjectCommonNamePrefix
 _kSecPolicyCheckSubjectCommonNameTEST
 _kSecPolicyCheckSubjectOrganization
 _kSecPolicyCheckSubjectOrganizationalUnit
+_kSecPolicyCheckSystemTrustedWeakHash
 _kSecPolicyCheckUsageConstraints
 _kSecPolicyCheckValidIntermediates
 _kSecPolicyCheckValidLeaf
@@ -167,6 +179,8 @@ _kSecPolicyCheckValidRoot
 _kSecPolicyCheckWeakIntermediates
 _kSecPolicyCheckWeakLeaf
 _kSecPolicyCheckWeakRoot
+_kSecPolicyLeafMarkerProd
+_kSecPolicyLeafMarkerQA
 
 // Policy Properties
 _kSecPolicyClient
@@ -179,7 +193,7 @@ _kSecPolicyPolicyName
 _kSecPolicyRevocationFlags
 _kSecPolicyTeamIdentifier
 
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 _kSecPolicyKU_CRLSign
 _kSecPolicyKU_DataEncipherment
 _kSecPolicyKU_DecipherOnly
@@ -203,6 +217,7 @@ _SecPolicyCheckCertSSLHostname
 _SecPolicyCheckCertSubjectCommonName
 _SecPolicyCheckCertSubjectCommonNamePrefix
 _SecPolicyCheckCertSubjectCommonNameTEST
+_SecPolicyCheckCertSubjectCountry
 _SecPolicyCheckCertSubjectOrganization
 _SecPolicyCheckCertSubjectOrganizationalUnit
 _SecPolicyCopyProperties
@@ -211,11 +226,13 @@ _SecPolicyCreateAppleAST2Service
 _SecPolicyCreateAppleATVVPNProfileSigning
 _SecPolicyCreateAppleCompatibilityEscrowProxyService
 _SecPolicyCreateAppleCompatibilityMMCSService
+_SecPolicyCreateAppleCompatibilityiCloudSetupService
 _SecPolicyCreateAppleEscrowProxyService
 _SecPolicyCreateAppleExternalDeveloper
 _SecPolicyCreateAppleFMiPService
 _SecPolicyCreateAppleGSService
 _SecPolicyCreateAppleHomeKitServerAuth
+_SecPolicyCreateAppleiCloudSetupService
 _SecPolicyCreateAppleIDAuthorityPolicy
 _SecPolicyCreateAppleIDSService
 _SecPolicyCreateAppleIDSServiceContext
@@ -274,7 +291,7 @@ _SecPolicyCreateWithProperties
 _SecPolicyGetName
 _SecPolicyGetOidString
 _SecPolicyGetTypeID
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 _SecPolicyCopy
 _SecPolicyCopyAll
 _SecPolicyCreateAppleTimeStampingAndRevocationPolicies
@@ -320,24 +337,27 @@ _kSecTrustCertificateTransparency
 _kSecTrustCertificateTransparencyWhiteList
 _kSecTrustEvaluationDate
 _kSecTrustExtendedValidation
-_kSecTrustOrganizationName
-_kSecTrustResultDetails
-_kSecTrustResultValue
-_kSecTrustRevocationChecked
-_kSecTrustRevocationReason
-_kSecTrustRevocationValidUntilDate
 _kSecTrustInfoCertificateTransparencyKey
 _kSecTrustInfoCertificateTransparencyWhiteListKey
 _kSecTrustInfoCompanyNameKey
 _kSecTrustInfoExtendedValidationKey
 _kSecTrustInfoRevocationKey
 _kSecTrustInfoRevocationValidUntilKey
+_kSecTrustOrganizationName
+_kSecTrustResultDetails
+_kSecTrustResultValue
+_kSecTrustRevocationChecked
+_kSecTrustRevocationReason
+_kSecTrustRevocationValidUntilDate
 
+_SecTrustAddToInputCertificates
 _SecTrustCopyCustomAnchorCertificates
 _SecTrustCopyDetailedPropertiesAtIndex
 _SecTrustCopyExceptions
 _SecTrustCopyFailureDescription
+_SecTrustCopyFilteredDetails
 _SecTrustCopyInfo
+_SecTrustCopyInputCertificates
 _SecTrustCopyPolicies
 _SecTrustCopyProperties
 _SecTrustCopyPublicKey
@@ -369,7 +389,7 @@ _SecTrustSetPolicies
 _SecTrustSetSignedCertificateTimestamps
 _SecTrustSetTrustedLogs
 _SecTrustSetVerifyDate
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 _SecTrustCopyAnchorCertificates
 _SecTrustCopyExtendedResult
 _SecTrustCopyProperties_ios
@@ -387,14 +407,44 @@ _SecTrustSetOptions
 _SecTrustSetParameters
 _SecTrustSetUserTrust
 _SecTrustSetUserTrustLegacy
+
+_SecTrustSettingsCopyCertificates                                                                                                        
+_SecTrustSettingsCopyCertificatesForUserAdminDomains                                                                                     
+_SecTrustSettingsCopyModificationDate                                                                                                    
+_SecTrustSettingsCopyQualifiedCerts                                                                                                      
+_SecTrustSettingsCopyTrustSettings                                                                                                       
+_SecTrustSettingsCopyUnrestrictedRoots                                                                                                   
+_SecTrustSettingsCreateExternalRepresentation                                                                                            
+_SecTrustSettingsEvaluateCert                                                                                                            
+_SecTrustSettingsImportExternalRepresentation                                                                                            
+_SecTrustSettingsRemoveTrustSettings                                                                                                     
+_SecTrustSettingsSetTrustSettings                                                                                                        
+_SecTrustSettingsSetTrustSettingsExternal                                                                                                
+_SecTrustedApplicationCopyData                                                                                                           
+_SecTrustedApplicationCopyExternalRepresentation                                                                                         
+_SecTrustedApplicationCopyRequirement                                                                                                    
+_SecTrustedApplicationCreateApplicationGroup                                                                                             
+_SecTrustedApplicationCreateFromPath                                                                                                     
+_SecTrustedApplicationCreateFromRequirement                                                                                              
+_SecTrustedApplicationCreateWithExternalRepresentation                                                                                   
+_SecTrustedApplicationGetTypeID                                                                                                          
+_SecTrustedApplicationIsUpdateCandidate                                                                                                  
+_SecTrustedApplicationMakeEquivalent                                                                                                     
+_SecTrustedApplicationRemoveEquivalence                                                                                                  
+_SecTrustedApplicationSetData                                                                                                            
+_SecTrustedApplicationUseAlternateSystem                                                                                                 
+_SecTrustedApplicationValidateWithPath 
 #endif
+
+#if TARGET_OS_IPHONE
 _SecTrustStoreContains
+_SecTrustStoreCopyAll
+_SecTrustStoreCopyUsageConstraints
 _SecTrustStoreForDomain
 _SecTrustStoreGetSettingsVersionNumber
 _SecTrustStoreRemoveCertificate
 _SecTrustStoreSetTrustSettings
-_SecTrustStoreCopyAll
-_SecTrustStoreCopyUsageConstraints
+#endif
 
 //
 // Identity
@@ -404,24 +454,24 @@ _SecIdentityCopyCertificate
 _SecIdentityCopyPrivateKey
 _SecIdentityCreate
 _SecIdentityGetTypeID
-_SecIdentitySignCertificate
+
 
 //
 // Certificate
 //
 
-_kSecCertificateKeyUsage
 _kSecCertificateEscrowFileName
-_kSecCertificateExtensions
-_kSecCertificateExtensionsEncoded
 _kSecCertificateProductionEscrowKey
 _kSecCertificateProductionPCSEscrowKey
 _SecCertificateCopyAttributeDictionary
+_SecCertificateCopyCommonName
 _SecCertificateCopyCommonNames
 _SecCertificateCopyCompanyName
-_SecCertificateCopyEscrowRoots
+_SecCertificateCopyCountry
 _SecCertificateCopyDNSNames
 _SecCertificateCopyData
+_SecCertificateCopyEmailAddresses
+_SecCertificateCopyEscrowRoots
 _SecCertificateCopyExtendedKeyUsage
 _SecCertificateCopyiAPAuthCapabilities
 _SecCertificateCopyIPAddresses
@@ -429,6 +479,8 @@ _SecCertificateCopyIssuerSHA1Digest
 _SecCertificateCopyIssuerSequence
 _SecCertificateCopyIssuerSummary
 _SecCertificateCopyKeychainItem
+_SecCertificateCopyNormalizedIssuerSequence
+_SecCertificateCopyNormalizedSubjectSequence
 _SecCertificateCopyNTPrincipalNames
 _SecCertificateCopyOrganization
 _SecCertificateCopyOrganizationalUnit
@@ -446,7 +498,7 @@ _SecCertificateCopySubjectSequence
 _SecCertificateCopySubjectString
 _SecCertificateCopySubjectSummary
 _SecCertificateCopySummaryProperties
-_SecCertificateCreate
+_SecCertificateCreateFromAttributeDictionary
 _SecCertificateCreateOidDataFromString
 _SecCertificateCreateWithBytes
 _SecCertificateCreateWithData
@@ -466,10 +518,10 @@ _SecCertificateGetKeyUsage
 _SecCertificateGetLength
 _SecCertificateGetNormalizedIssuerContent
 _SecCertificateGetNormalizedSubjectContent
-_SecDistinguishedNameCopyNormalizedContent
 _SecCertificateGetOCSPResponders
 _SecCertificateGetPermittedSubtrees
 _SecCertificateGetPolicyConstraints
+_SecCertificateGetPolicyMappings
 _SecCertificateGetPublicKeyAlgorithm
 _SecCertificateGetPublicKeyData
 _SecCertificateGetSHA1Digest
@@ -494,6 +546,61 @@ _SecCertificateNotValidAfter
 _SecCertificateNotValidBefore
 _SecCertificateParseGeneralNameContentProperty
 _SecCertificateParseGeneralNames
+_SecCertificateSetKeychainItem
+_SecCertificateShow
+_SecCertificateVersion
+_SecDistinguishedNameCopyNormalizedContent
+#if TARGET_OS_OSX
+_SecCertificateAddToKeychain
+_SecCertificateCopyFieldValues
+_SecCertificateCopyFirstFieldValue
+_SecCertificateCopyLongDescription
+_SecCertificateCopyNormalizedIssuerContent
+_SecCertificateCopyNormalizedSubjectContent
+_SecCertificateCopyPreference
+_SecCertificateCopyPreferred
+_SecCertificateCopyPublicKey_ios
+_SecCertificateCopyPublicKeyP
+_SecCertificateCopyPublicKeySHA1DigestFromCertificateData
+_SecCertificateCopyShortDescription
+_SecCertificateCopySubjectComponent
+_SecCertificateCopyValues
+_SecCertificateCreateFromData
+_SecCertificateCreateItemImplInstance
+_SecCertificateCreateWithDataP
+_SecCertificateFindByEmail
+_SecCertificateFindByIssuerAndSN
+_SecCertificateFindBySubjectKeyID
+_SecCertificateGetAlgorithmID
+_SecCertificateGetCLHandle
+_SecCertificateGetCLHandle_legacy
+_SecCertificateGetCommonName
+_SecCertificateGetData
+_SecCertificateGetEmailAddress
+_SecCertificateGetIssuer
+_SecCertificateGetSubject
+_SecCertificateGetType
+_SecCertificateInferLabel
+_SecCertificateIsValidX
+_SecCertificateReleaseFieldValues
+_SecCertificateReleaseFirstFieldValue
+_SecCertificateSetPreference
+_SecCertificateSetPreferred
+#endif
+
+//
+// CertificateBundle
+//
+
+#if TARGET_OS_OSX
+_SecCertifcateBundleExport
+_SecCertificateBundleExport
+_SecCertificateBundleImport
+#endif /* TARGET_OS_OSX */
+
+//
+// CertificatePath
+//
 _SecCertificatePathCopyAddingLeaf
 _SecCertificatePathCopyCertificates
 _SecCertificatePathCopyFromParent
@@ -516,9 +623,8 @@ _SecCertificatePathSetIsAnchored
 _SecCertificatePathSetNextSourceIndex
 _SecCertificatePathSetSelfIssued
 _SecCertificatePathVerify
-_SecCertificateSetKeychainItem
-_SecCertificateVersion
 
+#if TARGET_OS_IPHONE
 //
 // SCEP
 //
@@ -528,60 +634,89 @@ _SecSCEPGenerateCertificateRequest
 _SecSCEPVerifyReply
 _SecSCEPValidateCACertMessage
 _SecSCEPGetCertInitial
+#endif
 
 //
 // CSR
 //
-
+_kSecCertificateKeyUsage
+_kSecCertificateExtensions
+_kSecCertificateExtensionsEncoded
+_kSecCSRBasicContraintsPathLen
+_kSecCSRChallengePassword
+_kSecOidCommonName
+_kSecOidCountryName
+_kSecOidLocalityName
+_kSecOidOrganization
+_kSecOidOrganizationalUnit
+_kSecOidStateProvinceName
 _kSecSubjectAltName
-_SecVerifyCertificateRequest
+_SecASN1PrintableString
+_SecASN1UTF8String
 _SecGenerateCertificateRequest
 _SecGenerateCertificateRequestWithParameters
 _SecGenerateSelfSignedCertificate
+_SecIdentitySignCertificate
+_SecVerifyCertificateRequest
+#if TARGET_OS_OSX
+_SecCertificateFindRequest
+_SecCertificateRequestCreate
+_SecCertificateRequestGetData
+_SecCertificateRequestGetResult
+_SecCertificateRequestGetType
+_SecCertificateRequestGetTypeID
+_SecCertificateRequestSubmit
+#endif
 
 //
 // OTR
 //
-_SecOTRSKickTimeToRoll
-_SecOTRSGetTheirKeyID
-_SecOTRSGetKeyID
+
+#if TARGET_OS_IPHONE
 _SecFDHKAppendCompactPublicSerialization
 _SecFDHKAppendPublicSerialization
+
 _SecOTRCopyIncomingBytes
-_SecOTRPublicDHKCreateFromSerialization
-_SecOTRPublicDHKCreateFromCompactSerialization
 _SecOTRDHKGenerateOTRKeys
-_SecOTRFullDHKCreate
-_SecOTRPublicDHKCreateFromFullKey
-_SecOTRSessionCreateFromID
-_SecOTRSessionCreateFromIDAndFlags
-_SecOTRSessionCreateFromData
-_SecOTRSessionReset
-_SecOTRSAppendSerialization
-_SecOTRSAppendStartPacket
-_SecOTRSAppendRestartPacket
-_SecOTRSProcessPacket
-_SecOTRSEndSession
-_SecOTRSGetIsReadyForMessages
-_SecOTRSGetIsIdle
-_SecOTRSGetMessageKind
-_SecOTRSIsForKeys
-_SecOTRSSignAndProtectMessage
-_SecOTRSVerifyAndExposeMessage
-_SecOTRSPrecalculateKeys
 _SecOTRFIAppendSerialization
 _SecOTRFIPurgeAllFromKeychain
 _SecOTRFIPurgeFromKeychain
+_SecOTRFullDHKCreate
 _SecOTRFullIdentityCreate
 _SecOTRFullIdentityCreateFromData
-_SecOTRFullIdentityCreateFromSecKeyRef
 _SecOTRPIAppendSerialization
+_SecOTRPacketTypeString
+_SecOTRPublicDHKCreateFromCompactSerialization
+_SecOTRPublicDHKCreateFromFullKey
+_SecOTRPublicDHKCreateFromSerialization
 _SecOTRPublicIdentityCopyFromPrivate
 _SecOTRPublicIdentityCreateFromData
-_SecOTRPublicIdentityCreateFromSecKeyRef
-_SecOTRPacketTypeString
+_SecOTRSEndSession
+_SecOTRSGetKeyID
+_SecOTRSGetTheirKeyID
+_SecOTRSKickTimeToRoll
+_SecOTRSPrecalculateKeys
 _SecOTRSessionCreateRemote
 _SecOTRSessionProcessPacketRemote
+#endif
+
+_SecOTRFullIdentityCreateFromSecKeyRef
+_SecOTRSIsForKeys
+_SecOTRPublicIdentityCreateFromSecKeyRef
+_SecOTRSAppendRestartPacket
+_SecOTRSAppendSerialization
+_SecOTRSAppendStartPacket
+_SecOTRSGetIsIdle
+_SecOTRSGetIsReadyForMessages
+_SecOTRSGetMessageKind
+_SecOTRSProcessPacket
+_SecOTRSSignAndProtectMessage
+_SecOTRSVerifyAndExposeMessage
+_SecOTRSessionCreateFromData
+_SecOTRSessionCreateFromID
+_SecOTRSessionCreateFromIDAndFlags
+_SecOTRSessionReset
+
 
 //
 // DH
@@ -589,7 +724,9 @@ _SecOTRSessionProcessPacketRemote
 
 _SecDHComputeKey
 _SecDHCreate
+#if TARGET_OS_IPHONE
 _SecDHCreateFromAlgorithmId
+#endif
 _SecDHCreateFromParameters
 _SecDHDecodeParams
 _SecDHDestroy
@@ -597,17 +734,21 @@ _SecDHEncodeParams
 _SecDHGenerateKeypair
 _SecDHGetMaxKeyLength
 
+#if TARGET_OS_IPHONE
 //
 // Securityd client
 //
 
 _gSecurityd
+#endif
 
+#if TARGET_OS_IPHONE
 //
 // XPC
 //
 
-_kSecXPCKeyPeerInfos
+_kSecXPCKeyPeerInfoArray
+_kSecXPCKeyPeerInfo
 _kSecXPCKeyOperation
 _kSecXPCKeyResult
 _kSecXPCKeyError
@@ -619,6 +760,7 @@ _sSecXPCErrorDomain
 _kSecXPCKeyOTAFileDirectory
 _kSecXPCKeyEscrowLabel
 _kSecXPCKeyTriesLabel
+#endif
 
 
 //
@@ -633,23 +775,15 @@ _SecSetLoggingInfoForCircleScope
 // CMS
 //
 
-_kSecCMSBulkEncryptionAlgorithm
-_kSecCMSSignDigest
-_kSecCMSSignDetached
-_kSecCMSSignHashAlgorithm
-_kSecCMSEncryptionAlgorithmDESCBC
-_kSecCMSEncryptionAlgorithmAESCBC
-_kSecCMSHashingAlgorithmMD5
-_kSecCMSHashingAlgorithmSHA1
-_kSecCMSHashingAlgorithmSHA256
-_kSecCMSHashingAlgorithmSHA384
-_kSecCMSHashingAlgorithmSHA512
-_kSecCMSCertChainMode
-_kSecCMSAdditionalCerts
-_kSecCMSSignedAttributes
-_kSecCMSSignDate
-_kSecCMSAllCerts
-_kSecCMSCertChainModeNone
+#if TARGET_OS_IPHONE
+
+_SecCMSCertificatesOnlyMessageCopyCertificates
+_SecCMSCreateCertificatesOnlyMessage
+_SecCMSCreateCertificatesOnlyMessageIAP
+_SecCMSCreateEnvelopedData
+_SecCMSDecryptEnvelopedData
+_SecCMSSignDataAndAttributes
+_SecCMSSignDigestAndAttributes
 _SecCmsContentInfoGetBulkKey
 _SecCmsContentInfoGetBulkKeySize
 _SecCmsContentInfoGetChildContentInfo
@@ -722,14 +856,15 @@ _SecCmsSignedDataSetDigestContext
 _SecCmsSignedDataSignerInfoCount
 _SecCmsSignedDataVerifyCertsOnly
 _SecCmsSignedDataVerifySignerInfo
+_SecCmsSignerInfoAddAppleCodesigningHashAgility
 _SecCmsSignerInfoAddCounterSignature
 _SecCmsSignerInfoAddMSSMIMEEncKeyPrefs
 _SecCmsSignerInfoAddSMIMECaps
 _SecCmsSignerInfoAddSMIMEEncKeyPrefs
 _SecCmsSignerInfoAddSigningTime
-_SecCmsSignerInfoAddAppleCodesigningHashAgility
 _SecCmsSignerInfoCreate
 _SecCmsSignerInfoCreateWithSubjKeyID
+_SecCmsSignerInfoGetAppleCodesigningHashAgility
 _SecCmsSignerInfoGetCertList
 _SecCmsSignerInfoGetDigestAlg
 _SecCmsSignerInfoGetDigestAlgTag
@@ -737,106 +872,326 @@ _SecCmsSignerInfoGetSignerCommonName
 _SecCmsSignerInfoGetSignerEmailAddress
 _SecCmsSignerInfoGetSigningCertificate
 _SecCmsSignerInfoGetSigningTime
-_SecCmsSignerInfoGetAppleCodesigningHashAgility
 _SecCmsSignerInfoGetVerificationStatus
 _SecCmsSignerInfoIncludeCerts
 _SecCmsSignerInfoSaveSMIMEProfile
 _SecCmsUtilVerificationStatusToString
+_kSecCMSAdditionalCerts
+_kSecCMSAllCerts
+_kSecCMSBulkEncryptionAlgorithm
+_kSecCMSCertChainMode
+_kSecCMSCertChainModeNone
+_kSecCMSEncryptionAlgorithmAESCBC
+_kSecCMSEncryptionAlgorithmDESCBC
+_kSecCMSHashingAlgorithmMD5
+_kSecCMSHashingAlgorithmSHA1
+_kSecCMSHashingAlgorithmSHA256
+_kSecCMSHashingAlgorithmSHA384
+_kSecCMSHashingAlgorithmSHA512
+_kSecCMSSignDate
+_kSecCMSSignDetached
+_kSecCMSSignDigest
+_kSecCMSSignHashAlgorithm
+_kSecCMSSignedAttributes
+
+#elif TARGET_OS_OSX
+//
+// libsecurity_smime
+//
+_SecArenaPoolCreate
+_SecArenaPoolFree
 _SecCMSCertificatesOnlyMessageCopyCertificates
 _SecCMSCreateCertificatesOnlyMessage
 _SecCMSCreateCertificatesOnlyMessageIAP
 _SecCMSCreateEnvelopedData
 _SecCMSDecryptEnvelopedData
-_SecCMSSignDataAndAttributes
-_SecCMSSignDigestAndAttributes
+_SecCmsContentInfoGetBulkKey
+_SecCmsContentInfoGetBulkKeySize
+_SecCmsContentInfoGetChildContentInfo
+_SecCmsContentInfoGetContent
+_SecCmsContentInfoGetContentEncAlg
+_SecCmsContentInfoGetContentEncAlgTag
+_SecCmsContentInfoGetContentTypeOID
+_SecCmsContentInfoGetContentTypeTag
+_SecCmsContentInfoGetInnerContent
+_SecCmsContentInfoSetBulkKey
+_SecCmsContentInfoSetContentData
+_SecCmsContentInfoSetContentDigestedData
+_SecCmsContentInfoSetContentEncAlg
+_SecCmsContentInfoSetContentEncAlgID
+_SecCmsContentInfoSetContentEncryptedData
+_SecCmsContentInfoSetContentEnvelopedData
+_SecCmsContentInfoSetContentOther
+_SecCmsContentInfoSetContentSignedData
+_SecCmsDecoderCreate
+_SecCmsDecoderDestroy
+_SecCmsDecoderFinish
+_SecCmsDecoderUpdate
+_SecCmsDigestContextCancel
+_SecCmsDigestContextFinishMultiple
+_SecCmsDigestContextStartMultiple
+_SecCmsDigestContextUpdate
+_SecCmsDigestedDataCreate
+_SecCmsDigestedDataDestroy
+_SecCmsDigestedDataGetContentInfo
+_SecCmsEncoderCreate
+_SecCmsEncoderDestroy
+_SecCmsEncoderFinish
+_SecCmsEncoderUpdate
+_SecCmsEncryptedDataCreate
+_SecCmsEncryptedDataDestroy
+_SecCmsEncryptedDataGetContentInfo
+_SecCmsEnvelopedDataAddRecipient
+_SecCmsEnvelopedDataCreate
+_SecCmsEnvelopedDataDestroy
+_SecCmsEnvelopedDataGetContentInfo
+_SecCmsMessageContainsCertsOrCrls
+_SecCmsMessageContainsTSTInfo
+_SecCmsMessageContentLevel
+_SecCmsMessageContentLevelCount
+_SecCmsMessageCopy
+_SecCmsMessageCreate
+_SecCmsMessageDecode
+_SecCmsMessageDestroy
+_SecCmsMessageEncode
+_SecCmsMessageGetArena
+_SecCmsMessageGetContent
+_SecCmsMessageGetContentInfo
+_SecCmsMessageIsContentEmpty
+_SecCmsMessageIsEncrypted
+_SecCmsMessageIsSigned
+_SecCmsMessageSetTSACallback
+_SecCmsMessageSetTSAContext
+_SecCmsRecipientInfoCreate
+_SecCmsRecipientInfoCreateWithSubjKeyID
+_SecCmsRecipientInfoCreateWithSubjKeyIDFromCert
+_SecCmsRecipientInfoDestroy
+_SecCmsSignedDataAddCertChain
+_SecCmsSignedDataAddCertList
+_SecCmsSignedDataAddCertificate
+_SecCmsSignedDataAddSignerInfo
+_SecCmsSignedDataContainsCertsOrCrls
+_SecCmsSignedDataCreate
+_SecCmsSignedDataCreateCertsOnly
+_SecCmsSignedDataDestroy
+_SecCmsSignedDataGetCertificateList
+_SecCmsSignedDataGetContentInfo
+_SecCmsSignedDataGetDigestAlgs
+_SecCmsSignedDataGetSignerInfo
+_SecCmsSignedDataGetSignerInfos
+_SecCmsSignedDataHasDigests
+_SecCmsSignedDataImportCerts
+_SecCmsSignedDataSetDigests
+_SecCmsSignedDataSignerInfoCount
+_SecCmsSignedDataVerifyCertsOnly
+_SecCmsSignedDataVerifySignerInfo
+_SecCmsSignerInfoAddAppleCodesigningHashAgility
+_SecCmsSignerInfoAddCounterSignature
+_SecCmsSignerInfoAddMSSMIMEEncKeyPrefs
+_SecCmsSignerInfoAddSMIMECaps
+_SecCmsSignerInfoAddSMIMEEncKeyPrefs
+_SecCmsSignerInfoAddSigningTime
+_SecCmsSignerInfoCreate
+_SecCmsSignerInfoCreateWithSubjKeyID
+_SecCmsSignerInfoDestroy
+_SecCmsSignerInfoGetAppleCodesigningHashAgility
+_SecCmsSignerInfoGetCertList
+_SecCmsSignerInfoGetDigestAlg
+_SecCmsSignerInfoGetDigestAlgTag
+_SecCmsSignerInfoGetEncDigest
+_SecCmsSignerInfoGetSignerCommonName
+_SecCmsSignerInfoGetSignerEmailAddress
+_SecCmsSignerInfoGetSigningCertificate
+_SecCmsSignerInfoGetSigningTime
+_SecCmsSignerInfoGetTimestampTime
+_SecCmsSignerInfoGetVerificationStatus
+_SecCmsSignerInfoIncludeCerts
+_SecCmsSignerInfoSaveSMIMEProfile
+_SecCmsTSADefaultCallback
+_SecCmsTSAGetDefaultContext
+_SecCmsUtilVerificationStatusToString
+_SecTSAResponseCopyDEREncoding
+_kSecCMSAdditionalCerts
+_kSecCMSAllCerts
+_kSecCMSBulkEncryptionAlgorithm
+_kSecCMSCertChainMode
+_kSecCMSEncryptionAlgorithmAESCBC
+_kSecCMSEncryptionAlgorithmDESCBC
+_kSecCMSHashingAlgorithmSHA1
+_kSecCMSHashingAlgorithmSHA256
+_kSecCMSHashingAlgorithmSHA384
+_kSecCMSHashingAlgorithmSHA512
+_kSecCMSSignDate
+_kSecCMSSignDetached
+_kSecCMSSignDigest
+_kSecCMSSignHashAlgorithm
+_kSecCMSSignedAttributes
+_kTSAContextKeyNoCerts
+_kTSAContextKeyURL
+_kTSADebugContextKeyBadNonce
+_kTSADebugContextKeyBadReq
+#endif // TARGET_OS_OSX
+
 _SecCMSVerify
 _SecCMSVerifyCopyDataAndAttributes
 _SecCMSVerifySignedData
 _SecCMSCreateSignedData
 
+
+#if TARGET_OS_IPHONE
 //
 // pbkdf2
 //
 
 _pbkdf2
 _pbkdf2_hmac_sha1
+_pbkdf2_hmac_sha256
 _hmac_sha1_PRF
+_hmac_sha256_PRF
 _SecKeyFromPassphraseDataHMACSHA1
+_SecKeyFromPassphraseDataHMACSHA256
+#endif
 
 //
 // Key
 //
 _CreatePrivateKeyMatchingQuery
+#if TARGET_OS_IPHONE
 _SecECDoWithFullKey
 _SecECDoWithPubKey
+#endif
 _SecECKeyCopyPublicBits
 _SecECKeyGetNamedCurve
+
+
 _SecKeyCopyAttestationKey
+#if TARGET_OS_IPHONE
 _SecKeyCopyAttributeDictionary
+#endif /* TARGET_OS_IPHONE */
 _SecKeyCopyAttributes
 _SecKeyCopyExponent
 _SecKeyCopyExternalRepresentation
+_SecKeyCopyKeyExchangeResult
 _SecKeyCopyMatchingPrivateKey
 _SecKeyCopyModulus
 _SecKeyCopyPersistentRef
 _SecKeyCopyPublicBytes
 _SecKeyCopyPublicKey
-_SecKeyCopyKeyExchangeResult
 _SecKeyCreate
 _SecKeyCreateAttestation
-_SecKeyCreateEncryptedData
 _SecKeyCreateDecryptedData
 _SecKeyCreateDuplicate
-_SecKeyCreatePublicFromPrivate
-_SecKeyCreateSignature
-_SecKeyCreateFromAttributeDictionary
+#if TARGET_OS_IPHONE
 _SecKeyCreateECPrivateKey
 _SecKeyCreateECPublicKey
+#endif /* TARGET_OS_IPHONE */
+_SecKeyCreateEncryptedData
+_SecKeyCreateFromAttributeDictionary
+
+#if TARGET_OS_OSX
+_SecKeyCreateFromData
+#endif /* TARGET_OS_OSX */
+
 _SecKeyCreateFromPublicBytes
 _SecKeyCreateFromPublicData
 _SecKeyCreateFromSubjectPublicKeyInfoData
+#if TARGET_OS_OSX
+_SecKeyCreatePair
+#endif /* TARGET_OS_OSX */
 _SecKeyCreatePersistentRefToMatchingPrivateKey
-_SecKeyCreateRandomKey
+_SecKeyCreatePublicFromPrivate
+#if TARGET_OS_IPHONE
 _SecKeyCreateRSAPrivateKey
+#endif /* TARGET_OS_IPHONE */
 _SecKeyCreateRSAPublicKey
+#if TARGET_OS_IPHONE
 _SecKeyCreateRSAPublicKey_ios
+#endif /* TARGET_OS_IPHONE */
+_SecKeyCreateRandomKey
+_SecKeyCreateSignature
+#if TARGET_OS_OSX
+_SecKeyCreateWithCSSMKey
+#endif /* TARGET_OS_OSX */
 _SecKeyCreateWithData
 _SecKeyDecrypt
-_SecKeyFindWithPersistentRef
+#if TARGET_OS_OSX
+_SecKeyDeriveFromPassword
+#endif
+#if TARGET_OS_IPHONE
 _SecKeyDigestAndSign
+#endif /* TARGET_OS_IPHONE */
 _SecKeyDigestAndVerify
 _SecKeyEncrypt
+#if TARGET_OS_OSX
+_SecKeyGenerate
+#endif
+#if TARGET_OS_IPHONE
+_SecKeyFindWithPersistentRef
+#endif /* TARGET_OS_IPHONE */
 _SecKeyGeneratePair
+#if TARGET_OS_OSX
+_SecKeyGeneratePairAsync
+_SecKeyGenerateSymmetric
+#endif /* TARGET_OS_OSX */
 _SecKeyGetAlgorithmID
 _SecKeyGetAlgorithmId
+#if TARGET_OS_IPHONE
 _SecKeyGetAlgorithmIdentifier
+#endif /* TARGET_OS_IPHONE */
 _SecKeyGetBlockSize
+#if TARGET_OS_OSX
+_SecKeyGetCSPHandle
+_SecKeyGetCSSMKey
+_SecKeyGetCredentials
+#endif /* TARGET_OS_OSX */
 _SecKeyGetMatchingPrivateKeyStatus
 _SecKeyGetSize
+#if TARGET_OS_OSX
+_SecKeyGetStrengthInBits
+#endif /* TARGET_OS_OSX */
 _SecKeyGetTypeID
+#if TARGET_OS_OSX
+_SecKeyImportPair
+#endif /* TARGET_OS_OSX */
 _SecKeyIsAlgorithmSupported
 _SecKeyRawSign
 _SecKeyRawVerify
+#if TARGET_OS_OSX
+_SecKeyRawVerifyOSX
+#endif /* TARGET_OS_OSX */
 _SecKeySetParameter
 _SecKeySignDigest
+#if TARGET_OS_OSX
+_SecKeyUnwrapSymmetric
+#endif /* TARGET_OS_OSX */
 _SecKeyVerifyDigest
 _SecKeyVerifySignature
-_kSecKeyAlgorithmRSASignatureRaw
-_kSecKeyAlgorithmRSASignatureRawCCUnit
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512
-_kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5
-_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1
-_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224
-_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256
-_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384
-_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512
-_kSecKeyAlgorithmECDSASignatureRFC4754
+
+#if TARGET_OS_OSX
+_SecKeyWrapSymmetric
+#endif
+#if TARGET_OS_IPHONE
+__SecKeyCopyUnwrapKey
+__SecKeyCopyWrapKey
+__kSecKeyWrapPGPFingerprint
+__kSecKeyWrapPGPSymAlg
+__kSecKeyWrapPGPWrapAlg
+__kSecKeyWrapRFC6637Flags
+__kSecKeyWrapRFC6637WrapDigestSHA256KekAES128
+__kSecKeyWrapRFC6637WrapDigestSHA512KekAES256
+#endif /* TARGET_OS_IPHONE */
+_kSecKeyAlgorithmECDHKeyExchangeCofactor
+_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1
+_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224
+_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256
+_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384
+_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512
+_kSecKeyAlgorithmECDHKeyExchangeStandard
+_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1
+_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224
+_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256
+_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384
+_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512
 _kSecKeyAlgorithmECDSASignatureDigestX962
 _kSecKeyAlgorithmECDSASignatureDigestX962SHA1
 _kSecKeyAlgorithmECDSASignatureDigestX962SHA224
@@ -848,60 +1203,63 @@ _kSecKeyAlgorithmECDSASignatureMessageX962SHA224
 _kSecKeyAlgorithmECDSASignatureMessageX962SHA256
 _kSecKeyAlgorithmECDSASignatureMessageX962SHA384
 _kSecKeyAlgorithmECDSASignatureMessageX962SHA512
-_kSecKeyAlgorithmRSAEncryptionRaw
-_kSecKeyAlgorithmRSAEncryptionRawCCUnit
-_kSecKeyAlgorithmRSAEncryptionPKCS1
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA1
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA224
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA256
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA384
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA512
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA224AESGCM
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA256AESGCM
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA384AESGCM
-_kSecKeyAlgorithmRSAEncryptionOAEPSHA512AESGCM
-_kSecKeyAlgorithmECDHKeyExchangeStandard
-_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1
-_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224
-_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256
-_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384
-_kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512
-_kSecKeyAlgorithmECDHKeyExchangeCofactor
-_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1
-_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224
-_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256
-_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384
-_kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512
-_kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM
-_kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM
-_kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM
-_kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM
-_kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM
+_kSecKeyAlgorithmECDSASignatureRFC4754
 _kSecKeyAlgorithmECIESEncryptionCofactorX963SHA1AESGCM
 _kSecKeyAlgorithmECIESEncryptionCofactorX963SHA224AESGCM
 _kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM
 _kSecKeyAlgorithmECIESEncryptionCofactorX963SHA384AESGCM
 _kSecKeyAlgorithmECIESEncryptionCofactorX963SHA512AESGCM
-_kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw
+_kSecKeyAlgorithmECIESEncryptionStandardX963SHA1AESGCM
+_kSecKeyAlgorithmECIESEncryptionStandardX963SHA224AESGCM
+_kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM
+_kSecKeyAlgorithmECIESEncryptionStandardX963SHA384AESGCM
+_kSecKeyAlgorithmECIESEncryptionStandardX963SHA512AESGCM
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA1
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA1AESGCM
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA224
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA224AESGCM
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA256
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA256AESGCM
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA384
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA384AESGCM
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA512
+_kSecKeyAlgorithmRSAEncryptionOAEPSHA512AESGCM
+_kSecKeyAlgorithmRSAEncryptionPKCS1
+_kSecKeyAlgorithmRSAEncryptionRaw
+_kSecKeyAlgorithmRSAEncryptionRawCCUnit
 _kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384
+_kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512
 _kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5
+_kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5
+_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1
+_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224
+_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256
+_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384
+_kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512
+_kSecKeyAlgorithmRSASignatureRaw
+_kSecKeyAlgorithmRSASignatureRawCCUnit
+#if TARGET_OS_OSX
+_kSecKeyAttributeName
+#endif /* TARGET_OS_OSX */
 _kSecKeyKeyExchangeParameterRequestedSize
 _kSecKeyKeyExchangeParameterSharedInfo
+#if TARGET_OS_IPHONE
 _kSecPrivateKeyAttrs
 _kSecPublicKeyAttrs
-__SecKeyCopyWrapKey
-__SecKeyCopyUnwrapKey
-__kSecKeyWrapPGPSymAlg
-__kSecKeyWrapPGPFingerprint
-__kSecKeyWrapPGPWrapAlg
-__kSecKeyWrapRFC6637WrapDigestSHA256KekAES128
-__kSecKeyWrapRFC6637WrapDigestSHA512KekAES256
-__kSecKeyWrapRFC6637Flags
+#endif /* TARGET_OS_IPHONE */
 
 //
 // Keychain/SecItem
 //
+
+#if TARGET_OS_IPHONE
 
 _kSecAttrAFPServerSignature
 _kSecAttrAccessGroup
@@ -1023,11 +1381,157 @@ _kSecAttrTokenID
 _kSecAttrTokenIDSecureEnclave
 _kSecAttrTokenOID
 _kSecAttrTombstone
-#include "Security/SecureObjectSync/SOSViews.exp-in"
 _kSecAttrType
 _kSecAttrVolume
 _kSecAttrWasAlwaysSensitive
 _kSecAttrWasNeverExtractable
+#elif TARGET_OS_OSX
+
+_kSecAttrAFPServerSignature
+_kSecAttrAccess
+_kSecAttrAccessGroup
+_kSecAttrAccessGroupToken
+_kSecAttrAccessible
+_kSecAttrAccessibleAfterFirstUnlock
+_kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+_kSecAttrAccessibleAlways
+_kSecAttrAccessibleAlwaysPrivate
+_kSecAttrAccessibleAlwaysThisDeviceOnly
+_kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate
+_kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
+_kSecAttrAccessibleWhenUnlocked
+_kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+_kSecAttrAccount
+_kSecAttrAddress
+_kSecAttrAlias
+_kSecAttrApplicationLabel
+_kSecAttrApplicationTag
+_kSecAttrAuthenticationType
+_kSecAttrAuthenticationTypeDPA
+_kSecAttrAuthenticationTypeDefault
+_kSecAttrAuthenticationTypeHTMLForm
+_kSecAttrAuthenticationTypeHTTPBasic
+_kSecAttrAuthenticationTypeHTTPDigest
+_kSecAttrAuthenticationTypeMSN
+_kSecAttrAuthenticationTypeNTLM
+_kSecAttrAuthenticationTypeRPA
+_kSecAttrCRLEncoding
+_kSecAttrCRLType
+_kSecAttrCanDecrypt
+_kSecAttrCanDerive
+_kSecAttrCanEncrypt
+_kSecAttrCanSign
+_kSecAttrCanSignRecover
+_kSecAttrCanUnwrap
+_kSecAttrCanVerify
+_kSecAttrCanVerifyRecover
+_kSecAttrCanWrap
+_kSecAttrCertificateEncoding
+_kSecAttrCertificateType
+_kSecAttrComment
+_kSecAttrCreationDate
+_kSecAttrCreator
+_kSecAttrDescription
+_kSecAttrEffectiveKeySize
+_kSecAttrEndDate
+_kSecAttrGeneric
+_kSecAttrHasCustomIcon
+_kSecAttrIsExtractable
+_kSecAttrIsInvisible
+_kSecAttrIsModifiable
+_kSecAttrIsNegative
+_kSecAttrIsPermanent
+_kSecAttrIsPrivate
+_kSecAttrIsSensitive
+_kSecAttrIssuer
+_kSecAttrKeyClass
+_kSecAttrKeyClassPrivate
+_kSecAttrKeyClassPublic
+_kSecAttrKeyClassSymmetric
+_kSecAttrKeyCreator
+_kSecAttrKeySizeInBits
+_kSecAttrKeyType
+_kSecAttrKeyType3DES
+_kSecAttrKeyTypeAES
+_kSecAttrKeyTypeCAST
+_kSecAttrKeyTypeDES
+_kSecAttrKeyTypeDSA
+_kSecAttrKeyTypeEC
+_kSecAttrKeyTypeECDSA
+_kSecAttrKeyTypeECSECPrimeRandom
+_kSecAttrKeyTypeRC2
+_kSecAttrKeyTypeRC4
+_kSecAttrKeyTypeRSA
+_kSecAttrLabel
+_kSecAttrModificationDate
+_kSecAttrMultiUser
+_kSecAttrNoLegacy
+_kSecAttrPRF
+_kSecAttrPRFHmacAlgSHA1
+_kSecAttrPRFHmacAlgSHA224
+_kSecAttrPRFHmacAlgSHA256
+_kSecAttrPRFHmacAlgSHA384
+_kSecAttrPRFHmacAlgSHA512
+_kSecAttrPath
+_kSecAttrPort
+_kSecAttrProtocol
+_kSecAttrProtocolAFP
+_kSecAttrProtocolAppleTalk
+_kSecAttrProtocolDAAP
+_kSecAttrProtocolEPPC
+_kSecAttrProtocolFTP
+_kSecAttrProtocolFTPAccount
+_kSecAttrProtocolFTPProxy
+_kSecAttrProtocolFTPS
+_kSecAttrProtocolHTTP
+_kSecAttrProtocolHTTPProxy
+_kSecAttrProtocolHTTPS
+_kSecAttrProtocolHTTPSProxy
+_kSecAttrProtocolIMAP
+_kSecAttrProtocolIMAPS
+_kSecAttrProtocolIPP
+_kSecAttrProtocolIRC
+_kSecAttrProtocolIRCS
+_kSecAttrProtocolLDAP
+_kSecAttrProtocolLDAPS
+_kSecAttrProtocolNNTP
+_kSecAttrProtocolNNTPS
+_kSecAttrProtocolPOP3
+_kSecAttrProtocolPOP3S
+_kSecAttrProtocolRTSP
+_kSecAttrProtocolRTSPProxy
+_kSecAttrProtocolSMB
+_kSecAttrProtocolSMTP
+_kSecAttrProtocolSOCKS
+_kSecAttrProtocolSSH
+_kSecAttrProtocolTelnet
+_kSecAttrProtocolTelnetS
+_kSecAttrPublicKeyHash
+_kSecAttrRounds
+_kSecAttrSalt
+_kSecAttrScriptCode
+_kSecAttrSecurityDomain
+_kSecAttrSerialNumber
+_kSecAttrServer
+_kSecAttrService
+_kSecAttrStartDate
+_kSecAttrSubject
+_kSecAttrSubjectKeyID
+_kSecAttrSyncViewHint
+_kSecAttrSynchronizable
+_kSecAttrSynchronizableAny
+_kSecAttrTokenID
+_kSecAttrTokenIDSecureEnclave
+_kSecAttrTokenOID
+_kSecAttrTombstone
+_kSecAttrType
+_kSecAttrVolume
+_kSecAttrWasAlwaysSensitive
+_kSecAttrWasNeverExtractable
+#endif // TARGET_OS_OSX
+
+#include "Security/SecureObjectSync/SOSViews.exp-in"
+
 _kSecClass
 _kSecClassAppleSharePassword
 _kSecClassCertificate
@@ -1067,29 +1571,37 @@ _SecItemAdd
 _SecItemCopyDisplayNames
 _SecItemCopyMatching
 _SecItemDelete
+#if TARGET_OS_IPHONE
 _SecItemDeleteAll
+#endif
 _SecItemUpdate
+
 __SecItemMakePersistentRef
 __SecItemParsePersistentRef
+__SecKeychainBackupSyncable
 __SecKeychainCopyBackup
 __SecKeychainCopyOTABackup
 __SecKeychainRestoreBackup
-__SecKeychainSyncUpdateMessage
-__SecKeychainBackupSyncable
-__SecKeychainRestoreSyncable
 __SecKeychainRestoreBackupFromFileDescriptor
+__SecKeychainRestoreSyncable
+__SecKeychainSyncUpdateMessage
 __SecKeychainWriteBackupToFileDescriptor
 __SecKeychainCopyKeybagUUIDFromFileDescriptor
+
 _SecItemBackupWithRegisteredBackups
 _SecItemBackupSetConfirmedManifest
 _SecItemBackupRestore
 _SecItemBackupCopyMatching
 _SecItemBackupWithChanges
+#if TARGET_OS_IPHONE
 __SecKeychainRollKeys
+
 _SecAddSharedWebCredential
 _SecRequestSharedWebCredential
 _SecCreateSharedWebCredentialPassword
 _kSecSharedPassword
+#endif
+
 __SecSecuritydCopyWhoAmI
 __SecSyncBubbleTransfer
 __SecSystemKeychainTransfer
@@ -1098,6 +1610,7 @@ _SecItemUpdateTokenItems
 _SecItemDeleteAllWithAccessGroups
 __SecTokenItemCopyValueData
 
+#if TARGET_OS_IPHONE
 _kSecXPCKeyAttributesToUpdate
 _kSecXPCKeyBackup
 _kSecXPCKeyCertificate
@@ -1113,11 +1626,14 @@ _kSecXPCOTRReady
 _kSecXPCKeyDeviceID
 _kSecXPCKeyIDSMessage
 _kSecXPCKeySendIDSMessage
+#endif
 
 _SecCertificatePathCopyXPCArray
 _SecCertificateXPCArrayCopyArray
 _SecPolicyXPCArrayCopyArray
+#if TARGET_OS_IPHONE
 _SecServerSetMachServiceName
+#endif
 
 //
 // ServerEncryption
@@ -1138,17 +1654,21 @@ _der_decode_plist
 _CFPropertyListCreateDERData
 _CFPropertyListCreateWithDERData
 
+#if TARGET_OS_IPHONE
 //
 // DER
 //
 _DERDecodeItem
+#endif
 
 //
 // EMCS
 //
 
+#if TARGET_OS_IPHONE
 _SecEMCSCreateDerivedEMCSKey
 _SecEMCSCreateNewiDMSKey
+#endif
 
 //
 // Custom CFAllocators

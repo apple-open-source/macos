@@ -94,15 +94,6 @@ nss_cmsrecipientinfo_create(SecCmsEnvelopedDataRef envd, SecCmsRecipientIDSelect
 
     ri->envelopedData = envd;
 
-#if USE_CDSA_CRYPTO
-    if (type == SecCmsRecipientIDIssuerSN)
-    {
-	rv = SecCertificateGetAlgorithmID(cert,&algid);
-    } else {
-	PORT_Assert(pubKey);
-	rv = SecKeyGetAlgorithmID(pubKey,&algid);
-    }
-#else
     ri->cert = CERT_DupCertificate(cert);
     if (ri->cert == NULL)
         goto loser;
@@ -113,7 +104,6 @@ nss_cmsrecipientinfo_create(SecCmsEnvelopedDataRef envd, SecCmsRecipientIDSelect
     freeAlgID.parameters.Length = (size_t)length_data_swapped->parameters.Data;
     freeAlgID.parameters.Data = (uint8_t *)length_data_swapped->parameters.Length;
     algid = &freeAlgID;
-#endif
 
     certalgtag = SECOID_GetAlgorithmTag(algid);
 
@@ -135,24 +125,16 @@ nss_cmsrecipientinfo_create(SecCmsEnvelopedDataRef envd, SecCmsRecipientIDSelect
 		PORT_SetError(SEC_ERROR_NO_MEMORY);
 		break;
 	    } 
-	    SECITEM_CopyItem(poolp, rid->id.subjectKeyID, subjKeyID);
+            if (SECITEM_CopyItem(poolp, rid->id.subjectKeyID, subjKeyID)) {
+                rv = SECFailure;
+                PORT_SetError(SEC_ERROR_UNKNOWN_CERT);
+                break;
+            }
 	    if (rid->id.subjectKeyID->Data == NULL) {
 		rv = SECFailure;
 		PORT_SetError(SEC_ERROR_NO_MEMORY);
 		break;
 	    }
-
-#if 0
-            SecCmsKeyTransRecipientInfoEx *riExtra;
-	    riExtra = &ri->ri.keyTransRecipientInfoEx;
-	    riExtra->version = 0;
-	    riExtra->pubKey = SECKEY_CopyPublicKey(pubKey);
-	    if (riExtra->pubKey == NULL) {
-		rv = SECFailure;
-		PORT_SetError(SEC_ERROR_NO_MEMORY);
-		break;
-	    }
-#endif
 	} else {
 	    PORT_SetError(SEC_ERROR_INVALID_ARGS);
 	    rv = SECFailure;
@@ -351,37 +333,6 @@ SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsEnvelopedDataRef envd,
                                        NULL, pubKey, subjKeyID);
 }
 
-#if USE_CDSA_CRYPTO
-SecCmsRecipientInfoRef
-SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(SecCmsEnvelopedDataRef envd,
-                                             SecCertificateRef cert)
-{
-    SecPublicKeyRef pubKey = NULL;
-    SecAsn1Item subjKeyID = {0, NULL};
-    SecCmsRecipientInfoRef retVal = NULL;
-
-    if (!envd || !cert) {
-	return NULL;
-    }
-    pubKey = CERT_ExtractPublicKey(cert);
-    if (!pubKey) {
-	goto done;
-    }
-    if (CERT_FindSubjectKeyIDExtension(cert, &subjKeyID) != SECSuccess ||
-        subjKeyID.Data == NULL) {
-	goto done;
-    }
-    retVal = SecCmsRecipientInfoCreateWithSubjKeyID(envd, &subjKeyID, pubKey);
-done:
-    if (pubKey)
-	SECKEY_DestroyPublicKey(pubKey);
-
-    if (subjKeyID.Data)
-	SECITEM_FreeItem(&subjKeyID, PR_FALSE);
-
-    return retVal;
-}
-#else
 SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(SecCmsEnvelopedDataRef envd,
                                                SecCertificateRef cert)
@@ -407,7 +358,6 @@ done:
 
     return retVal;
 }
-#endif
 
 void
 SecCmsRecipientInfoDestroy(SecCmsRecipientInfoRef ri)
@@ -507,15 +457,11 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
     SecCertificateRef cert;
     SECOidTag certalgtag;
     OSStatus rv = SECSuccess;
-#if 0
-    SecAsn1Item * params = NULL;
-#endif /* 0 */
     SecCmsRecipientEncryptedKey *rek;
     SecCmsOriginatorIdentifierOrKey *oiok;
     const SECAlgorithmID *algid;
     SECAlgorithmID freeAlgID;
     PLArenaPool *poolp;
-    SecCmsKeyTransRecipientInfoEx *extra = NULL;
     Boolean usesSubjKeyID;
     uint8_t nullData[2] = {SEC_ASN1_NULL, 0};
     SECItem nullItem;
@@ -525,32 +471,12 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
     cert = ri->cert;
     usesSubjKeyID = nss_cmsrecipientinfo_usessubjectkeyid(ri);
     if (cert) {
-#if USE_CDSA_CRYPTO
-	rv = SecCertificateGetAlgorithmID(cert,&algid);
-	if (rv)
-	    return SECFailure;
-#else
         const SecAsn1AlgId *length_data_swapped = (const SecAsn1AlgId *)SecCertificateGetPublicKeyAlgorithm(cert);
         freeAlgID.algorithm.Length = (size_t)length_data_swapped->algorithm.Data;
         freeAlgID.algorithm.Data = (uint8_t *)length_data_swapped->algorithm.Length;
         freeAlgID.parameters.Length = (size_t)length_data_swapped->parameters.Data;
         freeAlgID.parameters.Data = (uint8_t *)length_data_swapped->parameters.Length;
         algid = &freeAlgID;
-#endif
-    } else if (usesSubjKeyID) {
-	extra = &ri->ri.keyTransRecipientInfoEx;
-	/* sanity check */
-	PORT_Assert(extra->pubKey);
-	if (!extra->pubKey) {
-	    PORT_SetError(SEC_ERROR_INVALID_ARGS);
-	    return SECFailure;
-	}
-#if USE_CDSA_CRYPTO
-	rv = SecKeyGetAlgorithmID(extra->pubKey,&algid);
-	if (rv)
-#endif
-	    return SECFailure;
-	certalgtag = SECOID_GetAlgorithmTag(algid);
     } else {
 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
 	return SECFailure;
@@ -568,59 +494,10 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
 	                         &ri->ri.keyTransRecipientInfo.encKey);
  	    if (rv != SECSuccess)
 		break;
-	} else if (usesSubjKeyID) {
-	    PORT_Assert(extra != NULL);
-	    rv = SecCmsUtilEncryptSymKeyRSAPubKey(poolp, extra->pubKey,
-	                         bulkkey, &ri->ri.keyTransRecipientInfo.encKey);
- 	    if (rv != SECSuccess)
-		break;
 	}
 
 	rv = SECOID_SetAlgorithmID(poolp, &(ri->ri.keyTransRecipientInfo.keyEncAlg), certalgtag, NULL);
 	break;
-#if 0
-    case SEC_OID_MISSI_KEA_DSS_OLD:
-    case SEC_OID_MISSI_KEA_DSS:
-    case SEC_OID_MISSI_KEA:
-	rv = SecCmsUtilEncryptSymKeyMISSI(poolp, cert, bulkkey,
-					bulkalgtag,
-					&ri->ri.keyTransRecipientInfo.encKey,
-					&params, ri->cmsg->pwfn_arg);
-	if (rv != SECSuccess)
-	    break;
-
-	/* here, we DO need to pass the params to the wrap function because, with
-	 * RSA, there is no funny stuff going on with generation of IV vectors or so */
-	rv = SECOID_SetAlgorithmID(poolp, &(ri->ri.keyTransRecipientInfo.keyEncAlg), certalgtag, params);
-	break;
-    case SEC_OID_X942_DIFFIE_HELMAN_KEY: /* dh-public-number */
-	rek = ri->ri.keyAgreeRecipientInfo.recipientEncryptedKeys[0];
-	if (rek == NULL) {
-	    rv = SECFailure;
-	    break;
-	}
-
-	oiok = &(ri->ri.keyAgreeRecipientInfo.originatorIdentifierOrKey);
-	PORT_Assert(oiok->identifierType == SecCmsOriginatorIDOrKeyOriginatorPublicKey);
-
-	/* see RFC2630 12.3.1.1 */
-	if (SECOID_SetAlgorithmID(poolp, &oiok->id.originatorPublicKey.algorithmIdentifier,
-				    SEC_OID_X942_DIFFIE_HELMAN_KEY, NULL) != SECSuccess) {
-	    rv = SECFailure;
-	    break;
-	}
-
-	/* this will generate a key pair, compute the shared secret, */
-	/* derive a key and ukm for the keyEncAlg out of it, encrypt the bulk key with */
-	/* the keyEncAlg, set encKey, keyEncAlg, publicKey etc. */
-	rv = SecCmsUtilEncryptSymKeyESDH(poolp, cert, bulkkey,
-					&rek->encKey,
-					&ri->ri.keyAgreeRecipientInfo.ukm,
-					&ri->ri.keyAgreeRecipientInfo.keyEncAlg,
-					&oiok->id.originatorPublicKey.publicKey);
-
-	break;
-#endif /* 0 */
     case SEC_OID_EC_PUBLIC_KEY:
         /* These were set up in nss_cmsrecipientinfo_create() */
         kari = &ri->ri.keyAgreeRecipientInfo;
@@ -661,10 +538,6 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
 	rv = SECFailure;
 	break;
     }
-#if 0
-    if (freeSpki)
-	SECKEY_DestroySubjectPublicKeyInfo(freeSpki);
-#endif
 
     return rv;
 }
@@ -690,7 +563,6 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 
     switch (ri->recipientInfoType) {
     case SecCmsRecipientInfoIDKeyTrans:
-	encalg = &(ri->ri.keyTransRecipientInfo.keyEncAlg);
 	encalgtag = SECOID_GetAlgorithmTag(&(ri->ri.keyTransRecipientInfo.keyEncAlg));
 	enckey = &(ri->ri.keyTransRecipientInfo.encKey); /* ignore subIndex */
 	switch (encalgtag) {
@@ -703,6 +575,7 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	case SEC_OID_NETSCAPE_SMIME_KEA:
 	    /* FORTEZZA key exchange algorithm */
 	    /* the supplemental data is in the parameters of encalg */
+            encalg = &(ri->ri.keyTransRecipientInfo.keyEncAlg);
 	    bulkkey = SecCmsUtilDecryptSymKeyMISSI(privkey, enckey, encalg, bulkalgtag, ri->cmsg->pwfn_arg);
 	    break;
 #endif /* 0 */
@@ -712,9 +585,7 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	}
 	break;
     case SecCmsRecipientInfoIDKeyAgree:
-	encalg = &(ri->ri.keyAgreeRecipientInfo.keyEncAlg);
 	encalgtag = SECOID_GetAlgorithmTag(&(ri->ri.keyAgreeRecipientInfo.keyEncAlg));
-	enckey = &(ri->ri.keyAgreeRecipientInfo.recipientEncryptedKeys[subIndex]->encKey);
 	switch (encalgtag) {
 	case SEC_OID_X942_DIFFIE_HELMAN_KEY:
 	    /* Diffie-Helman key exchange */
@@ -730,10 +601,13 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
         case SEC_OID_DH_SINGLE_STD_SHA1KDF:
         {
             /* ephemeral-static ECDH */
+            enckey = &(ri->ri.keyAgreeRecipientInfo.recipientEncryptedKeys[subIndex]->encKey);
+            encalg = &(ri->ri.keyAgreeRecipientInfo.keyEncAlg);
             SecCmsKeyAgreeRecipientInfo *kari = &ri->ri.keyAgreeRecipientInfo;
             SecCmsOriginatorIdentifierOrKey *oiok = &kari->originatorIdentifierOrKey;
             if(oiok->identifierType != SecCmsOriginatorIDOrKeyOriginatorPublicKey) {
                 dprintf("SEC_OID_EC_PUBLIC_KEY unwrap key: bad oiok.id\n");
+                error = SEC_ERROR_LIBRARY_FAILURE;
                 goto loser;
             }
             SecCmsOriginatorPublicKey *opk = &oiok->id.originatorPublicKey;
@@ -749,9 +623,6 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	}
 	break;
     case SecCmsRecipientInfoIDKEK:
-	encalg = &(ri->ri.kekRecipientInfo.keyEncAlg);
-	encalgtag = SECOID_GetAlgorithmTag(&(ri->ri.kekRecipientInfo.keyEncAlg));
-	enckey = &(ri->ri.kekRecipientInfo.encKey);
 	/* not supported yet */
 	error = SEC_ERROR_UNSUPPORTED_KEYALG;
 	goto loser;
@@ -761,5 +632,6 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
     return bulkkey;
 
 loser:
+    PORT_SetError(error);
     return NULL;
 }

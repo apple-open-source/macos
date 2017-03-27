@@ -48,7 +48,7 @@ static String& applicationBundleIdentifierOverride()
     return identifier;
 }
 
-static String applicationBundleIdentifier()
+String applicationBundleIdentifier()
 {
     // The override only gets set in WebKit2's WebProcess and NetworkProcess. If unset, we use the main bundle identifier.
     const auto& identifier = applicationBundleIdentifierOverride();
@@ -148,10 +148,22 @@ bool MacApplication::isHRBlock()
     return isHRBlock;
 }
 
+bool MacApplication::isIAdProducer()
+{
+    static bool isIAdProducer = applicationBundleIsEqualTo("com.apple.iAdProducer");
+    return isIAdProducer;
+}
+
 bool MacApplication::isSolidStateNetworksDownloader()
 {
     static bool isSolidStateNetworksDownloader = applicationBundleIsEqualTo("com.solidstatenetworks.awkhost");
     return isSolidStateNetworksDownloader;
+}
+
+bool MacApplication::isAppStore()
+{
+    static bool isAppStore = applicationBundleIsEqualTo("com.apple.appstore");
+    return isAppStore;
 }
 
 #endif // PLATFORM(MAC)
@@ -246,7 +258,7 @@ bool IOSApplication::isTheSecretSocietyHiddenMystery()
     static bool isTheSecretSocietyHiddenMystery = applicationBundleIsEqualTo("com.g5e.secretsociety");
     return isTheSecretSocietyHiddenMystery;
 }
-    
+
 #endif
 
 } // namespace WebCore

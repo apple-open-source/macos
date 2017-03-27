@@ -119,14 +119,14 @@ public:
     }
 
 public:
-    void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const override;
+    RenderBox::LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
 
 private:
     void layout() override;
     bool isFlexibleBoxImpl() const override { return true; }
 };
 
-void RenderSliderContainer::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues& computedValues) const
+RenderBox::LogicalExtentComputedValues RenderSliderContainer::computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const
 {
     ASSERT(element()->shadowHost());
     auto& input = downcast<HTMLInputElement>(*element()->shadowHost());
@@ -146,13 +146,12 @@ void RenderSliderContainer::computeLogicalHeight(LayoutUnit logicalHeight, Layou
         if (zoomFactor != 1.0)
             trackHeight *= zoomFactor;
 
-        RenderBox::computeLogicalHeight(trackHeight, logicalTop, computedValues);
-        return;
+        return RenderBox::computeLogicalHeight(trackHeight, logicalTop);
     }
 #endif
     if (isVertical)
         logicalHeight = RenderSlider::defaultTrackLength;
-    RenderBox::computeLogicalHeight(logicalHeight, logicalTop, computedValues);
+    return RenderBox::computeLogicalHeight(logicalHeight, logicalTop);
 }
 
 void RenderSliderContainer::layout()
@@ -298,7 +297,7 @@ void SliderThumbElement::setPositionFromPoint(const LayoutPoint& absolutePoint)
 #if ENABLE(DATALIST_ELEMENT)
     const LayoutUnit snappingThreshold = renderer()->theme().sliderTickSnappingThreshold();
     if (snappingThreshold > 0) {
-        if (Optional<Decimal> closest = input->findClosestTickMarkValue(value)) {
+        if (std::optional<Decimal> closest = input->findClosestTickMarkValue(value)) {
             double closestFraction = stepRange.proportionFromValue(*closest).toDouble();
             double closestRatio = isVertical || !isLeftToRightDirection ? 1.0 - closestFraction : closestFraction;
             LayoutUnit closestPosition = trackLength * closestRatio;
@@ -343,9 +342,9 @@ void SliderThumbElement::stopDragging()
 }
 
 #if !PLATFORM(IOS)
-void SliderThumbElement::defaultEventHandler(Event* event)
+void SliderThumbElement::defaultEventHandler(Event& event)
 {
-    if (!is<MouseEvent>(*event)) {
+    if (!is<MouseEvent>(event)) {
         HTMLDivElement::defaultEventHandler(event);
         return;
     }
@@ -359,7 +358,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
         return;
     }
 
-    MouseEvent& mouseEvent = downcast<MouseEvent>(*event);
+    MouseEvent& mouseEvent = downcast<MouseEvent>(event);
     bool isLeftButton = mouseEvent.button() == LeftButton;
     const AtomicString& eventType = mouseEvent.type();
 
@@ -378,7 +377,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
         return;
     }
 
-    HTMLDivElement::defaultEventHandler(&mouseEvent);
+    HTMLDivElement::defaultEventHandler(mouseEvent);
 }
 #endif
 
@@ -441,9 +440,9 @@ static Touch* findTouchWithIdentifier(TouchList& list, unsigned identifier)
     return nullptr;
 }
 
-void SliderThumbElement::handleTouchStart(TouchEvent* touchEvent)
+void SliderThumbElement::handleTouchStart(TouchEvent& touchEvent)
 {
-    TouchList* targetTouches = touchEvent->targetTouches();
+    TouchList* targetTouches = touchEvent.targetTouches();
     if (!targetTouches)
         return;
 
@@ -461,16 +460,16 @@ void SliderThumbElement::handleTouchStart(TouchEvent* touchEvent)
     setExclusiveTouchIdentifier(touch->identifier());
 
     startDragging();
-    touchEvent->setDefaultHandled();
+    touchEvent.setDefaultHandled();
 }
 
-void SliderThumbElement::handleTouchMove(TouchEvent* touchEvent)
+void SliderThumbElement::handleTouchMove(TouchEvent& touchEvent)
 {
     unsigned identifier = exclusiveTouchIdentifier();
     if (identifier == NoIdentifier)
         return;
 
-    TouchList* targetTouches = touchEvent->targetTouches();
+    TouchList* targetTouches = touchEvent.targetTouches();
     if (!targetTouches)
         return;
 
@@ -480,16 +479,16 @@ void SliderThumbElement::handleTouchMove(TouchEvent* touchEvent)
 
     if (m_inDragMode)
         setPositionFromPoint(IntPoint(touch->pageX(), touch->pageY()));
-    touchEvent->setDefaultHandled();
+    touchEvent.setDefaultHandled();
 }
 
-void SliderThumbElement::handleTouchEndAndCancel(TouchEvent* touchEvent)
+void SliderThumbElement::handleTouchEndAndCancel(TouchEvent& touchEvent)
 {
     unsigned identifier = exclusiveTouchIdentifier();
     if (identifier == NoIdentifier)
         return;
 
-    TouchList* targetTouches = touchEvent->targetTouches();
+    TouchList* targetTouches = touchEvent.targetTouches();
     if (!targetTouches)
         return;
     // If our exclusive touch still exists, it was not the touch
@@ -509,19 +508,19 @@ void SliderThumbElement::didAttachRenderers()
         registerForTouchEvents();
 }
 
-void SliderThumbElement::handleTouchEvent(TouchEvent* touchEvent)
+void SliderThumbElement::handleTouchEvent(TouchEvent& touchEvent)
 {
     HTMLInputElement* input = hostInput();
     ASSERT(input);
     if (input->isReadOnly() || input->isDisabledFormControl()) {
         clearExclusiveTouchIdentifier();
         stopDragging();
-        touchEvent->setDefaultHandled();
+        touchEvent.setDefaultHandled();
         HTMLDivElement::defaultEventHandler(touchEvent);
         return;
     }
 
-    const AtomicString& eventType = touchEvent->type();
+    const AtomicString& eventType = touchEvent.type();
     if (eventType == eventNames().touchstartEvent) {
         handleTouchStart(touchEvent);
         return;
@@ -582,7 +581,7 @@ HTMLInputElement* SliderThumbElement::hostInput() const
     return downcast<HTMLInputElement>(shadowHost());
 }
 
-Optional<ElementStyle> SliderThumbElement::resolveCustomStyle(const RenderStyle&, const RenderStyle* hostStyle)
+std::optional<ElementStyle> SliderThumbElement::resolveCustomStyle(const RenderStyle&, const RenderStyle* hostStyle)
 {
     // This doesn't actually compute style. This is just a hack to pick shadow pseudo id when host style is known.
 
@@ -590,7 +589,7 @@ Optional<ElementStyle> SliderThumbElement::resolveCustomStyle(const RenderStyle&
     static NeverDestroyed<const AtomicString> mediaSliderThumbShadowPseudoId("-webkit-media-slider-thumb", AtomicString::ConstructFromLiteral);
 
     if (!hostStyle)
-        return Nullopt;
+        return std::nullopt;
 
     switch (hostStyle->appearance()) {
     case MediaSliderPart:
@@ -605,7 +604,7 @@ Optional<ElementStyle> SliderThumbElement::resolveCustomStyle(const RenderStyle&
         m_shadowPseudoId = sliderThumbShadowPseudoId;
     }
 
-    return Nullopt;
+    return std::nullopt;
 }
 
 const AtomicString& SliderThumbElement::shadowPseudoId() const
@@ -636,7 +635,7 @@ RenderPtr<RenderElement> SliderContainerElement::createElementRenderer(RenderSty
     return createRenderer<RenderSliderContainer>(*this, WTFMove(style));
 }
 
-Optional<ElementStyle> SliderContainerElement::resolveCustomStyle(const RenderStyle&, const RenderStyle* hostStyle)
+std::optional<ElementStyle> SliderContainerElement::resolveCustomStyle(const RenderStyle&, const RenderStyle* hostStyle)
 {
     // This doesn't actually compute style. This is just a hack to pick shadow pseudo id when host style is known.
 
@@ -644,7 +643,7 @@ Optional<ElementStyle> SliderContainerElement::resolveCustomStyle(const RenderSt
     static NeverDestroyed<const AtomicString> sliderContainer("-webkit-slider-container", AtomicString::ConstructFromLiteral);
 
     if (!hostStyle)
-        return Nullopt;
+        return std::nullopt;
 
     switch (hostStyle->appearance()) {
     case MediaSliderPart:
@@ -659,7 +658,7 @@ Optional<ElementStyle> SliderContainerElement::resolveCustomStyle(const RenderSt
         m_shadowPseudoId = sliderContainer;
     }
 
-    return Nullopt;
+    return std::nullopt;
 }
 
 const AtomicString& SliderContainerElement::shadowPseudoId() const

@@ -25,7 +25,7 @@
 #include "WebKitPrivate.h"
 #include <WebCore/GeolocationProviderGeoclue.h>
 #include <WebCore/GeolocationProviderGeoclueClient.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
 namespace WebKit {
@@ -42,8 +42,8 @@ private:
     WebKitGeolocationProvider(WebGeolocationManagerProxy*);
 
     // GeolocationProviderGeoclueClient interface.
-    virtual void notifyPositionChanged(int, double, double, double, double, double);
-    virtual void notifyErrorOccurred(const char*);
+    void notifyPositionChanged(int, double, double, double, double, double) override;
+    void notifyErrorOccurred(const char*) override;
 
     RefPtr<WebGeolocationManagerProxy> m_geolocationManager;
     WebCore::GeolocationProviderGeoclue m_provider;

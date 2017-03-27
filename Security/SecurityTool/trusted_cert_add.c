@@ -41,16 +41,7 @@
  *
  *    % security add-trusted-cert -p ssl -d anotherRoot.cer
  *
- * The more obscure uses involve default settings and trust settings files.
- *
- * Specifying a default trust setting precludes specifying a cert. Other
- * options apply as usual; note that if the domain for which you are
- * specifying a default setting already has a default setting, the old default
- * will be replaced by the new one you specify.
- *
- * -- To specify a default of "deny" for policy SMIME for the admin domain:
- *
- *    % security add-trusted-cert -p smime -r deny -D
+ * The more obscure uses involve trust settings files.
  *
  * This command can also operate on trust settings as files instead of
  * modifying an actual on-disk Trust Settings record. One standard use for
@@ -208,7 +199,6 @@ trusted_cert_add(int argc, char * const *argv)
 	SecTrustSettingsDomain domain = kSecTrustSettingsDomainUser;
 	int ourRtn = 0;
 	SecKeychainRef kcRef = NULL;
-	int defaultSetting = 0;
 	char *certFile = NULL;
 	SecCertificateRef certRef = NULL;
 
@@ -239,7 +229,7 @@ trusted_cert_add(int argc, char * const *argv)
 	}
 
 	optind = 1;
-	while ((arg = getopt(argc, argv, "dr:a:p:s:e:u:k:i:o:Dh")) != -1) {
+	while ((arg = getopt(argc, argv, "dr:a:p:s:e:u:k:i:o:h")) != -1) {
 		switch (arg) {
 			case 'd':
 				domain = kSecTrustSettingsDomainAdmin;
@@ -319,9 +309,6 @@ trusted_cert_add(int argc, char * const *argv)
 			case 'o':
 				settingsFileOut = optarg;
 				break;
-			case 'D':
-				defaultSetting = 1;
-				break;
 			default:
 			case 'h':
 				return 2; /* @@@ Return 2 triggers usage message. */
@@ -344,13 +331,8 @@ trusted_cert_add(int argc, char * const *argv)
 	}
 
 	/* validate inputs */
-	if(defaultSetting && (certFile != NULL)) {
-		fprintf(stderr, "Can't specify cert when manipulating default setting.\n");
-		ourRtn = 2; /* @@@ Return 2 triggers usage message. */
-		goto errOut;
-	}
-	if((certFile == NULL) && (settingsFileOut == NULL) && !defaultSetting) {
-		/* no cert file - only legal for r/w file or for default settings */
+	if((certFile == NULL) && (settingsFileOut == NULL)) {
+		/* no cert file - only legal for r/w file */
 		fprintf(stderr, "No cert file specified.\n");
 		ourRtn = 2;
 		goto errOut;
@@ -475,12 +457,7 @@ trusted_cert_add(int argc, char * const *argv)
 		}
 	}
 
-	/* optional cert file */
-	if(defaultSetting) {
-		/* we don't have a cert; use this instead... */
-		certRef = kSecTrustSettingsDefaultRootCertSetting;
-	}
-	else if(certFile != NULL) {
+	if(certFile != NULL) {
 		if(readCertFile(certFile, &certRef)) {
 			fprintf(stderr, "Error reading file %s\n", certFile);
 			ourRtn = 1;
@@ -542,7 +519,7 @@ trusted_cert_add(int argc, char * const *argv)
 		}
 	}
 errOut:
-	if((certRef != NULL) & (certRef != kSecTrustSettingsDefaultRootCertSetting)) {
+	if(certRef != NULL) {
 		CFRelease(certRef);
 	}
 	CFRELEASE(trustSettings);
@@ -558,7 +535,6 @@ trusted_cert_remove(int argc, char * const *argv)
 	OSStatus ortn = noErr;
 	int ourRtn = 0;
 	SecTrustSettingsDomain domain = kSecTrustSettingsDomainUser;
-	int defaultSetting = 0;
 	SecCertificateRef certRef = NULL;
 	char *certFile = NULL;
 
@@ -567,13 +543,10 @@ trusted_cert_remove(int argc, char * const *argv)
 	int arg;
 
 	optind = 1;
-	while ((arg = getopt(argc, argv, "dDh")) != -1) {
+	while ((arg = getopt(argc, argv, "dh")) != -1) {
 		switch (arg) {
 			case 'd':
 				domain = kSecTrustSettingsDomainAdmin;
-				break;
-			case 'D':
-				defaultSetting = 1;
 				break;
 			default:
 			case 'h':
@@ -592,25 +565,15 @@ trusted_cert_remove(int argc, char * const *argv)
 			return 2;
 	}
 
-	if((certFile == NULL) && !defaultSetting) {
+	if(certFile == NULL) {
 		fprintf(stderr, "No cert file specified.\n");
 		return 2;
 	}
-	if((certFile != NULL) && defaultSetting) {
-		fprintf(stderr, "Can't specify cert when manipulating default setting.\n");
-		return 2;
-	}
 
-	if(defaultSetting) {
-		/* we don't have a cert; use this instead... */
-		certRef = kSecTrustSettingsDefaultRootCertSetting;
-	}
-	else {
-		if(readCertFile(certFile, &certRef)) {
-			fprintf(stderr, "Error reading file %s\n", certFile);
-			return 1;
-		}
-	}
+    if(readCertFile(certFile, &certRef)) {
+        fprintf(stderr, "Error reading file %s\n", certFile);
+        return 1;
+    }
 
 	ortn = SecTrustSettingsRemoveTrustSettings(certRef, domain);
 	if(ortn) {
@@ -618,7 +581,7 @@ trusted_cert_remove(int argc, char * const *argv)
 		ourRtn = 1;
 	}
 
-	if((certRef != NULL) & (certRef != kSecTrustSettingsDefaultRootCertSetting)) {
+	if(certRef != NULL) {
 		CFRelease(certRef);
 	}
 

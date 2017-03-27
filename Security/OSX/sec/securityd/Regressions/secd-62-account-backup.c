@@ -260,15 +260,7 @@ static void tests(void)
     CFReleaseNull(alice_account);
     CFReleaseNull(cfpassword);
 
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-
-    CFReleaseNull(kTestView1);
-    CFReleaseNull(kTestView2);
+    SOSTestCleanup();
 #endif
 
 }

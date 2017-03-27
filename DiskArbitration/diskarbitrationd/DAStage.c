@@ -39,7 +39,7 @@
 #include <sys/mount.h>
 
 const CFTimeInterval __kDABusyTimerGrace = 1;
-const CFTimeInterval __kDABusyTimerLimit = 1;
+const CFTimeInterval __kDABusyTimerLimit = 10;
 
 static CFRunLoopSourceRef __gDAStageRunLoopSource = NULL;
 
@@ -122,7 +122,17 @@ static void __DAStageDispatch( void * info )
         {
             CFAbsoluteTime timeout;
 
-            timeout = DADiskGetBusy( disk ) + __kDABusyTimerLimit;
+            timeout = DADiskGetBusy( disk );
+
+            if ( timeout == 0 )
+            {
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
+                {
+                    DAUnitSetState( disk, kDAUnitStateHasQuiescedNoTimeout, TRUE );
+                }
+            }
+
+            timeout += __kDABusyTimerLimit;
 
             if ( timeout < CFAbsoluteTimeGetCurrent( ) )
             {
@@ -607,7 +617,7 @@ static void __DAStageProbe( DADiskRef disk )
      * We commence the "probe" stage if the conditions are right.
      */
 
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
+    if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         /*
          * Commence the probe.

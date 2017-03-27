@@ -365,6 +365,8 @@ quit(char *s)
 			set_remove();
 		}
 	}
+	endwin();
+
 	printf("latency: ");
 	if (s) {
 		printf("%s", s);
@@ -2583,7 +2585,7 @@ do_kernel_nm(void)
 	/*
 	 * Build the nm command and create a tmp file with the output
 	 */
-	sprintf (tmpstr, "/usr/bin/nm -f -n -s __TEXT __text %s > %s",
+	sprintf (tmpstr, "/usr/bin/nm -n %s -s __TEXT __text > %s",
 		 kernelpath, tmp_nm_file);
 	system(tmpstr);
 

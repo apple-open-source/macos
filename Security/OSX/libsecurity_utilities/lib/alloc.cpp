@@ -27,13 +27,16 @@
 //
 // Don't eat heavily before inspecting this code.
 //
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
+
 #include <security_utilities/alloc.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/globalizer.h>
 #include <stdlib.h>
 #include <errno.h>
 
-using LowLevelMemoryUtilities::alignof;
+using LowLevelMemoryUtilities::alignof_template;
 using LowLevelMemoryUtilities::increment;
 using LowLevelMemoryUtilities::alignUp;
 
@@ -135,7 +138,7 @@ void *CssmHeap::operator new (size_t size, Allocator *alloc) throw(std::bad_allo
 {
 	if (alloc == NULL)
 		alloc = &Allocator::standard();
-	size = alignUp(size, alignof<Allocator *>());
+	size = alignUp(size, alignof_template<Allocator *>());
 	size_t totalSize = size + sizeof(Allocator *);
 	void *addr = alloc->malloc(totalSize);
 	*(Allocator **)increment(addr, size) = alloc;
@@ -149,7 +152,7 @@ void CssmHeap::operator delete (void *addr, size_t size, Allocator *alloc) throw
 
 void CssmHeap::operator delete (void *addr, size_t size) throw()
 {
-	void *end = increment(addr, alignUp(size, alignof<Allocator *>()));
+	void *end = increment(addr, alignUp(size, alignof_template<Allocator *>()));
 	(*(Allocator **)end)->free(addr);
 }
 

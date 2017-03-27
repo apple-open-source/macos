@@ -643,7 +643,7 @@ static bool SOSRingRemoveSignatures(SOSRingRef ring, CFErrorRef *error) {
     return true;
 }
 
-static CFDataRef SOSHashSign(SecKeyRef privKey, CFDataRef hash, CFErrorRef *error) {
+static CFDataRef SOSCopySignedHash(SecKeyRef privKey, CFDataRef hash, CFErrorRef *error) {
     size_t siglen = SecKeyGetSize(privKey, kSecKeySignatureSize)+16;
     uint8_t sig[siglen];
     OSStatus stat =  SecKeyRawSign(privKey, kSecPaddingNone, CFDataGetBytePtr(hash), CFDataGetLength(hash), sig, &siglen);
@@ -661,7 +661,7 @@ static bool SOSRingSign(SOSRingRef ring, SecKeyRef privKey, CFErrorRef *error) {
     }
     const struct ccdigest_info *di = ccsha256_di();
     CFDataRef hash = SOSRingCreateHash(di, ring, error);
-    CFDataRef signature = SOSHashSign(privKey, hash, error);
+    CFDataRef signature = SOSCopySignedHash(privKey, hash, error);
     SOSRingSetSignature(ring, privKey, signature, error);
     CFRelease(signature);
     CFReleaseNull(hash);

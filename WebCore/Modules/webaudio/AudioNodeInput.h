@@ -22,14 +22,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef AudioNodeInput_h
-#define AudioNodeInput_h
+#pragma once
 
 #include "AudioBus.h"
 #include "AudioNode.h"
 #include "AudioSummingJunction.h"
 #include <wtf/HashSet.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -95,5 +93,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // AudioNodeInput_h

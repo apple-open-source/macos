@@ -127,7 +127,6 @@
 		182BB39F146F1A68000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		182BB3A0146F1A68000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		182BB3A1146F1A68000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
-		4C21887E0635F4D300E64E02 /* security_smime.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_smime.exp; sourceTree = "<group>"; };
 		4C2741F203E9FC5B00A80181 /* cmsarray.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cmsarray.c; sourceTree = "<group>"; tabWidth = 8; };
 		4C2741F303E9FC5B00A80181 /* cmsasn1.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cmsasn1.c; sourceTree = "<group>"; tabWidth = 8; };
 		4C2741F403E9FC5B00A80181 /* cmsattr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cmsattr.c; sourceTree = "<group>"; tabWidth = 8; };
@@ -308,7 +307,6 @@
 				4C8E166E0438EEE700CA2E66 /* secoidt.h */,
 				4C7183470637153700230DDE /* SecSMIME.h */,
 				4C424BE7063F28F600E9831A /* SecSMIMEPriv.h */,
-				4C21887E0635F4D300E64E02 /* security_smime.exp */,
 				4C27420F03E9FC5B00A80181 /* smimeutil.c */,
 				ACBEE90B18B403470021712D /* SecCMS.c */,
 				ACBEE90D18B415B60021712D /* SecCMS.h */,
@@ -418,7 +416,7 @@
 		4C2741E803E9FBAF00A80181 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0800;
+				LastUpgradeCheck = 0810;
 			};
 			buildConfigurationList = C23B0CD909A298C100B7FCED /* Build configuration list for PBXProject "libsecurity_smime" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -515,6 +513,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
@@ -554,6 +553,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
@@ -588,10 +588,7 @@
 			baseConfigurationReference = 182BB39F146F1A68000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"$(inherited)",
-					"SECTRUST_OSX=1",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
 			};
 			name = Debug;
 		};
@@ -600,10 +597,7 @@
 			baseConfigurationReference = 182BB3A1146F1A68000BF1F3 /* release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"$(inherited)",
-					"SECTRUST_OSX=1",
-				);
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
 			};
 			name = Release;
 		};
@@ -612,11 +606,14 @@
 			baseConfigurationReference = 182BB3A0146F1A68000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -634,11 +631,14 @@
 			baseConfigurationReference = 182BB3A0146F1A68000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

@@ -48,7 +48,7 @@ Certificate::clForType(CSSM_CERT_TYPE type)
 }
 
 Certificate::Certificate(const CSSM_DATA &data, CSSM_CERT_TYPE type, CSSM_CERT_ENCODING encoding) :
-	ItemImpl(CSSM_DL_DB_RECORD_X509_CERTIFICATE, reinterpret_cast<SecKeychainAttributeList *>(NULL), UInt32(data.Length), reinterpret_cast<const void *>(data.Data)),
+	ItemImpl((SecItemClass) CSSM_DL_DB_RECORD_X509_CERTIFICATE, reinterpret_cast<SecKeychainAttributeList *>(NULL), UInt32(data.Length), reinterpret_cast<const void *>(data.Data)),
 	mHaveTypeAndEncoding(true),
 	mPopulated(false),
 	mType(type),
@@ -159,6 +159,7 @@ try
 }
 catch (...)
 {
+    return;	// Prevent re-throw of exception [function-try-block]
 }
 
 CSSM_HANDLE
@@ -431,8 +432,8 @@ findPrintableField(
 				if(memcmp(tvpPtr->type.Data, tvpType->Data, tvpType->Length)) {
 					/* If we don't have a match but the requested OID is CSSMOID_UserID,
 					 * look for a matching X.500 UserID OID: (0.9.2342.19200300.100.1.1)  */
-					const char cssm_userid_oid[] = { 0x09,0x49,0x86,0x49,0x1f,0x12,0x8c,0xe4,0x81,0x81 };
-					const char x500_userid_oid[] = { 0x09,0x92,0x26,0x89,0x93,0xF2,0x2C,0x64,0x01,0x01 };
+					const unsigned char cssm_userid_oid[] = { 0x09,0x49,0x86,0x49,0x1f,0x12,0x8c,0xe4,0x81,0x81 };
+					const unsigned char x500_userid_oid[] = { 0x09,0x92,0x26,0x89,0x93,0xF2,0x2C,0x64,0x01,0x01 };
 					if(!(tvpType->Length == sizeof(cssm_userid_oid) &&
 						!memcmp(tvpPtr->type.Data, x500_userid_oid, sizeof(x500_userid_oid)) &&
 						!memcmp(tvpType->Data, cssm_userid_oid, sizeof(cssm_userid_oid)))) {
@@ -873,7 +874,7 @@ Certificate::encoding()
 	return mEncoding;
 }
 
-const CSSM_X509_ALGORITHM_IDENTIFIER_PTR
+CSSM_X509_ALGORITHM_IDENTIFIER_PTR
 Certificate::algorithmID()
 {
 	StLock<Mutex>_(mMutex);
@@ -943,7 +944,7 @@ Certificate::distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *compon
 	CSSM_DATA_PTR fieldValue = copyFirstFieldValue(*sourceOid);
 	CSSM_X509_NAME_PTR x509Name = (CSSM_X509_NAME_PTR)fieldValue->Data;
 	const CSSM_DATA	*printValue = NULL;
-	CFStringBuiltInEncodings encoding;
+	CFStringBuiltInEncodings encoding = kCFStringEncodingUTF8;
 
 	if (fieldValue && fieldValue->Data)
 		printValue = findPrintableField(*x509Name, componentOid, true, &encoding);
@@ -1074,7 +1075,7 @@ Certificate::copyEmailAddresses()
 	return array;
 }
 
-const CSSM_X509_NAME_PTR
+CSSM_X509_NAME_PTR
 Certificate::subjectName()
 {
 	StLock<Mutex>_(mMutex);
@@ -1085,7 +1086,7 @@ Certificate::subjectName()
     return (const CSSM_X509_NAME_PTR)mV1SubjectNameCStructValue->Data;
 }
 
-const CSSM_X509_NAME_PTR
+CSSM_X509_NAME_PTR
 Certificate::issuerName()
 {
 	StLock<Mutex>_(mMutex);

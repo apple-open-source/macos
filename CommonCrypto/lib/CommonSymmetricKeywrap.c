@@ -22,8 +22,8 @@
  */
 
 // #define COMMON_SYMMETRIC_KEYWRAP_FUNCTIONS
-#include "CommonSymmetricKeywrap.h"
-#include "CommonCryptor.h"
+#include <CommonCrypto/CommonSymmetricKeywrap.h>
+#include <CommonCrypto/CommonCryptor.h>
 #include "CommonCryptorPriv.h"
 #include <AssertMacros.h>
 #include "ccdebug.h"
@@ -73,6 +73,11 @@ pack64(const uint8_t *iv, size_t __unused ivLen)
 	
 */
 
+#if defined (_WIN32) //works for llvm
+#define swap64(k)  __builtin_bswap64(k);
+#else
+#define swap64(k) _OSSwapInt64(k)
+#endif
 
 int  
 CCSymmetricKeyWrap( CCWrappingAlgorithm __unused algorithm,
@@ -86,7 +91,7 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm __unused algorithm,
     int i, j, err = 0;
     const struct ccmode_ecb *ccmode = getCipherMode(kCCAlgorithmAES128, kCCModeECB, kCCEncrypt).ecb;
 
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     ccecb_ctx_decl(ccmode->size, ctx);
 	R = calloc(n, sizeof(uint64_t[2])); 
 	
@@ -112,7 +117,7 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm __unused algorithm,
         for (i = 0; i < (int) n; i++)
         {
             ccmode->ecb(ctx, 1, (uint8_t*)&R[i][0], (uint8_t*)&R[i][0]);
-            R[(i + 1) % n][0] = R[i][0] ^ _OSSwapInt64((n*j)+i+1);
+            R[(i + 1) % n][0] = R[i][0] ^ swap64((n*j)+i+1);
         }
     }
 	
@@ -144,17 +149,14 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm __unused algorithm,
     int j, err = 0;
     const struct ccmode_ecb *ccmode = getCipherMode(kCCAlgorithmAES128, kCCModeECB, kCCDecrypt).ecb;
 
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     
     ccecb_ctx_decl(ccmode->size, ctx);
 
-    if(n < 1) {
-        err = kCCParamError;
-        goto out;
-    }
-
-	R = calloc(n, sizeof(uint64_t[2]));
-
+    require_action(n>=1 && n<SIZE_MAX/sizeof(uint64_t[2]), out, err = kCCParamError);
+    R = calloc(n, sizeof(uint64_t[2]));
+    require_action(R!=NULL, out, err = kCCParamError);
+    
     // kek multiple of 64 bits: 128, 192, 256
     require_action(kekLen == 16 || kekLen == 24 || kekLen == 32, out, err = kCCParamError);
     // wrapped_key_len 64 bits larger than key_len
@@ -168,7 +170,7 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm __unused algorithm,
     ccmode->init(ccmode, ctx, kekLen, kek);
     for (j = 5; j >= 0; j--) {
         for (size_t i = n; i > 0; i--) {
-            R[i-1][0] = R[(i) % n][0] ^ _OSSwapInt64((n*j)+i);
+            R[i-1][0] = R[(i) % n][0] ^ swap64((n*j)+i);
             ccmode->ecb(ctx, 1, (uint8_t*)&R[i-1][0], (uint8_t*)&R[i-1][0]);
         }
     }
@@ -176,20 +178,17 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm __unused algorithm,
 	uint64_t kek_iv = pack64(iv, ivLen);
 
     // R[0][0] == iv?
-    require_action(R[0][0] == kek_iv, out, err = kCCParamError);
+    require_action(R[0][0] == kek_iv, out, err = kCCDecodeError);
 
     // write output
     for (size_t i = 0; i < n; i++)
         memcpy(rawKey + i * 8, &R[i][1], 8);
 
     // clean all stack variables
-
-    for(size_t i=0; i < n; i++)
-        for(j=0; j<2; j++)
-            R[i][j] = 0;
-
+    cc_clear(n*sizeof(uint64_t[2]), R);
+             
 out:
-	if (R) free(R);
+	free(R);
     return err;
 }
 
@@ -197,14 +196,14 @@ out:
 size_t
 CCSymmetricWrappedSize( CCWrappingAlgorithm __unused algorithm, size_t rawKeyLen)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return (rawKeyLen + 8);
 }
 
 size_t
 CCSymmetricUnwrappedSize( CCWrappingAlgorithm __unused algorithm, size_t wrappedKeyLen)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     return (wrappedKeyLen - 8);
 }
 

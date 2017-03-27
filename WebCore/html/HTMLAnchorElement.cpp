@@ -44,6 +44,7 @@
 #include "ResourceRequest.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SVGImage.h"
+#include "ScriptController.h"
 #include "SecurityOrigin.h"
 #include "SecurityPolicy.h"
 #include "Settings.h"
@@ -58,7 +59,6 @@ HTMLAnchorElement::HTMLAnchorElement(const QualifiedName& tagName, Document& doc
     : HTMLElement(tagName, document)
     , m_hasRootEditableElementForSelectionOnMouseDown(false)
     , m_wasShiftKeyDownOnMouseDown(false)
-    , m_linkRelations(0)
     , m_cachedVisitedLinkHash(0)
 {
 }
@@ -118,7 +118,7 @@ static bool hasNonEmptyBox(RenderBoxModelObject* renderer)
     return false;
 }
 
-bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent* event) const
+bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent& event) const
 {
     if (!isLink())
         return HTMLElement::isKeyboardFocusable(event);
@@ -129,7 +129,7 @@ bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent* event) const
     if (!document().frame())
         return false;
 
-    if (!document().frame()->eventHandler().tabsToLinks(event))
+    if (!document().frame()->eventHandler().tabsToLinks(&event))
         return false;
 
     if (!renderer() && ancestorsOfType<HTMLCanvasElement>(*this).first())
@@ -166,16 +166,16 @@ static void appendServerMapMousePosition(StringBuilder& url, Event& event)
     url.appendNumber(std::lround(absolutePosition.y()));
 }
 
-void HTMLAnchorElement::defaultEventHandler(Event* event)
+void HTMLAnchorElement::defaultEventHandler(Event& event)
 {
     if (isLink()) {
         if (focused() && isEnterKeyKeydownEvent(event) && treatLinkAsLiveForEventType(NonMouseEvent)) {
-            event->setDefaultHandled();
-            dispatchSimulatedClick(event);
+            event.setDefaultHandled();
+            dispatchSimulatedClick(&event);
             return;
         }
 
-        if (MouseEvent::canTriggerActivationBehavior(*event) && treatLinkAsLiveForEventType(eventType(event))) {
+        if (MouseEvent::canTriggerActivationBehavior(event) && treatLinkAsLiveForEventType(eventType(event))) {
             handleClick(event);
             return;
         }
@@ -183,10 +183,10 @@ void HTMLAnchorElement::defaultEventHandler(Event* event)
         if (hasEditableStyle()) {
             // This keeps track of the editable block that the selection was in (if it was in one) just before the link was clicked
             // for the LiveWhenNotFocused editable link behavior
-            if (event->type() == eventNames().mousedownEvent && is<MouseEvent>(*event) && downcast<MouseEvent>(*event).button() != RightButton && document().frame()) {
+            if (event.type() == eventNames().mousedownEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() != RightButton && document().frame()) {
                 setRootEditableElementForSelectionOnMouseDown(document().frame()->selection().selection().rootEditableElement());
-                m_wasShiftKeyDownOnMouseDown = downcast<MouseEvent>(*event).shiftKey();
-            } else if (event->type() == eventNames().mouseoverEvent) {
+                m_wasShiftKeyDownOnMouseDown = downcast<MouseEvent>(event).shiftKey();
+            } else if (event.type() == eventNames().mouseoverEvent) {
                 // These are cleared on mouseover and not mouseout because their values are needed for drag events,
                 // but drag events happen after mouse out events.
                 clearRootEditableElementForSelectionOnMouseDown();
@@ -236,7 +236,7 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomicSt
         bool wasLink = isLink();
         setIsLink(!value.isNull() && !shouldProhibitLinks(this));
         if (wasLink != isLink())
-            setNeedsStyleRecalc();
+            invalidateStyleForSubtree();
         if (isLink()) {
             String parsedURL = stripLeadingAndTrailingHTMLSpaces(value);
             if (document().isDNSPrefetchEnabled() && document().frame()) {
@@ -248,8 +248,15 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomicSt
     } else if (name == nameAttr || name == titleAttr) {
         // Do nothing.
     } else if (name == relAttr) {
-        if (SpaceSplitString::spaceSplitStringContainsValue(value, "noreferrer", true))
-            m_linkRelations |= RelationNoReferrer;
+        // Update HTMLAnchorElement::relList() if more rel attributes values are supported.
+        static NeverDestroyed<AtomicString> noReferrer("noreferrer", AtomicString::ConstructFromLiteral);
+        static NeverDestroyed<AtomicString> noOpener("noopener", AtomicString::ConstructFromLiteral);
+        const bool shouldFoldCase = true;
+        SpaceSplitString relValue(value, shouldFoldCase);
+        if (relValue.contains(noReferrer))
+            m_linkRelations |= Relation::NoReferrer;
+        if (relValue.contains(noOpener))
+            m_linkRelations |= Relation::NoOpener;
         if (m_relList)
             m_relList->associatedAttributeValueChanged(value);
     }
@@ -294,15 +301,17 @@ void HTMLAnchorElement::setHref(const AtomicString& value)
     setAttributeWithoutSynchronization(hrefAttr, value);
 }
 
-bool HTMLAnchorElement::hasRel(uint32_t relation) const
+bool HTMLAnchorElement::hasRel(Relation relation) const
 {
-    return m_linkRelations & relation;
+    return m_linkRelations.contains(relation);
 }
 
 DOMTokenList& HTMLAnchorElement::relList()
 {
     if (!m_relList) 
-        m_relList = std::make_unique<DOMTokenList>(*this, HTMLNames::relAttr);
+        m_relList = std::make_unique<DOMTokenList>(*this, HTMLNames::relAttr, [](StringView token) {
+            return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener");
+        });
     return *m_relList;
 }
 
@@ -332,14 +341,9 @@ String HTMLAnchorElement::text()
     return textContent();
 }
 
-void HTMLAnchorElement::setText(const String& text, ExceptionCode& ec)
+void HTMLAnchorElement::setText(const String& text)
 {
-    setTextContent(text, ec);
-}
-
-String HTMLAnchorElement::toString() const
-{
-    return href().string();
+    setTextContent(text);
 }
 
 bool HTMLAnchorElement::isLiveLink() const
@@ -357,36 +361,46 @@ void HTMLAnchorElement::sendPings(const URL& destinationURL)
         PingLoader::sendPing(*document().frame(), document().completeURL(pingURLs[i]), destinationURL);
 }
 
-void HTMLAnchorElement::handleClick(Event* event)
+void HTMLAnchorElement::handleClick(Event& event)
 {
-    event->setDefaultHandled();
+    event.setDefaultHandled();
 
     Frame* frame = document().frame();
     if (!frame)
         return;
 
+    if (document().pageCacheState() != Document::NotInPageCache)
+        return;
+
     StringBuilder url;
     url.append(stripLeadingAndTrailingHTMLSpaces(attributeWithoutSynchronization(hrefAttr)));
-    appendServerMapMousePosition(url, *event);
-    URL kurl = document().completeURL(url.toString());
+    appendServerMapMousePosition(url, event);
+    URL completedURL = document().completeURL(url.toString());
 
-    auto downloadAttribute = nullAtom;
+    String downloadAttribute;
 #if ENABLE(DOWNLOAD_ATTRIBUTE)
-    if (RuntimeEnabledFeatures::sharedFeatures().downloadAttributeEnabled())
-        downloadAttribute = attributeWithoutSynchronization(downloadAttr);
+    if (RuntimeEnabledFeatures::sharedFeatures().downloadAttributeEnabled()) {
+        // Ignore the download attribute completely if the href URL is cross origin.
+        bool isSameOrigin = completedURL.protocolIsData() || document().securityOrigin()->canRequest(completedURL);
+        if (isSameOrigin)
+            downloadAttribute = ResourceResponse::sanitizeSuggestedFilename(attributeWithoutSynchronization(downloadAttr));
+        else if (hasAttributeWithoutSynchronization(downloadAttr))
+            document().addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "The download attribute on anchor was ignored because its href URL has a different security origin.");
+    }
 #endif
 
-    frame->loader().urlSelected(kurl, target(), event, LockHistory::No, LockBackForwardList::No, hasRel(RelationNoReferrer) ? NeverSendReferrer : MaybeSendReferrer, document().shouldOpenExternalURLsPolicyToPropagate(), downloadAttribute);
+    ShouldSendReferrer shouldSendReferrer = hasRel(Relation::NoReferrer) ? NeverSendReferrer : MaybeSendReferrer;
+    auto newFrameOpenerPolicy = hasRel(Relation::NoOpener) ? std::make_optional(NewFrameOpenerPolicy::Suppress) : std::nullopt;
+    frame->loader().urlSelected(completedURL, target(), &event, LockHistory::No, LockBackForwardList::No, shouldSendReferrer, document().shouldOpenExternalURLsPolicyToPropagate(), newFrameOpenerPolicy, downloadAttribute);
 
-    sendPings(kurl);
+    sendPings(completedURL);
 }
 
-HTMLAnchorElement::EventType HTMLAnchorElement::eventType(Event* event)
+HTMLAnchorElement::EventType HTMLAnchorElement::eventType(Event& event)
 {
-    ASSERT(event);
-    if (!is<MouseEvent>(*event))
+    if (!is<MouseEvent>(event))
         return NonMouseEvent;
-    return downcast<MouseEvent>(*event).shiftKey() ? MouseEventWithShiftKey : MouseEventWithoutShiftKey;
+    return downcast<MouseEvent>(event).shiftKey() ? MouseEventWithShiftKey : MouseEventWithoutShiftKey;
 }
 
 bool HTMLAnchorElement::treatLinkAsLiveForEventType(EventType eventType) const
@@ -419,9 +433,9 @@ bool HTMLAnchorElement::treatLinkAsLiveForEventType(EventType eventType) const
     return false;
 }
 
-bool isEnterKeyKeydownEvent(Event* event)
+bool isEnterKeyKeydownEvent(Event& event)
 {
-    return event->type() == eventNames().keydownEvent && is<KeyboardEvent>(*event) && downcast<KeyboardEvent>(*event).keyIdentifier() == "Enter";
+    return event.type() == eventNames().keydownEvent && is<KeyboardEvent>(event) && downcast<KeyboardEvent>(event).keyIdentifier() == "Enter";
 }
 
 bool shouldProhibitLinks(Element* element)

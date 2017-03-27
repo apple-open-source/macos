@@ -28,7 +28,7 @@
 #ifndef	_SSLCRYPTO_H_
 #define _SSLCRYPTO_H_	1
 
-#include <tls_handshake_priv.h>
+#include "tls_handshake_priv.h"
 
 #ifdef __cplusplus
 extern "C" {

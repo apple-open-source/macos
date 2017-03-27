@@ -114,7 +114,9 @@ protected:
     void addSession(PlatformMediaSession&);
     virtual void removeSession(PlatformMediaSession&);
 
-    Vector<PlatformMediaSession*> sessions() { return m_sessions; }
+    void forEachSession(const Function<void(PlatformMediaSession&, size_t)>&) const;
+    PlatformMediaSession* findSession(const Function<bool(PlatformMediaSession&, size_t)>&) const;
+    bool anyOfSessions(const Function<bool(PlatformMediaSession&, size_t)>& predicate) const { return findSession(predicate); }
 
 private:
     friend class Internals;
@@ -135,7 +137,7 @@ private:
     void systemDidWake() override;
 
     SessionRestrictions m_restrictions[PlatformMediaSession::WebAudio + 1];
-    Vector<PlatformMediaSession*> m_sessions;
+    mutable Vector<PlatformMediaSession*> m_sessions;
     std::unique_ptr<RemoteCommandListener> m_remoteCommandListener;
     std::unique_ptr<SystemSleepListener> m_systemSleepListener;
     RefPtr<AudioHardwareListener> m_audioHardwareListener;
@@ -148,6 +150,7 @@ private:
     bool m_interrupted { false };
     mutable bool m_isApplicationInBackground { false };
     bool m_willIgnoreSystemInterruptions { false };
+    mutable int m_iteratingOverSessions { 0 };
 };
 
 }

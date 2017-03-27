@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2014-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -354,9 +354,7 @@ __SCNetworkCreateDefaultNIPrefs(CFStringRef prefsID)
 	SCPreferencesRef ni_prefs;
 	CFComparisonResult res;
 
-
-	networkInterfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface();
-
+	networkInterfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface(TRUE);
 	if (networkInterfaces == NULL) {
 		SC_log(LOG_NOTICE, "networkInterfaces is NULL");
 		return NULL;
@@ -515,11 +513,12 @@ _SCNetworkConfigurationPerformMigration(CFURLRef sourceDir, CFURLRef currentDir,
 	else {
 		migrationComplete = _SCNetworkConfigurationMigrateConfiguration(sourceDirConfig, targetDirConfig);
 	}
-	SC_log(LOG_NOTICE, "Migration %s", migrationComplete ? "complete" : "failed");
 	if (migrationComplete) {
+		SC_log(LOG_NOTICE, "Migration complete");
 		paths = _SCNetworkConfigurationCopyMigrationPaths(NULL);
-	}
-	else {
+	} else {
+		SC_log(LOG_NOTICE, "Migration failed: %s", SCErrorString(SCError()));
+
 		// If migration fails, then remove configuration files from target config if they are
 		// copied from the current directory
 		if (removeTargetOnFailure) {
@@ -2061,6 +2060,13 @@ done:
 	if (currentSourceSet != NULL) {
 		CFRelease(currentSourceSet);
 	}
+
+	if (setMapping != NULL) {
+		SC_log(LOG_NOTICE, "Set mapping: %@", setMapping);
+	} else {
+		SC_log(LOG_INFO, "Set mapping: NULL");
+	}
+
 	return setMapping;
 }
 
@@ -2235,6 +2241,13 @@ done:
 	if (targetSCNetworkServicesMutable != NULL) {
 		CFRelease(targetSCNetworkServicesMutable);
 	}
+
+	if (serviceMapping != NULL) {
+		SC_log(LOG_NOTICE, "Service mapping: %@", serviceMapping);
+	} else {
+		SC_log(LOG_INFO, "Service mapping: NULL");
+	}
+
 	return serviceMapping;
 }
 
@@ -3446,12 +3459,9 @@ _SCNetworkConfigurationMigrateConfiguration(CFURLRef sourceDir, CFURLRef targetD
 		}
 		SC_log(LOG_DEBUG, "BSD Name Mapping: %@", bsdNameMapping);
 		serviceMapping = _SCNetworkMigrationCreateServiceMappingUsingBSDMapping(sourcePrefs, targetPrefs, bsdNameMapping);
-
-		if (isA_CFDictionary(serviceMapping) == NULL) {
-			SC_log(LOG_INFO, "Service mapping is NULL");
+		if (serviceMapping == NULL) {
 			goto done;
 		}
-		SC_log(LOG_NOTICE, "Service mapping: %@", serviceMapping);
 
 		setMapping = _SCNetworkMigrationCreateSetMapping(sourcePrefs, targetPrefs);
 		sourceServiceSetMapping = _SCNetworkMigrationCreateServiceSetMapping(sourcePrefs);

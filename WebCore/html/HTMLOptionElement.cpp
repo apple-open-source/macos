@@ -28,7 +28,6 @@
 #include "HTMLOptionElement.h"
 
 #include "Document.h"
-#include "ExceptionCode.h"
 #include "HTMLDataListElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptGroupElement.h"
@@ -66,17 +65,16 @@ Ref<HTMLOptionElement> HTMLOptionElement::create(const QualifiedName& tagName, D
     return adoptRef(*new HTMLOptionElement(tagName, document));
 }
 
-RefPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstructor(Document& document, const String& data, const String& value,
-        bool defaultSelected, bool selected, ExceptionCode& ec)
+ExceptionOr<Ref<HTMLOptionElement>> HTMLOptionElement::createForJSConstructor(Document& document,
+    const String& data, const String& value, bool defaultSelected, bool selected)
 {
     Ref<HTMLOptionElement> element = adoptRef(*new HTMLOptionElement(optionTag, document));
 
     auto text = Text::create(document, data.isNull() ? emptyString() : data);
 
-    ec = 0;
-    element->appendChild(text, ec);
-    if (ec)
-        return nullptr;
+    auto appendResult = element->appendChild(text);
+    if (appendResult.hasException())
+        return appendResult.releaseException();
 
     if (!value.isNull())
         element->setValue(value);
@@ -110,7 +108,7 @@ String HTMLOptionElement::text() const
     return document().displayStringModifiedByEncoding(text).stripWhiteSpace(isHTMLSpace).simplifyWhiteSpace(isHTMLSpace);
 }
 
-void HTMLOptionElement::setText(const String &text, ExceptionCode& ec)
+void HTMLOptionElement::setText(const String &text)
 {
     Ref<HTMLOptionElement> protectedThis(*this);
 
@@ -127,7 +125,7 @@ void HTMLOptionElement::setText(const String &text, ExceptionCode& ec)
         downcast<Text>(*child).setData(text);
     else {
         removeChildren();
-        appendChild(Text::create(document(), text), ec);
+        appendChild(Text::create(document(), text));
     }
     
     if (selectIsMenuList && select->selectedIndex() != oldSelectedIndex)
@@ -174,12 +172,12 @@ void HTMLOptionElement::parseAttribute(const QualifiedName& name, const AtomicSt
         bool oldDisabled = m_disabled;
         m_disabled = !value.isNull();
         if (oldDisabled != m_disabled) {
-            setNeedsStyleRecalc();
+            invalidateStyleForSubtree();
             if (renderer() && renderer()->style().hasAppearance())
                 renderer()->theme().stateChanged(*renderer(), ControlStates::EnabledState);
         }
     } else if (name == selectedAttr) {
-        setNeedsStyleRecalc();
+        invalidateStyleForSubtree();
 
         // FIXME: This doesn't match what the HTML specification says.
         // The specification implies that removing the selected attribute or
@@ -229,7 +227,7 @@ void HTMLOptionElement::setSelectedState(bool selected)
         return;
 
     m_isSelected = selected;
-    setNeedsStyleRecalc();
+    invalidateStyleForSubtree();
 
     if (HTMLSelectElement* select = ownerSelectElement())
         select->invalidateSelectedItems();
@@ -316,6 +314,7 @@ Node::InsertionNotificationRequest HTMLOptionElement::insertedInto(ContainerNode
 {
     if (HTMLSelectElement* select = ownerSelectElement()) {
         select->setRecalcListItems();
+        select->updateValidity();
         // Do not call selected() since calling updateListItemSelectedStates()
         // at this time won't do the right thing. (Why, exactly?)
         // FIXME: Might be better to call this unconditionally, always passing m_isSelected,

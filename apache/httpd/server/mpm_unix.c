@@ -63,7 +63,13 @@
 #undef APLOG_MODULE_INDEX
 #define APLOG_MODULE_INDEX AP_CORE_MODULE_INDEX
 
-typedef enum {DO_NOTHING, SEND_SIGTERM, SEND_SIGKILL, GIVEUP} action_t;
+typedef enum {
+    DO_NOTHING,
+    SEND_SIGTERM,
+    SEND_SIGTERM_NOLOG,
+    SEND_SIGKILL,
+    GIVEUP
+} action_t;
 
 typedef struct extra_process_t {
     struct extra_process_t *next;
@@ -142,6 +148,8 @@ static int reclaim_one_pid(pid_t pid, action_t action)
                      " still did not exit, "
                      "sending a SIGTERM",
                      pid);
+        /* FALLTHROUGH */
+    case SEND_SIGTERM_NOLOG:
         kill(pid, SIGTERM);
         break;
 
@@ -193,6 +201,7 @@ AP_DECLARE(void) ap_reclaim_child_processes(int terminate,
                           * children but take no action against
                           * stragglers
                           */
+        {SEND_SIGTERM_NOLOG, 0}, /* skipped if terminate == 0 */
         {SEND_SIGTERM, apr_time_from_sec(3)},
         {SEND_SIGTERM, apr_time_from_sec(5)},
         {SEND_SIGTERM, apr_time_from_sec(7)},
@@ -202,19 +211,21 @@ AP_DECLARE(void) ap_reclaim_child_processes(int terminate,
     int cur_action;      /* index of action we decided to take this
                           * iteration
                           */
-    int next_action = 1; /* index of first real action */
+    int next_action = terminate ? 1 : 2; /* index of first real action */
 
     ap_mpm_query(AP_MPMQ_MAX_DAEMON_USED, &max_daemons);
 
     do {
-        apr_sleep(waittime);
-        /* don't let waittime get longer than 1 second; otherwise, we don't
-         * react quickly to the last child exiting, and taking action can
-         * be delayed
-         */
-        waittime = waittime * 4;
-        if (waittime > apr_time_from_sec(1)) {
-            waittime = apr_time_from_sec(1);
+        if (action_table[next_action].action_time > 0) {
+            apr_sleep(waittime);
+            /* don't let waittime get longer than 1 second; otherwise, we don't
+             * react quickly to the last child exiting, and taking action can
+             * be delayed
+             */
+            waittime = waittime * 4;
+            if (waittime > apr_time_from_sec(1)) {
+                waittime = apr_time_from_sec(1);
+            }
         }
 
         /* see what action to take, if any */
@@ -787,7 +798,10 @@ int ap_signal_server(int *exit_status, apr_pool_t *pconf)
         status = "httpd (no pid file) not running";
     }
     else {
-        if (kill(otherpid, 0) == 0) {
+        /* With containerization, httpd may get the same PID at each startup,
+         * handle it as if it were not running (it obviously can't).
+         */
+        if (otherpid != getpid() && kill(otherpid, 0) == 0) {
             running = 1;
             status = apr_psprintf(pconf,
                                   "httpd (pid %" APR_PID_T_FMT ") already "

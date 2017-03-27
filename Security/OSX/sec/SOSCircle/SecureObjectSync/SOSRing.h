@@ -15,7 +15,6 @@
 #include <Security/SecureObjectSync/SOSFullPeerInfo.h>
 #include <Security/SecureObjectSync/SOSConcordanceTrust.h>
 #include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
-
 #include <Security/SecKey.h>
 
 typedef struct __OpaqueSOSRing *SOSRingRef;
@@ -36,11 +35,11 @@ enum {
     kSOSRingPeerKeyed = 2,
     kSOSRingEntropyKeyed = 3,
     kSOSRingPKKeyed = 4,
-    kSOSRingTypeCount = 5,
+    kSOSRingRecovery = 5,
+    kSOSRingTypeCount = 6,
     kSOSRingTypeError = 0xfbad,
 };
 typedef uint32_t SOSRingType;
-
 
 CFTypeID SOSRingGetTypeID(void);
 

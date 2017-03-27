@@ -40,8 +40,8 @@
 #include <wtf/BlockObjCExceptions.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/TemporaryChange.h>
 
 // FIXME: There are repainting problems due to Aqua scroll bar buttons' visual overflow.
 
@@ -139,18 +139,15 @@ static ScrollbarButtonsPlacement gButtonPlacement = ScrollbarButtonsDoubleEnd;
 
 static NSControlSize scrollbarControlSizeToNSControlSize(ScrollbarControlSize controlSize)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     switch (controlSize) {
     case RegularScrollbar:
-        return NSRegularControlSize;
+        return NSControlSizeRegular;
     case SmallScrollbar:
-        return NSSmallControlSize;
+        return NSControlSizeSmall;
     }
 
     ASSERT_NOT_REACHED();
-    return NSRegularControlSize;
-#pragma clang diagnostic pop
+    return NSControlSizeRegular;
 }
 
 void ScrollbarThemeMac::didCreateScrollerImp(Scrollbar& scrollbar)
@@ -552,7 +549,7 @@ bool ScrollbarThemeMac::paint(Scrollbar& scrollbar, GraphicsContext& context, co
     if (scrollbar.supportsUpdateOnSecondaryThread())
         return true;
 
-    TemporaryChange<bool> isCurrentlyDrawingIntoLayer(g_isCurrentlyDrawingIntoLayer, context.isCALayerContext());
+    SetForScope<bool> isCurrentlyDrawingIntoLayer(g_isCurrentlyDrawingIntoLayer, context.isCALayerContext());
     
     GraphicsContextStateSaver stateSaver(context);
     context.clip(damageRect);

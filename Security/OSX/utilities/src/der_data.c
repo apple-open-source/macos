@@ -42,7 +42,7 @@ const uint8_t* der_decode_data_mutable(CFAllocatorRef allocator, CFOptionFlags m
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_OCTET_STRING, &payload_size, der, der_end);
 
-    if (NULL == payload || (der_end - payload) < payload_size) {
+    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size) {
         SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown data encoding"), NULL, error);
         return NULL;
     }
@@ -70,7 +70,7 @@ const uint8_t* der_decode_data(CFAllocatorRef allocator, CFOptionFlags mutabilit
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_OCTET_STRING, &payload_size, der, der_end);
 
-    if (NULL == payload || (der_end - payload) < payload_size) {
+    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size) {
         SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown data encoding"), NULL, error);
         return NULL;
     }

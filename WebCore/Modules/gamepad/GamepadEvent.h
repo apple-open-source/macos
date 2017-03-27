@@ -22,8 +22,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef GamepadEvent_h
-#define GamepadEvent_h
+
+#pragma once
 
 #if ENABLE(GAMEPAD)
 
@@ -32,10 +32,6 @@
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
-
-struct GamepadEventInit : public EventInit {
-    RefPtr<Gamepad> gamepad;
-};
 
 class GamepadEvent : public Event {
 public:
@@ -46,9 +42,13 @@ public:
         return adoptRef(*new GamepadEvent(eventType, gamepad));
     }
 
-    static Ref<GamepadEvent> createForBindings(const AtomicString& eventType, const GamepadEventInit& initializer)
+    struct Init : EventInit {
+        RefPtr<Gamepad> gamepad;
+    };
+
+    static Ref<GamepadEvent> create(const AtomicString& eventType, const Init& initializer, IsTrusted isTrusted = IsTrusted::No)
     {
-        return adoptRef(*new GamepadEvent(eventType, initializer));
+        return adoptRef(*new GamepadEvent(eventType, initializer, isTrusted));
     }
 
     Gamepad* gamepad() const { return m_gamepad.get(); }
@@ -57,7 +57,7 @@ public:
 
 private:
     explicit GamepadEvent(const AtomicString& eventType, Gamepad&);
-    GamepadEvent(const AtomicString& eventType, const GamepadEventInit&);
+    GamepadEvent(const AtomicString& eventType, const Init&, IsTrusted);
 
     RefPtr<Gamepad> m_gamepad;
 };
@@ -65,4 +65,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(GAMEPAD)
-#endif // GamepadEvent_h

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -118,6 +118,7 @@
  * kSCEntNetIPv6 Entity Keys
  *
  *   kSCPropNetIPv6AdditionalRoutes                     "AdditionalRoutes"             CFArray[CFDictionary]
+ *   kSCPropNetIPv6EnableCGA                            "EnableCGA"                    CFNumber (0 or 1)
  *   kSCPropNetIPv6ExcludedRoutes                       "ExcludedRoutes"               CFArray[CFDictionary]
  *   kSCPropNetIPv6IncludedRoutes                       "IncludedRoutes"               CFArray[CFDictionary]
  *
@@ -719,6 +720,13 @@ extern const CFStringRef kSCPropNetIPv4ARPResolvedIPAddress                 __OS
  */
 extern const CFStringRef kSCPropNetIPv6AdditionalRoutes                     __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0/*SPI*/);
 #define kSCPropNetIPv6AdditionalRoutes kSCPropNetIPv6AdditionalRoutes
+
+/*!
+  @const kSCPropNetIPv6EnableCGA
+  @discussion Value is a CFNumber (0 or 1)
+ */
+extern const CFStringRef kSCPropNetIPv6EnableCGA                            __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+#define kSCPropNetIPv6EnableCGA kSCPropNetIPv6EnableCGA
 
 /*!
   @const kSCPropNetIPv6ExcludedRoutes

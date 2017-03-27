@@ -102,7 +102,7 @@ verifyPrivateKeyExtractability(BOOL extractable, NSArray *items)
 static void
 setIdentityPreferenceForImportedIdentity(SecKeychainRef importKeychain, NSString *name, NSArray *items)
 {
-    CFArrayRef importedItems = (CFArrayRef)items;
+    CFArrayRef importedItems = (__bridge CFArrayRef)items;
 
     if (importedItems)
     {
@@ -154,7 +154,7 @@ testP12Import(BOOL extractable, SecKeychainRef keychain, const char *p12Path, CF
 	NSString *file = [NSString stringWithUTF8String:p12Path];
 	NSData *p12Data = [[NSData alloc] initWithContentsOfFile:file];
 	NSArray *keyAttrs = nil;
-	NSArray *outItems = nil;
+	CFArrayRef outItems = nil;
 
 	SecExternalFormat externFormat = kSecFormatPKCS12;
 	SecExternalItemType	itemType = kSecItemTypeAggregate; // certificates and keys
@@ -187,14 +187,12 @@ testP12Import(BOOL extractable, SecKeychainRef keychain, const char *p12Path, CF
 		{
 			// explicitly set the key attributes, omitting kSecAttrIsExtractable
 			keyAttrs = [[NSArray alloc] initWithObjects: (id) kSecAttrIsPermanent, kSecAttrIsSensitive, nil];
-			keyParams->keyAttributes = (CFArrayRef) keyAttrs;
+			keyParams->keyAttributes = (__bridge_retained CFArrayRef) keyAttrs;
 		}
 	}
 
     if (useDeprecatedAPI) // SecKeychainItemImport, deprecated as of 10.7
     {
-        SecKeyImportExportParameters *keyParams = (SecKeyImportExportParameters *)keyParamsPtr;
-
         status = SecKeychainItemImport((CFDataRef)p12Data,
                                         NULL,
                                         &externFormat,
@@ -207,8 +205,6 @@ testP12Import(BOOL extractable, SecKeychainRef keychain, const char *p12Path, CF
     }
     else // SecItemImport
     {
-        SecItemImportExportKeyParameters *keyParams = (SecItemImportExportKeyParameters *)keyParamsPtr;
-
         status = SecItemImport((CFDataRef)p12Data,
                                         NULL,
                                         &externFormat,
@@ -220,18 +216,16 @@ testP12Import(BOOL extractable, SecKeychainRef keychain, const char *p12Path, CF
         ok_status(status, "%s: SecItemImport", testName);
     }
 
-	verifyPrivateKeyExtractability(extractable, outItems);
+	verifyPrivateKeyExtractability(extractable, (__bridge NSArray*) outItems);
 
-    checkN(testName, makeQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, CFSTR("test_import")), 1);
+    checkN(testName, createQueryKeyDictionaryWithLabel(keychain, kSecAttrKeyClassPrivate, CFSTR("test_import")), 1);
     checkN(testName, addLabel(makeBaseQueryDictionary(keychain, kSecClassCertificate), CFSTR("test_import")), 1);
 
-    setIdentityPreferenceForImportedIdentity(keychain, @"kc-28-p12-import@apple.com", outItems);
+    setIdentityPreferenceForImportedIdentity(keychain, @"kc-28-p12-import@apple.com", (__bridge NSArray*) outItems);
 
-    deleteItems((__bridge CFArrayRef) outItems);
+    deleteItems(outItems);
 
-	[keyAttrs release];
-	[p12Data release];
-	[outItems release];
+    CFReleaseNull(outItems);
 
 	return status;
 }
@@ -242,8 +236,6 @@ int kc_28_p12_import(int argc, char *const *argv)
     initializeKeychainTests(__FUNCTION__);
 
     SecKeychainRef kc = getPopulatedTestKeychain();
-
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     removeIdentityPreference(false); // if there's still an identity preference in the keychain, we'll get prompts. Delete it pre-emptively (but don't test about it)
 
@@ -260,8 +252,6 @@ int kc_28_p12_import(int argc, char *const *argv)
     removeIdentityPreference(true);
 
     checkPrompts(0, "No prompts while importing items");
-
-	[pool release];
 
     deleteTestFiles();
 	return 0;

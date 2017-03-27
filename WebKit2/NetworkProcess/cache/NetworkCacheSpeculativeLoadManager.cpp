@@ -79,9 +79,9 @@ static const AtomicString& subresourcesType()
     return resource;
 }
 
-static inline Key makeSubresourcesKey(const Key& resourceKey)
+static inline Key makeSubresourcesKey(const Key& resourceKey, const Salt& salt)
 {
-    return Key(resourceKey.partition(), subresourcesType(), resourceKey.range(), resourceKey.identifier());
+    return Key(resourceKey.partition(), subresourcesType(), resourceKey.range(), resourceKey.identifier(), salt);
 }
 
 static inline ResourceRequest constructRevalidationRequest(const Entry& entry, const SubresourceInfo& subResourceInfo)
@@ -90,7 +90,7 @@ static inline ResourceRequest constructRevalidationRequest(const Entry& entry, c
     revalidationRequest.setHTTPHeaderFields(subResourceInfo.requestHeaders());
     revalidationRequest.setFirstPartyForCookies(subResourceInfo.firstPartyForCookies());
 #if ENABLE(CACHE_PARTITIONING)
-    if (entry.key().hasPartition())
+    if (!entry.key().partition().isEmpty())
         revalidationRequest.setCachePartition(entry.key().partition());
 #endif
     ASSERT_WITH_MESSAGE(entry.key().range().isEmpty(), "range is not supported");
@@ -133,7 +133,7 @@ private:
 class SpeculativeLoadManager::PreloadedEntry : private ExpiringEntry {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    PreloadedEntry(std::unique_ptr<Entry> entry, Optional<ResourceRequest>&& speculativeValidationRequest, std::function<void()>&& lifetimeReachedHandler)
+    PreloadedEntry(std::unique_ptr<Entry> entry, std::optional<ResourceRequest>&& speculativeValidationRequest, std::function<void()>&& lifetimeReachedHandler)
         : ExpiringEntry(WTFMove(lifetimeReachedHandler))
         , m_entry(WTFMove(entry))
         , m_speculativeValidationRequest(WTFMove(speculativeValidationRequest))
@@ -145,12 +145,12 @@ public:
         return WTFMove(m_entry);
     }
 
-    const Optional<ResourceRequest>& revalidationRequest() const { return m_speculativeValidationRequest; }
+    const std::optional<ResourceRequest>& revalidationRequest() const { return m_speculativeValidationRequest; }
     bool wasRevalidated() const { return !!m_speculativeValidationRequest; }
 
 private:
     std::unique_ptr<Entry> m_entry;
-    Optional<ResourceRequest> m_speculativeValidationRequest;
+    std::optional<ResourceRequest> m_speculativeValidationRequest;
 };
 
 class SpeculativeLoadManager::PendingFrameLoad : public RefCounted<PendingFrameLoad> {
@@ -204,7 +204,9 @@ private:
         , m_mainResourceKey(mainResourceKey)
         , m_loadCompletionHandler(WTFMove(loadCompletionHandler))
         , m_loadHysteresisActivity([this](HysteresisState state) { if (state == HysteresisState::Stopped) markLoadAsCompleted(); })
-    { }
+    {
+        m_loadHysteresisActivity.impulse();
+    }
 
     void saveToDiskIfReady()
     {
@@ -224,7 +226,7 @@ private:
             m_existingEntry->updateSubresourceLoads(m_subresourceLoads);
             m_storage.store(m_existingEntry->encodeAsStorageRecord(), [](const Data&) { });
         } else {
-            SubresourcesEntry entry(makeSubresourcesKey(m_mainResourceKey), m_subresourceLoads);
+            SubresourcesEntry entry(makeSubresourcesKey(m_mainResourceKey, m_storage.salt()), m_subresourceLoads);
             m_storage.store(entry.encodeAsStorageRecord(), [](const Data&) { });
         }
     }
@@ -378,7 +380,7 @@ void SpeculativeLoadManager::registerLoad(const GlobalFrameID& frameID, const Re
         pendingFrameLoad->registerSubresourceLoad(request, resourceKey);
 }
 
-void SpeculativeLoadManager::addPreloadedEntry(std::unique_ptr<Entry> entry, const GlobalFrameID& frameID, Optional<ResourceRequest>&& revalidationRequest)
+void SpeculativeLoadManager::addPreloadedEntry(std::unique_ptr<Entry> entry, const GlobalFrameID& frameID, std::optional<ResourceRequest>&& revalidationRequest)
 {
     ASSERT(entry);
     ASSERT(!entry->needsValidation());
@@ -519,7 +521,7 @@ void SpeculativeLoadManager::startSpeculativeRevalidation(const GlobalFrameID& f
 void SpeculativeLoadManager::retrieveSubresourcesEntry(const Key& storageKey, std::function<void (std::unique_ptr<SubresourcesEntry>)>&& completionHandler)
 {
     ASSERT(storageKey.type() == "Resource");
-    auto subresourcesStorageKey = makeSubresourcesKey(storageKey);
+    auto subresourcesStorageKey = makeSubresourcesKey(storageKey, m_storage.salt());
     m_storage.retrieve(subresourcesStorageKey, static_cast<unsigned>(ResourceLoadPriority::Medium), [completionHandler = WTFMove(completionHandler)](auto record) {
         if (!record) {
             completionHandler(nullptr);

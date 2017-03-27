@@ -1077,7 +1077,19 @@ IOATAController::handleBusReset(void)
 	// If this is an ATAPI reset select just the corresponding atapi device (instead of both) 
 	if(isATAPIReset)
 	{
-		doATAPI[_currentCommand->getUnit()] = true;  // Mark only selected ATAPI as reset victim.
+		
+		ataUnitID unitNumber = _currentCommand->getUnit();
+		
+		if((unitNumber == 0) || (unitNumber == 1))
+		{
+			
+			doATAPI[unitNumber] = true;  // Mark only selected ATAPI as reset victim.
+			
+		}else{
+			
+			err = kATAInvalidDevID;
+			
+		}
 		
 	}else{
 	

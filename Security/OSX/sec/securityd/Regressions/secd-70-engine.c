@@ -196,7 +196,7 @@ static void testsyncempty(void) {
         CFReleaseSafe(deviceID);
         if (deviceIX > 0) {
             for (CFIndex version = 0; version < 3; version += 2) {
-                CFMutableDictionaryRef testDevices = SOSTestDeviceListCreate(false, version, deviceIDs);
+                CFMutableDictionaryRef testDevices = SOSTestDeviceListCreate(false, version, deviceIDs, NULL);
                 SOSTestDeviceListSync("syncempty", test_directive, test_reason, testDevices, NULL, NULL);
                 SOSTestDeviceListInSync("syncempty", test_directive, test_reason, testDevices);
                 SOSTestDeviceDestroyEngine(testDevices);
@@ -221,7 +221,7 @@ static void testsyncmany(const char *name, const char *test_directive, const cha
         CFArrayAppendValue(deviceIDs, deviceID);
         CFReleaseSafe(deviceID);
         if (deviceIX >= devFirst) {
-            CFMutableDictionaryRef testDevices = SOSTestDeviceListCreate(false, version, deviceIDs);
+            CFMutableDictionaryRef testDevices = SOSTestDeviceListCreate(false, version, deviceIDs, NULL);
             __block int iteration = 0;
             SOSTestDeviceListSync(name, test_directive, test_reason, testDevices, ^bool(SOSTestDeviceRef source, SOSTestDeviceRef dest) {
                 bool didAdd = false;

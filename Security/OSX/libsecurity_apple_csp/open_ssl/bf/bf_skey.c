@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <openssl/blowfish.h>
+#include <openssl/blowfish_legacy.h>
 #include "bf_locl.h"
 #include "bf_pi.h"
 

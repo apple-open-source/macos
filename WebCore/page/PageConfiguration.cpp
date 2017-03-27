@@ -31,10 +31,13 @@
 #include "DatabaseProvider.h"
 #include "DiagnosticLoggingClient.h"
 #include "EditorClient.h"
+#include "PluginInfoProvider.h"
 #include "SocketProvider.h"
 #include "StorageNamespaceProvider.h"
 #include "UserContentController.h"
+#include "ValidationMessageClient.h"
 #include "VisitedLinkStore.h"
+#include "WebGLStateTracker.h"
 
 namespace WebCore {
 

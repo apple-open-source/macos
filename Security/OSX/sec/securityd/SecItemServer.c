@@ -94,14 +94,12 @@ void SecItemServerSetKeychainChangedNotification(const char *notification_name)
     g_keychain_changed_notification = notification_name;
 }
 
-void SecKeychainChanged(bool syncWithPeers) {
+void SecKeychainChanged() {
     uint32_t result = notify_post(g_keychain_changed_notification);
-    if (syncWithPeers)
-        SOSCCSyncWithAllPeers();
     if (result == NOTIFY_STATUS_OK)
-        secnotice("item", "Sent %s%s", syncWithPeers ? "SyncWithAllPeers and " : "", g_keychain_changed_notification);
+        secnotice("item", "Sent %s", g_keychain_changed_notification);
     else
-        secerror("%snotify_post %s returned: %" PRIu32, syncWithPeers ? "Sent SyncWithAllPeers, " : "", g_keychain_changed_notification, result);
+        secerror("notify_post %s returned: %" PRIu32, g_keychain_changed_notification, result);
 }
 
 /* Return the current database version in *version. */
@@ -605,9 +603,9 @@ out:
             CFIndex code = CFErrorGetCode(localError);
 
             if (CFEqualSafe(domain, kSecDbErrorDomain) &&
-                ((code & 0xff) == SQLITE_LOCKED || (code & 0xff) == SQLITE_BUSY))
+                ((code & 0xff) == SQLITE_LOCKED || (code & 0xff) == SQLITE_BUSY || (code & 0xff) == SQLITE_FULL))
             {
-                /* sqlite just busy doing something else, lets try upgrading some other time */
+                // TODO This should not be true but SecDb code is too eager to corrupt, rdar://problem/29771874
                 ok = true;
                 markedCorrupt = false;
                 CFReleaseNull(localError);
@@ -758,8 +756,8 @@ static CFDataRef SecServerKeychainCreateBackup(SecDbConnectionRef dbt, SecurityC
     /* Export from system keybag to backup keybag. */
     backup = SecServerExportBackupableKeychain(dbt, client, KEYBAG_DEVICE, backup_keybag, error);
 
-out:
 #if USE_KEYSTORE
+out:
     if (mkbhandle)
         CFRelease(mkbhandle);
 #endif
@@ -895,13 +893,13 @@ void SecKeychainDbReset(dispatch_block_t inbetween)
     CFRelease(dbPath);
 }
 
-static SecDbConnectionRef kc_aquire_dbt(bool writeAndRead, CFErrorRef *error) {
+static SecDbConnectionRef kc_acquire_dbt(bool writeAndRead, CFErrorRef *error) {
     SecDbRef db = kc_dbhandle();
     if (db == NULL) {
         SecError(errSecDataNotAvailable, error, CFSTR("failed to get a db handle"));
         return NULL;
     }
-    return SecDbConnectionAquire(db, !writeAndRead, error);
+    return SecDbConnectionAcquire(db, !writeAndRead, error);
 }
 
 /* Return a per thread dbt handle for the keychain.  If create is true create
@@ -914,7 +912,7 @@ static bool kc_with_dbt(bool writeAndRead, CFErrorRef *error, bool (^perform)(Se
         SecItemDataSourceFactoryGetDefault();
 
     bool ok = false;
-    SecDbConnectionRef dbt = kc_aquire_dbt(writeAndRead, error);
+    SecDbConnectionRef dbt = kc_acquire_dbt(writeAndRead, error);
     if (dbt) {
         ok = perform(dbt);
         SecDbConnectionRelease(dbt);
@@ -1167,6 +1165,17 @@ out:
 
 void (*SecTaskDiagnoseEntitlements)(CFArrayRef accessGroups) = NULL;
 
+static bool SecEntitlementError(OSStatus status, CFErrorRef *error)
+{
+#if TARGET_OS_OSX
+#define SEC_ENTITLEMENT_WARNING CFSTR("com.apple.application-identifier, com.apple.security.application-groups nor keychain-access-groups")
+#else
+#define SEC_ENTITLEMENT_WARNING CFSTR("application-identifier nor keychain-access-groups")
+#endif
+
+    return SecError(errSecMissingEntitlement, error, CFSTR("Client has neither %@ entitlements"), SEC_ENTITLEMENT_WARNING);
+}
+
 /* AUDIT[securityd](done):
    query (ok) is a caller provided dictionary, only its cf type has been checked.
  */
@@ -1180,8 +1189,7 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
         if (SecTaskDiagnoseEntitlements)
             SecTaskDiagnoseEntitlements(accessGroups);
-        return SecError(errSecMissingEntitlement, error,
-                         CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
+        return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
     if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*"))) {
@@ -1288,8 +1296,7 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
         (ag_count == 1 && CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), kSecAttrAccessGroupToken))) {
         if (SecTaskDiagnoseEntitlements)
             SecTaskDiagnoseEntitlements(accessGroups);
-        return SecError(errSecMissingEntitlement, error,
-                           CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
+        return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
     Query *q = query_create_with_limit(attributes, client->musr, 0, error);
@@ -1368,8 +1375,7 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
         (ag_count == 1 && CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), kSecAttrAccessGroupToken))) {
         if (SecTaskDiagnoseEntitlements)
             SecTaskDiagnoseEntitlements(accessGroups);
-        return SecError(errSecMissingEntitlement, error,
-                         CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
+        return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
     if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*"))) {
@@ -1453,8 +1459,7 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
         (ag_count == 1 && CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), kSecAttrAccessGroupToken))) {
         if (SecTaskDiagnoseEntitlements)
             SecTaskDiagnoseEntitlements(accessGroups);
-        return SecError(errSecMissingEntitlement, error,
-                           CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
+        return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
     if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*"))) {
@@ -1555,8 +1560,7 @@ bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityCli
     if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
         if (SecTaskDiagnoseEntitlements)
             SecTaskDiagnoseEntitlements(accessGroups);
-        return SecError(errSecMissingEntitlement, error,
-                        CFSTR("client has neither application-identifier nor keychain-access-groups entitlements"));
+        return SecEntitlementError(errSecMissingEntitlement, error);
     }
 
     ok = kc_with_dbt(true, error, ^bool (SecDbConnectionRef dbt) {
@@ -2259,6 +2263,7 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
         }
         CFDictionaryAddValue(attrs, kSecClass, kSecClassInternetPassword);
         CFDictionaryAddValue(attrs, kSecAttrAccessGroup, kSecSafariAccessGroup);
+        CFDictionaryAddValue(attrs, kSecAttrProtocol, kSecAttrProtocolHTTPS);
         CFDictionaryAddValue(attrs, kSecAttrAuthenticationType, kSecAttrAuthenticationTypeHTMLForm);
         CFDictionaryAddValue(attrs, kSecAttrServer, fqdn);
         if (account) {
@@ -2462,7 +2467,7 @@ cleanup:
 CF_RETURNS_RETAINED CFDataRef
 _SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
     CFDataRef backup;
-	SecDbConnectionRef dbt = SecDbConnectionAquire(kc_dbhandle(), false, error);
+	SecDbConnectionRef dbt = SecDbConnectionAcquire(kc_dbhandle(), false, error);
 
 	if (!dbt)
 		return NULL;
@@ -2495,7 +2500,7 @@ _SecServerKeychainRestore(CFDataRef backup, SecurityClient *client, CFDataRef ke
     });
 
     if (ok) {
-        SecKeychainChanged(true);
+        SecKeychainChanged();
     }
 
     return ok;

@@ -22,8 +22,7 @@
  *
  */
 
-#ifndef StyledElement_h
-#define StyledElement_h
+#pragma once
 
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyNames.h"
@@ -50,7 +49,7 @@ public:
     
     bool setInlineStyleProperty(CSSPropertyID, CSSValueID identifier, bool important = false);
     bool setInlineStyleProperty(CSSPropertyID, CSSPropertyID identifier, bool important = false);
-    WEBCORE_EXPORT bool setInlineStyleProperty(CSSPropertyID, double value, CSSPrimitiveValue::UnitTypes, bool important = false);
+    WEBCORE_EXPORT bool setInlineStyleProperty(CSSPropertyID, double value, CSSPrimitiveValue::UnitType, bool important = false);
     WEBCORE_EXPORT bool setInlineStyleProperty(CSSPropertyID, const String& value, bool important = false);
     bool removeInlineStyleProperty(CSSPropertyID);
     void removeAllInlineStyleProperties();
@@ -76,7 +75,7 @@ protected:
     virtual bool isPresentationAttribute(const QualifiedName&) const { return false; }
 
     void addPropertyToPresentationAttributeStyle(MutableStyleProperties&, CSSPropertyID, CSSValueID identifier);
-    void addPropertyToPresentationAttributeStyle(MutableStyleProperties&, CSSPropertyID, double value, CSSPrimitiveValue::UnitTypes);
+    void addPropertyToPresentationAttributeStyle(MutableStyleProperties&, CSSPropertyID, double value, CSSPrimitiveValue::UnitType);
     void addPropertyToPresentationAttributeStyle(MutableStyleProperties&, CSSPropertyID, const String& value);
 
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
@@ -93,13 +92,6 @@ private:
     void rebuildPresentationAttributeStyle();
 };
 
-inline void StyledElement::invalidateStyleAttribute()
-{
-    ASSERT(elementData());
-    elementData()->setStyleAttributeIsDirty(true);
-    setNeedsStyleRecalc(InlineStyleChange);
-}
-
 inline const StyleProperties* StyledElement::presentationAttributeStyle() const
 {
     if (!elementData())
@@ -114,5 +106,3 @@ inline const StyleProperties* StyledElement::presentationAttributeStyle() const
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyledElement)
     static bool isType(const WebCore::Node& node) { return node.isStyledElement(); }
 SPECIALIZE_TYPE_TRAITS_END()
-
-#endif

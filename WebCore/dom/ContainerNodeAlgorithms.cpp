@@ -26,14 +26,18 @@
 #include "config.h"
 #include "ContainerNodeAlgorithms.h"
 
+#include "HTMLFrameOwnerElement.h"
+#include "HTMLTextAreaElement.h"
+#include "InspectorInstrumentation.h"
 #include "NoEventDispatchAssertion.h"
+#include "ShadowRoot.h"
 
 namespace WebCore {
 
-void notifyNodeInsertedIntoTree(ContainerNode& insertionPoint, ContainerNode&, NodeVector& postInsertionNotificationTargets);
-void notifyNodeInsertedIntoDocument(ContainerNode& insertionPoint, Node&, NodeVector& postInsertionNotificationTargets);
-void notifyNodeRemovedFromTree(ContainerNode& insertionPoint, ContainerNode&);
-void notifyNodeRemovedFromDocument(ContainerNode& insertionPoint, Node&);
+static void notifyNodeInsertedIntoTree(ContainerNode& insertionPoint, ContainerNode&, NodeVector& postInsertionNotificationTargets);
+static void notifyNodeInsertedIntoDocument(ContainerNode& insertionPoint, Node&, NodeVector& postInsertionNotificationTargets);
+static void notifyNodeRemovedFromTree(ContainerNode& insertionPoint, ContainerNode&);
+static void notifyNodeRemovedFromDocument(ContainerNode& insertionPoint, Node&);
 
 static void notifyDescendantInsertedIntoDocument(ContainerNode& insertionPoint, ContainerNode& node, NodeVector& postInsertionNotificationTargets)
 {
@@ -87,7 +91,7 @@ void notifyNodeInsertedIntoTree(ContainerNode& insertionPoint, ContainerNode& no
 
 void notifyChildNodeInserted(ContainerNode& insertionPoint, Node& node, NodeVector& postInsertionNotificationTargets)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(!NoEventDispatchAssertion::isEventDispatchForbidden());
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::isEventDispatchAllowedInSubtree(insertionPoint));
 
     InspectorInstrumentation::didInsertDOMNode(node.document(), node);
 
@@ -155,7 +159,6 @@ void notifyChildNodeRemoved(ContainerNode& insertionPoint, Node& child)
         return;
     }
     notifyNodeRemovedFromDocument(insertionPoint, child);
-    child.document().notifyRemovePendingSheetIfNeeded();
 }
 
 void addChildNodesToDeletionQueue(Node*& head, Node*& tail, ContainerNode& container)
@@ -187,7 +190,7 @@ void addChildNodesToDeletionQueue(Node*& head, Node*& tail, ContainerNode& conta
         } else {
             Ref<Node> protect(*node); // removedFromDocument may remove remove all references to this node.
             if (Document* containerDocument = container.ownerDocument())
-                containerDocument->adoptIfNeeded(node);
+                containerDocument->adoptIfNeeded(*node);
             if (node->isInTreeScope())
                 notifyChildNodeRemoved(container, *node);
         }
@@ -216,7 +219,7 @@ void removeDetachedChildrenInContainer(ContainerNode& container)
         if (!next)
             tail = nullptr;
 
-        if (is<ContainerNode>(node))
+        if (is<ContainerNode>(*node))
             addChildNodesToDeletionQueue(head, tail, downcast<ContainerNode>(*node));
         
         delete node;
@@ -288,6 +291,9 @@ void disconnectSubframes(ContainerNode& root, SubframeDisconnectPolicy policy)
     }
 
     collectFrameOwners(frameOwners, root);
+
+    if (auto* shadowRoot = root.shadowRoot())
+        collectFrameOwners(frameOwners, *shadowRoot);
 
     // Must disable frame loading in the subtree so an unload handler cannot
     // insert more frames and create loaded frames in detached subtrees.

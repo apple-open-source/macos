@@ -30,7 +30,7 @@
 #include <security_keychain/KCCursor.h>
 #include <security_keychain/SecCFTypes.h>
 #include <security_cdsa_utilities/Schema.h>
-#include <security_keychain/SecTrustSettingsPriv.h>
+#include <Security/SecTrustSettingsPriv.h>
 
 namespace Security {
 namespace KeychainCore {

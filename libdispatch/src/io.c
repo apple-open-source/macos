@@ -24,6 +24,10 @@
 #define DISPATCH_IO_DEBUG DISPATCH_DEBUG
 #endif
 
+#ifndef PAGE_SIZE
+#define PAGE_SIZE getpagesize()
+#endif
+
 #if DISPATCH_DATA_IS_BRIDGED_TO_NSDATA
 #define _dispatch_io_data_retain(x) _dispatch_objc_retain(x)
 #define _dispatch_io_data_release(x) _dispatch_objc_release(x)
@@ -2284,10 +2288,10 @@ syscall:
 		return DISPATCH_OP_DELIVER;
 	}
 error:
-	if (err == EAGAIN) {
+	if (err == EAGAIN || err == EWOULDBLOCK) {
 		// For disk based files with blocking I/O we should never get EAGAIN
 		dispatch_assert(!op->fd_entry->disk);
-		_dispatch_op_debug("performed: EAGAIN", op);
+		_dispatch_op_debug("performed: EAGAIN/EWOULDBLOCK", op);
 		if (op->direction == DOP_DIR_READ && op->total &&
 				op->channel == op->fd_entry->convenience_channel) {
 			// Convenience read with available data completes on EAGAIN

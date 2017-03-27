@@ -219,7 +219,8 @@ int main(int argc AUTH_UNUSED, const char *argv[] AUTH_UNUSED)
 
     xpc_main(security_auth_event_handler);
     
-    server_cleanup();
+    // xpc_main() will never return, but if it did, here's what you'd call:
+    //server_cleanup();
     
 	return 0;
 }

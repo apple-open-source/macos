@@ -36,7 +36,6 @@ __BEGIN_DECLS
 #include <IOKit/IODataQueueClient.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
-#include <IOKit/iokitmig.h>
 #include <System/libkern/OSCrossEndian.h>
 __END_DECLS
 

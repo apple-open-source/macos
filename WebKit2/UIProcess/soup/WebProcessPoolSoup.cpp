@@ -26,9 +26,10 @@
 #include "config.h"
 #include "WebProcessPool.h"
 
+#include "APICustomProtocolManagerClient.h"
 #include "NetworkProcessCreationParameters.h"
+#include "NetworkProcessMessages.h"
 #include "WebCookieManagerProxy.h"
-#include "WebSoupCustomProtocolRequestManager.h"
 #include <WebCore/Language.h>
 
 namespace WebKit {
@@ -39,10 +40,24 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
     parameters.cookieAcceptPolicy = m_initialHTTPCookieAcceptPolicy;
     parameters.ignoreTLSErrors = m_ignoreTLSErrors;
     parameters.languages = WebCore::userPreferredLanguages();
-    parameters.urlSchemesRegisteredForCustomProtocols = supplement<WebSoupCustomProtocolRequestManager>()->registeredSchemesForCustomProtocols();
-#if ENABLE(NETWORK_CACHE)
+    for (const auto& scheme : m_urlSchemesRegisteredForCustomProtocols)
+        parameters.urlSchemesRegisteredForCustomProtocols.append(scheme);
     parameters.shouldEnableNetworkCacheEfficacyLogging = false;
-#endif
+}
+
+void WebProcessPool::setIgnoreTLSErrors(bool ignoreTLSErrors)
+{
+    m_ignoreTLSErrors = ignoreTLSErrors;
+    if (networkProcess())
+        networkProcess()->send(Messages::NetworkProcess::SetIgnoreTLSErrors(m_ignoreTLSErrors), 0);
+}
+
+void WebProcessPool::setCustomProtocolManagerClient(std::unique_ptr<API::CustomProtocolManagerClient>&& customProtocolManagerClient)
+{
+    if (!customProtocolManagerClient)
+        m_customProtocolManagerClient = std::make_unique<API::CustomProtocolManagerClient>();
+    else
+        m_customProtocolManagerClient = WTFMove(customProtocolManagerClient);
 }
 
 }

@@ -381,8 +381,8 @@ $(error Cross-builds currently not allowed on Linux)
 endif
 endif
 
-MAC_OS_X_VERSION_MIN_REQUIRED=101000
-OSX_HOST_VERSION_MIN_STRING=10.10
+MAC_OS_X_VERSION_MIN_REQUIRED=101100
+OSX_HOST_VERSION_MIN_STRING=10.11
 
 ifndef IPHONEOS_DEPLOYMENT_TARGET
 	IOS_VERSION_TARGET_STRING=10.0
@@ -511,10 +511,19 @@ else
 	THUMB_FLAG =
 endif
 
-# even for a crossbuild host build, we want to use the target's latest tzdata as pointed to by latest_tzdata.tar.gz
-ifeq "$(shell test -d $(SDKPATH)/usr/local/share/tz && echo YES )" "YES"
-	export TZDATA:=$(SDKPATH)/usr/local/share/tz/$(shell readlink $(SDKPATH)/usr/local/share/tz/latest_tzdata.tar.gz)
+# even for a crossbuild host build, we want to use the target's latest tzdata as pointed to by latest_tzdata.tar.gz;
+# first try RC_EMBEDDEDPROJECT_DIR (<rdar://problem/28141177>), else SDKPATH.
+ifdef RC_EMBEDDEDPROJECT_DIR
+	ifeq "$(shell test -L $(RC_EMBEDDEDPROJECT_DIR)/TimeZoneData/usr/local/share/tz/latest_tzdata.tar.gz && echo YES )" "YES"
+		export TZDATA:=$(RC_EMBEDDEDPROJECT_DIR)/TimeZoneData/usr/local/share/tz/$(shell readlink $(RC_EMBEDDEDPROJECT_DIR)/TimeZoneData/usr/local/share/tz/latest_tzdata.tar.gz)
+	endif
 endif
+ifndef TZDATA
+	ifeq "$(shell test -L $(SDKPATH)/usr/local/share/tz/latest_tzdata.tar.gz && echo YES )" "YES"
+		export TZDATA:=$(SDKPATH)/usr/local/share/tz/$(shell readlink $(SDKPATH)/usr/local/share/tz/latest_tzdata.tar.gz)
+	endif
+endif
+$(info # RC_EMBEDDEDPROJECT_DIR=$(RC_EMBEDDEDPROJECT_DIR))
 $(info # TZDATA=$(TZDATA))
 
 APPLE_INTERNAL_DIR=/AppleInternal
@@ -724,13 +733,13 @@ DATA_LOOKUP_DIR=/usr/share/icu/
 DATA_LOOKUP_DIR_BUILDHOST=/usr/share/icu/
 
 # Timezone data file(s)
-# ICU will look for /var/db/icutz/icutz44l.dat
+# ICU will look for /var/db/timezone/icutz/icutz44l.dat
 # If directory or file is not present, the timesone data in
 # current data file e.g. /usr/share/icu/icudt56l.dat will be used.
 # Currently we are not conditionalizing the definition of
 # TZDATA_LOOKUP_DIR as in
 #	ifeq "$(BUILD_TYPE)" "DEVICE"
-#		TZDATA_LOOKUP_DIR = /var/db/icutz
+#		TZDATA_LOOKUP_DIR = /var/db/timezone/icutz
 #	else
 #	...
 # since the code stats the path for TZDATA_LOOKUP_DIR and does
@@ -738,7 +747,7 @@ DATA_LOOKUP_DIR_BUILDHOST=/usr/share/icu/
 # as TZDATA_LOOKUP_DIR = /usr/share/icutz when not needed...
 # TZDATA_LOOKUP_DIR is passed to compiler as U_TIMEZONE_FILES_DIR
 # TZDATA_PACKAGE is passed to compiler as U_TIMEZONE_PACKAGE
-TZDATA_LOOKUP_DIR = /var/db/icutz
+TZDATA_LOOKUP_DIR = /var/db/timezone/icutz
 TZDATA_PACKAGE = icutz44l
 TZDATA_FORMAT_STRING = "44l"
 TZDATA_FORMAT_FILE = icutzformat.txt

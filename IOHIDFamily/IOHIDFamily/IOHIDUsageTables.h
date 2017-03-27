@@ -1351,7 +1351,7 @@ enum
     kHIDUsage_AD_Reserved = 0xFFFF
 };
 
-/* Sensor Page (0x14) */
+/* Sensor Page (0x20) */
 /* The Sensor page is intended for use by devices that capture biometric, electrical, environmental, light, location, mechanical, motion, orientation, scanner, etc events. */
 enum
 {
@@ -1552,7 +1552,15 @@ enum
     kHIDUsage_Snsr_Light_Illuminance                            = 0x04D1,
     
     /* Specific Sensor Type Data Fields */
-    /*** TODO ***/
+    
+    /* Biometric Sensor Data Fields */
+    kHIDUsage_Snsr_Data_Biometric                               = 0x04B0,
+    kHIDUsage_Snsr_Data_Biometric_HumanPresence                 = 0x04B1,
+    kHIDUsage_Snsr_Data_Biometric_HumanProximityRange           = 0x04B2,
+    kHIDUsage_Snsr_Data_Biometric_HumanProximityOutOfRange      = 0x04B3,
+    kHIDUsage_Snsr_Data_Biometric_HumanTouchState               = 0x04B4,
+    /* 0x04B5 - 0x04CF Reserved */
+    
 };
 
 /* Power Device Page (0x84) */

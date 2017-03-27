@@ -48,7 +48,7 @@ static void tests() {
         dispatch_group_async(g, release_queue, ^() {
             SecKeychainItemRef blockItem = NULL;
 
-            CFMutableDictionaryRef query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
+            CFMutableDictionaryRef query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
             CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne);
 
             ok_status(SecItemCopyMatching(query, (CFTypeRef*) &blockItem), "%s: SecItemCopyMatching(%d)", testName, i);

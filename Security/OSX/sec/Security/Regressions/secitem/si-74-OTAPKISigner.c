@@ -34,12 +34,11 @@
 #include <Security/SecTrust.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecCMS.h>
+#include <utilities/SecCFRelease.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "shared_regressions.h"
-
-#define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) {  CFRelease(_cf); } }
 
 static const UInt8 kSignedPList[] = {
 	0x30, 0x80, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02, 0xa0, 0x80, 0x30,
@@ -905,7 +904,7 @@ static void test_OTA_PKI()
 		NULL, "Get the Apple PKI Settings Root Certification Authority Cert");
     
 	CFArrayRef anchors = CFArrayCreate(kCFAllocatorDefault, (const void **)&apple_pki_settings_root_certificate_authority_cert, 1, &kCFTypeArrayCallBacks);
-	CFReleaseSafe(apple_pki_settings_root_certificate_authority_cert);
+	CFReleaseNull(apple_pki_settings_root_certificate_authority_cert);
 	apple_pki_settings_root_certificate_authority_cert = NULL;
 		
 	SecTrustSetAnchorCertificates(trustRef,  anchors);
@@ -984,7 +983,7 @@ static void test_OTA_PKI()
 	CFReleaseSafe(manifestRef);
 	CFReleaseSafe(base_manifest_data);
 	CFReleaseSafe(base_manifestRef);
-
+    CFReleaseSafe(anchors);
     CFReleaseSafe(apple_pki_settings_root_certificate_authority_cert_data);
 	
 }

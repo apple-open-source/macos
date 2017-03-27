@@ -24,7 +24,6 @@
 #ifndef _CC_PBKDF_H_
 #define _CC_PBKDF_H_
 
-#include <sys/param.h>
 #include <string.h>
 #include <Availability.h>
 #ifdef KERNEL
@@ -101,7 +100,7 @@ typedef uint32_t CCPseudoRandomAlgorithm;
 int 
 CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t passwordLen,
                       const uint8_t *salt, size_t saltLen,
-                      CCPseudoRandomAlgorithm prf, uint rounds, 
+                      CCPseudoRandomAlgorithm prf, unsigned rounds, 
                       uint8_t *derivedKey, size_t derivedKeyLen)
                       __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
@@ -124,10 +123,12 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
                         derivation with these parameters.
  
  @result the number of iterations to use for the desired processing time.
+        Returns a minimum of 10000 iterations (safety net, not a particularly recommended value)
+            The number of iterations is a trade-off of usability and security.
  
  */
 
-uint
+unsigned
 CCCalibratePBKDF(CCPBKDFAlgorithm algorithm, size_t passwordLen, size_t saltLen,
                  CCPseudoRandomAlgorithm prf, size_t derivedKeyLen, uint32_t msec)
                  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);

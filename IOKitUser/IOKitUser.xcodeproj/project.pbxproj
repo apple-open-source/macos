@@ -467,6 +467,7 @@
 		7CB4DC2118209AFC00D5A5AC /* IOAVControlInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 7CB4DC2018209AFC00D5A5AC /* IOAVControlInterface.h */; };
 		7CB4DC2218209AFC00D5A5AC /* IOAVControlInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 7CB4DC2018209AFC00D5A5AC /* IOAVControlInterface.h */; };
 		7CB4DC2318209B8200D5A5AC /* IOAVControlInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7CB4DC2018209AFC00D5A5AC /* IOAVControlInterface.h */; };
+		7CC1AC601E590E6A0013B99C /* IOAVDisplayMemoryUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8987CF9C1E57933500A7E870 /* IOAVDisplayMemoryUserClient.h */; };
 		80515E171AAA66330067A770 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80515E131AAA5E620067A770 /* libenergytrace.dylib */; };
 		80B849831AAE1ACE00DF24D0 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80515E131AAA5E620067A770 /* libenergytrace.dylib */; };
 		84061D4A1602D240003855D6 /* IOHIDEventSystemConnection.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 8456682E114C30AE006A9B74 /* IOHIDEventSystemConnection.h */; };
@@ -999,6 +1000,15 @@
 		84F70BC90EF0E5C300FF9E99 /* IOUserEthernetResourceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84F70BC70EF0E5AF00FF9E99 /* IOUserEthernetResourceUserClient.h */; };
 		84FF284C1363799000A37B4B /* IODPController.c in Sources */ = {isa = PBXBuildFile; fileRef = 84FF284A1363799000A37B4B /* IODPController.c */; };
 		84FF284D1363799000A37B4B /* IODPController.h in Headers */ = {isa = PBXBuildFile; fileRef = 84FF284B1363799000A37B4B /* IODPController.h */; };
+		8987CF941E5791BC00A7E870 /* IOAVDisplayMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 8987CF901E57916C00A7E870 /* IOAVDisplayMemory.h */; };
+		8987CF951E5791E900A7E870 /* IOAVDisplayMemory.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8987CF901E57916C00A7E870 /* IOAVDisplayMemory.h */; };
+		8987CF961E5791FD00A7E870 /* IOAVDisplayMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 8987CF901E57916C00A7E870 /* IOAVDisplayMemory.h */; };
+		8987CF971E57921000A7E870 /* IOAVDisplayMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 8987CF921E57917B00A7E870 /* IOAVDisplayMemory.c */; };
+		8987CF981E57922500A7E870 /* IOAVDisplayMemory.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8987CF901E57916C00A7E870 /* IOAVDisplayMemory.h */; };
+		8987CF991E57923600A7E870 /* IOAVDisplayMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 8987CF901E57916C00A7E870 /* IOAVDisplayMemory.h */; };
+		8987CF9A1E57924600A7E870 /* IOAVDisplayMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 8987CF921E57917B00A7E870 /* IOAVDisplayMemory.c */; };
+		8987CF9B1E57925B00A7E870 /* IOAVDisplayMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 8987CF921E57917B00A7E870 /* IOAVDisplayMemory.c */; };
+		8987CF9D1E57933500A7E870 /* IOAVDisplayMemoryUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8987CF9C1E57933500A7E870 /* IOAVDisplayMemoryUserClient.h */; };
 		8CF6001D1A42479D0085E4DC /* IOPSKeysPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */; };
 		8CF6001E1A42479E0085E4DC /* IOPSKeysPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */; };
 		8CF6001F1A42479E0085E4DC /* IOPSKeysPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */; };
@@ -2346,6 +2356,7 @@
 				848E72A015068444006AE483 /* IOAVService.h in CopyFiles */,
 				848E72A115068444006AE483 /* IOAVAudioInterface.h in CopyFiles */,
 				848E72A215068444006AE483 /* IOAVVideoInterface.h in CopyFiles */,
+				8987CF981E57922500A7E870 /* IOAVDisplayMemory.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2437,6 +2448,7 @@
 				848E7379150688A4006AE483 /* IOAVControllerUserClient.h in CopyFiles */,
 				7C0966D11820920E00FB91A5 /* IOAVInterfaceUserClient.h in CopyFiles */,
 				848E737A150688A4006AE483 /* IOAVDeviceUserClient.h in CopyFiles */,
+				7CC1AC601E590E6A0013B99C /* IOAVDisplayMemoryUserClient.h in CopyFiles */,
 				848E737B150688A4006AE483 /* IOAVPropertyKeys.h in CopyFiles */,
 				848E737C150688A4006AE483 /* IOAVServiceUserClient.h in CopyFiles */,
 				848E737D150688A4006AE483 /* IOAVTypes.h in CopyFiles */,
@@ -2468,6 +2480,7 @@
 				8491B47A145B492100DD2767 /* IOAVCommandTypes.h in CopyFiles */,
 				8491B47B145B492100DD2767 /* IOAVControllerUserClient.h in CopyFiles */,
 				8491B47C145B492100DD2767 /* IOAVDeviceUserClient.h in CopyFiles */,
+				8987CF9D1E57933500A7E870 /* IOAVDisplayMemoryUserClient.h in CopyFiles */,
 				7C0966D0182091F200FB91A5 /* IOAVInterfaceUserClient.h in CopyFiles */,
 				8491B47D145B492100DD2767 /* IOAVPropertyKeys.h in CopyFiles */,
 				8491B47E145B492100DD2767 /* IOAVServiceUserClient.h in CopyFiles */,
@@ -2508,6 +2521,7 @@
 				84959096145B310C005F7106 /* IOAVService.h in CopyFiles */,
 				84959097145B310C005F7106 /* IOAVAudioInterface.h in CopyFiles */,
 				84959098145B310C005F7106 /* IOAVVideoInterface.h in CopyFiles */,
+				8987CF951E5791E900A7E870 /* IOAVDisplayMemory.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2839,6 +2853,9 @@
 		84F70BC70EF0E5AF00FF9E99 /* IOUserEthernetResourceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUserEthernetResourceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/network/IOUserEthernetResourceUserClient.h; sourceTree = SDKROOT; };
 		84FF284A1363799000A37B4B /* IODPController.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IODPController.c; sourceTree = "<group>"; };
 		84FF284B1363799000A37B4B /* IODPController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IODPController.h; sourceTree = "<group>"; };
+		8987CF901E57916C00A7E870 /* IOAVDisplayMemory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAVDisplayMemory.h; sourceTree = "<group>"; };
+		8987CF921E57917B00A7E870 /* IOAVDisplayMemory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOAVDisplayMemory.c; sourceTree = "<group>"; };
+		8987CF9C1E57933500A7E870 /* IOAVDisplayMemoryUserClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOAVDisplayMemoryUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/audio_video/IOAVDisplayMemoryUserClient.h; sourceTree = SDKROOT; };
 		8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPSKeysPrivate.h; sourceTree = "<group>"; };
 		98599EBD1A71677000D3EE9E /* IOHIDDebugTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDDebugTrace.h; sourceTree = "<group>"; };
 		A949EDE20E15DFAC004079DB /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
@@ -3528,6 +3545,7 @@
 				8491B463145B48E100DD2767 /* IOAVCommandTypes.h */,
 				8491B464145B48E100DD2767 /* IOAVControllerUserClient.h */,
 				8491B465145B48E100DD2767 /* IOAVDeviceUserClient.h */,
+				8987CF9C1E57933500A7E870 /* IOAVDisplayMemoryUserClient.h */,
 				7C0966CF182091F200FB91A5 /* IOAVInterfaceUserClient.h */,
 				8491B466145B48E100DD2767 /* IOAVPropertyKeys.h */,
 				8491B467145B48E100DD2767 /* IOAVServiceUserClient.h */,
@@ -3575,6 +3593,7 @@
 				84959082145B2580005F7106 /* IOAVAudioInterface.c */,
 				7CB4DC1C18209ACB00D5A5AC /* IOAVControlInterface.c */,
 				84959087145B2580005F7106 /* IOAVVideoInterface.c */,
+				8987CF921E57917B00A7E870 /* IOAVDisplayMemory.c */,
 			);
 			name = "Other Sources";
 			sourceTree = "<group>";
@@ -3591,6 +3610,7 @@
 				84959067145B2044005F7106 /* IOAVAudioInterface.h */,
 				7CB4DC2018209AFC00D5A5AC /* IOAVControlInterface.h */,
 				84959090145B25C4005F7106 /* IOAVVideoInterface.h */,
+				8987CF901E57916C00A7E870 /* IOAVDisplayMemory.h */,
 			);
 			name = PrivateHeaders;
 			sourceTree = "<group>";
@@ -4131,6 +4151,7 @@
 				3F116D671638DFAD001C6A14 /* IOKitLibPrivate.h in Headers */,
 				3F116D681638DFAD001C6A14 /* IODataQueueClient.h in Headers */,
 				3F116D691638DFAD001C6A14 /* IOKitLib.h in Headers */,
+				8987CF941E5791BC00A7E870 /* IOAVDisplayMemory.h in Headers */,
 				3F116D6A1638DFAD001C6A14 /* IOSystemConfiguration.h in Headers */,
 				3F116D6B1638DFAD001C6A14 /* IOHIDValue.h in Headers */,
 				3F116D6C1638DFAD001C6A14 /* IOHIDElement.h in Headers */,
@@ -4258,6 +4279,7 @@
 				8472D4C10CFA100A003111DE /* IOCFBundle.h in Headers */,
 				8472D4C20CFA100A003111DE /* IOKitLibPrivate.h in Headers */,
 				8472D4C30CFA100A003111DE /* IODataQueueClient.h in Headers */,
+				8987CF961E5791FD00A7E870 /* IOAVDisplayMemory.h in Headers */,
 				84D247C6177FEB8D008F663C /* IOHIDServiceFilter.h in Headers */,
 				8472D4C40CFA100A003111DE /* IOKitLib.h in Headers */,
 				8472D4C50CFA100A003111DE /* IOSystemConfiguration.h in Headers */,
@@ -4333,6 +4355,7 @@
 				848E72B015068444006AE483 /* IOCFBundle.h in Headers */,
 				848E72B115068444006AE483 /* IOKitLibPrivate.h in Headers */,
 				84D247C7177FEBA7008F663C /* IOHIDServiceFilter.h in Headers */,
+				8987CF991E57923600A7E870 /* IOAVDisplayMemory.h in Headers */,
 				848E72B215068444006AE483 /* IODataQueueClient.h in Headers */,
 				4893D2291B55D0EB00CF3CA0 /* IOUPSPlugIn.h in Headers */,
 				848E72B315068444006AE483 /* IOKitLib.h in Headers */,
@@ -5076,6 +5099,7 @@
 				84959088145B2580005F7106 /* IOAVAudioInterface.c in Sources */,
 				84959089145B2580005F7106 /* IOAVController.c in Sources */,
 				8495908A145B2580005F7106 /* IOAVDevice.c in Sources */,
+				8987CF971E57921000A7E870 /* IOAVDisplayMemory.c in Sources */,
 				8495908B145B2580005F7106 /* IOAVLib.c in Sources */,
 				8495908C145B2580005F7106 /* IOAVService.c in Sources */,
 				8495908D145B2580005F7106 /* IOAVVideoInterface.c in Sources */,
@@ -5127,6 +5151,7 @@
 				7CB4DC1E18209ACB00D5A5AC /* IOAVControlInterface.c in Sources */,
 				848E732415068444006AE483 /* IOAVController.c in Sources */,
 				848E732515068444006AE483 /* IOAVDevice.c in Sources */,
+				8987CF9A1E57924600A7E870 /* IOAVDisplayMemory.c in Sources */,
 				848E732615068444006AE483 /* IOAVLib.c in Sources */,
 				848E732715068444006AE483 /* IOAVService.c in Sources */,
 				848E732815068444006AE483 /* IOAVVideoInterface.c in Sources */,
@@ -5149,6 +5174,7 @@
 				7CB4DC1F18209ACB00D5A5AC /* IOAVControlInterface.c in Sources */,
 				B332FDEE14D747FB0092AA1E /* IOAVController.c in Sources */,
 				B332FDEF14D747FB0092AA1E /* IOAVDevice.c in Sources */,
+				8987CF9B1E57925B00A7E870 /* IOAVDisplayMemory.c in Sources */,
 				B332FDF014D747FB0092AA1E /* IOAVLib.c in Sources */,
 				CEFD2A0E1C160CF800CE9BA2 /* IOAVLibUtil.c in Sources */,
 				B332FDF114D747FB0092AA1E /* IOAVService.c in Sources */,

@@ -418,6 +418,11 @@ keychain_import(int argc, char * const *argv)
 		if(kcRef == NULL) {
 			return 1;
 		}
+	} else {
+		OSStatus status = SecKeychainCopyDefault(&kcRef);
+		if (status != noErr || kcRef == NULL) {
+			return 1;
+		}
 	}
 	if(readFileSizet(inFile, &inFileData, &inFileLen)) {
 		sec_error("Error reading infile %s: %s", inFile, strerror(errno));

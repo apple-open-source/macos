@@ -99,6 +99,9 @@ void SOSPeerSetMustSendMessage(SOSPeerRef peer, bool must);
 bool SOSPeerSendObjects(SOSPeerRef peer);
 void SOSPeerSetSendObjects(SOSPeerRef peer, bool sendObjects);
 
+bool SOSPeerHasBeenInSync(SOSPeerRef peer);
+void SOSPeerSetHasBeenInSync(SOSPeerRef peer, bool hasBeenInSync);
+
 SOSManifestRef SOSPeerGetProposedManifest(SOSPeerRef peer);
 SOSManifestRef SOSPeerGetConfirmedManifest(SOSPeerRef peer);
 void SOSPeerSetConfirmedManifest(SOSPeerRef peer, SOSManifestRef confirmed);

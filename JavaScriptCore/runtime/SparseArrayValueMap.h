@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef SparseArrayValueMap_h
-#define SparseArrayValueMap_h
+#pragma once
 
 #include "JSCell.h"
 #include "JSTypeInfo.h"
@@ -111,8 +110,8 @@ public:
     AddResult add(JSObject*, unsigned);
     iterator find(unsigned i) { return m_map.find(i); }
     // This should ASSERT the remove is valid (check the result of the find).
-    void remove(iterator it) { m_map.remove(it); }
-    void remove(unsigned i) { m_map.remove(i); }
+    void remove(iterator it);
+    void remove(unsigned i);
 
     // These methods do not mutate the contents of the map.
     iterator notFound() { return m_map.end(); }
@@ -130,6 +129,3 @@ private:
 };
 
 } // namespace JSC
-
-#endif // SparseArrayValueMap_h
-

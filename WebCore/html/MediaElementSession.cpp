@@ -47,12 +47,12 @@
 #include "RenderView.h"
 #include "ScriptController.h"
 #include "SourceBuffer.h"
-#include <wtf/spi/darwin/dyldSPI.h>
 #include <wtf/CurrentTime.h>
 
 #if PLATFORM(IOS)
 #include "AudioSession.h"
 #include "RuntimeApplicationChecks.h"
+#include <wtf/spi/darwin/dyldSPI.h>
 #endif
 
 namespace WebCore {
@@ -69,7 +69,7 @@ static String restrictionName(MediaElementSession::BehaviorRestrictions restrict
 #define CASE(restrictionType) \
     if (restriction & MediaElementSession::restrictionType) { \
         if (!restrictionBuilder.isEmpty()) \
-            restrictionBuilder.append(", "); \
+            restrictionBuilder.appendLiteral(", "); \
         restrictionBuilder.append(#restrictionType); \
     } \
 
@@ -138,8 +138,11 @@ void MediaElementSession::addBehaviorRestriction(BehaviorRestrictions restrictio
 
 void MediaElementSession::removeBehaviorRestriction(BehaviorRestrictions restriction)
 {
-    if (restriction & RequireUserGestureToControlControlsManager)
+    if (restriction & RequireUserGestureToControlControlsManager) {
         m_mostRecentUserInteractionTime = monotonicallyIncreasingTime();
+        if (auto page = m_element.document().page())
+            page->setAllowsPlaybackControlsForAutoplayingAudio(true);
+    }
 
     LOG(Media, "MediaElementSession::removeBehaviorRestriction - removing %s", restrictionName(restriction).utf8().data());
     m_restrictions &= ~restriction;
@@ -147,6 +150,9 @@ void MediaElementSession::removeBehaviorRestriction(BehaviorRestrictions restric
 
 bool MediaElementSession::playbackPermitted(const HTMLMediaElement& element) const
 {
+    if (element.document().isMediaDocument() && !element.document().ownerElement())
+        return true;
+
     if (pageExplicitlyAllowsElementToAutoplayInline(element))
         return true;
 
@@ -168,6 +174,29 @@ bool MediaElementSession::playbackPermitted(const HTMLMediaElement& element) con
         return false;
     }
 
+    return true;
+}
+
+bool MediaElementSession::autoplayPermitted() const
+{
+    const Document& document = m_element.document();
+    if (document.pageCacheState() != Document::NotInPageCache)
+        return false;
+    if (document.activeDOMObjectsAreSuspended())
+        return false;
+
+    if (!hasBehaviorRestriction(MediaElementSession::InvisibleAutoplayNotPermitted))
+        return true;
+
+    auto* renderer = m_element.renderer();
+    if (!renderer)
+        return false;
+    if (renderer->style().visibility() != VISIBLE)
+        return false;
+    if (renderer->view().frameView().isOffscreen())
+        return false;
+    if (renderer->visibleInViewportState() != RenderElement::VisibleInViewport)
+        return false;
     return true;
 }
 
@@ -223,6 +252,31 @@ bool MediaElementSession::canShowControlsManager(PlaybackControlsPurpose purpose
         return true;
     }
 
+    if (m_element.muted()) {
+        LOG(Media, "MediaElementSession::canShowControlsManager - returning FALSE: Muted");
+        return false;
+    }
+
+    if (m_element.document().isMediaDocument()) {
+        LOG(Media, "MediaElementSession::canShowControlsManager - returning TRUE: Is media document");
+        return true;
+    }
+
+    if (client().presentationType() == Audio) {
+        if (!hasBehaviorRestriction(RequireUserGestureToControlControlsManager) || ScriptController::processingUserGestureForMedia()) {
+            LOG(Media, "MediaElementSession::canShowControlsManager - returning TRUE: Audio element with user gesture");
+            return true;
+        }
+
+        if (m_element.isPlaying() && allowsPlaybackControlsForAutoplayingAudio()) {
+            LOG(Media, "MediaElementSession::canShowControlsManager - returning TRUE: User has played media before");
+            return true;
+        }
+
+        LOG(Media, "MediaElementSession::canShowControlsManager - returning FALSE: Audio element is not suitable");
+        return false;
+    }
+
     if (purpose == PlaybackControlsPurpose::ControlsManager && !isElementRectMostlyInMainFrame(m_element)) {
         LOG(Media, "MediaElementSession::canShowControlsManager - returning FALSE: Not in main frame");
         return false;
@@ -231,11 +285,6 @@ bool MediaElementSession::canShowControlsManager(PlaybackControlsPurpose purpose
     if (!m_element.hasAudio() && !m_element.hasEverHadAudio()) {
         LOG(Media, "MediaElementSession::canShowControlsManager - returning FALSE: No audio");
         return false;
-    }
-
-    if (m_element.document().isMediaDocument()) {
-        LOG(Media, "MediaElementSession::canShowControlsManager - returning TRUE: Is media document");
-        return true;
     }
 
     if (m_element.document().activeDOMObjectsAreSuspended()) {
@@ -255,11 +304,6 @@ bool MediaElementSession::canShowControlsManager(PlaybackControlsPurpose purpose
 
     if (purpose == PlaybackControlsPurpose::ControlsManager && hasBehaviorRestriction(RequirePlaybackToControlControlsManager) && !m_element.isPlaying()) {
         LOG(Media, "MediaElementSession::canShowControlsManager - returning FALSE: Needs to be playing");
-        return false;
-    }
-
-    if (m_element.muted()) {
-        LOG(Media, "MediaElementSession::canShowControlsManager - returning FALSE: Muted");
         return false;
     }
 
@@ -501,6 +545,9 @@ bool MediaElementSession::requiresFullscreenForVideoPlayback(const HTMLMediaElem
     if (!settings || !settings->allowsInlineMediaPlayback())
         return true;
 
+    if (element.isTemporarilyAllowingInlinePlaybackAfterFullscreen())
+        return false;
+
     if (!settings->inlineMediaPlaybackRequiresPlaysInlineAttribute())
         return false;
 
@@ -635,7 +682,7 @@ static bool isMainContentForPurposesOfAutoplay(const HTMLMediaElement& element)
     // Elements which are obscured by other elements cannot be main content.
     mainRenderView.hitTest(request, result);
     result.setToNonUserAgentShadowAncestor();
-    Element* hitElement = result.innerElement();
+    Element* hitElement = result.targetElement();
     if (hitElement != &element)
         return false;
 
@@ -735,6 +782,12 @@ bool MediaElementSession::allowsNowPlayingControlsVisibility() const
 {
     auto page = m_element.document().page();
     return page && !page->isVisibleAndActive();
+}
+
+bool MediaElementSession::allowsPlaybackControlsForAutoplayingAudio() const
+{
+    auto page = m_element.document().page();
+    return page && page->allowsPlaybackControlsForAutoplayingAudio();
 }
 
 }

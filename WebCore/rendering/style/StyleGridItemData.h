@@ -28,15 +28,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef StyleGridItemData_h
-#define StyleGridItemData_h
+#pragma once
 
 #if ENABLE(CSS_GRID_LAYOUT)
 
 #include "GridPosition.h"
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -68,6 +66,4 @@ private:
 
 } // namespace WebCore
 
-#endif /* ENABLE(CSS_GRID_LAYOUT) */
-
-#endif // StyleGridItemData_h
+#endif // ENABLE(CSS_GRID_LAYOUT)

@@ -66,6 +66,8 @@ const char * kSOSCCViewMembershipChangedNotification = "com.apple.security.secur
 const char * kSOSCCInitialSyncChangedNotification = "com.apple.security.secureobjectsync.initialsyncchanged";
 const char * kSOSCCHoldLockForInitialSync = "com.apple.security.secureobjectsync.holdlock";
 const char * kSOSCCPeerAvailable = "com.apple.security.secureobjectsync.peeravailable";
+const char * kSOSCCRecoveryKeyChanged = "com.apple.security.secureobjectsync.recoverykeychanged";
+const CFStringRef kSOSErrorDomain = CFSTR("com.apple.security.sos.error");
 
 #define do_if_registered(sdp, ...) if (gSecurityd && gSecurityd->sdp) { return gSecurityd->sdp(__VA_ARGS__); }
 
@@ -134,6 +136,25 @@ static bool cfstring_to_error_request(enum SecXPCOperation op, CFStringRef strin
     return result;
 }
 
+static bool deviceid_to_bool_error_request(enum SecXPCOperation op,
+                                           CFStringRef IDS,
+                                           CFErrorRef* error)
+{
+    __block bool result = false;
+    
+    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        CFStringPerformWithCString(IDS, ^(const char *utf8Str) {
+            xpc_dictionary_set_string(message, kSecXPCKeyDeviceID, utf8Str);
+        });
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *error) {
+        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+        return result;
+    });
+    
+    return result;
+}
+
 static SOSRingStatus cfstring_to_uint64_request(enum SecXPCOperation op, CFStringRef string, CFErrorRef* error)
 {
     __block bool result = false;
@@ -184,6 +205,30 @@ static bool simple_bool_error_request(enum SecXPCOperation op, CFErrorRef* error
     return result;
 }
 
+static bool SecXPCDictionarySetPeerInfoData(xpc_object_t message, const char *key, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
+    bool success = false;
+    CFDataRef peerData = SOSPeerInfoCopyEncodedData(peerInfo, kCFAllocatorDefault, error);
+    if (peerData) {
+        success = SecXPCDictionarySetData(message, key, peerData, error);
+    }
+    CFReleaseNull(peerData);
+    return success;
+}
+
+static bool peer_info_to_bool_error_request(enum SecXPCOperation op, SOSPeerInfoRef peerInfo, CFErrorRef* error)
+{
+    __block bool result = false;
+
+    secdebug("sosops","enter - operation: %d", op);
+    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        return SecXPCDictionarySetPeerInfoData(message, kSecXPCKeyPeerInfo, peerInfo, error);
+    }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
+        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+        return result;
+    });
+    return result;
+}
+
 static CFBooleanRef cfarray_to_cfboolean_error_request(enum SecXPCOperation op, CFArrayRef views, CFErrorRef* error)
 {
     __block bool result = false;
@@ -196,6 +241,25 @@ static CFBooleanRef cfarray_to_cfboolean_error_request(enum SecXPCOperation op, 
         return true;
     });
     return noError ? (result ? kCFBooleanTrue : kCFBooleanFalse) : NULL;
+}
+
+
+static CFSetRef cfset_cfset_to_cfset_error_request(enum SecXPCOperation op, CFSetRef set1, CFSetRef set2, CFErrorRef* error)
+{
+    __block CFSetRef result = NULL;
+
+    secdebug("sosops","enter - operation: %d", op);
+    bool noError = securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        return SecXPCDictionarySetPList(message, kSecXPCKeySet, set1, error) && SecXPCDictionarySetPList(message, kSecXPCKeySet2, set2, error);
+    }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
+        result = SecXPCDictionaryCopySet(response, kSecXPCKeyResult, error);
+        return result;
+    });
+
+    if (!noError) {
+        CFReleaseNull(result);
+    }
+    return result;
 }
 
 
@@ -228,11 +292,31 @@ static bool escrow_to_bool_error_request(enum SecXPCOperation op, CFStringRef es
 static CF_RETURNS_RETAINED CFArrayRef simple_array_error_request(enum SecXPCOperation op, CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
-    
+
     secdebug("sosops","enter - operation: %d", op);
     if (securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
         xpc_object_t temp_result = xpc_dictionary_get_value(response, kSecXPCKeyResult);
         result = _CFXPCCreateCFObjectFromXPCObject(temp_result);
+        return result != NULL;
+    })) {
+        if (!isArray(result)) {
+            SOSErrorCreate(kSOSErrorUnexpectedType, error, NULL, CFSTR("Expected array, got: %@"), result);
+            CFReleaseNull(result);
+        }
+    }
+    return result;
+}
+
+static CF_RETURNS_RETAINED CFArrayRef der_array_error_request(enum SecXPCOperation op, CFErrorRef* error)
+{
+    __block CFArrayRef result = NULL;
+
+    secdebug("sosops","enter - operation: %d", op);
+    if (securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
+        size_t length = 0;
+        const uint8_t* bytes = xpc_dictionary_get_data(response, kSecXPCKeyResult, &length);
+        der_decode_plist(kCFAllocatorDefault, 0, (CFPropertyListRef*) &result, error, bytes, bytes + length);
+
         return result != NULL;
     })) {
         if (!isArray(result)) {
@@ -310,7 +394,6 @@ static CFDataRef data_to_error_request(enum SecXPCOperation op, CFErrorRef *erro
     __block CFDataRef result = NULL;
 
     secdebug("sosops", "enter -- operation: %d", op);
-    secdebug("sosops","enter - operation: %d", op);
     securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
         xpc_object_t temp_result = xpc_dictionary_get_value(response, kSecXPCKeyResult);
         if (response && (NULL != temp_result)) {
@@ -347,7 +430,7 @@ static CFArrayRef array_of_info_error_request(enum SecXPCOperation op, CFErrorRe
     return result;
 }
 
-static SOSPeerInfoRef data_to_peer_info_error_request(enum SecXPCOperation op, CFDataRef secret, CFErrorRef* error)
+static CF_RETURNS_RETAINED SOSPeerInfoRef data_to_peer_info_error_request(enum SecXPCOperation op, CFDataRef secret, CFErrorRef* error)
 {
     __block SOSPeerInfoRef result = false;
     __block CFDataRef data = NULL;
@@ -399,6 +482,22 @@ static bool keybag_and_bool_to_bool_error_request(enum SecXPCOperation op, CFDat
     });
 }
 
+static bool recovery_and_bool_to_bool_error_request(enum SecXPCOperation op, CFDataRef data, CFErrorRef* error)
+{
+    secdebug("sosops", "enter - operation: %d", op);
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        xpc_object_t xData = _CFXPCCreateXPCObjectFromCFObject(data);
+        bool success = false;
+        if (xData){
+            xpc_dictionary_set_value(message, kSecXPCKeyRecoveryPublicKey, xData);
+            xpc_release(xData);
+            success = true;
+        }
+        return success;
+    }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
+        return xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+    });
+}
 
 static bool info_array_to_bool_error_request(enum SecXPCOperation op, CFArrayRef peer_infos, CFErrorRef* error)
 {
@@ -408,7 +507,7 @@ static bool info_array_to_bool_error_request(enum SecXPCOperation op, CFArrayRef
     securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
         xpc_object_t encoded_peers = CreateXPCObjectWithArrayOfPeerInfo(peer_infos, error);
         if (encoded_peers)
-            xpc_dictionary_set_value(message, kSecXPCKeyPeerInfos, encoded_peers);
+            xpc_dictionary_set_value(message, kSecXPCKeyPeerInfoArray, encoded_peers);
         return encoded_peers != NULL;
     }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
         result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
@@ -541,17 +640,14 @@ static CFDataRef cfdata_error_request_returns_cfdata(enum SecXPCOperation op, CF
         xpc_object_t temp_result = xpc_dictionary_get_value(response, kSecXPCKeyResult);
         if (response && (NULL != temp_result)) {
             CFTypeRef object = _CFXPCCreateCFObjectFromXPCObject(temp_result);
-            result = asData(object, error);
-            if (!result) {
-                CFReleaseNull(object);
-            }
+            result = copyIfData(object, error);
+            CFReleaseNull(object);
         }
         return (bool) (result != NULL);
     });
     
     return result;
 }
-
 
 bool SOSCCRequestToJoinCircle(CFErrorRef* error)
 {
@@ -902,15 +998,79 @@ SOSPeerInfoRef SOSCCCopyMyPeerInfo(CFErrorRef *error)
     }, CFSTR("return=%@"));
 }
 
-CFArrayRef SOSCCCopyEngineState(CFErrorRef* error)
+static CFArrayRef SOSCCCopyEngineState(CFErrorRef* error)
 {
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyEngineState, error);
 
-        return simple_array_error_request(kSecXPCOpCopyEngineState, error);
+        return der_array_error_request(kSecXPCOpCopyEngineState, error);
     }, CFSTR("return=%@"));
 }
+
+CFStringRef kSOSCCEngineStatePeerIDKey = CFSTR("PeerID");
+CFStringRef kSOSCCEngineStateManifestCountKey = CFSTR("ManifestCount");
+CFStringRef kSOSCCEngineStateSyncSetKey = CFSTR("SyncSet");
+CFStringRef kSOSCCEngineStateCoderKey = CFSTR("CoderDump");
+CFStringRef kSOSCCEngineStateManifestHashKey = CFSTR("ManifestHash");
+
+void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(CFStringRef oneStateString)) {
+
+    CFArrayForEach(states, ^(const void *value) {
+        CFDictionaryRef dict = asDictionary(value, NULL);
+        if (dict) {
+            CFMutableStringRef description = CFStringCreateMutable(kCFAllocatorDefault, 0);
+
+            CFStringRef id = asString(CFDictionaryGetValue(dict, kSOSCCEngineStatePeerIDKey), NULL);
+
+            if (id) {
+                CFStringAppendFormat(description, NULL, CFSTR("remote %@ "), id);
+            } else {
+                CFStringAppendFormat(description, NULL, CFSTR("local "));
+            }
+
+            CFSetRef viewSet = asSet(CFDictionaryGetValue(dict, kSOSCCEngineStateSyncSetKey), NULL);
+            if (viewSet) {
+                CFStringSetPerformWithDescription(viewSet, ^(CFStringRef setDescription) {
+                    CFStringAppend(description, setDescription);
+                });
+            } else {
+                CFStringAppendFormat(description, NULL, CFSTR("<Missing view set!>"));
+            }
+
+            CFStringAppendFormat(description, NULL, CFSTR(" [%@]"),
+                                 CFDictionaryGetValue(dict, kSOSCCEngineStateManifestCountKey));
+
+            CFDataRef mainfestHash = asData(CFDictionaryGetValue(dict, kSOSCCEngineStateManifestHashKey), NULL);
+
+            if (mainfestHash) {
+                CFDataPerformWithHexString(mainfestHash, ^(CFStringRef dataString) {
+                    CFStringAppendFormat(description, NULL, CFSTR(" %@"), dataString);
+                });
+            }
+
+            CFStringRef coderDescription = asString(CFDictionaryGetValue(dict, kSOSCCEngineStateCoderKey), NULL);
+            if (coderDescription) {
+                CFStringAppendFormat(description, NULL, CFSTR(" %@"), coderDescription);
+            }
+
+            block(description);
+            
+            CFReleaseNull(description);
+        }
+    });
+}
+
+bool SOSCCForEachEngineStateAsString(CFErrorRef* error, void (^block)(CFStringRef oneStateString)) {
+    CFArrayRef states = SOSCCCopyEngineState(error);
+    if (states == NULL)
+        return false;
+
+    SOSCCForEachEngineStateAsStringFromArray(states, block);
+
+    return true;
+}
+
 
 bool SOSCCAcceptApplicants(CFArrayRef applicants, CFErrorRef* error)
 {
@@ -932,7 +1092,7 @@ bool SOSCCRejectApplicants(CFArrayRef applicants, CFErrorRef *error)
     }, NULL)
 }
 
-static SOSPeerInfoRef SOSSetNewPublicBackupKey(CFDataRef pubKey, CFErrorRef *error)
+static CF_RETURNS_RETAINED SOSPeerInfoRef SOSSetNewPublicBackupKey(CFDataRef pubKey, CFErrorRef *error)
 {
     sec_trace_enter_api(NULL);
     sec_trace_return_api(SOSPeerInfoRef, ^{
@@ -945,7 +1105,11 @@ static SOSPeerInfoRef SOSSetNewPublicBackupKey(CFDataRef pubKey, CFErrorRef *err
 SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFErrorRef *error){
     CFDataRef publicKeyData = SOSCopyDeviceBackupPublicKey(secret, error);
 
-    return publicKeyData ? SOSSetNewPublicBackupKey(publicKeyData, error) : NULL;
+    SOSPeerInfoRef copiedPeer = publicKeyData ? SOSSetNewPublicBackupKey(publicKeyData, error) : NULL;
+
+    CFReleaseNull(publicKeyData);
+
+    return copiedPeer;
 }
 
 bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErrorRef *error){
@@ -957,6 +1121,21 @@ bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErro
 }
 
 
+bool SOSCCRegisterRecoveryPublicKey(CFDataRef recovery_key, CFErrorRef *error){
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_RegisterRecoveryPublicKey, recovery_key, error);
+        return recovery_and_bool_to_bool_error_request(kSecXPCOpRegisterRecoveryPublicKey, recovery_key, error);
+    }, NULL);
+}
+
+CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error){
+    sec_trace_enter_api(NULL);
+    sec_trace_return_api(CFDataRef, ^{
+        do_if_registered(soscc_CopyRecoveryPublicKey, error);
+        return data_to_error_request(kSecXPCOpGetRecoveryPublicKey, error);
+    }, CFSTR("return=%@"));
+}
 static bool label_and_password_to_bool_error_request(enum SecXPCOperation op,
                                                      CFStringRef user_label, CFDataRef user_password,
                                                      CFErrorRef* error)
@@ -1000,14 +1179,14 @@ static bool label_and_password_and_dsid_to_bool_error_request(enum SecXPCOperati
     return result;
 }
 
-static bool deviceid_to_bool_error_request(enum SecXPCOperation op,
-                                                     CFStringRef IDS,
+static bool cfstring_to_bool_error_request(enum SecXPCOperation op,
+                                                     CFStringRef string,
                                                      CFErrorRef* error)
 {
     __block bool result = false;
     
     securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        CFStringPerformWithCString(IDS, ^(const char *utf8Str) {
+        CFStringPerformWithCString(string, ^(const char *utf8Str) {
             xpc_dictionary_set_string(message, kSecXPCKeyDeviceID, utf8Str);
         });
         return true;
@@ -1036,6 +1215,23 @@ static int idsDict_to_int_error_request(enum SecXPCOperation op,
         return true;
     });
     
+    return result;
+}
+
+static bool idsData_peerID_to_bool_error_request(enum SecXPCOperation op, CFStringRef peerID,
+                                        CFDataRef IDSMessage,
+                                        CFErrorRef* error)
+{
+    __block bool result = 0;
+
+    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        SecXPCDictionarySetData(message, kSecXPCKeyIDSMessage, IDSMessage, error);
+        SecXPCDictionarySetString(message, kSecXPCKeyDeviceID, peerID, error);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *error) {
+        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
+        return result;
+    });
     return result;
 }
 
@@ -1081,14 +1277,21 @@ bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
     sec_trace_enter_api(CFSTR("user_label=%@"), user_label);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_SetUserCredentialsAndDSID, user_label, user_password, dsid, error);
-        if(dsid == NULL){
-            return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpSetUserCredentialsAndDSID, user_label, user_password, CFSTR(""), error);
+
+        bool result = false;
+        __block CFStringRef account_dsid = dsid;
+
+        require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
+        require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
+
+        if(account_dsid == NULL){
+            account_dsid = CFSTR("");
         }
-        else{
-            return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpSetUserCredentialsAndDSID, user_label, user_password, dsid, error);
-        }
+        return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpSetUserCredentialsAndDSID, user_label, user_password, account_dsid, error);
+    out:
+        return result;
+
     }, NULL)
-    
 }
 bool SOSCCSetDeviceID(CFStringRef IDS, CFErrorRef* error)
 {
@@ -1096,7 +1299,7 @@ bool SOSCCSetDeviceID(CFStringRef IDS, CFErrorRef* error)
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_SetDeviceID, IDS, error);
-        bool result = deviceid_to_bool_error_request(kSecXPCOpSetDeviceID, IDS, error);
+        bool result = cfstring_to_bool_error_request(kSecXPCOpSetDeviceID, IDS, error);
         return result;
     }, NULL)
 }
@@ -1141,23 +1344,34 @@ HandleIDSMessageReason SOSCCHandleIDSMessage(CFDictionaryRef IDS, CFErrorRef* er
     }, NULL)
 }
 
-bool SOSCCRequestSyncWithPeerOverKVS(CFStringRef peerID, CFErrorRef *error)
+bool SOSCCClearPeerMessageKeyInKVS(CFStringRef peerID, CFErrorRef *error)
+{
+    secnotice("sosops", "SOSCCClearPeerMessageKeyInKVS!! %@\n", peerID);
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(socc_clearPeerMessageKeyInKVS, peerID, error);
+        return cfstring_to_bool_error_request(kSecXPCOpClearKVSPeerMessage, peerID, error);
+    }, NULL)
+
+}
+
+bool SOSCCRequestSyncWithPeerOverKVSUsingIDOnly(CFStringRef peerID, CFErrorRef *error)
+{
+    secnotice("sosops", "SOSCCRequestSyncWithPeerOverKVSUsingIDOnly!! %@\n", peerID);
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_requestSyncWithPeerOverKVSIDOnly, peerID, error);
+        return deviceid_to_bool_error_request(kSecXPCOpSyncWithKVSPeerIDOnly, peerID, error);
+    }, NULL)
+}
+
+bool SOSCCRequestSyncWithPeerOverKVS(CFStringRef peerID, CFDataRef message, CFErrorRef *error)
 {
     secnotice("sosops", "SOSCCRequestSyncWithPeerOverKVS!! %@\n", peerID);
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
-        do_if_registered(soscc_requestSyncWithPeerOverKVS, peerID, error);
-        return deviceid_to_bool_error_request(kSecXPCOpSyncWithKVSPeer, peerID, error);
-    }, NULL)
-}
-
-bool SOSCCRequestSyncWithPeerOverIDS(CFStringRef deviceID, CFErrorRef *error)
-{
-    secnotice("sosops", "SOSCCRequestSyncWithPeerOverIDS!! %@\n", deviceID);
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_requestSyncWithPeerOverIDS, deviceID, error);
-        return deviceid_to_bool_error_request(kSecXPCOpSyncWithIDSPeer, deviceID, error);
+        do_if_registered(soscc_requestSyncWithPeerOverKVS, peerID, message, error);
+        return idsData_peerID_to_bool_error_request(kSecXPCOpSyncWithKVSPeer, peerID, message, error);
     }, NULL)
 }
 
@@ -1241,6 +1455,17 @@ bool SOSCCProcessEnsurePeerRegistration(CFErrorRef* error){
         do_if_registered(soscc_EnsurePeerRegistration, error);
         
         return simple_bool_error_request(soscc_EnsurePeerRegistration_id, error);
+    }, NULL)
+}
+
+
+CFSetRef /* CFString */ SOSCCProcessSyncWithPeers(CFSetRef peers, CFSetRef backupPeers, CFErrorRef* error)
+{
+    sec_trace_enter_api(NULL);
+    sec_trace_return_api(CFSetRef, ^{
+        do_if_registered(soscc_ProcessSyncWithPeers, peers, backupPeers, error);
+
+        return cfset_cfset_to_cfset_error_request(kSecXPCOpProcessSyncWithPeers, peers, backupPeers, error);
     }, NULL)
 }
 
@@ -1433,6 +1658,15 @@ CFDictionaryRef SOSCCCopyEscrowRecord(CFErrorRef *error){
 
 }
 
+CFDictionaryRef SOSCCCopyBackupInformation(CFErrorRef *error) {
+    secnotice("escrow", "enter SOSCCCopyBackupInformation");
+    sec_trace_enter_api(NULL);
+    sec_trace_return_api(CFDictionaryRef, ^{
+        do_if_registered(soscc_CopyBackupInformation, error);
+        return strings_to_dictionary_error_request(kSecXPCOpCopyBackupInformation, error);
+    }, CFSTR("return=%@"))
+}
+
 bool SOSCCCheckPeerAvailability(CFErrorRef *error){
     secnotice("peer", "enter SOSCCCheckPeerAvailability");
     sec_trace_enter_api(NULL);
@@ -1511,3 +1745,22 @@ CFBooleanRef SOSCCPeersHaveViewsEnabled(CFArrayRef viewNames, CFErrorRef *error)
     }, CFSTR("return=%@"))
 }
 
+bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
+    secnotice("pending-check", "enter SOSCCMessageFromPeerIsPending");
+
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_SOSCCMessageFromPeerIsPending, peer, error);
+
+        return peer_info_to_bool_error_request(kSecXPCOpMessageFromPeerIsPending, peer, error);
+    }, NULL)
+
+}
+
+bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_SOSCCSendToPeerIsPending, peer, error);
+
+        return peer_info_to_bool_error_request(kSecXPCOpSendToPeerIsPending, peer, error);
+    }, NULL)
+
+}

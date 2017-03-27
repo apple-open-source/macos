@@ -152,6 +152,8 @@ static int ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in, BIGNUM **kinvp,
 		if (BN_num_bits(k) <= BN_num_bits(order))
 			if (!BN_add(k, k, order)) goto err;
 
+        BN_set_flags(k, BN_FLG_CONSTTIME);
+
 		/* compute r the x-coordinate of generator * k */
 		if (!EC_POINT_mul(group, tmp_point, k, NULL, NULL, ctx))
 		{

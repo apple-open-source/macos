@@ -58,6 +58,7 @@ private:
     
     uint64_t                            _lastDFREventTime;
     uint64_t                            _lastKeyboardEventTime;
+    uint64_t                            _cancelledEventCount;
     
     UInt32                              _keyboardCancelThresholdMS;
     UInt32                              _dfrTouchCancelThresholdMS;

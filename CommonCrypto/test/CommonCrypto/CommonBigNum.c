@@ -2,7 +2,7 @@
 #include "testbyteBuffer.h"
 #include "testmore.h"
 #include "capabilities.h"
-#include "CommonRandomSPI.h"
+#include <CommonCrypto/CommonBigNum.h>
 
 
 
@@ -476,9 +476,6 @@ static int testMulMod()
     CCBigNumFree(mod2);
     return 0;
 }
-
-
-
 
 int CommonBigNum(int __unused argc, char *const * __unused argv) {
 

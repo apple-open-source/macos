@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SVGToOTFFontConversion_h
-#define SVGToOTFFontConversion_h
+#pragma once
 
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
@@ -33,8 +32,6 @@ namespace WebCore {
 
 class SVGFontElement;
 
-Optional<Vector<char>> convertSVGToOTFFont(const SVGFontElement&);
+std::optional<Vector<char>> convertSVGToOTFFont(const SVGFontElement&);
 
-}
-
-#endif
+} // namespace WebCore

@@ -63,7 +63,7 @@ enum {
     @param token The audit token of a mach message
     @param environment (input/optional) An AuthorizationItemSet containing environment state used when making the autorization decision.  See the AuthorizationEnvironment type for details.
     @param flags (input) options specified by the AuthorizationFlags enum.  set all unused bits to zero to allow for future expansion.
-    @param authorization (output) A pointer to an AuthorizationRef to be returned.  When the returned AuthorizationRef is no longer needed AuthorizationFree should be called to prevent anyone from using the aquired rights.
+    @param authorization (output) A pointer to an AuthorizationRef to be returned.  When the returned AuthorizationRef is no longer needed AuthorizationFree should be called to prevent anyone from using the acquired rights.
  
     @result errAuthorizationSuccess 0 authorization or all requested rights succeeded.
  
@@ -80,12 +80,12 @@ OSStatus AuthorizationCreateWithAuditToken(audit_token_t token,
     Run an executable tool with enhanced privileges after passing
     suitable authorization procedures.
 
-    @param authorization in external form that is used to authorize
+    @param extForm authorization in external form that is used to authorize
     access to the enhanced privileges. It is also passed to the tool for
     further access control.
     @param pathToTool Full pathname to the tool that should be executed
     with enhanced privileges.
-    @param options Option bits (reserved). Must be zero.
+    @param flags Option bits (reserved). Must be zero.
     @param arguments An argv-style vector of strings to be passed to the tool.
     @param communicationsPipe Assigned a UNIX stdio FILE pointer for
     a bidirectional pipe to communicate with the tool. The tool will have
@@ -154,7 +154,7 @@ OSStatus SessionSetUserPreferences(SecuritySessionId session);
     @function AuthorizationEnableSmartCard
     Enable or disable system login using smartcard or get current status.
  
-    @param authorization (input) The authorization object on which this operation is performed.
+    @param authRef (input) The authorization object on which this operation is performed.
     @param enable (input) desired smartcard login support state, TRUE to enable, FALSE to disable
  */
 OSStatus AuthorizationEnableSmartCard(AuthorizationRef authRef, Boolean enable);

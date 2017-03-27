@@ -44,6 +44,7 @@
 
 #include <Security/SecItemPriv.h>
 
+extern const CFStringRef kSOSRecoveryRing;
 
 struct __OpaqueSOSAccount {
     CFRuntimeBase           _base;
@@ -97,6 +98,7 @@ struct __OpaqueSOSAccount {
     SOSAccountSaveBlock     saveBlock;
 };
 extern const CFStringRef kSOSEscrowRecord;
+extern const CFStringRef kSOSTestV2Settings;
 
 SOSAccountRef SOSAccountCreateBasic(CFAllocatorRef allocator,
                                     CFDictionaryRef gestalt,
@@ -108,7 +110,17 @@ void SOSAccountSetToNew(SOSAccountRef a);
 
 bool SOSAccountIsMyPeerActive(SOSAccountRef account, CFErrorRef* error);
 
-SOSTransportMessageRef SOSAccountGetMessageTransportFor(SOSAccountRef account, SOSPeerInfoRef peerInfo);
+// MARK: Notifications
+
+#define kSecServerPeerInfoAvailable "com.apple.security.fpiAvailable"
+
+
+// MARK: Getters and Setters
+
+// UUID, no setter just getter and ensuring value.
+void SOSAccountEnsureUUID(SOSAccountRef account);
+CFStringRef SOSAccountCopyUUID(SOSAccountRef account);
+
 
 // MARK: Transactional
 
@@ -131,6 +143,8 @@ void SOSAccountUpdateOutOfSyncViews(SOSAccountTransactionRef aTxn, CFSetRef view
 
 void SOSAccountEnsureSyncChecking(SOSAccountRef account);
 void SOSAccountCancelSyncChecking(SOSAccountRef account);
+
+bool SOSAccountCheckForAlwaysOnViews(SOSAccountRef account);
 
 CFMutableSetRef SOSAccountCopyOutstandingViews(SOSAccountRef account);
 CFMutableSetRef SOSAccountCopyIntersectionWithOustanding(SOSAccountRef account, CFSetRef inSet);
@@ -214,7 +228,7 @@ void SOSAccountForEachBackupView(SOSAccountRef account,  void (^operation)(const
 bool SOSAccountUpdatePeerInfo(SOSAccountRef account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error));
 
 // Currently permitted backup rings.
-void SOSAccountForEachBackupRingName(SOSAccountRef account, void (^operation)(CFStringRef value));
+void SOSAccountForEachRingName(SOSAccountRef account, void (^operation)(CFStringRef value));
 
 // My Circle
 bool SOSAccountHasCircle(SOSAccountRef account, CFErrorRef* error);
@@ -226,6 +240,7 @@ bool SOSAccountUpdateCircle(SOSAccountRef account, SOSCircleRef newCircle, CFErr
 bool SOSAccountModifyCircle(SOSAccountRef account,
                             CFErrorRef* error,
                             bool (^action)(SOSCircleRef circle));
+CFSetRef SOSAccountCopyPeerSetMatching(SOSAccountRef account, bool (^action)(SOSPeerInfoRef peer));
 
 void AppendCircleKeyName(CFMutableArrayRef array, CFStringRef name);
 
@@ -316,6 +331,8 @@ extern const CFStringRef SOSTransportMessageTypeKVS;
 extern const CFStringRef kSOSUnsyncedViewsKey;
 extern const CFStringRef kSOSPendingEnableViewsToBeSetKey;
 extern const CFStringRef kSOSPendingDisableViewsToBeSetKey;
+extern const CFStringRef kSOSRecoveryKey;
+extern const CFStringRef kSOSAccountUUID;
 
 typedef enum{
     kSOSTransportNone = 0,
@@ -327,9 +344,16 @@ typedef enum{
 
 SOSPeerInfoRef SOSAccountCopyPeerWithID(SOSAccountRef account, CFStringRef peerid, CFErrorRef *error);
 
+// MARK: Value setting/clearing
 bool SOSAccountSetValue(SOSAccountRef account, CFStringRef key, CFTypeRef value, CFErrorRef *error);
 bool SOSAccountClearValue(SOSAccountRef account, CFStringRef key, CFErrorRef *error);
 CFTypeRef SOSAccountGetValue(SOSAccountRef account, CFStringRef key, CFErrorRef *error);
+
+// MARK: Value as Set
+bool SOSAccountValueSetContainsValue(SOSAccountRef account, CFStringRef key, CFTypeRef value);
+void SOSAccountValueUnionWith(SOSAccountRef account, CFStringRef key, CFSetRef valuesToUnion);
+void SOSAccountValueSubtractFrom(SOSAccountRef account, CFStringRef key, CFSetRef valuesToSubtract);
+
 
 bool SOSAccountAddEscrowToPeerInfo(SOSAccountRef account, SOSFullPeerInfoRef myPeer, CFErrorRef *error);
 bool SOSAccountAddEscrowRecords(SOSAccountRef account, CFStringRef dsid, CFDictionaryRef record, CFErrorRef *error);
@@ -351,6 +375,9 @@ bool SOSAccountRemoveBackupPeers(SOSAccountRef account, CFArrayRef peerIDs, CFEr
 bool SOSAccountResetRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error);
 bool SOSAccountResetAllRings(SOSAccountRef account, CFErrorRef *error);
 bool SOSAccountCheckPeerAvailability(SOSAccountRef account, CFErrorRef *error);
+bool SOSAccountUpdateNamedRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error,
+                               SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
+                               SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error));
 
 //
 // MARK: Backup translation functions
@@ -368,5 +395,6 @@ CFDataRef SOSAccountCopyEngineStateFromKeychain(CFErrorRef *error);
 bool SOSAccountDeleteEngineStateFromKeychain(CFErrorRef *error);
 
 bool SOSAccountIsNew(SOSAccountRef account, CFErrorRef *error);
+
 
 #endif

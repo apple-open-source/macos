@@ -36,8 +36,8 @@
 extern "C" {
 #endif
 
-CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates);
-CFArrayRef allowedEVRootsForLeafCertificate(CFArrayRef certificates);
+CFArrayRef CF_RETURNS_RETAINED potentialEVChainWithCertificates(CFArrayRef certificates);
+CFArrayRef CF_RETURNS_RETAINED allowedEVRootsForLeafCertificate(CFArrayRef certificates);
 bool isOCSPStatusCode(CSSM_RETURN statusCode);
 bool isCRLStatusCode(CSSM_RETURN statusCode);
 bool isRevocationStatusCode(CSSM_RETURN statusCode);

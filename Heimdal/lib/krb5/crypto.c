@@ -2326,6 +2326,15 @@ krb5_is_enctype_weak(krb5_context context, krb5_enctype enctype)
     return FALSE;
 }
 
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_enctype_warning(krb5_context context, krb5_enctype enctype)
+{
+    struct _krb5_encryption_type *et = _krb5_find_enctype(enctype);
+    if(et == NULL || (et->flags & F_WARNING))
+	return TRUE;
+    return FALSE;
+}
+
 static size_t
 wrapped_length (krb5_context context,
 		krb5_crypto  crypto,

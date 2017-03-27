@@ -232,7 +232,6 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
                         break;
                     default:
                         MacOSError::throwMe(errSecCSInvalidAttributeValues);
-                        break;
                 }
             } catch(...) {
                 mExceptionToRethrow = std::current_exception();

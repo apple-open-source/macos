@@ -82,7 +82,6 @@ enum { k2xDPI = (150*10) };
 //#define AUTO_COLOR_MODE		kIODisplayColorModeRGB
 #define AUTO_COLOR_MODE		kIODisplayColorModeYCbCr444
 
-
 #if defined(__i386__) || defined(__x86_64__)
 enum { kIOFBMapCacheMode = kIOMapWriteCombineCache }; 
 #else
@@ -432,6 +431,8 @@ struct IOFramebufferPrivate
     int32_t                     lastProcessedChange;
 
     uint8_t                     wsaaState;
+
+    SInt32                      gammaSyncType;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1706,10 +1707,12 @@ void IOFramebuffer::saveGammaTables(void)
 IOReturn IOFramebuffer::extSetGammaTable(
         OSObject * target, void * reference, IOExternalMethodArguments * args)
 {
-    IOFramebuffer * inst          = (IOFramebuffer *) target;
-    UInt32          channelCount  = args->scalarInput[0];
-    UInt32          dataCount     = args->scalarInput[1];
-    UInt32          dataWidth     = args->scalarInput[2];
+    IOFramebuffer * inst            = (IOFramebuffer *) target;
+    UInt32          channelCount    = static_cast<UInt32>(args->scalarInput[0]);
+    UInt32          dataCount       = static_cast<UInt32>(args->scalarInput[1]);
+    UInt32          dataWidth       = static_cast<UInt32>(args->scalarInput[2]);
+    SInt32          syncType        = static_cast<SInt32>(args->scalarInput[3]);
+    bool            bImmediate      = static_cast<bool>(args->scalarInput[4]);
     IOReturn        err;
     IOByteCount     dataLen;
 
@@ -1771,7 +1774,7 @@ IOReturn IOFramebuffer::extSetGammaTable(
         				 inst->__private->rawGammaDataWidth, 
         				 inst->__private->rawGammaData);
 #endif
-            err = inst->updateGammaTable(channelCount, dataCount, dataWidth, inst->__private->rawGammaData);
+            err = inst->updateGammaTable(channelCount, dataCount, dataWidth, inst->__private->rawGammaData, syncType, bImmediate);
         }
     }
 #if 0
@@ -1795,7 +1798,7 @@ DEBG1(inst->thisName, " extSetGammaTable(%x) online %d %ld %ld data %x\n",
 IOReturn IOFramebuffer::updateGammaTable(
     UInt32 channelCount, UInt32 srcDataCount,
     UInt32 dataWidth, const void * data,
-    bool immediate)
+    SInt32 syncType, bool immediate)
 {
     IOReturn    err = kIOReturnBadArgument;
     IOByteCount dataLen;
@@ -1896,14 +1899,16 @@ IOReturn IOFramebuffer::updateGammaTable(
 		}
 #endif
 
-        if ((__private->desiredGammaDataCount == dataCount)
+        if ((__private->desiredGammaDataCount == srcDataCount)
           && (tryWidth == dataWidth)
           && !gammaHaveScale
           && data
-          && !adjustParams)
-            bcopy(data, table, dataLen - __private->gammaHeaderSize);
-        else
-        {
+          && !adjustParams) {
+            const auto len = dataLen - __private->gammaHeaderSize;
+            if (len > __private->rawGammaDataLen)
+                panic("Wrong gamma data len, about to take a page fault");
+            bcopy(data, table, len);
+        } else {
             uint32_t pin, pt5, in, out, channel, idx, maxSrc, maxDst, interpCount;
             int64_t value, value2;
 
@@ -1968,10 +1973,11 @@ IOReturn IOFramebuffer::updateGammaTable(
         }
         __private->gammaDataWidth = tryWidth;
         __private->gammaDataLen   = dataLen;
-    
+        __private->gammaSyncType  = syncType;
+
         if (ASYNC_GAMMA && !immediate)
         {
-			if (__private->vblThrottle && __private->deferredCLUTSetTimerEvent)
+            if (__private->vblThrottle && __private->deferredCLUTSetTimerEvent)
 			{
 				AbsoluteTime deadline;
 				getTimeOfVBL(&deadline, 1);
@@ -1987,8 +1993,23 @@ IOReturn IOFramebuffer::updateGammaTable(
 		}
 		if (!__private->gammaNeedSet)
         {
-            err = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount,
-                                 __private->gammaDataWidth, __private->gammaData );
+            // If CD sent us a sync request, try with new, else fallback.
+            if (kIOFBSetGammaSyncNotSpecified != __private->gammaSyncType)
+            {
+                err = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount,
+                                    __private->gammaDataWidth, __private->gammaData,
+                                    (kIOFBSetGammaSyncNoSync == __private->gammaSyncType) ? false : true );
+            }
+            else
+            {
+                err = kIOReturnUnsupported;
+            }
+
+            if (kIOReturnUnsupported == err)
+            {
+                err = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount,
+                                    __private->gammaDataWidth, __private->gammaData );
+            }
             updateCursorForCLUTSet();
         }
     }
@@ -2136,8 +2157,22 @@ void IOFramebuffer::checkDeferredCLUTSet( void )
 
     if (gammaNeedSet)
     {
-        ret = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount, 
-                             __private->gammaDataWidth, __private->gammaData );
+        if (kIOFBSetGammaSyncNotSpecified != __private->gammaSyncType)
+        {
+            ret = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount,
+                                __private->gammaDataWidth, __private->gammaData,
+                                (kIOFBSetGammaSyncNoSync == __private->gammaSyncType) ? false : true );
+        }
+        else
+        {
+            ret = kIOReturnUnsupported;
+        }
+
+        if (kIOReturnUnsupported == ret)
+        {
+            ret = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount,
+                                __private->gammaDataWidth, __private->gammaData );
+        }
     }
 
     if (clutLen)
@@ -4243,7 +4278,7 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 #endif /*DEBUG*/
 
                     // Attempt to remap and re-acquire the memory map, if this fails there is nothing we can do with the CPU
-                    IOMemoryDescriptor * fbRange = getApertureRange(kIOFBSystemAperture);
+                    IOMemoryDescriptor * fbRange = getApertureRangeWithLength(kIOFBSystemAperture, rowBytes * __private->framebufferHeight);
                     if (NULL != fbRange)
                     {
                         IOMemoryMap * newVramMap = fbRange->map(kIOFBMapCacheMode);
@@ -5770,7 +5805,8 @@ IOReturn IOFramebuffer::matchFramebuffer(void)
 									__private->rawGammaDataCount, 
 									__private->rawGammaDataWidth, 
 									__private->rawGammaData,
-									true);
+									kIOFBSetGammaSyncNotSpecified,
+                                    true);
 			TIMEEND(thisName, "match updateGammaTable time: %qd ms\n");
 		}
 	}
@@ -6533,10 +6569,11 @@ IOReturn IOFramebuffer::open( void )
                 panic("controller->workES");
 			__private->controller->wl->addEventSource(__private->controller->workES);
 			__private->controller->didWork = true;
-
-            __private->wsaaState = kIOWSAA_DriverOpen;
         }
 		if (__private->controller->integrated) setProperty(kIOFBIntegratedKey, kOSBooleanTrue);
+
+        __private->wsaaState = kIOWSAA_DriverOpen;
+        __private->gammaSyncType = kIOFBSetGammaSyncNotSpecified;
 
 		FBLOCK(this);
 
@@ -7007,17 +7044,21 @@ void IOFramebuffer::initFB(void)
 		if (pixelInfo.activeWidth < 128)
 			break;
 	
-		if (!vramMap)
-		{
-			fbRange = getApertureRange(kIOFBSystemAperture);
-			if (!fbRange)
-				break;
-			vramMap = fbRange->map(kIOFBMapCacheMode);
-			fbRange->release();
-			if (!vramMap)
-				break;
-		}
-		if (pixelInfo.bitsPerComponent > 8)
+        if (!vramMap)
+        {
+            fbRange = getApertureRangeWithLength(kIOFBSystemAperture, pixelInfo.bytesPerRow * pixelInfo.activeHeight);
+            if (!fbRange)
+            {
+                break;
+            }
+            vramMap = fbRange->map(kIOFBMapCacheMode);
+            fbRange->release();
+            if (!vramMap)
+            {
+                break;
+            }
+        }
+        if (pixelInfo.bitsPerComponent > 8)
 			consoleDepth = pixelInfo.componentCount * pixelInfo.bitsPerComponent;
 		else
 			consoleDepth = pixelInfo.bitsPerPixel;
@@ -7064,7 +7105,7 @@ void IOFramebuffer::initFB(void)
 		}
 		DEBG1(thisName, " initFB: done\n");
 		bool bootGamma = getProperty(kIOFBBootGammaRestoredKey, gIOServicePlane);
-		if (logo && !bootGamma && !gIOFBBlackBootTheme) updateGammaTable(3, 256, 16, NULL, false);
+		if (logo && !bootGamma && !gIOFBBlackBootTheme) updateGammaTable(3, 256, 16, NULL, kIOFBSetGammaSyncNotSpecified, false);
 		__private->needsInit = false;
 		setProperty(kIOFBNeedsRefreshKey, (0 == logo));
 		setProperty(kIOFBBootGammaRestoredKey, bootGamma ? gIOFBOne32Data : gIOFBZero32Data);
@@ -7277,9 +7318,15 @@ void IOFramebuffer::close( void )       // called by the user client when
 
     setWSAAAttribute(kIOWindowServerActiveAttribute, (uintptr_t) kIOWSAA_Unaccelerated);
     __private->wsaaState = kIOWSAA_DriverOpen;
+    __private->gammaSyncType = kIOFBSetGammaSyncNotSpecified;
 
-    if ((this == gIOFBConsoleFramebuffer) && getPowerState())
+
+    if ((this == gIOFBConsoleFramebuffer) &&
+        getPowerState() &&
+        (0 == (__private->timingInfo.flags & kDisplayModeAcceleratorBackedFlag)) )
+    {
         getPlatform()->setConsoleInfo( 0, kPEAcquireScreen);
+    }
 
     msgh = (mach_msg_header_t *) serverMsg;
     if (msgh)
@@ -7317,9 +7364,55 @@ void IOFramebuffer::close( void )       // called by the user client when
 	extExitSys(err);
 }
 
+// <rdar://problem/27591351> Somewhat frequent hangs(panic) when sleeping and subsequently waking macbook on 16A272a.
+IODeviceMemory * IOFramebuffer::getApertureRangeWithLength( IOPixelAperture aperture, IOByteCount requiredLength )
+{
+    IODeviceMemory      * fbRange = NULL;
+    IOByteCount         fbRangeLength = 0;
+
+    fbRange = getApertureRange(kIOFBSystemAperture);
+    if (NULL != fbRange)
+    {
+        fbRangeLength = fbRange->getLength();
+        // Make sure the vendor provided some length in the descriptor
+        if (0 == fbRangeLength)
+        {
+            if (kIOGDbgFBRange & gIOGDebugFlags)
+            {
+                panic("%s:%#llx - VENDOR_BUG: getApertureRange(kIOFBSystemAperture) length is zero!!\n", thisName, __private->regID);
+            }
+            else
+            {
+                IOLog("%s:%#llx - VENDOR_BUG: getApertureRange(kIOFBSystemAperture) length is zero!!\n", thisName, __private->regID);
+            }
+
+            fbRange->release();
+            fbRange = NULL;
+        }
+
+        // Make sure the vendor provided enough length in the descriptor for the current buffer
+        if (requiredLength > fbRangeLength)
+        {
+            if (kIOGDbgFBRange & gIOGDebugFlags)
+            {
+                panic("%s:%#llx - VENDOR_BUG: getApertureRange(kIOFBSystemAperture) length insufficient.  Required: %llu Have: %llu!!\n", thisName, __private->regID, requiredLength, fbRangeLength);
+            }
+            else
+            {
+                IOLog("%s:%#llx - VENDOR_BUG: getApertureRange(kIOFBSystemAperture) length insufficient.  Required: %llu Have: %llu!!\n", thisName, __private->regID, requiredLength, fbRangeLength);
+            }
+
+            fbRange->release();
+            fbRange = NULL;
+        }
+    }
+
+    return (fbRange);
+}
+
 IODeviceMemory * IOFramebuffer::getVRAMRange( void )
 {
-    return (getApertureRange(kIOFBSystemAperture));
+    return (getApertureRangeWithLength(kIOFBSystemAperture, __private->pixelInfo.bytesPerRow * __private->pixelInfo.activeHeight));
 }
 
 IOReturn IOFramebuffer::setUserRanges( void )
@@ -7573,32 +7666,39 @@ IOReturn IOFramebuffer::doSetup( bool full )
 
     if (full)
     {
-    	frameBuffer = NULL;
-    	if ((fbRange = getApertureRange(kIOFBSystemAperture)))
-		{
-			userAccessRanges->removeObject( kIOFBSystemAperture );
-			userAccessRanges->setObject( kIOFBSystemAperture, fbRange );
-			err = setUserRanges();
+        frameBuffer = NULL;
+        fbRange = getApertureRangeWithLength(kIOFBSystemAperture, __private->pixelInfo.bytesPerRow * __private->pixelInfo.activeHeight);
+        if (NULL != fbRange)
+        {
+            userAccessRanges->removeObject( kIOFBSystemAperture );
+            userAccessRanges->setObject( kIOFBSystemAperture, fbRange );
+            err = setUserRanges();
 
-			base = fbRange->getPhysicalSegment(0, 0, kIOMemoryMapperNone);
-			if ((mem = getVRAMRange()))
-			{
-				vramMapOffset = base - mem->getPhysicalSegment(0, 0, kIOMemoryMapperNone);
-				if (vramMapOffset > mem->getLength())
-					vramMapOffset &= (mem->getLength() - 1);
-				setProperty( kIOFBMemorySizeKey, mem->getLength(), 32 );
-				mem->release();
-			}
+            base = fbRange->getPhysicalSegment(0, 0, kIOMemoryMapperNone);
+            // getApertureRangeWithLength() will have validated the result from getVRAMRange() for IOFB based drivers, since both
+            // methods call into getApertureRange() for the the same aperture type
+            if ((mem = getVRAMRange()))
+            {
+                vramMapOffset = base - mem->getPhysicalSegment(0, 0, kIOMemoryMapperNone);
+                if (vramMapOffset > mem->getLength())
+                {
+                    vramMapOffset &= (mem->getLength() - 1);
+                }
+                setProperty( kIOFBMemorySizeKey, mem->getLength(), 32 );
+                mem->release();
+            }
 
-			IOMemoryMap * oldMap = vramMap;
-			vramMap = fbRange->map( kIOFBMapCacheMode );
-			if (oldMap)
-				oldMap->release();
-			assert( vramMap );
-			if (vramMap)
-			{
-				base = vramMap->getVirtualAddress();
-				frameBuffer = (volatile unsigned char *) base;
+            IOMemoryMap * oldMap = vramMap;
+            vramMap = fbRange->map( kIOFBMapCacheMode );
+            if (oldMap)
+            {
+                oldMap->release();
+            }
+            assert( vramMap );
+            if (vramMap)
+            {
+                base = vramMap->getVirtualAddress();
+                frameBuffer = (volatile unsigned char *) base;
 
                 // Defensive fix for the panic aspect of:
                 // <rdar://problem/20429613> SEED: BUG: kernel panic after connecting to a display in closed clamshell@doSetPowerState
@@ -7613,14 +7713,12 @@ IOReturn IOFramebuffer::doSetup( bool full )
                         IOLog("VENDOR_BUG: Invalid aperture range found during setup for: %#llx (%#x:%u:%llu)\n", __private->regID, __private->online, __private->pixelInfo.bytesPerRow * __private->pixelInfo.activeHeight, frameBufferLength);
                     }
                 }
-			}
+            }
 
-			DEBG1(thisName, " using (%dx%d,%d bpp)\n",
-				 (uint32_t) __private->pixelInfo.activeWidth, (uint32_t) __private->pixelInfo.activeHeight, 
-				 (uint32_t) __private->pixelInfo.bitsPerPixel );
-
-			if (fbRange)
-				fbRange->release();
+            DEBG1(thisName, " using (%dx%d,%d bpp)\n",
+                  (uint32_t) __private->pixelInfo.activeWidth, (uint32_t) __private->pixelInfo.activeHeight,
+                  (uint32_t) __private->pixelInfo.bitsPerPixel );
+            fbRange->release();
 		}
 	}
 
@@ -7740,6 +7838,33 @@ IOReturn IOFramebuffer::doSetDisplayMode(
 	}
 
     suspend(false);
+
+    // Console is dictated by the modeset on the FB under WSAA_From.
+    // This code assumes there is only one modeset to a single FB in the kIOWSAA_From_Accelerated state.
+    if (kIOWSAA_From_Accelerated == __private->wsaaState)
+    {
+        if (this != gIOFBConsoleFramebuffer)
+        {
+            gIOFBConsoleFramebuffer = NULL;
+            findConsole();
+
+            // Can't find console, then force console to serial mode
+            if (this != gIOFBConsoleFramebuffer)
+            {
+                PE_Video newConsole;
+                bzero(&newConsole, sizeof(newConsole));
+                newConsole.v_baseAddr   = 0;
+                newConsole.v_rowBytes   = rowBytes;
+                newConsole.v_width      = __private->framebufferWidth;
+                newConsole.v_height     = __private->framebufferHeight;
+                newConsole.v_depth      = __private->consoleDepth;
+                newConsole.v_scale      = __private->uiScale;
+                newConsole.v_display    = 1;  // graphics mode for i386
+                //      strcpy( consoleInfo->v_pixelFormat, "PPPPPPPP");
+                getPlatform()->setConsoleInfo( &newConsole, kPEReleaseScreen );
+            }
+        }
+    }
 
 	extExitSys(err);
 
@@ -8804,6 +8929,12 @@ IOReturn IOFramebuffer::setCLUTWithEntries(
 }
 
 //// Gamma
+IOReturn IOFramebuffer::setGammaTable( UInt32 /* channelCount */,
+                                       UInt32 /* dataCount */, UInt32 /* dataWidth */, void * /* data */,
+                                       bool /* syncToVBL */)
+{
+    return (kIOReturnUnsupported);
+}
 
 IOReturn IOFramebuffer::setGammaTable( UInt32 /* channelCount */,
                                        UInt32 /* dataCount */, UInt32 /* dataWidth */, void * /* data */ )
@@ -9024,7 +9155,8 @@ IOReturn IOFramebuffer::setAttributeForConnection( IOIndex connectIndex,
 			{
 				__private->gammaScaleChange = false;
 				updateGammaTable(__private->rawGammaChannelCount, __private->rawGammaDataCount, 
-								 __private->rawGammaDataWidth, __private->rawGammaData);
+								 __private->rawGammaDataWidth, __private->rawGammaData,
+                                 kIOFBSetGammaSyncNotSpecified);
 			}
             err = kIOReturnSuccess;
             break;
@@ -10727,6 +10859,11 @@ IOReturn IOFramebufferI2CInterface::startIO( IOI2CRequest * request )
 
     fFramebuffer->fbLock();
 
+    if (fFramebuffer->isInactive() || !fFramebuffer->isPowered()) {
+        fFramebuffer->fbUnlock();
+        return kIOReturnOffline;
+    }
+
     do
     {
         if (0 == ((1 << request->sendTransactionType) & fSupportedTypes))
@@ -10963,8 +11100,8 @@ IOReturn IOFramebufferI2CInterface::create( IOFramebuffer * framebuffer )
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSMetaClassDefineReservedUsed(IOFramebuffer, 0);
+OSMetaClassDefineReservedUsed(IOFramebuffer, 1);
 
-OSMetaClassDefineReservedUnused(IOFramebuffer, 1);
 OSMetaClassDefineReservedUnused(IOFramebuffer, 2);
 OSMetaClassDefineReservedUnused(IOFramebuffer, 3);
 OSMetaClassDefineReservedUnused(IOFramebuffer, 4);

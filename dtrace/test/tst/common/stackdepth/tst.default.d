@@ -33,6 +33,7 @@
  * SECTION: Variables/Built-in Variables
  *
  */
+#pragma D option nolibs
 
 BEGIN
 {

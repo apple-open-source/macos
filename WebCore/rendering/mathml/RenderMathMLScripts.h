@@ -32,10 +32,13 @@
 #include "RenderMathMLBlock.h"
 
 namespace WebCore {
+
+class MathMLScriptsElement;
+
 // Render a base with scripts.
 class RenderMathMLScripts : public RenderMathMLBlock {
 public:
-    RenderMathMLScripts(Element&, RenderStyle&&);
+    RenderMathMLScripts(MathMLScriptsElement&, RenderStyle&&);
     RenderMathMLOperator* unembellishedOperator() final;
 
 protected:
@@ -48,11 +51,35 @@ protected:
     ScriptsType m_scriptType;
 
 private:
-    Optional<int> firstLineBaseline() const final;
-    bool getBaseAndScripts(RenderBox*& base, RenderBox*& firstPostScript, RenderBox*& firstPreScript);
+    MathMLScriptsElement& element() const;
+    std::optional<int> firstLineBaseline() const final;
+    struct ReferenceChildren {
+        RenderBox* base;
+        RenderBox* prescriptDelimiter;
+        RenderBox* firstPostScript;
+        RenderBox* firstPreScript;
+    };
+    std::optional<ReferenceChildren> validateAndGetReferenceChildren();
     LayoutUnit spaceAfterScript();
-    LayoutUnit italicCorrection(RenderBox* base);
-    void getScriptMetricsAndLayoutIfNeeded(RenderBox* base, RenderBox* script, LayoutUnit& minSubScriptShift, LayoutUnit& minSupScriptShift, LayoutUnit& maxScriptDescent, LayoutUnit& maxScriptAscent);
+    LayoutUnit italicCorrection(const ReferenceChildren&);
+    struct VerticalParameters {
+        LayoutUnit subscriptShiftDown;
+        LayoutUnit superscriptShiftUp;
+        LayoutUnit subscriptBaselineDropMin;
+        LayoutUnit superScriptBaselineDropMax;
+        LayoutUnit subSuperscriptGapMin;
+        LayoutUnit superscriptBottomMin;
+        LayoutUnit subscriptTopMax;
+        LayoutUnit superscriptBottomMaxWithSubscript;
+    };
+    VerticalParameters verticalParameters() const;
+    struct VerticalMetrics {
+        LayoutUnit subShift;
+        LayoutUnit supShift;
+        LayoutUnit ascent;
+        LayoutUnit descent;
+    };
+    VerticalMetrics verticalMetrics(const ReferenceChildren&);
 };
 
 } // namespace WebCore

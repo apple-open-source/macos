@@ -27,11 +27,9 @@
 #include "JSInternalPromiseConstructor.h"
 
 #include "JSCBuiltins.h"
-#include "JSCJSValueInlines.h"
-#include "JSCellInlines.h"
+#include "JSCInlines.h"
 #include "JSInternalPromise.h"
 #include "JSInternalPromisePrototype.h"
-#include "StructureInlines.h"
 
 #include "JSInternalPromiseConstructor.lut.h"
 
@@ -66,7 +64,7 @@ JSInternalPromiseConstructor::JSInternalPromiseConstructor(VM& vm, Structure* st
 
 static EncodedJSValue JSC_HOST_CALL constructPromise(ExecState* exec)
 {
-    JSGlobalObject* globalObject = exec->callee()->globalObject();
+    JSGlobalObject* globalObject = exec->jsCallee()->globalObject();
     VM& vm = exec->vm();
     JSInternalPromise* promise = JSInternalPromise::create(vm, globalObject->internalPromiseStructure());
     promise->initialize(exec, globalObject, exec->argument(0));

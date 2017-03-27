@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <utilities/SecCFRelease.h>
 
 CFStringRef kSecRecVersionNumber = CFSTR("SRVersionNumber");
 CFStringRef kSecRecQuestions = CFSTR("SRQuestions");
@@ -230,7 +231,7 @@ digestString(CFStringRef str)
     return retval;
 }
 
-static CFDataRef
+static CFDataRef CF_RETURNS_RETAINED
 b64encode(CFDataRef input)
 {
 	CFDataRef retval = NULL;
@@ -242,7 +243,7 @@ b64encode(CFDataRef input)
     return retval;
 }
 
-static CFDataRef
+static CFDataRef CF_RETURNS_RETAINED
 b64decode(CFDataRef input)
 {
 	CFDataRef retval = NULL;
@@ -281,7 +282,7 @@ encryptString(SecKeyRef wrapKey, CFDataRef iv, CFStringRef str)
 }
 
 
-static CFStringRef
+static CFStringRef CF_RETURNS_RETAINED
 decryptString(SecKeyRef wrapKey, CFDataRef iv, CFDataRef wrappedPassword)
 {
 	CFStringRef retval = NULL;
@@ -306,8 +307,9 @@ decryptString(SecKeyRef wrapKey, CFDataRef iv, CFDataRef wrappedPassword)
         if(error == NULL) retval = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, retData, kCFStringEncodingMacRoman);
         else secDebug(ASL_LEVEL_ERR, "Failed to decrypt recovery password\n", NULL);
         CFRelease(group);
-	}
-   return retval;
+    }
+    CFReleaseNull(decryptTrans);
+    return retval;
 }
 
 // IV for the recovery ref is currently the leftmost 16 bytes of the digest of the recovery password.

@@ -24,11 +24,10 @@
 #ifndef CONFIGAGENTDEFINES_H
 #define CONFIGAGENTDEFINES_H
 
-#define kConfigAgentDomain                      "SystemConfig"
+#import "config_agent_info.h"
+
 #define kConfigAgentType                        "AgentType"
 #define kConfigAgentTypeGeneric                 "ConfigAgent"
-#define kConfigAgentTypeProxy                   "ProxyAgent"
-#define kConfigAgentTypeDNS                     "DNSAgent"
 
 #define kConfigAgentTypeDNSMulticast            kConfigAgentTypeDNS "(m)"
 #define kConfigAgentTypeDNSPrivate              kConfigAgentTypeDNS "(p)"

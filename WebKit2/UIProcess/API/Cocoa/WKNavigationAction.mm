@@ -79,19 +79,17 @@ static NSEventModifierFlags toNSEventModifierFlags(WebKit::WebEvent::Modifiers m
 {
     NSEventModifierFlags modifierFlags = 0;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (modifiers & WebKit::WebEvent::CapsLockKey)
-        modifierFlags |= NSAlphaShiftKeyMask;
+        modifierFlags |= NSEventModifierFlagCapsLock;
     if (modifiers & WebKit::WebEvent::ShiftKey)
-        modifierFlags |= NSShiftKeyMask;
+        modifierFlags |= NSEventModifierFlagShift;
     if (modifiers & WebKit::WebEvent::ControlKey)
-        modifierFlags |= NSControlKeyMask;
+        modifierFlags |= NSEventModifierFlagControl;
     if (modifiers & WebKit::WebEvent::AltKey)
-        modifierFlags |= NSAlternateKeyMask;
+        modifierFlags |= NSEventModifierFlagOption;
     if (modifiers & WebKit::WebEvent::MetaKey)
-        modifierFlags |= NSCommandKeyMask;
-#pragma clang diagnostic pop
+        modifierFlags |= NSEventModifierFlagCommand;
+
     return modifierFlags;
 }
 

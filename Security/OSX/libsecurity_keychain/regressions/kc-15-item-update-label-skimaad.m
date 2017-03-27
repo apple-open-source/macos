@@ -113,18 +113,12 @@ static OSStatus ChangePasswordKeychain (SecKeychainItemRef itemRef)
 
 int kc_15_item_update_label_skimaad(int argc, char *const *argv)
 {
-    plan_tests(27);
+    plan_tests(28);
     initializeKeychainTests(__FUNCTION__);
 
     SecKeychainRef keychain = getPopulatedTestKeychain();
 
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
     OSStatus status;
-    OSStatus status1;
-    SInt32 status3;
-    CFStringRef theLabel = CFSTR("Notice");
-
-    CFStringRef theStatusStr = nil;
 
     void * myPassword = "myP4sSw0rD";
     UInt32 myPasswordLength = (UInt32) strlen(myPassword);
@@ -134,13 +128,14 @@ int kc_15_item_update_label_skimaad(int argc, char *const *argv)
 
     StorePasswordKeychain(keychain, myPassword, myPasswordLength);
 
-    itemRef = checkN(testName, makeQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("SurfWriter"), CFSTR("SurfWriter")), 1);
-    checkN(testName, makeQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("New Item Label"), CFSTR("New Service")), 0);
+    itemRef = checkNCopyFirst(testName, createQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("SurfWriter"), CFSTR("SurfWriter")), 1);
+    checkN(testName, createQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("New Item Label"), CFSTR("New Service")), 0);
     readPasswordContents(itemRef, CFSTR("myP4sSw0rD"));
     CFReleaseNull(itemRef);
 
     GetPasswordKeychain (keychain, &passwordData,&passwordLength,&itemRef);  //Call SecKeychainFindGenericPassword
-    
+
+    ok(passwordData, "Recieved password data");
     /*
      free the data allocated by SecKeychainFindGenericPassword:
      */
@@ -152,12 +147,10 @@ int kc_15_item_update_label_skimaad(int argc, char *const *argv)
 
     ChangePasswordKeychain(itemRef);
 
-    checkN(testName, makeQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("SurfWriter"), CFSTR("SurfWriter")), 0);
-    itemRef = checkN(testName, makeQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("New Item Label"), CFSTR("New Service")), 1);
+    checkN(testName, createQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("SurfWriter"), CFSTR("SurfWriter")), 0);
+    itemRef = checkNCopyFirst(testName, createQueryCustomItemDictionaryWithService(keychain, kSecClassGenericPassword, CFSTR("New Item Label"), CFSTR("New Service")), 1);
     readPasswordContents(itemRef, CFSTR("myNewP4sSw0rD"));
     CFReleaseNull(itemRef);
-
-    [pool release];
 
     checkPrompts(0, "no prompts during test");
 

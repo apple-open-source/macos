@@ -43,7 +43,7 @@
 	return [NSString stringWithFormat:@"{%@}", [results componentsJoinedByString:@", "]];
 }
 
--(NSString*)compactDescriptionWithoutItemData;
+-(NSString*)compactDescriptionWithoutItemData
 {
 	NSMutableArray *results = [NSMutableArray new];
 	for (NSString *k in self) {

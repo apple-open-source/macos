@@ -8,12 +8,26 @@
 #include "SharedMemoryClient.h"
 #include <string>
 #include <security_utilities/crc.h>
-
-static const char* kPrefix = "/var/db/mds/messages/se_";
+#include <securityd_client/ssnotify.h>
+#include <Security/SecKeychain.h>
 
 using namespace Security;
 
-SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize)
+//=================================================================================
+//                          SharedMemoryClient
+//=================================================================================
+
+static std::string unixerrorstr(int errnum) {
+    string errstr;
+    char buf[1024];
+    // might return ERANGE
+    /* int rx = */ strerror_r(errnum, buf, sizeof(buf));
+    errstr = string(buf);
+    errstr += "(" + to_string(errnum) + ")";
+    return errstr;
+}
+
+SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize, uid_t uid)
 {
 	StLock<Mutex> _(mMutex);
 	
@@ -21,29 +35,33 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 	mSegmentSize = segmentSize;
     mSegment = (u_int8_t*) MAP_FAILED;
     mDataArea = mDataPtr = 0;
+    mUID = uid;
+    
+    secdebug("MDSPRIVACY","[%03d] creating SharedMemoryClient with segmentName %s, size: %d", mUID, segmentName, segmentSize);
 
-	if (segmentSize < sizeof(u_int32_t))
+    if (segmentSize < sizeof(u_int32_t))
 		return;
-	
+
 	// make the name
 	int segmentDescriptor;
 	{
-		std::string name (kPrefix);
-		name += segmentName;
-		
+        std::string name(SharedMemoryCommon::SharedMemoryFilePath(mSegmentName.c_str(), mUID));
+
 		// make a connection to the shared memory block
-		segmentDescriptor = open (name.c_str (), O_RDONLY, S_IROTH);
+		segmentDescriptor = open (name.c_str(), O_RDONLY, S_IROTH);
 		if (segmentDescriptor < 0) // error on opening the shared memory segment?
 		{
+            secdebug("MDSPRIVACY","[%03d] SharedMemoryClient open of %s failed: %s", mUID, name.c_str(), unixerrorstr(errno).c_str());
 			// CssmError::throwMe (CSSM_ERRCODE_INTERNAL_ERROR);
 			return;
 		}
 	}
 
-    // check the file size is large enough to support Operations
+    // check that the file size is large enough to support operations
     struct stat statResult = {};
     int result = fstat(segmentDescriptor, &statResult);
     if(result) {
+        secdebug("MDSPRIVACY","[%03d] SharedMemoryClient fstat failed: %d/%s", mUID, result, unixerrorstr(errno).c_str());
         UnixError::throwMe(errno);
     }
 
@@ -65,6 +83,7 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 
 	if (mSegment == MAP_FAILED)
 	{
+        secdebug("MDSPRIVACY","[%03d] SharedMemoryClient mmap failed: %d", mUID, errno);
 		return;
 	}
 	
@@ -77,57 +96,41 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 
 SharedMemoryClient::~SharedMemoryClient ()
 {
-	StLock<Mutex> _(mMutex);
-	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
-	{
-		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-	}
-	munmap (mSegment, mSegmentSize);
+    if (!uninitialized()) {
+        StLock<Mutex> _(mMutex);
+        munmap (mSegment, mSegmentSize);
+    }
 }
-
 
 
 SegmentOffsetType SharedMemoryClient::GetProducerCount ()
 {
-	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
-	{
+    if (uninitialized()) {
+        secdebug("MDSPRIVACY","[%03d] SharedMemoryClient::GetProducerCount uninitialized", mUID);
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
     if( ((u_int8_t*) (((u_int32_t*) mSegment) + 1)) > mDataMax) {
         // Check we can actually read this u_int32_t
+        secdebug("MDSPRIVACY","[%03d] SharedMemoryClient::GetProducerCount uint > mDataMax", mUID);
         CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
     }
 
 	SegmentOffsetType offset = OSSwapBigToHostInt32 (*(u_int32_t*) mSegment);
-	if (&mSegment[offset] >= mDataMax)
+    if (&mSegment[offset] >= mDataMax) {
+        secdebug("MDSPRIVACY","[%03d] SharedMemoryClient::GetProducerCount offset > mDataMax", mUID);
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-	else
-		return offset;
+    }
+
+    return offset;
 }
-
-
-
-const char* SharedMemoryClient::GetSegmentName ()
-{
-	return mSegmentName.c_str ();
-}
-
-
-
-size_t SharedMemoryClient::GetSegmentSize ()
-{
-	return mSegmentSize;
-}
-
-
 
 void SharedMemoryClient::ReadData (void* buffer, SegmentOffsetType length)
 {
-	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
-	{
-		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-	}
-
+    if (uninitialized()) {
+        secdebug("MDSPRIVACY","[%03d] ReadData mSegment fail uninitialized: %p", mUID, mSegment);
+        CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+    }
+    
 	u_int8_t* bptr = (u_int8_t*) buffer;
 
 	SegmentOffsetType bytesToEnd = (SegmentOffsetType)(mDataMax - mDataPtr);
@@ -167,8 +170,8 @@ bool SharedMemoryClient::ReadMessage (void* message, SegmentOffsetType &length, 
 {
 	StLock<Mutex> _(mMutex);
 
-	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
-	{
+    if (uninitialized()) {
+		secdebug("MDSPRIVACY","[%03d] ReadMessage mSegment fail uninitialized: %p", mUID, mSegment);
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
 
@@ -177,6 +180,7 @@ bool SharedMemoryClient::ReadMessage (void* message, SegmentOffsetType &length, 
 	size_t offset = mDataPtr - mDataArea;
 	if (offset == GetProducerCount())
 	{
+        secdebug("MDSPRIVACY","[%03d] ReadMessage GetProducerCount()", mUID);
 		ur = kURNoMessage;
 		return false;
 	}
@@ -188,14 +192,8 @@ bool SharedMemoryClient::ReadMessage (void* message, SegmentOffsetType &length, 
 	// get the length of the message stored there
 	if (length == 0 || length >= kPoolAvailableForData)
 	{
-		if (length == 0)
-		{
-			ur = kURNoMessage;
-		}
-		else
-		{
-			ur = kURBufferCorrupt;
-		}
+        secdebug("MDSPRIVACY","[%03d] ReadMessage length error: %d", mUID, length);
+        ur = (length == 0) ? kURNoMessage : kURBufferCorrupt;
 
 		// something's gone wrong, reset.
 		mDataPtr = mDataArea + GetProducerCount ();
@@ -218,4 +216,53 @@ bool SharedMemoryClient::ReadMessage (void* message, SegmentOffsetType &length, 
 	}
 
 	return true;
+}
+
+//=================================================================================
+//                          SharedMemoryCommon
+//=================================================================================
+
+std::string SharedMemoryCommon::SharedMemoryFilePath(const char *segmentName, uid_t uid) {
+    std::string path;
+    uid = SharedMemoryCommon::fixUID(uid);
+    path = SharedMemoryCommon::kMDSMessagesDirectory;   // i.e. /private/var/db/mds/messages/
+    if (uid != 0) {
+        path += std::to_string(uid) + "/";              // e.g. /private/var/db/mds/messages/501/
+    }
+
+    path += SharedMemoryCommon::kUserPrefix;            // e.g. /var/db/mds/messages/se_
+    path += segmentName;                                // e.g. /var/db/mds/messages/501/se_SecurityMessages
+    return path;
+}
+
+std::string SharedMemoryCommon::notificationDescription(int domain, int event) {
+    string domainstr, eventstr;
+
+    switch (domain) {
+        case Security::SecurityServer::kNotificationDomainAll:        domainstr = "all";      break;
+        case Security::SecurityServer::kNotificationDomainDatabase:   domainstr = "database"; break;
+        case Security::SecurityServer::kNotificationDomainPCSC:       domainstr = "pcsc";     break;
+        case Security::SecurityServer::kNotificationDomainCDSA:       domainstr = "CDSA";     break;
+        default:
+            domainstr = "unknown";
+            break;
+    }
+
+    switch (event) {
+        case kSecLockEvent:                 eventstr = "lock";              break;
+        case kSecUnlockEvent:               eventstr = "unlock";            break;
+        case kSecAddEvent:                  eventstr = "add";               break;
+        case kSecDeleteEvent:               eventstr = "delete";            break;
+        case kSecUpdateEvent:               eventstr = "update";            break;
+        case kSecPasswordChangedEvent:      eventstr = "passwordChange";    break;
+        case kSecDefaultChangedEvent:       eventstr = "defaultChange";     break;
+        case kSecDataAccessEvent:           eventstr = "dataAccess";        break;
+        case kSecKeychainListChangedEvent:  eventstr = "listChange";        break;
+        case kSecTrustSettingsChangedEvent: eventstr = "trustSettings";     break;
+        default:
+            domainstr = "unknown";
+            break;
+    }
+
+    return "Domain: " + domainstr + ", Event: " + eventstr;
 }

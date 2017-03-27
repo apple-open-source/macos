@@ -75,7 +75,7 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
     // so ensure that we have an outstanding transaction here.
     xpc_transaction_begin();
 
-    InitializeWebKit2();
+    InitializeWebKit2(ChildProcess);
 
     if (!delegate.checkEntitlements())
         exit(EXIT_FAILURE);
@@ -99,6 +99,11 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
 #if HAVE(VOUCHERS)
     // Set the task default voucher to the current value (as propagated by XPC).
     voucher_replace_default_voucher();
+#endif
+
+#if HAVE(QOS_CLASSES)
+    if (parameters.extraInitializationData.contains(ASCIILiteral("always-runs-at-background-priority")))
+        setGlobalMaxQOSClass(QOS_CLASS_UTILITY);
 #endif
 
     XPCServiceType::singleton().initialize(parameters);

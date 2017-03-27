@@ -23,7 +23,7 @@
 #ifndef	_OPENSSL_UTILS_H_
 #define _OPENSSL_UTILS_H_
 
-#include <openssl/err.h>
+#include <openssl/opensslerr.h>
 
 #ifdef	__cplusplus
 extern "C" {

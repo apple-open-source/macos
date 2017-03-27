@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,6 +28,7 @@
  * - initial revision
  */
 
+#include <TargetConditionals.h>
 #include <dlfcn.h>
 #include <unistd.h>
 #include <sys/param.h>
@@ -976,6 +977,68 @@ on_off_str(Boolean on)
 {
 	return (on ? "on" : "off");
 }
+
+/* -------------------- */
+
+#if	!TARGET_OS_IPHONE
+
+#include "InterfaceNamerControlPrefs.h"
+
+static void
+allow_new_interfaces_usage(void)
+{
+	fprintf(stderr, "usage: scutil --allow-new-interfaces [on|off|default]\n");
+	return;
+}
+
+__private_extern__
+void
+do_ifnamer(char * pref, int argc, char **argv)
+{
+	Boolean	allow	= FALSE;
+
+	if (argc > 1) {
+		allow_new_interfaces_usage();
+		exit(1);
+	}
+
+	if (strcmp(pref, "allow-new-interfaces")) {
+		exit(0);
+	}
+
+	if (argc == 0) {
+		SCPrint(TRUE, stdout, CFSTR("AllowNewInterfaces is %s\n"),
+			on_off_str(InterfaceNamerControlPrefsAllowNewInterfaces()));
+		exit(0);
+	}
+
+	if        ((strcasecmp(argv[0], "disable") == 0) ||
+		   (strcasecmp(argv[0], "no"     ) == 0) ||
+		   (strcasecmp(argv[0], "off"    ) == 0) ||
+		   (strcasecmp(argv[0], "0"      ) == 0)) {
+		allow = FALSE;
+	} else if ((strcasecmp(argv[0], "enable") == 0) ||
+		   (strcasecmp(argv[0], "yes"   ) == 0) ||
+		   (strcasecmp(argv[0], "on"   ) == 0) ||
+		   (strcasecmp(argv[0], "1"     ) == 0)) {
+		allow = TRUE;
+	} else if (strcasecmp(argv[0], "default") == 0) {
+		allow = FALSE;
+	} else {
+		allow_new_interfaces_usage();
+		exit(1);
+	}
+
+	if (!InterfaceNamerControlPrefsSetAllowNewInterfaces(allow)) {
+		SCPrint(TRUE, stderr, CFSTR("failed to set preferences\n"));
+		exit(2);
+	}
+
+	exit(0);
+	return;
+}
+
+#endif	// !TARGET_OS_IPHONE
 
 /* -------------------- */
 

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebFrameProxy_h
-#define WebFrameProxy_h
+#pragma once
 
 #include "APIObject.h"
 #include "FrameLoadState.h"
@@ -43,10 +42,9 @@ namespace API {
 class Navigation;
 }
 
-
 namespace IPC {
-    class ArgumentDecoder;
-    class Connection;
+class Connection;
+class Decoder;
 }
 
 namespace WebKit {
@@ -54,6 +52,7 @@ class WebCertificateInfo;
 class WebFormSubmissionListenerProxy;
 class WebFramePolicyListenerProxy;
 class WebPageProxy;
+struct WebsitePolicies;
 
 typedef GenericCallback<API::Data*> DataCallback;
 
@@ -116,13 +115,17 @@ public:
     void didChangeTitle(const String&);
 
     // Policy operations.
-    void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID, API::Navigation* = nullptr);
+    void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID, API::Navigation*, const WebsitePolicies&);
     WebFramePolicyListenerProxy& setUpPolicyListenerProxy(uint64_t listenerID);
     WebFormSubmissionListenerProxy& setUpFormSubmissionListenerProxy(uint64_t listenerID);
 
 #if ENABLE(CONTENT_FILTERING)
     void contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler contentFilterUnblockHandler) { m_contentFilterUnblockHandler = WTFMove(contentFilterUnblockHandler); }
     bool didHandleContentFilterUnblockNavigation(const WebCore::ResourceRequest&);
+#endif
+
+#if PLATFORM(GTK)
+    void collapseSelection();
 #endif
 
 private:
@@ -146,5 +149,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // WebFrameProxy_h

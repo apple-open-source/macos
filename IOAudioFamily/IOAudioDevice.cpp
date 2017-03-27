@@ -657,17 +657,17 @@ void IOAudioDevice::waitForPendingPowerStateChange()
                 case THREAD_RESTART:
                 default:
                     // unexpected, but since the method doesn't return a value, we just log it
-                    IOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange got kr 0x%08x\n", kr);
+                    audioErrorIOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange got kr 0x%08x\n", kr);
                     break;
                     
             }
             cg->release();
             if (asyncPowerStateChangeInProgress)
             {
-                IOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange() - internal error - power state change still in progress\n");
+                audioErrorIOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange() - internal error - power state change still in progress\n");
             }
         } else {
-            IOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange() - internal error - unable to get the command gate.\n");
+            audioErrorIOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange() - internal error - unable to get the command gate.\n");
         }
     }
     audioDebugIOLog(3, "- IOAudioDevice[%p]::waitForPendingPowerStateChange()\n", this);
@@ -1032,8 +1032,6 @@ void IOAudioDevice::detachAllAudioPorts()
 
 void IOAudioDevice::flushAudioControls()
 {
-    audioDebugIOLog(3, "+ IOAudioDevice[%p]::flushAudioControls()\n", this);
-
     if (audioPorts) {
         OSCollectionIterator *portIterator;
 
@@ -1093,7 +1091,7 @@ void IOAudioDevice::flushAudioControls()
             audioEngineIterator->release();
         }
     }
-    audioDebugIOLog(3, "- IOAudioDevice[%p]::flushAudioControls()\n", this);
+    audioDebugIOLog(3, "+- IOAudioDevice[%p]::flushAudioControls()\n", this);
 }
 
 //	<rdar://8121989>	Restructured for single point of entry and single point of exit so that 
@@ -1219,7 +1217,7 @@ void IOAudioDevice::removeTimerEvent(OSObject *target)
 {
     IOAudioTimerEvent *removedTimerEvent;
     
-    audioDebugIOLog(3, "+ IOAudioDevice::removeTimerEvent(%p)\n", target);
+    audioDebugIOLog(4, "+ IOAudioDevice::removeTimerEvent(%p)\n", target);
     
 	if ( timerEvents )
 	{
@@ -1286,7 +1284,7 @@ void IOAudioDevice::removeTimerEvent(OSObject *target)
 			removedTimerEvent->release();
 		}
 	}
-    audioDebugIOLog(3, "- IOAudioDevice::removeTimerEvent(%p)\n", target);
+    audioDebugIOLog(4, "- IOAudioDevice::removeTimerEvent(%p)\n", target);
 	return;
 }
 

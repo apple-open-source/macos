@@ -20,18 +20,18 @@
 #include "config.h"
 #include "WebKitWebContext.h"
 
+#include "APICustomProtocolManagerClient.h"
 #include "APIDownloadClient.h"
 #include "APIPageConfiguration.h"
 #include "APIProcessPoolConfiguration.h"
 #include "APIString.h"
 #include "TextChecker.h"
 #include "TextCheckerState.h"
-#include "WebBatteryManagerProxy.h"
 #include "WebCertificateInfo.h"
 #include "WebCookieManagerProxy.h"
 #include "WebGeolocationManagerProxy.h"
-#include "WebKitBatteryProvider.h"
 #include "WebKitCookieManagerPrivate.h"
+#include "WebKitCustomProtocolManagerClient.h"
 #include "WebKitDownloadClient.h"
 #include "WebKitDownloadPrivate.h"
 #include "WebKitFaviconDatabasePrivate.h"
@@ -40,7 +40,6 @@
 #include "WebKitNotificationProvider.h"
 #include "WebKitPluginPrivate.h"
 #include "WebKitPrivate.h"
-#include "WebKitRequestManagerClient.h"
 #include "WebKitSecurityManagerPrivate.h"
 #include "WebKitSettingsPrivate.h"
 #include "WebKitURISchemeRequestPrivate.h"
@@ -117,12 +116,6 @@ enum {
 
 class WebKitURISchemeHandler: public RefCounted<WebKitURISchemeHandler> {
 public:
-    WebKitURISchemeHandler()
-        : m_callback(0)
-        , m_userData(0)
-        , m_destroyNotify(0)
-    {
-    }
     WebKitURISchemeHandler(WebKitURISchemeRequestCallback callback, void* userData, GDestroyNotify destroyNotify)
         : m_callback(callback)
         , m_userData(userData)
@@ -149,9 +142,9 @@ public:
     }
 
 private:
-    WebKitURISchemeRequestCallback m_callback;
-    void* m_userData;
-    GDestroyNotify m_destroyNotify;
+    WebKitURISchemeRequestCallback m_callback { nullptr };
+    void* m_userData { nullptr };
+    GDestroyNotify m_destroyNotify { nullptr };
 };
 
 typedef HashMap<String, RefPtr<WebKitURISchemeHandler> > URISchemeHandlerMap;
@@ -164,14 +157,10 @@ struct _WebKitWebContextPrivate {
     GRefPtr<WebKitCookieManager> cookieManager;
     GRefPtr<WebKitFaviconDatabase> faviconDatabase;
     GRefPtr<WebKitSecurityManager> securityManager;
-    RefPtr<WebSoupCustomProtocolRequestManager> requestManager;
     URISchemeHandlerMap uriSchemeHandlers;
     URISchemeRequestMap uriSchemeRequests;
 #if ENABLE(GEOLOCATION)
     RefPtr<WebKitGeolocationProvider> geolocationProvider;
-#endif
-#if ENABLE(BATTERY_STATUS)
-    RefPtr<WebKitBatteryProvider> batteryProvider;
 #endif
 #if ENABLE(NOTIFICATIONS)
     RefPtr<WebKitNotificationProvider> notificationProvider;
@@ -260,40 +249,40 @@ static void webkitWebContextConstructed(GObject* object)
     GUniquePtr<char> bundleFilename(g_build_filename(injectedBundleDirectory(), "libwebkit2gtkinjectedbundle.so", nullptr));
 
     API::ProcessPoolConfiguration configuration;
-    configuration.setInjectedBundlePath(WebCore::filenameToString(bundleFilename.get()));
+    configuration.setInjectedBundlePath(WebCore::stringFromFileSystemRepresentation(bundleFilename.get()));
     configuration.setMaximumProcessCount(1);
     configuration.setDiskCacheSpeculativeValidationEnabled(true);
 
     WebKitWebContext* webContext = WEBKIT_WEB_CONTEXT(object);
     WebKitWebContextPrivate* priv = webContext->priv;
     if (priv->websiteDataManager) {
-        configuration.setLocalStorageDirectory(WebCore::filenameToString(webkit_website_data_manager_get_local_storage_directory(priv->websiteDataManager.get())));
-        configuration.setDiskCacheDirectory(WebCore::pathByAppendingComponent(WebCore::filenameToString(webkit_website_data_manager_get_disk_cache_directory(priv->websiteDataManager.get())), networkCacheSubdirectory));
-        configuration.setApplicationCacheDirectory(WebCore::filenameToString(webkit_website_data_manager_get_offline_application_cache_directory(priv->websiteDataManager.get())));
-        configuration.setIndexedDBDatabaseDirectory(WebCore::filenameToString(webkit_website_data_manager_get_indexeddb_directory(priv->websiteDataManager.get())));
-        configuration.setWebSQLDatabaseDirectory(WebCore::filenameToString(webkit_website_data_manager_get_websql_directory(priv->websiteDataManager.get())));
+        configuration.setLocalStorageDirectory(WebCore::stringFromFileSystemRepresentation(webkit_website_data_manager_get_local_storage_directory(priv->websiteDataManager.get())));
+        configuration.setDiskCacheDirectory(WebCore::pathByAppendingComponent(WebCore::stringFromFileSystemRepresentation(webkit_website_data_manager_get_disk_cache_directory(priv->websiteDataManager.get())), networkCacheSubdirectory));
+        configuration.setApplicationCacheDirectory(WebCore::stringFromFileSystemRepresentation(webkit_website_data_manager_get_offline_application_cache_directory(priv->websiteDataManager.get())));
+        configuration.setIndexedDBDatabaseDirectory(WebCore::stringFromFileSystemRepresentation(webkit_website_data_manager_get_indexeddb_directory(priv->websiteDataManager.get())));
+        configuration.setWebSQLDatabaseDirectory(WebCore::stringFromFileSystemRepresentation(webkit_website_data_manager_get_websql_directory(priv->websiteDataManager.get())));
     } else if (!priv->localStorageDirectory.isNull())
-        configuration.setLocalStorageDirectory(WebCore::filenameToString(priv->localStorageDirectory.data()));
+        configuration.setLocalStorageDirectory(WebCore::stringFromFileSystemRepresentation(priv->localStorageDirectory.data()));
 
     priv->processPool = WebProcessPool::create(configuration);
 
     if (!priv->websiteDataManager)
-        priv->websiteDataManager = webkitWebsiteDataManagerCreate(websiteDataStoreConfigurationForWebProcessPoolConfiguration(configuration));
-
-    priv->requestManager = priv->processPool->supplement<WebSoupCustomProtocolRequestManager>();
+        priv->websiteDataManager = adoptGRef(webkitWebsiteDataManagerCreate(websiteDataStoreConfigurationForWebProcessPoolConfiguration(configuration)));
 
     priv->tlsErrorsPolicy = WEBKIT_TLS_ERRORS_POLICY_FAIL;
     priv->processPool->setIgnoreTLSErrors(false);
 
+#if ENABLE(MEMORY_SAMPLER)
+    if (getenv("WEBKIT_SAMPLE_MEMORY"))
+        priv->processPool->startMemorySampler(0);
+#endif
+
     attachInjectedBundleClientToContext(webContext);
     attachDownloadClientToContext(webContext);
-    attachRequestManagerClientToContext(webContext);
+    attachCustomProtocolManagerClientToContext(webContext);
 
 #if ENABLE(GEOLOCATION)
     priv->geolocationProvider = WebKitGeolocationProvider::create(priv->processPool->supplement<WebGeolocationManagerProxy>());
-#endif
-#if ENABLE(BATTERY_STATUS)
-    priv->batteryProvider = WebKitBatteryProvider::create(priv->processPool->supplement<WebBatteryManagerProxy>());
 #endif
 #if ENABLE(NOTIFICATIONS)
     priv->notificationProvider = WebKitNotificationProvider::create(priv->processPool->supplement<WebNotificationManagerProxy>());
@@ -307,6 +296,7 @@ static void webkitWebContextDispose(GObject* object)
         priv->clientsDetached = true;
         priv->processPool->initializeInjectedBundleClient(nullptr);
         priv->processPool->setDownloadClient(nullptr);
+        priv->processPool->setCustomProtocolManagerClient(nullptr);
     }
 
     G_OBJECT_CLASS(webkit_web_context_parent_class)->dispose(object);
@@ -582,10 +572,11 @@ static DownloadsMap& downloadsMap()
  */
 WebKitDownload* webkit_web_context_download_uri(WebKitWebContext* context, const gchar* uri)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), 0);
-    g_return_val_if_fail(uri, 0);
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
+    g_return_val_if_fail(uri, nullptr);
 
-    return webkitWebContextStartDownload(context, uri, 0);
+    GRefPtr<WebKitDownload> download = webkitWebContextStartDownload(context, uri, nullptr);
+    return download.leakRef();
 }
 
 /**
@@ -643,7 +634,7 @@ void webkit_web_context_set_favicon_database_directory(WebKitWebContext* context
     ensureFaviconDatabase(context);
 
     // Use default if 0 is passed as parameter.
-    String directoryPath = WebCore::filenameToString(path);
+    String directoryPath = WebCore::stringFromFileSystemRepresentation(path);
     priv->faviconDatabaseDirectory = directoryPath.isEmpty()
         ? priv->processPool->iconDatabasePath().utf8()
         : directoryPath.utf8();
@@ -653,7 +644,7 @@ void webkit_web_context_set_favicon_database_directory(WebKitWebContext* context
         WebCore::IconDatabase::defaultDatabaseFilename().utf8().data(), nullptr));
 
     // Setting the path will cause the icon database to be opened.
-    priv->processPool->setIconDatabasePath(WebCore::filenameToString(faviconDatabasePath.get()));
+    priv->processPool->setIconDatabasePath(WebCore::stringFromFileSystemRepresentation(faviconDatabasePath.get()));
 }
 
 /**
@@ -734,7 +725,7 @@ void webkit_web_context_set_additional_plugins_directory(WebKitWebContext* conte
     g_return_if_fail(directory);
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    context->priv->processPool->setAdditionalPluginsDirectory(WebCore::filenameToString(directory));
+    context->priv->processPool->setAdditionalPluginsDirectory(WebCore::stringFromFileSystemRepresentation(directory));
 #endif
 }
 
@@ -851,8 +842,9 @@ void webkit_web_context_register_uri_scheme(WebKitWebContext* context, const cha
     g_return_if_fail(callback);
 
     RefPtr<WebKitURISchemeHandler> handler = adoptRef(new WebKitURISchemeHandler(callback, userData, destroyNotify));
-    context->priv->uriSchemeHandlers.set(String::fromUTF8(scheme), handler.get());
-    context->priv->requestManager->registerSchemeForCustomProtocol(String::fromUTF8(scheme));
+    auto addResult = context->priv->uriSchemeHandlers.set(String::fromUTF8(scheme), handler.get());
+    if (addResult.isNewEntry)
+        context->priv->processPool->registerSchemeForCustomProtocol(String::fromUTF8(scheme));
 }
 
 /**
@@ -972,11 +964,14 @@ void webkit_web_context_set_preferred_languages(WebKitWebContext* context, const
         return;
 
     Vector<String> languages;
-    for (size_t i = 0; languageList[i]; ++i)
-        languages.append(String::fromUTF8(languageList[i]).convertToASCIILowercase().replace("_", "-"));
-
+    for (size_t i = 0; languageList[i]; ++i) {
+        // Do not propagate the C locale to WebCore.
+        if (!g_ascii_strcasecmp(languageList[i], "C") || !g_ascii_strcasecmp(languageList[i], "POSIX"))
+            languages.append(ASCIILiteral("en-us"));
+        else
+            languages.append(String::fromUTF8(languageList[i]).convertToASCIILowercase().replace("_", "-"));
+    }
     WebCore::overrideUserPreferredLanguages(languages);
-    WebCore::languageDidChange();
 }
 
 /**
@@ -1076,7 +1071,7 @@ void webkit_web_context_set_disk_cache_directory(WebKitWebContext* context, cons
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(directory);
 
-    context->priv->processPool->configuration().setDiskCacheDirectory(WebCore::pathByAppendingComponent(WebCore::filenameToString(directory), networkCacheSubdirectory));
+    context->priv->processPool->configuration().setDiskCacheDirectory(WebCore::pathByAppendingComponent(WebCore::stringFromFileSystemRepresentation(directory), networkCacheSubdirectory));
 }
 
 /**
@@ -1237,10 +1232,7 @@ WebKitDownload* webkitWebContextGetOrCreateDownload(DownloadProxy* downloadProxy
 WebKitDownload* webkitWebContextStartDownload(WebKitWebContext* context, const char* uri, WebPageProxy* initiatingPage)
 {
     WebCore::ResourceRequest request(String::fromUTF8(uri));
-    DownloadProxy* downloadProxy = context->priv->processPool->download(initiatingPage, request);
-    WebKitDownload* download = webkitDownloadCreateForRequest(downloadProxy, request);
-    downloadsMap().set(downloadProxy, download);
-    return download;
+    return webkitWebContextGetOrCreateDownload(context->priv->processPool->download(initiatingPage, request));
 }
 
 void webkitWebContextRemoveDownload(DownloadProxy* downloadProxy)
@@ -1268,14 +1260,9 @@ WebProcessPool* webkitWebContextGetProcessPool(WebKitWebContext* context)
     return context->priv->processPool.get();
 }
 
-WebSoupCustomProtocolRequestManager* webkitWebContextGetRequestManager(WebKitWebContext* context)
+void webkitWebContextStartLoadingCustomProtocol(WebKitWebContext* context, uint64_t customProtocolID, const WebCore::ResourceRequest& resourceRequest, CustomProtocolManagerProxy& manager)
 {
-    return context->priv->requestManager.get();
-}
-
-void webkitWebContextStartLoadingCustomProtocol(WebKitWebContext* context, uint64_t customProtocolID, API::URLRequest* urlRequest)
-{
-    GRefPtr<WebKitURISchemeRequest> request = adoptGRef(webkitURISchemeRequestCreate(customProtocolID, context, urlRequest));
+    GRefPtr<WebKitURISchemeRequest> request = adoptGRef(webkitURISchemeRequestCreate(customProtocolID, context, resourceRequest, manager));
     String scheme(String::fromUTF8(webkit_uri_scheme_request_get_scheme(request.get())));
     RefPtr<WebKitURISchemeHandler> handler = context->priv->uriSchemeHandlers.get(scheme);
     ASSERT(handler.get());
@@ -1292,6 +1279,16 @@ void webkitWebContextStopLoadingCustomProtocol(WebKitWebContext* context, uint64
     if (!request.get())
         return;
     webkitURISchemeRequestCancel(request.get());
+}
+
+void webkitWebContextInvalidateCustomProtocolRequests(WebKitWebContext* context, CustomProtocolManagerProxy& manager)
+{
+    Vector<GRefPtr<WebKitURISchemeRequest>> requests;
+    copyValuesToVector(context->priv->uriSchemeRequests, requests);
+    for (auto& request : requests) {
+        if (webkitURISchemeRequestGetManager(request.get()) == &manager)
+            webkitURISchemeRequestInvalidate(request.get());
+    }
 }
 
 void webkitWebContextDidFinishLoadingCustomProtocol(WebKitWebContext* context, uint64_t customProtocolID)

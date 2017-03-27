@@ -27,7 +27,7 @@
 
 script()
 {
-	$dtrace -qs /dev/stdin <<EOF
+	$dtrace -xnolibs -qs /dev/stdin <<EOF
 	profile-1234hz
 	/arg1 != 0/
 	{

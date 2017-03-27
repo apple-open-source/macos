@@ -91,6 +91,7 @@ public:
         void startRepeating(double repeatInterval) { start(repeatInterval, true); }
         void startRepeating(std::chrono::milliseconds repeatInterval) { startRepeating(repeatInterval.count() * 0.001); }
         void startOneShot(double interval) { start(interval, false); }
+        void startOneShot(std::chrono::milliseconds interval) { start(interval.count() * 0.001, false); }
 
         WTF_EXPORT_PRIVATE void stop();
         WTF_EXPORT_PRIVATE bool isActive() const;
@@ -141,7 +142,7 @@ public:
         }
 
     private:
-        virtual void fired() { (m_object->*m_function)(); }
+        void fired() override { (m_object->*m_function)(); }
 
         TimerFiredClass* m_object;
         TimerFiredFunction m_function;

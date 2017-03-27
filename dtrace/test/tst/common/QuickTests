@@ -31,6 +31,16 @@ proc/tst.discard.ksh
 proc/tst.exec.ksh
 proc/tst.execfail.ENOENT.ksh
 proc/tst.execfail.ksh
+processcontrol/tst.exec.ksh
+processcontrol/tst.postinit.ksh
+processcontrol/tst.preinit.ksh
+processcontrol/tst.run.ksh
+processcontrol/tst.run_module.ksh
+processcontrol/tst.run_module_glob.ksh
+processcontrol/tst.target_none.ksh
+processcontrol/tst.target_run.ksh
+processcontrol/tst.wait.ksh
+processcontrol/tst.wait_initializers.ksh
 profile-n/tst.argtest.d
 profile-n/tst.basic.d
 profile-n/tst.func.ksh
@@ -76,24 +86,8 @@ tick-n/tst.ticks.d
 tick-n/tst.ticksec.d
 tick-n/tst.tickus.d
 tick-n/tst.tickusec.d
-## usdt/argmap.d									/* DEFERRED: Await Darwin usdt provider. */
-## usdt/args.d
-## usdt/tst.andpid.ksh
-## usdt/tst.argmap.d
-## usdt/tst.args.d
-## usdt/tst.dlclose1.ksh
-## usdt/tst.dlclose2.ksh
-## usdt/tst.enabled.ksh
-## usdt/tst.entryreturn.ksh
-## usdt/tst.fork.ksh
-## usdt/tst.header.ksh
-## usdt/tst.linkpriv.ksh
-## usdt/tst.linkunpriv.ksh
-## usdt/tst.multiple.ksh
-## usdt/tst.onlyenabled.ksh
-## usdt/tst.reeval.ksh
-## usdt/tst.static.ksh
-## usdt/tst.static2.ksh
-## usdt/tst.user.ksh
+usdt_apple/tst.basic.d
+usdt_apple/tst.fork_star.ksh
+usdt_apple/tst.star.d
 ## ustack/tst.depth.ksh							/* RADAR 4487709: Awaits "dtrace -c". */
 ## ustack/tst.spin.ksh							/* RADAR 4487709: Awaits "dtrace -c". */

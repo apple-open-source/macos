@@ -285,8 +285,8 @@ void AppleManifest::AddManifestItemListToManifest (CFMutableDataRef data, Manife
 
 
 
-static const char gManifestHeader[] = {0x2F, 0xAA, 0x05, 0xB3, 0x64, 0x0E, 0x9D, 0x27}; // why these numbers?  These were picked at random
-static const char gManifestVersion[] = {0x01, 0x00, 0x00, 0x00};
+static const unsigned char gManifestHeader[] = {0x2F, 0xAA, 0x05, 0xB3, 0x64, 0x0E, 0x9D, 0x27}; // why these numbers?  These were picked at random
+static const unsigned char gManifestVersion[] = {0x01, 0x00, 0x00, 0x00};
 
 
 

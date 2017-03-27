@@ -116,7 +116,6 @@ MetaRecord::setRecordAttributeInfo(const CSSM_DB_RECORD_ATTRIBUTE_INFO &inInfo)
             }
             default:
                 CssmError::throwMe(CSSMERR_DL_INVALID_FIELD_NAME);
-                break;
         }
     }
 }
@@ -421,7 +420,6 @@ MetaRecord::attributeIndex(const CSSM_DB_ATTRIBUTE_INFO &inAttributeInfo) const
 		}
 		default:
 			CssmError::throwMe(CSSMERR_DL_INVALID_FIELD_NAME);
-			break;
 	}
 
 	return anIndex;

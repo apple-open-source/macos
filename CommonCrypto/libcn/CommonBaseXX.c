@@ -22,11 +22,11 @@
  */
 
 #include "basexx.h"
-#include "CommonBaseXX.h"
+#include <CommonNumerics/CommonBaseXX.h>
 #include "ccMemory.h"
 #include "CommonBufferingPriv.h"
-#include "ccGlobals.h"
-#include <AssertMacros.h>
+#include "../lib/ccGlobals.h"
+#include "../lib/cc_macros_priv.h"
 
 const static encoderConstants encoderValue[] = {
     { 16, 4, 1, 2, 0x0f }, // Base16
@@ -256,25 +256,38 @@ static void setReverseMap(CoderFrame frame)
     }
 }
 
+static void init_globals(__unused void *e){
+    cc_globals_t globals = _cc_globals();
+    
+    for(int i=0; i<CN_STANDARD_BASE_ENCODERS; i++)
+        globals->encoderTab[i].encoderRef = NULL;
+    
+    globals->encoderTab[kCNEncodingBase64].encoderRef = &defaultBase64;
+    globals->encoderTab[kCNEncodingBase32].encoderRef = &defaultBase32;
+    globals->encoderTab[kCNEncodingBase32Recovery].encoderRef = &recoveryBase32;
+    globals->encoderTab[kCNEncodingBase32HEX].encoderRef = &hexBase32;
+    globals->encoderTab[kCNEncodingBase16].encoderRef = &defaultBase16;
+}
+
+static void init_globals_malloc(void *e)
+{
+    cc_globals_t globals = _cc_globals();
+    CNEncodings encoding = *(CNEncodings *)e;
+    
+    globals->encoderTab[encoding].reverseMap = CC_XMALLOC(256);
+    if(globals->encoderTab[encoding].reverseMap)
+        setReverseMap(&globals->encoderTab[encoding]);
+}
+
 static CoderFrame
 getCodeFrame(CNEncodings encoding)
 {
     cc_globals_t globals = _cc_globals();
-    if(encoding > CN_STANDARD_BASE_ENCODERS) return NULL;
-    dispatch_once(&globals->basexx_init, ^{
-        for(int i=0; i<CN_STANDARD_BASE_ENCODERS; i++)
-            globals->encoderTab[i].encoderRef = NULL;
-        globals->encoderTab[kCNEncodingBase64].encoderRef = &defaultBase64;
-        globals->encoderTab[kCNEncodingBase32].encoderRef = &defaultBase32;
-        globals->encoderTab[kCNEncodingBase32Recovery].encoderRef = &recoveryBase32;
-        globals->encoderTab[kCNEncodingBase32HEX].encoderRef = &hexBase32;
-        globals->encoderTab[kCNEncodingBase16].encoderRef = &defaultBase16;
-    });
-    dispatch_once(&globals->encoderTab[encoding].encoderInit, ^{
-        globals->encoderTab[encoding].reverseMap = CC_XMALLOC(256);
-        if(globals->encoderTab[encoding].reverseMap) setReverseMap(&globals->encoderTab[encoding]);
-    });
+    if(encoding >= CN_STANDARD_BASE_ENCODERS) return NULL;
+    cc_dispatch_once(&globals->basexx_init, &encoding, init_globals);
+    cc_dispatch_once(&globals->encoderTab[encoding].encoderInit, &encoding, init_globals_malloc);
     if(NULL == globals->encoderTab[encoding].reverseMap) return NULL;
+    
     return &globals->encoderTab[encoding];
 }
 

@@ -227,6 +227,8 @@ static const char *const _dt_errtags[] = {
 	"D_LLQUANT_FACTOREVEN",	/* llquantize() bad # steps/factor */
 	"D_LLQUANT_FACTORSMALL",	/* llquantize() magnitude too small */
 	"D_LLQUANT_MAGTOOBIG",	/* llquantize() high mag too large */
+	"D_APPLE_BADPARAM", /* apple_*() bad parameter code */
+	"D_PROC_NOT_FOUND", /* proc not found in $pid_processName macro */
 };
 
 static const int _dt_ntag = sizeof (_dt_errtags) / sizeof (_dt_errtags[0]);

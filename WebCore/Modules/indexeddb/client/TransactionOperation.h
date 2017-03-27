@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TransactionOperation_h
-#define TransactionOperation_h
+#pragma once
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -62,25 +61,37 @@ public:
         m_performFunction = { };
     }
 
-    void performCompleteOnOriginThread(const IDBResultData& data, RefPtr<TransactionOperation>&& lastRef)
+    void transitionToCompleteOnThisThread(const IDBResultData& data)
+    {
+        ASSERT(m_originThreadID == currentThread());
+        m_transaction->operationCompletedOnServer(data, *this);
+    }
+
+    void transitionToComplete(const IDBResultData& data, RefPtr<TransactionOperation>&& lastRef)
     {
         ASSERT(isMainThread());
 
         if (m_originThreadID == currentThread())
-            completed(data);
+            transitionToCompleteOnThisThread(data);
         else {
-            m_transaction->performCallbackOnOriginThread(*this, &TransactionOperation::completed, data);
+            m_transaction->performCallbackOnOriginThread(*this, &TransactionOperation::transitionToCompleteOnThisThread, data);
             m_transaction->callFunctionOnOriginThread([lastRef = WTFMove(lastRef)]() {
             });
         }
     }
 
-    void completed(const IDBResultData& data)
+    void doComplete(const IDBResultData& data)
     {
         ASSERT(m_originThreadID == currentThread());
-        ASSERT(m_completeFunction);
+
+        // Due to race conditions between the server sending an "operation complete" message and the client
+        // forcefully aborting an operation, it's unavoidable that this method might be called twice.
+        // It's okay to handle that gracefully with an early return.
+        if (!m_completeFunction)
+            return;
+
         m_completeFunction(data);
-        m_transaction->operationDidComplete(*this);
+        m_transaction->operationCompletedOnClient(*this);
 
         // m_completeFunction might be holding the last ref to this TransactionOperation,
         // so we need to do this trick to null it out without first destroying it.
@@ -91,6 +102,11 @@ public:
     const IDBResourceIdentifier& identifier() const { return m_identifier; }
 
     ThreadIdentifier originThreadID() const { return m_originThreadID; }
+
+    IDBRequest* idbRequest() { return m_idbRequest.get(); }
+
+    bool nextRequestCanGoToServer() const { return m_nextRequestCanGoToServer && m_idbRequest; }
+    void setNextRequestCanGoToServer(bool nextRequestCanGoToServer) { m_nextRequestCanGoToServer = nextRequestCanGoToServer; }
 
 protected:
     TransactionOperation(IDBTransaction& transaction)
@@ -119,6 +135,8 @@ private:
     IndexedDB::IndexRecordType indexRecordType() const { return m_indexRecordType; }
 
     ThreadIdentifier m_originThreadID { currentThread() };
+    RefPtr<IDBRequest> m_idbRequest;
+    bool m_nextRequestCanGoToServer { true };
 };
 
 template <typename... Arguments>
@@ -194,6 +212,19 @@ RefPtr<TransactionOperation> createTransactionOperation(
     return adoptRef(operation);
 }
 
+template<typename MP1, typename P1, typename MP2, typename P2, typename MP3, typename P3>
+RefPtr<TransactionOperation> createTransactionOperation(
+    IDBTransaction& transaction,
+    void (IDBTransaction::*complete)(const IDBResultData&),
+    void (IDBTransaction::*perform)(TransactionOperation&, MP1, MP2, MP3),
+    const P1& parameter1,
+    const P2& parameter2,
+    const P3& parameter3)
+{
+    auto operation = new TransactionOperationImpl<MP1, MP2, MP3>(transaction, complete, perform, parameter1, parameter2, parameter3);
+    return adoptRef(operation);
+}
+
 template<typename MP1, typename P1>
 RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
@@ -237,4 +268,3 @@ RefPtr<TransactionOperation> createTransactionOperation(
 } // namespace WebCore
 
 #endif // ENABLE(INDEXED_DATABASE)
-#endif // TransactionOperation_h

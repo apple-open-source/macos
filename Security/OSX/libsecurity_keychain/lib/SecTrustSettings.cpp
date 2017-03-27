@@ -244,7 +244,7 @@ static void tsPurgeCache()
 	StLock<Mutex>	_(sutCacheLock());
 	trustSettingsDbg("tsPurgeCache");
 	for(domain=0; domain<TRUST_SETTINGS_NUM_DOMAINS; domain++) {
-		tsSetGlobalTrustSettings(NULL, domain);
+		tsSetGlobalTrustSettings(NULL, (SecTrustSettingsDomain) domain);
 	}
 }
 
@@ -410,7 +410,7 @@ static OSStatus tsCopyCertsCommon(
 		if(!domainEnable[domain]) {
 			continue;
 		}
-		TrustSettings *ts = tsGetGlobalTrustSettings(domain);
+		TrustSettings *ts = tsGetGlobalTrustSettings((SecTrustSettingsDomain)domain);
 		if(ts == NULL) {
 			continue;
 		}
@@ -551,7 +551,7 @@ OSStatus SecTrustSettingsEvaluateCert(
 	for(unsigned domain=kSecTrustSettingsDomainUser;
 			     domain<=kSecTrustSettingsDomainSystem;
 				 domain++) {
-		TrustSettings *ts = tsGetGlobalTrustSettings(domain);
+		TrustSettings *ts = tsGetGlobalTrustSettings((SecTrustSettingsDomain)domain);
 		if(ts == NULL) {
 			continue;
 		}
@@ -568,7 +568,7 @@ OSStatus SecTrustSettingsEvaluateCert(
 			 * is an Unspecified entry and we find a definitive entry
 			 * later
 			 */
-			*foundDomain = domain;
+			*foundDomain = (SecTrustSettingsDomain)domain;
 		}
 		if(found && (*resultType != kSecTrustSettingsResultUnspecified)) {
 			trustSettingsDbg("SecTrustSettingsEvaluateCert: found in domain %d", domain);
@@ -663,6 +663,7 @@ CFStringRef SecTrustSettingsCertHashStrFromCert(
 	if(certRef == kSecTrustSettingsDefaultRootCertSetting) {
 		/* use this string instead of the cert hash as the dictionary key */
 		trustSettingsDbg("SecTrustSettingsCertHashStrFromCert: DefaultSetting");
+        secerror("Caller passed kSecTrustSettingsDefaultRootCertSetting. This constant is deprecated and no longer affects the behavior of the system.");
 		return kSecTrustRecordDefaultRootCert;
 	}
 
@@ -719,7 +720,7 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 	OSStatus result;
 	TrustSettings* ts;
 
-	result = TrustSettings::CreateTrustSettings(kSecTrustSettingsDomainMemory, settingsIn, ts);
+	result = TrustSettings::CreateTrustSettings((SecTrustSettingsDomain)kSecTrustSettingsDomainMemory, settingsIn, ts);
 	if (result != errSecSuccess) {
 		return result;
 	}

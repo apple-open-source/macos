@@ -94,6 +94,9 @@
 #ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
 #endif
+#elif USE(DIRECT2D)
+#undef USE_CA
+#undef USE_CG
 #elif !USE(WINGDI)
 #define USE_CG 1
 #undef USE_CAIRO
@@ -128,8 +131,4 @@ typedef float CGFloat;
 #define HAVE_MEDIA_ACCESSIBILITY_FRAMEWORK 1
 #endif
 
-#endif
-
-#if USE(APPLE_INTERNAL_SDK)
-#include <WebKitAdditions/WebKitAdditionsDefines.h>
 #endif

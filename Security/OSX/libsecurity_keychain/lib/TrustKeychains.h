@@ -39,7 +39,7 @@ extern "C" {
 /*!
  @function SecTrustKeychainsGetMutex
  @abstract Get the global mutex for accessing trust keychains during an evaluation
- @param result On return, a reference to the global mutex which manages access to trust keychains
+ @return On return, a reference to the global mutex which manages access to trust keychains
  @discussion This function is intended to be used by C++ implementation layers to share a
  common global mutex for managing access to trust keychains (i.e. the root certificate store).
  */

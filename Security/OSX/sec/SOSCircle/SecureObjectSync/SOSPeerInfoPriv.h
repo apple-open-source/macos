@@ -24,7 +24,6 @@ struct __OpaqueSOSPeerInfo {
     CFStringRef             id;
     CFIndex                 version;
     /* V2 and beyond are listed below */
-    CFSetRef                secproperties;
     CFMutableDictionaryRef  v2Dictionary;
 };
 

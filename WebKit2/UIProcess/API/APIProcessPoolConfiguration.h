@@ -102,6 +102,20 @@ public:
     const Vector<WTF::String>& overrideLanguages() const { return m_overrideLanguages; }
     void setOverrideLanguages(Vector<WTF::String>&& languages) { m_overrideLanguages = WTFMove(languages); }
 
+    const WTF::String& sourceApplicationBundleIdentifier() const { return m_sourceApplicationBundleIdentifier; }
+    void setSourceApplicationBundleIdentifier(const WTF::String& sourceApplicationBundleIdentifier) { m_sourceApplicationBundleIdentifier = sourceApplicationBundleIdentifier; }
+
+    const WTF::String& sourceApplicationSecondaryIdentifier() const { return m_sourceApplicationSecondaryIdentifier; }
+    void setSourceApplicationSecondaryIdentifier(const WTF::String& sourceApplicationSecondaryIdentifier) { m_sourceApplicationSecondaryIdentifier = sourceApplicationSecondaryIdentifier; }
+
+    bool alwaysRunsAtBackgroundPriority() const { return m_alwaysRunsAtBackgroundPriority; }
+    void setAlwaysRunsAtBackgroundPriority(bool alwaysRunsAtBackgroundPriority) { m_alwaysRunsAtBackgroundPriority = alwaysRunsAtBackgroundPriority; }
+
+#if PLATFORM(IOS)
+    const WTF::String& ctDataConnectionServiceType() const { return m_ctDataConnectionServiceType; }
+    void setCTDataConnectionServiceType(const WTF::String& ctDataConnectionServiceType) { m_ctDataConnectionServiceType = ctDataConnectionServiceType; }
+#endif
+
 private:
     bool m_shouldHaveLegacyDataStore { false };
 
@@ -125,6 +139,12 @@ private:
     bool m_fullySynchronousModeIsAllowedForTesting { false };
     bool m_ignoreSynchronousMessagingTimeoutsForTesting { false };
     Vector<WTF::String> m_overrideLanguages;
+    WTF::String m_sourceApplicationBundleIdentifier;
+    WTF::String m_sourceApplicationSecondaryIdentifier;
+    bool m_alwaysRunsAtBackgroundPriority { false };
+#if PLATFORM(IOS)
+    WTF::String m_ctDataConnectionServiceType;
+#endif
 };
 
 } // namespace API

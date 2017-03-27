@@ -27,6 +27,7 @@ static void SOSAccountTransactionDestroy(CFTypeRef aObj) {
     CFReleaseNull(at->account);
     CFReleaseNull(at->initialViews);
     CFReleaseNull(at->initialKeyParameters);
+    CFReleaseNull(at->peersToRequestSync);
 }
 
 static CFStringRef SOSAccountTransactionCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef formatOptions) {
@@ -62,6 +63,8 @@ static void SOSAccountTransactionRestart(SOSAccountTransactionRef txn) {
     CFAssignRetained(txn->initialViews, mpi ? SOSPeerInfoCopyEnabledViews(mpi) : NULL);
 
     CFRetainAssign(txn->initialID, SOSPeerInfoGetPeerID(mpi));
+
+    CFReleaseNull(txn->peersToRequestSync);
     
     CFStringSetPerformWithDescription(txn->initialViews, ^(CFStringRef description) {
         secnotice("acct-txn", "Starting as:%s v:%@", txn->initialInCircle ? "member" : "non-member", description);
@@ -80,7 +83,8 @@ SOSAccountTransactionRef SOSAccountTransactionCreate(SOSAccountRef account) {
     at->initialTrusted = false;
     at->initialUnsyncedViews = NULL;
     at->initialID = NULL;
-    
+    at->peersToRequestSync = NULL;
+
     SOSAccountTransactionRestart(at);
 
     return at;
@@ -95,9 +99,14 @@ void SOSAccountTransactionFinish(SOSAccountTransactionRef txn) {
 
     SOSPeerInfoRef mpi = SOSAccountGetMyPeerInfo(txn->account);
 
-    bool inCircle = SOSAccountIsInCircle(txn->account, NULL);
+    bool isInCircle = SOSAccountIsInCircle(txn->account, NULL);
 
-    if (inCircle) {
+    if (isInCircle && txn->peersToRequestSync) {
+        SOSCCRequestSyncWithPeers(txn->peersToRequestSync);
+    }
+    CFReleaseNull(txn->peersToRequestSync);
+
+    if (isInCircle) {
         SOSAccountEnsureSyncChecking(txn->account);
     } else {
         SOSAccountCancelSyncChecking(txn->account);
@@ -137,6 +146,7 @@ void SOSAccountTransactionFinish(SOSAccountTransactionRef txn) {
     if(txn->account->circle_rings_retirements_need_attention){
         SOSAccountRecordRetiredPeersInCircle(txn->account);
 
+        SOSAccountEnsureRecoveryRing(txn->account);
         SOSAccountEnsureInBackupRings(txn->account);
 
         CFErrorRef localError = NULL;
@@ -162,8 +172,8 @@ void SOSAccountTransactionFinish(SOSAccountTransactionRef txn) {
 
     SOSAccountFlattenToSaveBlock(txn->account);
     
-    // Check for firing view membership change. On change of view membership or circle membership
-    bool isInCircle = SOSAccountIsInCircle(txn->account, NULL);
+    // Refresh isInCircle since we could have changed our mind
+    isInCircle = SOSAccountIsInCircle(txn->account, NULL);
     
     mpi = SOSAccountGetMyPeerInfo(txn->account);
     CFSetRef views = mpi ? SOSPeerInfoCopyEnabledViews(mpi) : NULL;
@@ -196,4 +206,21 @@ void SOSAccountTransactionFinishAndRestart(SOSAccountTransactionRef txn) {
     SOSAccountTransactionFinish(txn);
     SOSAccountTransactionRestart(txn);
 }
+
+void SOSAccountTransactionAddSyncRequestForPeerID(SOSAccountTransactionRef txn, CFStringRef peerID) {
+    if (!txn->peersToRequestSync) {
+        txn->peersToRequestSync = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+    }
+
+    CFSetAddValue(txn->peersToRequestSync, peerID);
+}
+
+void SOSAccountTransactionAddSyncRequestForAllPeerIDs(SOSAccountTransactionRef txn, CFSetRef /* CFStringRef */ peerIDs) {
+    if (!txn->peersToRequestSync) {
+        txn->peersToRequestSync = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+    }
+
+    CFSetUnion(txn->peersToRequestSync, peerIDs);
+}
+
 

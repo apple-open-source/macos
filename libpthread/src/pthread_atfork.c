@@ -93,13 +93,13 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 
 // Called before the fork(2) system call is made in the parent process.
 // Iterate pthread_atfork prepare handlers.
+// Called first in libSystem_atfork_prepare().
 void
-_pthread_fork_prepare(void)
+_pthread_atfork_prepare_handlers(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 
 	_PTHREAD_LOCK(globals->pthread_atfork_lock);
-	
 	size_t idx;
 	for (idx = globals->atfork_count; idx > 0; --idx) {
 		struct pthread_atfork_entry *e = &globals->atfork[idx-1];
@@ -107,6 +107,14 @@ _pthread_fork_prepare(void)
 			e->prepare();
 		}
 	}
+}
+
+// Take pthread-internal locks.
+// Called last in libSystem_atfork_prepare().
+void
+_pthread_fork_prepare(void)
+{
+	pthread_globals_t globals = _pthread_globals();
 
 	_PTHREAD_LOCK(globals->psaved_self_global_lock);
 	globals->psaved_self = pthread_self();
@@ -114,7 +122,8 @@ _pthread_fork_prepare(void)
 }
 
 // Called after the fork(2) system call returns to the parent process.
-// Iterate pthread_atfork parent handlers.
+// Release pthread-internal locks
+// Called first in libSystem_atfork_parent().
 void
 _pthread_fork_parent(void)
 {
@@ -122,6 +131,14 @@ _pthread_fork_parent(void)
 
 	_PTHREAD_UNLOCK(globals->psaved_self->lock);
 	_PTHREAD_UNLOCK(globals->psaved_self_global_lock);
+}
+
+// Iterate pthread_atfork parent handlers.
+// Called last in libSystem_atfork_parent().
+void
+_pthread_atfork_parent_handlers(void)
+{
+	pthread_globals_t globals = _pthread_globals();
 
 	size_t idx;
 	for (idx = 0; idx < globals->atfork_count; ++idx) {
@@ -136,6 +153,7 @@ _pthread_fork_parent(void)
 // Called after the fork(2) system call returns to the new child process.
 // Clean up data structures of other threads which no longer exist in the child.
 // Make the current thread the main thread.
+// Called first in libSystem_atfork_child() (after _dyld_fork_child)
 void
 _pthread_fork_child(void)
 {
@@ -147,8 +165,9 @@ _pthread_fork_child(void)
 }
 
 // Iterate pthread_atfork child handlers.
+// Called last in libSystem_atfork_child().
 void
-_pthread_fork_child_postinit(void)
+_pthread_atfork_child_handlers(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 	size_t idx;
@@ -159,4 +178,11 @@ _pthread_fork_child_postinit(void)
 		}
 	}
 	_PTHREAD_LOCK_INIT(globals->pthread_atfork_lock);
+}
+
+// Preserve legacy symbol in case somebody depends on it
+void
+_pthread_fork_child_postinit(void)
+{
+	_pthread_atfork_child_handlers();
 }

@@ -62,6 +62,7 @@ class InjectedBundleNodeHandle;
 class InjectedBundleRangeHandle;
 class InjectedBundleScriptWorld;
 class WebPage;
+struct FrameInfoData;
 
 class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame> {
 public:
@@ -77,6 +78,7 @@ public:
     static WebFrame* fromCoreFrame(WebCore::Frame&);
     WebCore::Frame* coreFrame() const { return m_coreFrame; }
 
+    FrameInfoData info() const;
     uint64_t frameID() const { return m_frameID; }
 
     uint64_t setUpPolicyListener(WebCore::FramePolicyFunction);
@@ -167,19 +169,19 @@ private:
     static PassRefPtr<WebFrame> create(std::unique_ptr<WebFrameLoaderClient>);
     WebFrame(std::unique_ptr<WebFrameLoaderClient>);
 
-    WebCore::Frame* m_coreFrame;
+    WebCore::Frame* m_coreFrame { nullptr };
 
-    uint64_t m_policyListenerID;
-    WebCore::FramePolicyFunction m_policyFunction;
-    DownloadID m_policyDownloadID;
+    uint64_t m_policyListenerID { 0 };
+    WebCore::FramePolicyFunction m_policyFunction { nullptr };
+    DownloadID m_policyDownloadID { 0 };
 
     std::unique_ptr<WebFrameLoaderClient> m_frameLoaderClient;
-    LoadListener* m_loadListener;
+    LoadListener* m_loadListener { nullptr };
     
-    uint64_t m_frameID;
+    uint64_t m_frameID { 0 };
 
 #if PLATFORM(IOS)
-    uint64_t m_firstLayerTreeTransactionIDAfterDidCommitLoad;
+    uint64_t m_firstLayerTreeTransactionIDAfterDidCommitLoad { 0 };
 #endif
 };
 

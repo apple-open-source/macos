@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004-2008, 2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -25,7 +25,6 @@
 #include "JSGlobalObject.h"
 #include "JSCInlines.h"
 #include "PropertyNameArray.h"
-#include "Reject.h"
 
 namespace JSC {
 
@@ -63,29 +62,35 @@ bool StringObject::getOwnPropertySlotByIndex(JSObject* object, ExecState* exec, 
 
 bool StringObject::put(JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     StringObject* thisObject = jsCast<StringObject*>(cell);
 
-    if (UNLIKELY(isThisValueAltered(slot, thisObject)))
+    if (UNLIKELY(isThisValueAltered(slot, thisObject))) {
+        scope.release();
         return ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode());
-
-    if (propertyName == exec->propertyNames().length) {
-        if (slot.isStrictMode())
-            throwTypeError(exec, StrictModeReadonlyPropertyWriteError);
-        return false;
     }
-    if (Optional<uint32_t> index = parseIndex(propertyName))
+
+    if (propertyName == vm.propertyNames->length)
+        return typeError(exec, scope, slot.isStrictMode(), ASCIILiteral(ReadonlyPropertyWriteError));
+    if (std::optional<uint32_t> index = parseIndex(propertyName)) {
+        scope.release();
         return putByIndex(cell, exec, index.value(), value, slot.isStrictMode());
+    }
+    scope.release();
     return JSObject::put(cell, exec, propertyName, value, slot);
 }
 
 bool StringObject::putByIndex(JSCell* cell, ExecState* exec, unsigned propertyName, JSValue value, bool shouldThrow)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     StringObject* thisObject = jsCast<StringObject*>(cell);
-    if (thisObject->internalValue()->canGetIndex(propertyName)) {
-        if (shouldThrow)
-            throwTypeError(exec, StrictModeReadonlyPropertyWriteError);
-        return false;
-    }
+    if (thisObject->internalValue()->canGetIndex(propertyName))
+        return typeError(exec, scope, shouldThrow, ASCIILiteral(ReadonlyPropertyWriteError));
+    scope.release();
     return JSObject::putByIndex(cell, exec, propertyName, value, shouldThrow);
 }
 
@@ -93,7 +98,7 @@ static bool isStringOwnProperty(ExecState* exec, StringObject* object, PropertyN
 {
     if (propertyName == exec->propertyNames().length)
         return true;
-    if (Optional<uint32_t> index = parseIndex(propertyName)) {
+    if (std::optional<uint32_t> index = parseIndex(propertyName)) {
         if (object->internalValue()->canGetIndex(index.value()))
             return true;
     }
@@ -102,6 +107,8 @@ static bool isStringOwnProperty(ExecState* exec, StringObject* object, PropertyN
 
 bool StringObject::defineOwnProperty(JSObject* object, ExecState* exec, PropertyName propertyName, const PropertyDescriptor& descriptor, bool throwException)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     StringObject* thisObject = jsCast<StringObject*>(object);
 
     if (isStringOwnProperty(exec, thisObject, propertyName)) {
@@ -114,11 +121,12 @@ bool StringObject::defineOwnProperty(JSObject* object, ExecState* exec, Property
         bool isCurrentDefined = thisObject->getOwnPropertyDescriptor(exec, propertyName, current);
         ASSERT(isCurrentDefined);
         bool isExtensible = thisObject->isExtensible(exec);
-        if (exec->hadException())
-            return false;
+        RETURN_IF_EXCEPTION(scope, false);
+        scope.release();
         return validateAndApplyPropertyDescriptor(exec, nullptr, propertyName, isExtensible, descriptor, isCurrentDefined, current, throwException);
     }
 
+    scope.release();
     return Base::defineOwnProperty(object, exec, propertyName, descriptor, throwException);
 }
 
@@ -127,7 +135,7 @@ bool StringObject::deleteProperty(JSCell* cell, ExecState* exec, PropertyName pr
     StringObject* thisObject = jsCast<StringObject*>(cell);
     if (propertyName == exec->propertyNames().length)
         return false;
-    Optional<uint32_t> index = parseIndex(propertyName);
+    std::optional<uint32_t> index = parseIndex(propertyName);
     if (index && thisObject->internalValue()->canGetIndex(index.value()))
         return false;
     return JSObject::deleteProperty(thisObject, exec, propertyName);

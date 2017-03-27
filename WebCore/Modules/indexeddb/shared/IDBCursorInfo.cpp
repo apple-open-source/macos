@@ -34,9 +34,9 @@
 
 namespace WebCore {
 
-IDBCursorInfo IDBCursorInfo::objectStoreCursor(IDBTransaction& transaction, uint64_t objectStoreIdentifier, const IDBKeyRangeData& range, IndexedDB::CursorDirection direction)
+IDBCursorInfo IDBCursorInfo::objectStoreCursor(IDBTransaction& transaction, uint64_t objectStoreIdentifier, const IDBKeyRangeData& range, IndexedDB::CursorDirection direction, IndexedDB::CursorType type)
 {
-    return { transaction, objectStoreIdentifier, range, direction, IndexedDB::CursorType::KeyAndValue };
+    return { transaction, objectStoreIdentifier, range, direction, type };
 }
 
 IDBCursorInfo IDBCursorInfo::indexCursor(IDBTransaction& transaction, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const IDBKeyRangeData& range, IndexedDB::CursorDirection direction, IndexedDB::CursorType type)
@@ -98,6 +98,16 @@ IDBCursorInfo IDBCursorInfo::isolatedCopy() const
 {
     return { m_cursorIdentifier.isolatedCopy(), m_transactionIdentifier.isolatedCopy(), m_objectStoreIdentifier, m_sourceIdentifier, m_range.isolatedCopy(), m_source, m_direction, m_type };
 }
+
+#if !LOG_DISABLED
+String IDBCursorInfo::loggingString() const
+{
+    if (m_source == IndexedDB::CursorSource::Index)
+        return String::format("<Crsr: %s Idx %" PRIu64 ", OS %" PRIu64 ", tx %s>", m_cursorIdentifier.loggingString().utf8().data(), m_sourceIdentifier, m_objectStoreIdentifier, m_transactionIdentifier.loggingString().utf8().data());
+
+    return String::format("<Crsr: %s OS %" PRIu64 ", tx %s>", m_cursorIdentifier.loggingString().utf8().data(), m_objectStoreIdentifier, m_transactionIdentifier.loggingString().utf8().data());
+}
+#endif
 
 } // namespace WebCore
 

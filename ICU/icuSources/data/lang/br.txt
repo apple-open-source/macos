@@ -467,7 +467,7 @@ br{
         war{"waray"}
         was{"washo"}
         wo{"wolof"}
-        wuu{"sinaeg Wu"}
+        wuu{"shanghainese"}
         xal{"kalmouk"}
         xh{"xhosa"}
         xmf{"megreleg"}

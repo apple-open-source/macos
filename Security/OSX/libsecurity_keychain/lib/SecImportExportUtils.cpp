@@ -29,6 +29,7 @@
 #include "SecIdentityPriv.h"
 #include "SecItem.h"
 #include <security_cdsa_utils/cuCdsaUtils.h>
+#include <security_utilities/casts.h>
 #include <Security/SecBase.h>
 #pragma mark --- Debug support ---
 
@@ -504,7 +505,7 @@ bool impExpImportGuessByExamination(
 		}
 		CSSM_HANDLE cacheHand;
 		CSSM_RETURN crtn;
-		CSSM_DATA cdata = { CFDataGetLength(inData),
+		CSSM_DATA cdata = { int_cast<CFIndex,CSSM_SIZE>(CFDataGetLength(inData)),
 						    (uint8 *)CFDataGetBytePtr(inData) };
 		crtn = CSSM_CL_CertCache(clHand, &cdata, &cacheHand);
 		bool brtn = false;

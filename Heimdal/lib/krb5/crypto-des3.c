@@ -181,7 +181,7 @@ struct _krb5_checksum_type _krb5_checksum_hmac_sha1_des3 = {
     "hmac-sha1-des3",
     64,
     20,
-    F_KEYED | F_CPROOF | F_DERIVED,
+    F_KEYED | F_CPROOF | F_DERIVED | F_WARNING,
     _krb5_SP_HMAC_SHA1_checksum,
     NULL
 };
@@ -196,7 +196,7 @@ struct _krb5_encryption_type _krb5_enctype_des3_cbc_md5 = {
     &keytype_des3,
     &_krb5_checksum_rsa_md5,
     &_krb5_checksum_rsa_md5_des3,
-    0,
+    F_WARNING,
     _krb5_evp_encrypt,
     0,
     NULL
@@ -212,7 +212,7 @@ struct _krb5_encryption_type _krb5_enctype_des3_cbc_sha1 = {
     &keytype_des3_derived,
     &_krb5_checksum_sha1,
     &_krb5_checksum_hmac_sha1_des3,
-    F_DERIVED,
+    F_DERIVED|F_WARNING,
     _krb5_evp_encrypt,
     16,
     DES3_prf
@@ -228,7 +228,7 @@ struct _krb5_encryption_type _krb5_enctype_old_des3_cbc_sha1 = {
     &keytype_des3,
     &_krb5_checksum_sha1,
     &_krb5_checksum_hmac_sha1_des3,
-    0,
+    F_WARNING,
     _krb5_evp_encrypt,
     0,
     NULL
@@ -244,7 +244,7 @@ struct _krb5_encryption_type _krb5_enctype_des3_cbc_none = {
     &keytype_des3_derived,
     &_krb5_checksum_none,
     NULL,
-    F_PSEUDO,
+    F_PSEUDO|F_WARNING,
     _krb5_evp_encrypt,
     0,
     NULL

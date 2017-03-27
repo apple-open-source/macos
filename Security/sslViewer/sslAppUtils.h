@@ -5,6 +5,7 @@
 #ifndef _SSLS_APP_UTILS_H_
 #define _SSLS_APP_UTILS_H_ 1
 
+#include <Security/SecBase.h>
 #include <Security/SecureTransport.h>
 #include <Security/SecureTransportPriv.h>
 #include <CoreFoundation/CFArray.h>
@@ -15,7 +16,9 @@
 extern "C" {
 #endif
 
+#if ! SEC_OS_OSX_INCLUDES
 typedef struct OpaqueSecKeychainRef *SecKeychainRef;
+#endif
 
 /* disable some Panther-only features */
 #define JAGUAR_BUILD	0

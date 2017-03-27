@@ -70,7 +70,7 @@
         [newPeers addObject:[[KDCirclePeer alloc] initWithPeerObject:obj]];
     }];
     
-    NSLog(@"rawStatus %d, #applicants %lu, #peers %lu, err=%@", newRawStatus, (unsigned long)[newApplicants count], (unsigned long)[newPeers count], err);
+    secdebug("kcn", "rawStatus %d, #applicants %lu, #peers %lu, err=%@", newRawStatus, (unsigned long)[newApplicants count], (unsigned long)[newPeers count], err);
 
 	dispatch_async(dispatch_get_main_queue(), ^{
         self.rawStatus = newRawStatus;
@@ -163,10 +163,9 @@ typedef void (^applicantBlock)(id applicant);
     
     self->_queue_ = dispatch_queue_create([[NSString stringWithFormat:@"KDSecCircle@%p", self] UTF8String], NULL);
     self->_callbacks = [NSMutableArray new];
-	notify_register_dispatch(kSOSCCCircleChangedNotification, &token, self.queue_, ^(int token){
+	notify_register_dispatch(kSOSCCCircleChangedNotification, &token, self.queue_, ^(int token1){
 		[self updateCheck];
 	});
-    
     return self;
 }
 

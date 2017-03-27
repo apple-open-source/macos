@@ -35,8 +35,8 @@
 #include "cspdebugging.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonCryptor.h>
-#include <openssl/rsa.h>
-#include <openssl/bn.h>
+#include <openssl/rsa_legacy.h>
+#include <openssl/bn_legacy.h>
 #include <security_utilities/devrandom.h>
 
 static const char *authfile_id_string = "SSH PRIVATE KEY FILE FORMAT 1.1\n";

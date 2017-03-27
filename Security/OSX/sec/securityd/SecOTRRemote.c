@@ -45,6 +45,7 @@ CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFData
     CFDataRef result = NULL;
     SecOTRSessionRef ourSession = NULL;
     
+    require_quiet(ds, fail);
     require_quiet(publicPeerId, fail);
     privateAccount = (privateAccountData == NULL) ? CFRetainSafe(SOSKeychainAccountGetSharedAccount()) : SOSAccountCreateFromData(kCFAllocatorDefault, privateAccountData, ds, error);
     require_quiet(privateAccount, fail);

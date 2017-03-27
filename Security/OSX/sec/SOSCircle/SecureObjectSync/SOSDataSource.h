@@ -37,6 +37,7 @@
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/SecCFError.h>
 
 __BEGIN_DECLS
 
@@ -62,7 +63,8 @@ static inline CFStringRef SOSDataSourceFactoryCopyName(SOSDataSourceFactoryRef d
 }
 
 static inline SOSDataSourceRef SOSDataSourceFactoryCreateDataSource(SOSDataSourceFactoryRef dsf, CFStringRef dataSourceName, CFErrorRef *error) {
-    return dsf->create_datasource(dsf, dataSourceName, error);
+    SecRequirementError(dsf != NULL, error, CFSTR("No datasource"));
+    return dsf ? dsf->create_datasource(dsf, dataSourceName, error) : NULL;
 }
 
 static inline void SOSDataSourceFactoryRelease(SOSDataSourceFactoryRef dsf) {
@@ -145,6 +147,7 @@ struct SOSDataSource {
 
     // SOSObject methods
     CFDataRef (*objectCopyDigest)(SOSObjectRef object, CFErrorRef *error);
+    CFDateRef (*objectCopyModDate)(SOSObjectRef object, CFErrorRef *error);
     SOSObjectRef (*objectCreateWithPropertyList)(CFDictionaryRef plist, CFErrorRef *error);
     CFDictionaryRef (*objectCopyPropertyList)(SOSObjectRef object, CFErrorRef *error);
     CFDictionaryRef (*objectCopyBackup)(SOSObjectRef object, uint64_t handle, CFErrorRef *error);
@@ -231,6 +234,10 @@ static inline bool SOSDataSourceSetStateWithKey(SOSDataSourceRef ds, SOSTransact
 //
 static inline CFDataRef SOSObjectCopyDigest(SOSDataSourceRef ds, SOSObjectRef object, CFErrorRef *error) {
     return ds->objectCopyDigest(object, error);
+}
+
+static inline CFDateRef SOSObjectCopyModificationDate(SOSDataSourceRef ds, SOSObjectRef object, CFErrorRef *error) {
+    return ds->objectCopyModDate(object, error);
 }
 
 static inline SOSObjectRef SOSObjectCreateWithPropertyList(SOSDataSourceRef ds, CFDictionaryRef plist, CFErrorRef *error) {

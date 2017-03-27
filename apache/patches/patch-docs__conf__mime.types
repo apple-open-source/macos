@@ -56,13 +56,13 @@
  image/x-tga					tga
  image/x-xbitmap					xbm
 @@ -1425,6 +1431,7 @@
- # multipart/report
  # multipart/signed
  # multipart/voice-message
-+text/cache-manifest				manifest
+ # multipart/x-mixed-replace
++text/cache-manifest                            manifest
  # text/1d-interleaved-parityfec
- text/cache-manifest				appcache
- text/calendar					ics ifb
+ text/cache-manifest                             appcache
+ text/calendar                                   ics ifb
 @@ -1520,9 +1527,9 @@
  video/mj2					mj2 mjp2
  # video/mp1s
@@ -76,9 +76,9 @@
  # video/mpeg4-generic
  # video/mpv
 @@ -1569,6 +1576,7 @@
- # video/vnd.sealedmedia.softseal.mov
  video/vnd.uvvu.mp4				uvu uvvu
  video/vnd.vivo					viv
+ # video/vp8
 +video/x-dv					dv dif
  video/webm					webm
  video/x-f4v					f4v

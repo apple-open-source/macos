@@ -115,7 +115,9 @@ static int send_tncmd(void (*)(int, int), const char *, char *);
 static int setmod(int);
 static int clearmode(int);
 static int modehelp(void);
+#ifndef __APPLE__
 static int sourceroute(struct addrinfo *, char *, char **, int *, int *, int *);
+#endif
 
 typedef struct {
 	const char *name;	/* command name */
@@ -2184,7 +2186,11 @@ tn(int argc, char *argv[])
     char *srp = 0;
     int proto = 0, opt = 0;
     int srlen = 0;
+#ifndef __APPLE__
     int srcroute = 0, result;
+#else
+    int srcroute = 0;
+#endif
     char *cmd, *hostp = 0, *portp = 0, *user = 0;
     char *src_addr = NULL;
     struct addrinfo hints, *res, *res0 = NULL, *src_res, *src_res0 = NULL;
@@ -2377,6 +2383,7 @@ tn(int argc, char *argv[])
  #ifdef INET6
  af_again:
  #endif
+#ifndef __APPLE__
     if (srcroute != 0) {
         static char hostbuf[BUFSIZ];
 
@@ -2403,6 +2410,7 @@ tn(int argc, char *argv[])
 	    goto fail;
 	}
     }
+#endif
     do {
         printf("Trying %s...\n", sockaddr_ntop(res->ai_addr));
 	net = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -2815,6 +2823,7 @@ cmdrc(char *m1, char *m2)
     fclose(rcfile);
 }
 
+#ifndef __APPLE__
 /*
  * Source route is handed in as
  *	[!]@hop1@hop2...[@|:]dst
@@ -3051,3 +3060,4 @@ sourceroute(struct addrinfo *ai, char *arg, char **cpp, int *lenp, int *protop, 
 	freeaddrinfo(res);
 	return 1;
 }
+#endif

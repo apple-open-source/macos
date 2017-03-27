@@ -232,6 +232,7 @@ enum
 #define kIOPCIResourcedKey        "IOPCIResourced"
 #define kIOPCIPMCSStateKey        "IOPCIPMCSState"
 #define kIOPCIHPTypeKey           "IOPCIHPType"
+#define kIOPCIMSIFlagsKey         "pci-msi-flags"
 
 #ifndef kACPIDevicePathKey
 #define kACPIDevicePathKey             "acpi-path"
@@ -276,6 +277,11 @@ enum
 	kIOPCIExpressASPML1  = 0x00000002
 };
 
+enum
+{
+    kIOPCIMSIFlagRespect = 0x00000001,
+};
+
 #define kIOPCIExpressL1PMControlKey	"pci-l1pm-control"
 
 #ifndef kIODebugArgumentsKey
@@ -301,7 +307,17 @@ extern const OSSymbol *           gIOPolledInterfaceActiveKey;
 extern const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];
 #endif
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#if ACPI_SUPPORT
+extern IOReturn IOPCIPlatformInitialize(void);
+extern IOReturn IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData);
+extern uint64_t IOPCISetAPICInterrupt(uint64_t entry);
+#endif
+
 extern IOReturn IOPCIRegisterPowerDriver(IOService * service, bool hostbridge);
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define arrayCount(x)	(sizeof(x) / sizeof(x[0]))
 

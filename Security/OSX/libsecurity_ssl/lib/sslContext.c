@@ -151,6 +151,8 @@ CFTypeRef SSLPreferencesCopyValue(CFStringRef key, CFPropertyListRef managed_pre
 
     if(!value && managed_prefs) {
         value =  CFDictionaryGetValue(managed_prefs, key);
+        if (value)
+            CFRetain(value);
     }
 
     return value;

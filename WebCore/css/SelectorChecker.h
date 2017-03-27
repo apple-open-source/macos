@@ -25,15 +25,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SelectorChecker_h
-#define SelectorChecker_h
+#pragma once
 
 #include "CSSSelector.h"
 #include "Element.h"
 #include "SpaceSplitString.h"
 #include "StyleRelations.h"
-#include <wtf/HashSet.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -87,6 +84,7 @@ public:
         RenderScrollbar* scrollbar { nullptr };
         ScrollbarPart scrollbarPart { NoPart };
         const ContainerNode* scope { nullptr };
+        bool isMatchingHostPseudoClass { false };
 
         // FIXME: It would be nicer to have a separate object for return values. This requires some more work in the selector compiler.
         Style::Relations styleRelations;
@@ -129,6 +127,4 @@ inline bool SelectorChecker::isCommonPseudoClassSelector(const CSSSelector* sele
         || pseudoType == CSSSelector::PseudoClassFocus;
 }
 
-}
-
-#endif
+} // namespace WebCore

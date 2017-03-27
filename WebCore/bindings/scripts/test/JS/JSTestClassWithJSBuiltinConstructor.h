@@ -28,7 +28,7 @@ namespace WebCore {
 
 class JSTestClassWithJSBuiltinConstructor : public JSDOMWrapper<TestClassWithJSBuiltinConstructor> {
 public:
-    typedef JSDOMWrapper<TestClassWithJSBuiltinConstructor> Base;
+    using Base = JSDOMWrapper<TestClassWithJSBuiltinConstructor>;
     static JSTestClassWithJSBuiltinConstructor* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestClassWithJSBuiltinConstructor>&& impl)
     {
         JSTestClassWithJSBuiltinConstructor* ptr = new (NotNull, JSC::allocateCell<JSTestClassWithJSBuiltinConstructor>(globalObject->vm().heap)) JSTestClassWithJSBuiltinConstructor(structure, *globalObject, WTFMove(impl));
@@ -54,12 +54,7 @@ public:
 protected:
     JSTestClassWithJSBuiltinConstructor(JSC::Structure*, JSDOMGlobalObject&, Ref<TestClassWithJSBuiltinConstructor>&&);
 
-    void finishCreation(JSC::VM& vm)
-    {
-        Base::finishCreation(vm);
-        ASSERT(inherits(info()));
-    }
-
+    void finishCreation(JSC::VM&);
 };
 
 class JSTestClassWithJSBuiltinConstructorOwner : public JSC::WeakHandleOwner {
@@ -84,5 +79,9 @@ inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject,
 JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestClassWithJSBuiltinConstructor>&&);
 inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestClassWithJSBuiltinConstructor>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
+template<> struct JSDOMWrapperConverterTraits<TestClassWithJSBuiltinConstructor> {
+    using WrapperClass = JSTestClassWithJSBuiltinConstructor;
+    using ToWrappedReturnType = TestClassWithJSBuiltinConstructor*;
+};
 
 } // namespace WebCore

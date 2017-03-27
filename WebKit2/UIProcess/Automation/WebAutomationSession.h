@@ -93,6 +93,7 @@ public:
     void connect(Inspector::FrontendChannel*, bool isAutomaticConnection = false) override;
     void disconnect(Inspector::FrontendChannel*) override;
 #endif
+    void terminate();
 
     // Inspector::AutomationBackendDispatcherHandler API
     void getBrowsingContexts(Inspector::ErrorString&, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Automation::BrowsingContext>>&) override;
@@ -122,7 +123,7 @@ public:
     void getAllCookies(Inspector::ErrorString&, const String& browsingContextHandle, Ref<GetAllCookiesCallback>&&) override;
     void deleteSingleCookie(Inspector::ErrorString&, const String& browsingContextHandle, const String& cookieName, Ref<DeleteSingleCookieCallback>&&) override;
     void addSingleCookie(Inspector::ErrorString&, const String& browsingContextHandle, const Inspector::InspectorObject& cookie, Ref<AddSingleCookieCallback>&&) override;
-    void deleteAllCookies(Inspector::ErrorString&, const String& browsingContextHandle, Ref<DeleteAllCookiesCallback>&&) override;
+    void deleteAllCookies(Inspector::ErrorString&, const String& browsingContextHandle) override;
 #if USE(APPKIT)
     bool wasEventSynthesizedForAutomation(NSEvent *);
     void markEventAsSynthesizedForAutomation(NSEvent *);
@@ -133,12 +134,12 @@ private:
     String handleForWebPageProxy(const WebPageProxy&);
     RefPtr<Inspector::Protocol::Automation::BrowsingContext> buildBrowsingContextForPage(WebPageProxy&);
 
-    Optional<uint64_t> webFrameIDForHandle(const String&);
+    std::optional<uint64_t> webFrameIDForHandle(const String&);
     String handleForWebFrameID(uint64_t frameID);
     String handleForWebFrameProxy(const WebFrameProxy&);
 
     // Implemented in generated WebAutomationSessionMessageReceiver.cpp
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Called by WebAutomationSession messages
     void didEvaluateJavaScriptFunction(uint64_t callbackID, const String& result, const String& errorType);

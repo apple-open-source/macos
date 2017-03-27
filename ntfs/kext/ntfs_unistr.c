@@ -388,7 +388,16 @@ signed ntfs_to_utf8(const ntfs_volume *vol, const ntfschar *ins,
 		 */
 		utf8_size = utf8_encodelen(ins, ins_size, 0, UTF_DECOMPOSED |
 				UTF_LITTLE_ENDIAN | UTF_SFM_CONVERSIONS) + 1;
-		/* Allocate buffer for the converted string. */
+
+        /* Validate length for x64 size_t -> uint32_t conversion
+           I expect that compiler would optimize it out in 32 bit builds
+         */
+        if (utf8_size > (size_t)UINT32_MAX) {
+            ntfs_error(vol->mp, "Output string is longer than UINT32_MAX.");
+            return -EINVAL;
+        }
+
+        /* Allocate buffer for the converted string. */
 		utf8 = OSMalloc(utf8_size, ntfs_malloc_tag);
 		if (!utf8) {
 			ntfs_error(vol->mp, "Failed to allocate memory for "

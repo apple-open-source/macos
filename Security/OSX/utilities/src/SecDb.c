@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -91,6 +91,10 @@ struct __OpaqueSecDb {
     bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error);
     bool callOpenedHandlerForNextConnection;
     CFMutableArrayRef notifyPhase; /* array of SecDBNotifyBlock */
+    mode_t mode; /* database file permissions, default 0600 */
+    bool readWrite; /* open database read-write, default true */
+    bool allowRepair; /* allow database repair, default true */
+    bool useWAL; /* use WAL mode, default true */
 };
 
 // MARK: Error domains and error helper functions
@@ -187,8 +191,8 @@ SecDbDestroy(CFTypeRef value)
 CFGiblisFor(SecDb)
 
 SecDbRef
-SecDbCreate(CFStringRef dbName,
-            bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error))
+SecDbCreateWithOptions(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, bool useWAL,
+                       bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error))
 {
     SecDbRef db = NULL;
 
@@ -215,9 +219,20 @@ SecDbCreate(CFStringRef dbName,
     } else {
         db->db_path = CFStringCreateCopy(kCFAllocatorDefault, dbName);
     }
+    db->mode = mode;
+    db->readWrite = readWrite;
+    db->allowRepair = allowRepair;
+    db->useWAL = useWAL;
 
 done:
     return db;
+}
+
+SecDbRef
+SecDbCreate(CFStringRef dbName,
+            bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error))
+{
+    return SecDbCreateWithOptions(dbName, 0600, true, true, true, opened);
 }
 
 CFIndex
@@ -258,6 +273,9 @@ static void SecDbOnNotify(SecDbConnectionRef dbconn, void (^perform)()) {
 }
 
 CFStringRef SecDbGetPath(SecDbRef db) {
+    if(!db) {
+        return NULL;
+    }
     return db->db_path;
 }
 
@@ -332,7 +350,7 @@ void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error)
         char buffer[1000] = "?";
         uint32_t errorCode = 0;
         CFStringGetCString(str, buffer, sizeof(buffer), kCFStringEncodingUTF8);
-        os_log_fault(logObjForScope("SecEmergency"), "%s", buffer);
+        os_log_fault(secLogObjForScope("SecEmergency"), "%s", buffer);
         if (error)
             errorCode = (uint32_t)CFErrorGetCode(error);
         __security_simulatecrash(str, __sec_exception_code_CorruptDb(errorCode));
@@ -379,7 +397,7 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
     /* If it's already corrupted, don't try to recover */
     if (dbconn->isCorrupted) {
         CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
-                                                      CFSTR("SQL DB %@ is corrupted already. Not trying to recover, corrution error was: %d (previously %d)"),
+                                                      CFSTR("SQL DB %@ is corrupted already. Not trying to recover, corruption error was: %d (previously %d)"),
                                                       dbconn->db->db_path, code, dbconn->maybeCorruptedCode);
         secerror("%@",reason);
         __security_simulatecrash(reason, __sec_exception_code_TwiceCorruptDb(knownDbPathIndex(dbconn)));
@@ -387,7 +405,8 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
         return false;
     }
 
-    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code) || (SQLITE_CANTOPEN == code);
+    // NOTADB means file is garbage, so it's functionally equivalent to corruption
+    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code);
     if (dbconn->isCorrupted) {
         /* Run integrity check and only make dbconn->isCorrupted true and
            run the corruption handler if the integrity check conclusively fails. */
@@ -615,7 +634,6 @@ bool SecDbTransaction(SecDbConnectionRef dbconn, SecDbTransactionType type,
         }
     }
 
-done:
     return ok && commit;
 }
 
@@ -680,7 +698,10 @@ static bool SecDbOpenV2(SecDbConnectionRef dbconn, const char *path, int flags, 
 
 static bool SecDbTruncate(SecDbConnectionRef dbconn, CFErrorRef *error)
 {
-    int flags = SQLITE_TRUNCATE_JOURNALMODE_WAL | SQLITE_TRUNCATE_AUTOVACUUM_FULL;
+    int flags = SQLITE_TRUNCATE_AUTOVACUUM_FULL;
+    if (dbconn->db->useWAL) {
+        flags |= SQLITE_TRUNCATE_JOURNALMODE_WAL;
+    }
     __block bool ok = SecDbFileControl(dbconn, SQLITE_TRUNCATE_DATABASE, &flags, error);
     if (!ok) {
         sqlite3_close(dbconn->handle);
@@ -703,6 +724,12 @@ static bool SecDbTruncate(SecDbConnectionRef dbconn, CFErrorRef *error)
 
 static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *error)
 {
+    if (!dbconn->db->allowRepair) {
+        SecCFCreateErrorWithFormat(rc, kSecErrnoDomain, NULL, error, NULL,
+                                   CFSTR("SecDbHandleCorrupt repair not allowed: [%d] %s"), rc, strerror(rc));
+        return false;
+    }
+
     // Backup current db.
     __block bool didRename = false;
     CFStringPerformWithCString(dbconn->db->db_path, ^(const char *db_path) {
@@ -749,109 +776,89 @@ static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *er
     return ok;
 }
 
-static bool SecDbProfileEnabled(void)
+static bool SecDbLoggingEnabled(CFStringRef type)
+{
+    CFTypeRef profile = NULL;
+    bool enabled = false;
+
+    if (csr_check(CSR_ALLOW_APPLE_INTERNAL) != 0)
+        return false;
+
+    profile = (CFNumberRef)CFPreferencesCopyValue(CFSTR("SQLProfile"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesAnyHost);
+
+    if (profile == NULL)
+        return false;
+
+    if (CFGetTypeID(profile) == CFBooleanGetTypeID()) {
+        enabled = CFBooleanGetValue((CFBooleanRef)profile);
+    } else if (CFGetTypeID(profile) == CFNumberGetTypeID()) {
+        int32_t num = 0;
+        CFNumberGetValue(profile, kCFNumberSInt32Type, &num);
+        enabled = !!num;
+    }
+
+    CFReleaseSafe(profile);
+
+    return enabled;
+}
+
+static unsigned
+SecDbProfileMask(void)
 {
     static dispatch_once_t onceToken;
-    static bool profile_enabled = false;
+    static unsigned profile_mask = 0;
 
     // sudo defaults write /Library/Preferences/com.apple.security SQLProfile -bool true
     dispatch_once(&onceToken, ^{
-        CFTypeRef profile = NULL;
-
-        if (csr_check(CSR_ALLOW_APPLE_INTERNAL) != 0)
-            return;
-
-        profile = (CFNumberRef)CFPreferencesCopyValue(CFSTR("SQLProfile"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesAnyHost);
-
-        if (profile == NULL)
-            return;
-
-        if (CFGetTypeID(profile) == CFBooleanGetTypeID()) {
-            profile_enabled = CFBooleanGetValue((CFBooleanRef)profile);
-        } else if (CFGetTypeID(profile) == CFNumberGetTypeID()) {
-            int32_t num = 0;
-            CFNumberGetValue(profile, kCFNumberSInt32Type, &num);
-            profile_enabled = !!num;
-        }
-        
-        secinfo("#SecDB", "sqlDb: sql profile: %{public}s", profile_enabled ? "enabled" : "disabled");
-        
-        CFReleaseSafe(profile);
-    });
-
-    return profile_enabled;
-}
-
-static void SecDbProfile(void *context, const char *sql, sqlite3_uint64 ns) {
-    sqlite3 *s3h = context;
-    int code = sqlite3_extended_errcode(s3h);
-    if (code == SQLITE_OK || code == SQLITE_DONE) {
-        secinfo("#SecDB", "#SecDB sql: %{public}s\nTime: %llu ms", sql, ns >> 20);
-    } else {
-        secinfo("#SecDB", "#SecDB error[%d]: %{public}s lDb: %{public}s time: %llu ms", code, sqlite3_errmsg(s3h), sql, ns >> 20);
-    }
-}
-
-static bool SecDbTraceEnabled(void)
-{
+        if (SecDbLoggingEnabled(CFSTR("SQLProfile")))
+            profile_mask = SQLITE_TRACE_PROFILE;
 #if DEBUG
-    return true;
+        profile_mask |= SQLITE_TRACE_STMT;
 #else
-    static dispatch_once_t onceToken;
-    static bool trace_enabled = false;
-
-    // sudo defaults write /Library/Preferences/com.apple.security SQLTrace -bool true
-    dispatch_once(&onceToken, ^{
-        CFTypeRef trace = NULL;
-
-        if (csr_check(CSR_ALLOW_APPLE_INTERNAL) != 0)
-            return;
-
-        trace = (CFNumberRef)CFPreferencesCopyValue(CFSTR("SQLTrace"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-
-        if (trace == NULL)
-            return;
-
-        if (CFGetTypeID(trace) == CFBooleanGetTypeID()) {
-            trace_enabled = CFBooleanGetValue((CFBooleanRef)trace);
-        } else if (CFGetTypeID(trace) == CFNumberGetTypeID()) {
-            int32_t num = 0;
-            CFNumberGetValue(trace, kCFNumberSInt32Type, &num);
-            trace_enabled = !!num;
-        }
-
-        secinfo("#SecDB", "#SecDB sql trace: %{public}s", trace_enabled ? "enabled" : "disabled");
-
-        CFReleaseSafe(trace);
-    });
-
-    return trace_enabled;
+        if (SecDbLoggingEnabled(CFSTR("SQLTrace")))
+            profile_mask = SQLITE_TRACE_STMT;
 #endif
+        if (SecDbLoggingEnabled(CFSTR("SQLRow")))
+            profile_mask = SQLITE_TRACE_ROW;
+        secinfo("#SecDB", "sqlDb: sql trace mask: 0x%08x", profile_mask);
+    });
+    return profile_mask;
 }
 
-static void SecDbTrace(void *ctx, const char *trace) {
+static int
+SecDbTraceV2(unsigned mask, void *ctx, void *p, void *x) {
     SecDbConnectionRef dbconn __unused = ctx;
-    static dispatch_queue_t queue;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        queue = dispatch_queue_create("trace_queue", DISPATCH_QUEUE_SERIAL);
-    });
-    dispatch_sync(queue, ^{
-        secinfo("#SecDB", "#SecDB %{public}s", trace);
-    });
+    const char *trace = "unknown";
+
+    if (mask == SQLITE_TRACE_PROFILE)
+        trace = "profile";
+    else if (mask == SQLITE_TRACE_STMT)
+        trace = "stmt";
+    else if (mask == SQLITE_TRACE_ROW)
+        trace = "row";
+
+    secinfo("#SecDB", "#SecDB %{public}s", trace);
+    return 0;
 }
+
 
 static bool SecDbOpenHandle(SecDbConnectionRef dbconn, bool *created, CFErrorRef *error)
 {
     __block bool ok = true;
+
     CFStringPerformWithCString(dbconn->db->db_path, ^(const char *db_path) {
-        ok = created && SecDbOpenV2(dbconn, db_path, SQLITE_OPEN_READWRITE, NULL);
+        int flags = (dbconn->db->readWrite) ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY;
+        ok = created && SecDbOpenV2(dbconn, db_path, flags, NULL);
         if (!ok) {
             ok = true;
             if (created) {
                 char *tmp = dirname((char *)db_path);
                 if (tmp) {
-                    int errnum = mkpath_np(tmp, 0700);
+                    mode_t omode = dbconn->db->mode;
+                    if (omode & S_IRUSR) { omode |= S_IXUSR; } // owner can read
+                    if (omode & S_IRGRP) { omode |= S_IXGRP; } // group can read
+                    if (omode & S_IROTH) { omode |= S_IXOTH; } // other can read
+                    int errnum = mkpath_np(tmp, omode);
                     if (errnum != 0 && errnum != EEXIST) {
                         SecCFCreateErrorWithFormat(errnum, kSecErrnoDomain, NULL, error, NULL,
                                                    CFSTR("mkpath_np %s: [%d] %s"), tmp, errnum, strerror(errnum));
@@ -859,24 +866,29 @@ static bool SecDbOpenHandle(SecDbConnectionRef dbconn, bool *created, CFErrorRef
                     }
                 }
             }
+            // if the enclosing directory is ok, try to create the database.
+            // this forces us to open it read-write, so we'll need to be the owner here.
             ok = ok && SecDbOpenV2(dbconn, db_path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, error);
             if (ok) {
-                chmod(db_path, S_IRUSR | S_IWUSR);
+                chmod(db_path, dbconn->db->mode); // default: 0600 (S_IRUSR | S_IWUSR)
                 if (created)
                     *created = true;
             }
         }
 
-        if (ok && SecDbProfileEnabled()) {
-            sqlite3_profile(dbconn->handle, SecDbProfile, dbconn->handle);
+        if (ok) {
+            unsigned mask = SecDbProfileMask();
+            if (mask) {
+                (void)sqlite3_trace_v2(dbconn->handle,
+                                       mask,
+                                       SecDbTraceV2,
+                                       dbconn);
+            }
         }
-        if (ok && SecDbTraceEnabled()) {
-            sqlite3_trace(dbconn->handle, SecDbTrace, dbconn);
-        }
+
         ok = ok && SecDbBusyHandler(dbconn, error);
     });
 
-done:
     return ok;
 }
 
@@ -891,7 +903,7 @@ SecDbConnectionCreate(SecDbRef db, bool readOnly, CFErrorRef *error)
     dbconn->db = db;
     dbconn->readOnly = readOnly;
     dbconn->inTransaction = false;
-    dbconn->source = NULL;
+    dbconn->source = kSecDbInvalidTransaction;
     dbconn->isCorrupted = false;
     dbconn->maybeCorruptedCode = 0;
     dbconn->hasIOFailure = false;
@@ -913,7 +925,7 @@ static void SecDbConectionSetReadOnly(SecDbConnectionRef dbconn, bool readOnly) 
 
 /* Read only connections go to the end of the queue, writeable connections
  go to the start of the queue. */
-SecDbConnectionRef SecDbConnectionAquire(SecDbRef db, bool readOnly, CFErrorRef *error) {
+SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error) {
     CFRetain(db);
     secinfo("dbconn", "acquire %s connection", readOnly ? "ro" : "rw");
     dispatch_semaphore_wait(readOnly ? db->read_semaphore : db->write_semaphore, DISPATCH_TIME_FOREVER);
@@ -929,9 +941,9 @@ SecDbConnectionRef SecDbConnectionAquire(SecDbRef db, bool readOnly, CFErrorRef 
                 secerror("Unable to create database: %@", localError);
                 if (localError && CFEqual(CFErrorGetDomain(localError), kSecDbErrorDomain)) {
                     int code = (int)CFErrorGetCode(localError);
-                    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code) || (SQLITE_CANTOPEN == code);
+                    dbconn->isCorrupted = (SQLITE_CORRUPT == code) || (SQLITE_NOTADB == code);
                 }
-                // If the open failure isn't due to corruption, propagte the error.
+                // If the open failure isn't due to corruption, propagate the error.
                 ok = dbconn->isCorrupted;
                 if (!ok && error && *error == NULL) {
                     *error = localError;
@@ -989,7 +1001,7 @@ SecDbConnectionRef SecDbConnectionAquire(SecDbRef db, bool readOnly, CFErrorRef 
     }
 
     if (!dbconn) {
-        // If aquire fails we need to signal the semaphore again.
+        // If acquire fails we need to signal the semaphore again.
         dispatch_semaphore_signal(readOnly ? db->read_semaphore : db->write_semaphore);
         CFRelease(db);
     }
@@ -1027,7 +1039,7 @@ void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
 }
 
 bool SecDbPerformRead(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConnectionRef dbconn)) {
-    SecDbConnectionRef dbconn = SecDbConnectionAquire(db, true, error);
+    SecDbConnectionRef dbconn = SecDbConnectionAcquire(db, true, error);
     bool success = false;
     if (dbconn) {
         perform(dbconn);
@@ -1038,7 +1050,11 @@ bool SecDbPerformRead(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConne
 }
 
 bool SecDbPerformWrite(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConnectionRef dbconn)) {
-    SecDbConnectionRef dbconn = SecDbConnectionAquire(db, false, error);
+    if(!db) {
+        SecError(errSecNotAvailable, error, CFSTR("failed to get a db handle"));
+        return false;
+    }
+    SecDbConnectionRef dbconn = SecDbConnectionAcquire(db, false, error);
     bool success = false;
     if (dbconn) {
         perform(dbconn);

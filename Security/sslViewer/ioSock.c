@@ -146,7 +146,7 @@ OSStatus MakeServerConnection(
 	PeerSpec *peer)			// RETURNED
 {
     struct sockaddr_in  addr;
-	struct hostent      *ent;
+	struct hostent      *ent = NULL;
     struct in_addr      host;
 	int					sock = 0;
 	
@@ -271,8 +271,6 @@ OSStatus ListenForClients(
 		}
 		return rtn;
     }
-	/* NOT REACHED */
-	return 0;
 }
 
 /*

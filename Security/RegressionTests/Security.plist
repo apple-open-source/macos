@@ -26,12 +26,12 @@
 		<dict>
 			<key>TestName</key>
 			<string>BackupTest</string>
-			<key>Disabled</key>
-			<true/>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/secbackuptest</string>
 			</array>
+			<key>EligibleResource</key>
+			<string>cpuArchitecture BEGINSWITH &apos;arm&apos;</string>
 		</dict>
 		<dict>
 			<key>TestName</key>

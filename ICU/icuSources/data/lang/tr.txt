@@ -616,7 +616,7 @@ tr{
         was{"Vaşo"}
         wbp{"Warlpiri"}
         wo{"Volofça"}
-        wuu{"Wu Çincesi"}
+        wuu{"Shanghainese"}
         xal{"Kalmıkça"}
         xh{"Zosa"}
         xmf{"Megrelce"}

@@ -23,7 +23,7 @@
 #include "WebKitPrivate.h"
 #include "WebKitNotification.h"
 #include <wtf/HashMap.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
 namespace API {
@@ -47,6 +47,8 @@ private:
     void cancelNotificationByID(uint64_t);
     static void notificationCloseCallback(WebKitNotification*, WebKitNotificationProvider*);
     static void notificationClickedCallback(WebKitNotification*, WebKitNotificationProvider*);
+
+    void withdrawAnyPreviousNotificationMatchingTag(const CString&);
 
     RefPtr<WebNotificationManagerProxy> m_notificationManager;
     HashMap<uint64_t, GRefPtr<WebKitNotification>> m_notifications;

@@ -26,7 +26,7 @@
 #ifndef	_SECURITY_SEC_IMPORT_EXPORT_PEM_H_
 #define _SECURITY_SEC_IMPORT_EXPORT_PEM_H_
 
-#include "SecImportExport.h"
+#include <Security/SecImportExport.h>
 #include "SecExternalRep.h"
 
 /* take these PEM header strings right from the authoritative source */

@@ -307,7 +307,11 @@ public:
 
     // The position of the layer (the location of its top-left corner in its parent)
     const FloatPoint& position() const { return m_position; }
-    virtual void setPosition(const FloatPoint& p) { m_position = p; }
+    virtual void setPosition(const FloatPoint& p) { m_approximatePosition = std::nullopt; m_position = p; }
+
+    // approximatePosition, if set, overrides position() and is used during coverage rect computation.
+    FloatPoint approximatePosition() const { return m_approximatePosition ? m_approximatePosition.value() : m_position; }
+    void setApproximatePosition(std::optional<FloatPoint> p) { m_approximatePosition = p; }
 
     // For platforms that move underlying platform layers on a different thread for scrolling; just update the GraphicsLayer state.
     virtual void syncPosition(const FloatPoint& p) { m_position = p; }
@@ -510,11 +514,13 @@ public:
     virtual void deviceOrPageScaleFactorChanged() { }
     WEBCORE_EXPORT void noteDeviceOrPageScaleFactorChangedIncludingDescendants();
 
+    void setIsInWindow(bool);
+
     // Some compositing systems may do internal batching to synchronize compositing updates
     // with updates drawn into the window. These methods flush internal batched state on this layer
     // and descendant layers, and this layer only.
-    virtual void flushCompositingState(const FloatRect& /* clipRect */, bool /* viewportIsStable */) { }
-    virtual void flushCompositingStateForThisLayerOnly(bool /* viewportIsStable */) { }
+    virtual void flushCompositingState(const FloatRect& /* clipRect */) { }
+    virtual void flushCompositingStateForThisLayerOnly() { }
 
     // If the exposed rect of this layer changes, returns true if this or descendant layers need a flush,
     // for example to allocate new tiles.
@@ -534,7 +540,6 @@ public:
     // Return an estimate of the backing store memory cost (in bytes). May be incorrect for tiled layers.
     WEBCORE_EXPORT virtual double backingStoreMemoryEstimate() const;
 
-    bool usingTiledBacking() const { return m_usingTiledBacking; }
     virtual TiledBacking* tiledBacking() const { return 0; }
 
     void resetTrackedRepaints();
@@ -552,6 +557,8 @@ public:
     virtual bool isGraphicsLayerCARemote() const { return false; }
     virtual bool isGraphicsLayerTextureMapper() const { return false; }
     virtual bool isCoordinatedGraphicsLayer() const { return false; }
+
+    static void traverse(GraphicsLayer&, std::function<void (GraphicsLayer&)>);
 
 protected:
     WEBCORE_EXPORT explicit GraphicsLayer(Type, GraphicsLayerClient&);
@@ -596,6 +603,10 @@ protected:
     
     // Position is relative to the parent GraphicsLayer
     FloatPoint m_position;
+
+    // If set, overrides m_position. Only used for coverage computation.
+    std::optional<FloatPoint> m_approximatePosition;
+
     FloatPoint3D m_anchorPoint;
     FloatSize m_size;
     FloatPoint m_boundsOrigin;
@@ -619,7 +630,6 @@ protected:
     bool m_contentsOpaque : 1;
     bool m_preserves3D: 1;
     bool m_backfaceVisibility : 1;
-    bool m_usingTiledBacking : 1;
     bool m_masksToBounds : 1;
     bool m_drawsContent : 1;
     bool m_contentsVisible : 1;
@@ -672,7 +682,7 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(ToValueTypeName) \
 SPECIALIZE_TYPE_TRAITS_END()
 
 #if ENABLE(TREE_DEBUGGING)
-// Outside the WebCore namespace for ease of invocation from gdb.
+// Outside the WebCore namespace for ease of invocation from the debugger.
 void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer);
 #endif
 

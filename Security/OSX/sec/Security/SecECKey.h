@@ -30,6 +30,7 @@
 #ifndef _SECURITY_SECECKEY_H_
 #define _SECURITY_SECECKEY_H_
 
+#include <Security/SecBase.h>
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
 #include <CoreFoundation/CFData.h>
@@ -59,6 +60,7 @@ SecKeyRef SecKeyCreateECPrivateKey(CFAllocatorRef allocator,
     const uint8_t *keyData, CFIndex keyDataLength,
     SecKeyEncoding encoding);
 
+#if SEC_OS_IPHONE_INCLUDES
 /* These are the named curves we support. These values come from RFC 4492
    section 5.1.1, with the exception of SSL_Curve_None which means
    "ECDSA not negotiated". */
@@ -73,6 +75,7 @@ typedef enum
 /* Return a named curve enum for ecPrivateKey. */
 SecECNamedCurve SecECKeyGetNamedCurve(SecKeyRef ecPrivateKey);
 CFDataRef SecECKeyCopyPublicBits(SecKeyRef key);
+#endif
 
 
 __END_DECLS

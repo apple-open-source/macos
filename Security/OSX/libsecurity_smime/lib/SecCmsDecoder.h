@@ -113,7 +113,7 @@ SecCmsDecoderFinish(SecCmsDecoderRef decoder, SecCmsMessageRef *outMessage);
     @abstract Decode a CMS message from BER encoded data.
     @discussion This function basically does the same as calling
                 SecCmsDecoderStart(), SecCmsDecoderUpdate() and SecCmsDecoderFinish().
-    @param DERmessage Pointer to a CSSM_DATA containing the BER encoded cms
+    @param encodedMessage Pointer to a CSSM_DATA containing the BER encoded cms
            message to decode.
     @param cb callback function for delivery of inner content inner
            content will be stored in the message if cb is NULL.

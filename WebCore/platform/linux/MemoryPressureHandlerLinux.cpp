@@ -29,6 +29,7 @@
 
 #if OS(LINUX)
 
+#include "CurrentProcessMemoryStatus.h"
 #include "Logging.h"
 
 #include <errno.h>
@@ -59,7 +60,6 @@ static const unsigned s_holdOffMultiplier = 20;
 
 static const char* s_cgroupMemoryPressureLevel = "/sys/fs/cgroup/memory/memory.pressure_level";
 static const char* s_cgroupEventControl = "/sys/fs/cgroup/memory/cgroup.event_control";
-static const char* s_processStatus = "/proc/self/status";
 
 #if USE(GLIB)
 typedef struct {
@@ -119,7 +119,7 @@ MemoryPressureHandler::EventFDPoller::EventFDPoller(int fd, std::function<void (
 
 MemoryPressureHandler::EventFDPoller::~EventFDPoller()
 {
-    m_fd = Nullopt;
+    m_fd = std::nullopt;
 #if USE(GLIB)
     g_source_destroy(m_source.get());
 #else
@@ -157,27 +157,6 @@ void MemoryPressureHandler::EventFDPoller::readAndNotify() const
     m_notifyHandler();
 }
 
-static inline String nextToken(FILE* file)
-{
-    if (!file)
-        return String();
-
-    static const unsigned bufferSize = 128;
-    char buffer[bufferSize] = {0, };
-    unsigned index = 0;
-    while (index < bufferSize) {
-        int ch = fgetc(file);
-        if (ch == EOF || (isASCIISpace(ch) && index)) // Break on non-initial ASCII space.
-            break;
-        if (!isASCIISpace(ch)) {
-            buffer[index] = ch;
-            index++;
-        }
-    }
-
-    return String(buffer);
-}
-
 inline void MemoryPressureHandler::logErrorAndCloseFDs(const char* log)
 {
     if (log)
@@ -185,11 +164,11 @@ inline void MemoryPressureHandler::logErrorAndCloseFDs(const char* log)
 
     if (m_eventFD) {
         close(m_eventFD.value());
-        m_eventFD = Nullopt;
+        m_eventFD = std::nullopt;
     }
     if (m_pressureLevelFD) {
         close(m_pressureLevelFD.value());
-        m_pressureLevelFD = Nullopt;
+        m_pressureLevelFD = std::nullopt;
     }
 }
 
@@ -271,12 +250,12 @@ void MemoryPressureHandler::uninstall()
 
     if (m_pressureLevelFD) {
         close(m_pressureLevelFD.value());
-        m_pressureLevelFD = Nullopt;
+        m_pressureLevelFD = std::nullopt;
 
         // Only close the eventFD used for cgroups.
         if (m_eventFD) {
             close(m_eventFD.value());
-            m_eventFD = Nullopt;
+            m_eventFD = std::nullopt;
         }
     }
 
@@ -293,12 +272,19 @@ void MemoryPressureHandler::holdOff(unsigned seconds)
     m_holdOffTimer.startOneShot(seconds);
 }
 
+static size_t processMemoryUsage()
+{
+    ProcessMemoryStatus memoryStatus;
+    currentProcessMemoryStatus(memoryStatus);
+    return (memoryStatus.resident - memoryStatus.shared);
+}
+
 void MemoryPressureHandler::respondToMemoryPressure(Critical critical, Synchronous synchronous)
 {
     uninstall();
 
     double startTime = monotonicallyIncreasingTime();
-    m_lowMemoryHandler(critical, synchronous);
+    releaseMemory(critical, synchronous);
     unsigned holdOffTime = (monotonicallyIncreasingTime() - startTime) * s_holdOffMultiplier;
     holdOff(std::max(holdOffTime, s_minimumHoldOffTime));
 }
@@ -306,29 +292,13 @@ void MemoryPressureHandler::respondToMemoryPressure(Critical critical, Synchrono
 void MemoryPressureHandler::platformReleaseMemory(Critical)
 {
 #ifdef __GLIBC__
-    ReliefLogger log("Run malloc_trim");
     malloc_trim(0);
 #endif
 }
 
-size_t MemoryPressureHandler::ReliefLogger::platformMemoryUsage()
+std::optional<MemoryPressureHandler::ReliefLogger::MemoryUsage> MemoryPressureHandler::ReliefLogger::platformMemoryUsage()
 {
-    FILE* file = fopen(s_processStatus, "r");
-    if (!file)
-        return static_cast<size_t>(-1);
-
-    size_t vmSize = static_cast<size_t>(-1); // KB
-    String token = nextToken(file);
-    while (!token.isEmpty()) {
-        if (token == "VmSize:") {
-            vmSize = nextToken(file).toInt() * KB;
-            break;
-        }
-        token = nextToken(file);
-    }
-    fclose(file);
-
-    return vmSize;
+    return MemoryUsage {processMemoryUsage(), 0};
 }
 
 void MemoryPressureHandler::setMemoryPressureMonitorHandle(int fd)

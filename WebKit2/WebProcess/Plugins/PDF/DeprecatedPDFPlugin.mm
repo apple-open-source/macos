@@ -526,7 +526,7 @@ PDFPlugin::PDFPlugin(WebFrame* frame)
         m_annotationContainer->setAttributeWithoutSynchronization(idAttr, AtomicString("annotationContainer", AtomicString::ConstructFromLiteral));
 
         auto annotationStyleElement = document->createElement(styleTag, false);
-        annotationStyleElement->setTextContent(annotationStyle, ASSERT_NO_EXCEPTION);
+        annotationStyleElement->setTextContent(annotationStyle);
 
         m_annotationContainer->appendChild(annotationStyleElement);
         document->bodyOrFrameset()->appendChild(*m_annotationContainer);
@@ -649,7 +649,7 @@ const PluginView* PDFPlugin::pluginView() const
     return static_cast<const PluginView*>(controller());
 }
 
-PassRefPtr<Scrollbar> PDFPlugin::createScrollbar(ScrollbarOrientation orientation)
+Ref<Scrollbar> PDFPlugin::createScrollbar(ScrollbarOrientation orientation)
 {
     auto widget = Scrollbar::createNativeScrollbar(*this, orientation, RegularScrollbar);
     if (orientation == HorizontalScrollbar) {
@@ -659,14 +659,14 @@ PassRefPtr<Scrollbar> PDFPlugin::createScrollbar(ScrollbarOrientation orientatio
         m_verticalScrollbarLayer = adoptNS([[WKPDFPluginScrollbarLayer alloc] initWithPDFPlugin:this]);
         [m_containerLayer addSublayer:m_verticalScrollbarLayer.get()];
     }
-    didAddScrollbar(widget.get(), orientation);
+    didAddScrollbar(widget.ptr(), orientation);
     if (Frame* frame = webFrame()->coreFrame()) {
         if (Page* page = frame->page()) {
             if (page->expectsWheelEventTriggers())
                 scrollAnimator().setWheelEventTestTrigger(page->testTrigger());
         }
     }
-    pluginView()->frame()->view()->addChild(widget.get());
+    pluginView()->frame()->view()->addChild(widget.ptr());
     return widget;
 }
 
@@ -1196,7 +1196,7 @@ IntPoint PDFPlugin::convertFromRootViewToPlugin(const IntPoint& point) const
 IntPoint PDFPlugin::convertFromPDFViewToRootView(const IntPoint& point) const
 {
     IntPoint pointInPluginCoordinates(point.x(), size().height() - point.y());
-    return m_rootViewToPluginTransform.inverse().valueOr(AffineTransform()).mapPoint(pointInPluginCoordinates);
+    return m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapPoint(pointInPluginCoordinates);
 }
 
 FloatRect PDFPlugin::convertFromPDFViewToScreen(const FloatRect& rect) const
@@ -1207,7 +1207,7 @@ FloatRect PDFPlugin::convertFromPDFViewToScreen(const FloatRect& rect) const
         return FloatRect();
 
     FloatPoint originInPluginCoordinates(rect.x(), size().height() - rect.y() - rect.height());
-    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().valueOr(AffineTransform()).mapRect(FloatRect(originInPluginCoordinates, rect.size()));
+    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapRect(FloatRect(originInPluginCoordinates, rect.size()));
 
     return frameView->contentsToScreen(enclosingIntRect(rectInRootViewCoordinates));
 }
@@ -1220,7 +1220,7 @@ IntRect PDFPlugin::boundsOnScreen() const
         return IntRect();
 
     FloatRect bounds = FloatRect(FloatPoint(), size());
-    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().valueOr(AffineTransform()).mapRect(bounds);
+    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapRect(bounds);
     return frameView->contentsToScreen(enclosingIntRect(rectInRootViewCoordinates));
 }
 
@@ -1230,7 +1230,7 @@ void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const IntRect&, con
         return;
 
     m_size = pluginSize;
-    m_rootViewToPluginTransform = pluginToRootViewTransform.inverse().valueOr(AffineTransform());
+    m_rootViewToPluginTransform = pluginToRootViewTransform.inverse().value_or(AffineTransform());
     [m_pdfLayerController setFrameSize:pluginSize];
 
     [CATransaction begin];
@@ -1278,33 +1278,28 @@ void PDFPlugin::didEvaluateJavaScript(uint64_t, const WTF::String&)
     
 static NSUInteger modifierFlagsFromWebEvent(const WebEvent& event)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    return (event.shiftKey() ? NSShiftKeyMask : 0)
-        | (event.controlKey() ? NSControlKeyMask : 0)
-        | (event.altKey() ? NSAlternateKeyMask : 0)
-        | (event.metaKey() ? NSCommandKeyMask : 0);
-#pragma clang diagnostic pop
+    return (event.shiftKey() ? NSEventModifierFlagShift : 0)
+        | (event.controlKey() ? NSEventModifierFlagControl : 0)
+        | (event.altKey() ? NSEventModifierFlagOption : 0)
+        | (event.metaKey() ? NSEventModifierFlagCommand : 0);
 }
     
 static bool getEventTypeFromWebEvent(const WebEvent& event, NSEventType& eventType)
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     switch (event.type()) {
     case WebEvent::KeyDown:
-        eventType = NSKeyDown;
+        eventType = NSEventTypeKeyDown;
         return true;
     case WebEvent::KeyUp:
-        eventType = NSKeyUp;
+        eventType = NSEventTypeKeyUp;
         return true;
     case WebEvent::MouseDown:
         switch (static_cast<const WebMouseEvent&>(event).button()) {
         case WebMouseEvent::LeftButton:
-            eventType = NSLeftMouseDown;
+            eventType = NSEventTypeLeftMouseDown;
             return true;
         case WebMouseEvent::RightButton:
-            eventType = NSRightMouseDown;
+            eventType = NSEventTypeRightMouseDown;
             return true;
         default:
             return false;
@@ -1312,10 +1307,10 @@ static bool getEventTypeFromWebEvent(const WebEvent& event, NSEventType& eventTy
     case WebEvent::MouseUp:
         switch (static_cast<const WebMouseEvent&>(event).button()) {
         case WebMouseEvent::LeftButton:
-            eventType = NSLeftMouseUp;
+            eventType = NSEventTypeLeftMouseUp;
             return true;
         case WebMouseEvent::RightButton:
-            eventType = NSRightMouseUp;
+            eventType = NSEventTypeRightMouseUp;
             return true;
         default:
             return false;
@@ -1323,13 +1318,13 @@ static bool getEventTypeFromWebEvent(const WebEvent& event, NSEventType& eventTy
     case WebEvent::MouseMove:
         switch (static_cast<const WebMouseEvent&>(event).button()) {
         case WebMouseEvent::LeftButton:
-            eventType = NSLeftMouseDragged;
+            eventType = NSEventTypeLeftMouseDragged;
             return true;
         case WebMouseEvent::RightButton:
-            eventType = NSRightMouseDragged;
+            eventType = NSEventTypeRightMouseDragged;
             return true;
         case WebMouseEvent::NoButton:
-            eventType = NSMouseMoved;
+            eventType = NSEventTypeMouseMoved;
             return true;
         default:
             return false;
@@ -1337,7 +1332,6 @@ static bool getEventTypeFromWebEvent(const WebEvent& event, NSEventType& eventTy
     default:
         return false;
     }
-#pragma clang diagnostic pop
 }
     
 NSEvent *PDFPlugin::nsEventForWebMouseEvent(const WebMouseEvent& event)

@@ -42,13 +42,14 @@
 <h2><a name="intro" id="intro">Introduction</a></h2>
     
 
-    <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td><ul><li><code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code></li><li><code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code></li></ul></td><td><ul><li><code class="directive"><a href="../mod/mod_mime.html#addhandler">AddHandler</a></code></li><li><code class="directive"><a href="../mod/core.html#options">Options</a></code></li><li><code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code></li></ul></td></tr></table>
+    <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td><ul><li><code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code></li><li><code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code></li><li><code class="module"><a href="../mod/mod_cgid.html">mod_cgid</a></code></li></ul></td><td><ul><li><code class="directive"><a href="../mod/mod_mime.html#addhandler">AddHandler</a></code></li><li><code class="directive"><a href="../mod/core.html#options">Options</a></code></li><li><code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code></li></ul></td></tr></table>
 
     <p>The CGI (Common Gateway Interface) defines a way for a web
     server to interact with external content-generating programs,
     which are often referred to as CGI programs or CGI scripts. It
-    is the simplest, and most common, way to put dynamic content on
-    your web site. This document will be an introduction to setting
+    is a simple way to put dynamic content on
+    your web site, using whatever programming language you're most
+    familiar with. This document will be an introduction to setting
     up CGI on your Apache web server, and getting started writing
     CGI programs.</p>
   </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -67,8 +68,16 @@
     directive has not been commented out.  A correctly configured directive
     may look like this:
 
+    <pre class="prettyprint lang-config">LoadModule cgid_module modules/mod_cgid.so</pre>
+
+
+
+     On Windows, or using a non-threaded MPM like prefork,  A correctly 
+     configured directive may look like this:
+
     <pre class="prettyprint lang-config">LoadModule cgi_module modules/mod_cgi.so</pre>
 </div>
+
 
     <h3><a name="scriptalias" id="scriptalias">ScriptAlias</a></h3>
       

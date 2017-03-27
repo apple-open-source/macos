@@ -1,0 +1,22 @@
+./test/errors/769855-1.xml:1: parser warning : PEReference: %z; not found
+<!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
+                                                   ^
+Entity: line 1: 
+ %x; 
+    ^
+./test/errors/769855-1.xml:1: parser error : PEReference: no name
+<!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
+                                                   ^
+Entity: line 1: 
+ %x; 
+    ^
+./test/errors/769855-1.xml:1: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+<!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
+                                                   ^
+./test/errors/769855-1.xml:1: parser error : DOCTYPE improperly terminated
+<!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
+                                                   ^
+./test/errors/769855-1.xml:1: parser error : Start tag expected, '<' not found
+<!DOCTYPEt[<!ENTITY % x '&#37;&#300;000&#37;z;'>%x;
+                                                   ^

@@ -5,6 +5,7 @@
 #include <Security/SecureObjectSync/SOSAccount.h>
 #include <Security/SecureObjectSync/SOSEnginePriv.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 typedef struct __OpaqueSOSTransportMessage *SOSTransportMessageRef;
 
@@ -20,7 +21,7 @@ struct __OpaqueSOSTransportMessage {
     CFStringRef             (*getName)(SOSTransportMessageRef object);
     
     /* send message operations */
-    bool                    (*syncWithPeers)(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error);
+    bool                    (*syncWithPeers)(SOSTransportMessageRef transport, CFSetRef peers, CFErrorRef *error);
     bool                    (*cleanupAfterPeerMessages)(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef* error);
     bool                    (*sendMessages)(SOSTransportMessageRef transport, CFDictionaryRef circle_messages, CFErrorRef *error);
     bool                    (*flushChanges)(SOSTransportMessageRef transport, CFErrorRef *error);
@@ -40,12 +41,13 @@ SOSEngineRef SOSTransportMessageGetEngine(SOSTransportMessageRef transport);
 
 SOSAccountRef SOSTransportMessageGetAccount(SOSTransportMessageRef transport);
     
-bool SOSTransportMessageCleanupAfterPeerMessages(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef* error);
+bool SOSTransportMessageCleanupAfterPeerMessages(SOSTransportMessageRef transport, CFDictionaryRef peers, CFErrorRef* error);
 
-bool SOSTransportMessageSendMessages(SOSTransportMessageRef transport, CFDictionaryRef circle_messages, CFErrorRef *error);
+bool SOSTransportMessageSendMessage(SOSTransportMessageRef transport, CFStringRef peerID, CFDataRef message, CFErrorRef *error);
+bool SOSTransportMessageSendMessages(SOSTransportMessageRef transport, CFDictionaryRef peer_messages, CFErrorRef *error);
 bool SOSTransportMessageFlushChanges(SOSTransportMessageRef transport, CFErrorRef *error);
 
-bool SOSTransportMessageSyncWithPeers(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error);
+bool SOSTransportMessageSyncWithPeers(SOSTransportMessageRef transport, CFSetRef peers, CFErrorRef *error);
 
 SOSTransportMessageRef SOSTransportMessageCreateForSubclass(size_t size,
                                                             SOSAccountRef account, CFStringRef circleName,

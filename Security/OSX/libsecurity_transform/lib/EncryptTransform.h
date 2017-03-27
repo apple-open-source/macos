@@ -105,7 +105,7 @@ protected:
 	
 public:
 	virtual 				~EncryptTransform();
-	static SecTransformRef 	Make();
+	static CF_RETURNS_RETAINED SecTransformRef 	Make();
 };
 
 
@@ -125,7 +125,7 @@ protected:
 	
 public:
 	virtual 				~DecryptTransform();
-	static SecTransformRef 	Make();
+	static CF_RETURNS_RETAINED SecTransformRef 	Make();
 };
 
 

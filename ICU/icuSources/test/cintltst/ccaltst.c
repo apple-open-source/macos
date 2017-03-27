@@ -259,7 +259,7 @@ static void TestCalendar()
     tzver = ucal_getTZDataVersion(&status);
     if (U_FAILURE(status)) {
         log_err_status(status, "FAIL: ucal_getTZDataVersion() => %s\n", u_errorName(status));
-    } else if (uprv_strlen(tzver) != 5 /*4 digits + 1 letter*/) {
+    } else if (uprv_strlen(tzver) < 5 || uprv_strlen(tzver) > 7 /*4 digits + 1-3 letters*/) {
         log_err("FAIL: Bad version string was returned by ucal_getTZDataVersion\n");
     } else {
         log_verbose("PASS: ucal_getTZDataVersion returned %s\n", tzver);

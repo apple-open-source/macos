@@ -774,8 +774,8 @@ it{
         duration{
             day{
                 dnam{"giorno"}
-                one{"{0}gg"}
-                other{"{0}gg"}
+                one{"{0}g"}
+                other{"{0}g"}
             }
             hour{
                 dnam{"ora"}

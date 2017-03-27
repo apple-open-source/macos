@@ -76,10 +76,10 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <openssl/crypto.h>
+#include <openssl/crypto_legacy.h>
 #include "cryptlib.h"
-#include <openssl/bio.h>
-#include <openssl/stack.h>
+#include <openssl/bio_legacy.h>
+#include <openssl/stack_legacy.h>
 
 static STACK_OF(CRYPTO_EX_DATA_FUNCS) *bio_meth=NULL;
 static int bio_meth_num=0;

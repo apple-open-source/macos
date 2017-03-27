@@ -40,7 +40,6 @@
 #include "WebCertificateInfo.h"
 #include "WebIconDatabase.h"
 #include "WebProcessPool.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -48,9 +47,6 @@
 #include "WebCookieManagerProxy.h"
 #include "WebGeolocationManagerProxy.h"
 #include "WebNotificationManagerProxy.h"
-#if ENABLE(BATTERY_STATUS)
-#include "WebBatteryManagerProxy.h"
-#endif
 
 namespace API {
 template<> struct ClientTraits<WKContextDownloadClientBase> {
@@ -357,6 +353,15 @@ void WKContextSetAdditionalPluginsDirectory(WKContextRef contextRef, WKStringRef
 #endif
 }
 
+void WKContextRefreshPlugIns(WKContextRef context)
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    toImpl(context)->refreshPlugins();
+#else
+    UNUSED_PARAM(context);
+#endif
+}
+
 void WKContextRegisterURLSchemeAsEmptyDocument(WKContextRef contextRef, WKStringRef urlScheme)
 {
     toImpl(contextRef)->registerURLSchemeAsEmptyDocument(toImpl(urlScheme)->string());
@@ -410,16 +415,6 @@ WKWebsiteDataStoreRef WKContextGetWebsiteDataStore(WKContextRef context)
 WKApplicationCacheManagerRef WKContextGetApplicationCacheManager(WKContextRef context)
 {
     return reinterpret_cast<WKApplicationCacheManagerRef>(WKContextGetWebsiteDataStore(context));
-}
-
-WKBatteryManagerRef WKContextGetBatteryManager(WKContextRef contextRef)
-{
-#if ENABLE(BATTERY_STATUS)
-    return toAPI(toImpl(contextRef)->supplement<WebBatteryManagerProxy>());
-#else
-    UNUSED_PARAM(contextRef);
-    return 0;
-#endif
 }
 
 WKGeolocationManagerRef WKContextGetGeolocationManager(WKContextRef contextRef)
@@ -571,4 +566,14 @@ void WKContextSetMemoryCacheDisabled(WKContextRef contextRef, bool disabled)
 void WKContextSetFontWhitelist(WKContextRef contextRef, WKArrayRef arrayRef)
 {
     toImpl(contextRef)->setFontWhitelist(toImpl(arrayRef));
+}
+
+pid_t WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)
+{
+    return toImpl(contextRef)->networkProcessIdentifier();
+}
+
+pid_t WKContextGetDatabaseProcessIdentifier(WKContextRef contextRef)
+{
+    return toImpl(contextRef)->databaseProcessIdentifier();
 }

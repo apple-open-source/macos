@@ -24,6 +24,7 @@
 #include "corecryptoSymmetricBridge.h"
 #include "ccMemory.h"
 #include <corecrypto/ccrc4.h>
+#include "ccdebug.h"
 
 static void *noMode(void) { return NULL; }
 

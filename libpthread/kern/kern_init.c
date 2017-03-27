@@ -45,6 +45,9 @@ const struct pthread_functions_s pthread_internal_functions = {
 	.psynch_rw_wrlock = _psynch_rw_wrlock,
 	.psynch_rw_yieldwrlock = _psynch_rw_yieldwrlock,
 
+	.pthread_find_owner = _pthread_find_owner,
+	.pthread_get_thread_kwq = _pthread_get_thread_kwq,
+
 	.workq_reqthreads = _workq_reqthreads,
 	.thread_qos_from_pthread_priority = _thread_qos_from_pthread_priority,
 	.pthread_priority_canonicalize2 = _pthread_priority_canonicalize,

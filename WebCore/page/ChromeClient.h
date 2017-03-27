@@ -19,9 +19,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef ChromeClient_h
-#define ChromeClient_h
+#pragma once
 
+#include "ActivityState.h"
 #include "AXObjectCache.h"
 #include "Cursor.h"
 #include "DatabaseDetails.h"
@@ -33,7 +33,6 @@
 #include "HostWindow.h"
 #include "LayerFlushThrottleState.h"
 #include "MediaProducer.h"
-#include "PageThrottler.h"
 #include "PopupMenu.h"
 #include "PopupMenuClient.h"
 #include "RenderEmbeddedObject.h"
@@ -43,13 +42,8 @@
 #include "WebCoreKeyboardUIMode.h"
 #include <runtime/ConsoleTypes.h>
 #include <wtf/Forward.h>
+#include <wtf/Seconds.h>
 #include <wtf/Vector.h>
-
-#if ENABLE(MEDIA_SESSION)
-namespace WebCore {
-class MediaSessionMetadata;
-}
-#endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #include "MediaPlaybackTargetContext.h"
@@ -88,6 +82,7 @@ class HTMLMediaElement;
 class HTMLVideoElement;
 class HitTestResult;
 class IntRect;
+class MediaSessionMetadata;
 class NavigationAction;
 class Node;
 class Page;
@@ -239,7 +234,7 @@ public:
     virtual void didPreventDefaultForEvent() = 0;
 #endif
 
-    virtual std::chrono::milliseconds eventThrottlingDelay() { return 0ms; };
+    virtual Seconds eventThrottlingDelay() { return 0_s; };
 
 #if PLATFORM(IOS)
     virtual void didReceiveMobileDocType(bool) = 0;
@@ -396,7 +391,7 @@ public:
     virtual void notifyScrollerThumbIsVisibleInRect(const IntRect&) { }
     virtual void recommendedScrollbarStyleDidChange(ScrollbarStyle) { }
 
-    virtual WTF::Optional<ScrollbarOverlayStyle> preferredScrollbarOverlayStyle() { return ScrollbarOverlayStyleDefault; }
+    virtual std::optional<ScrollbarOverlayStyle> preferredScrollbarOverlayStyle() { return ScrollbarOverlayStyleDefault; }
 
     virtual void wheelEventHandlersChanged(bool hasHandlers) = 0;
         
@@ -405,7 +400,6 @@ public:
 #if ENABLE(POINTER_LOCK)
     virtual bool requestPointerLock() { return false; }
     virtual void requestPointerUnlock() { }
-    virtual bool isPointerLocked() { return false; }
 #endif
 
     virtual FloatSize minimumWindowSize() const { return FloatSize(100, 100); };
@@ -432,8 +426,6 @@ public:
     virtual void mediaSessionMetadataDidChange(const WebCore::MediaSessionMetadata&) { }
     virtual void focusedContentMediaElementDidChange(uint64_t) { }
 #endif
-
-    virtual void setPageActivityState(PageActivityState::Flags) { }
 
 #if ENABLE(SUBTLE_CRYPTO)
     virtual bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) const { return false; }
@@ -469,9 +461,10 @@ public:
 
     virtual void didInvalidateDocumentMarkerRects() { }
 
+    virtual void reportProcessCPUTime(int64_t, ActivityStateForCPUSampling) { }
+
 protected:
     virtual ~ChromeClient() { }
 };
 
-}
-#endif // ChromeClient_h
+} // namespace WebCore

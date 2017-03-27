@@ -127,6 +127,7 @@ loadlib(krb5_context context, char *path)
     if ((flags & CS_RESTRICT) &&
 	strncmp(path, SystemSafeToLoad, sizeof(SystemSafeToLoad) - 1) != 0)
     {
+	_krb5_debugx(context, 2, "Since binary is restricted skipping plugin %s ", path);
 	free(path);
 	return 0;
     }

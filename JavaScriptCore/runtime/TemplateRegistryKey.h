@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TemplateRegistryKey_h
-#define TemplateRegistryKey_h
+#pragma once
 
 #include <limits>
 #include <wtf/Vector.h>
@@ -33,11 +32,13 @@
 
 namespace JSC {
 
-class TemplateRegistryKey {
+class TemplateRegistryKeyTable;
+
+class TemplateRegistryKey : public RefCounted<TemplateRegistryKey> {
 public:
+    friend class TemplateRegistryKeyTable;
     typedef Vector<String, 4> StringVector;
 
-    TemplateRegistryKey(const StringVector& rawStrings, const StringVector& cookedStrings);
     enum DeletedValueTag { DeletedValue };
     TemplateRegistryKey(DeletedValueTag);
     enum EmptyValueTag { EmptyValue };
@@ -61,7 +62,18 @@ public:
         static const bool safeToCompareToEmptyOrDeleted = false;
     };
 
+    static unsigned calculateHash(const StringVector& rawStrings);
+    ~TemplateRegistryKey();
+
 private:
+    static Ref<TemplateRegistryKey> create(const StringVector& rawStrings, const StringVector& cookedStrings)
+    {
+        return adoptRef(*new TemplateRegistryKey(rawStrings, cookedStrings));
+    }
+
+    TemplateRegistryKey(const StringVector& rawStrings, const StringVector& cookedStrings);
+
+    TemplateRegistryKeyTable* m_table { nullptr };
     StringVector m_rawStrings;
     StringVector m_cookedStrings;
     unsigned m_hash { 0 };
@@ -70,10 +82,8 @@ private:
 inline TemplateRegistryKey::TemplateRegistryKey(const StringVector& rawStrings, const StringVector& cookedStrings)
     : m_rawStrings(rawStrings)
     , m_cookedStrings(cookedStrings)
+    , m_hash(calculateHash(rawStrings))
 {
-    m_hash = 0;
-    for (const String& string : rawStrings)
-        m_hash += WTF::StringHash::hash(string);
 }
 
 inline TemplateRegistryKey::TemplateRegistryKey(DeletedValueTag)
@@ -84,6 +94,18 @@ inline TemplateRegistryKey::TemplateRegistryKey(DeletedValueTag)
 inline TemplateRegistryKey::TemplateRegistryKey(EmptyValueTag)
     : m_hash(0)
 {
+}
+
+inline unsigned TemplateRegistryKey::calculateHash(const StringVector& rawStrings)
+{
+    StringHasher hasher;
+    for (const String& string : rawStrings) {
+        if (string.is8Bit())
+            hasher.addCharacters(string.characters8(), string.length());
+        else
+            hasher.addCharacters(string.characters16(), string.length());
+    }
+    return hasher.hash();
 }
 
 } // namespace JSC
@@ -99,5 +121,3 @@ template<> struct HashTraits<JSC::TemplateRegistryKey> : CustomHashTraits<JSC::T
 };
 
 } // namespace WTF
-
-#endif // TemplateRegistryKey_h

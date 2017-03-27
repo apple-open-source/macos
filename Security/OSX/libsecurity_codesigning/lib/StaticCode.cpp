@@ -90,7 +90,7 @@ static inline OSStatus errorForSlot(CodeDirectory::SpecialSlot slot)
 SecStaticCode::SecStaticCode(DiskRep *rep)
 	: mRep(rep),
 	  mValidated(false), mExecutableValidated(false), mResourcesValidated(false), mResourcesValidContext(NULL),
-	  mProgressQueue("com.apple.security.validation-progress", false, DISPATCH_QUEUE_PRIORITY_DEFAULT),
+	  mProgressQueue("com.apple.security.validation-progress", false, QOS_CLASS_DEFAULT),
 	  mOuterScope(NULL), mResourceScope(NULL),
 	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL), mEvalDetails(NULL)
 {
@@ -698,11 +698,7 @@ bool SecStaticCode::verifySignature()
     if (mValidationFlags & kSecCSNoNetworkAccess) {
         MacOSError::check(SecTrustSetNetworkFetchAllowed(mTrust,false)); // no network?
     }
-#if !SECTRUST_OSX
-    MacOSError::check(SecTrustSetKeychains(mTrust, cfEmptyArray())); // no keychains
-#else
     MacOSError::check(SecTrustSetKeychainsAllowed(mTrust, false));
-#endif
 
 	CSSM_APPLE_TP_ACTION_DATA actionData = {
 		CSSM_APPLE_TP_ACTION_VERSION,	// version of data structure
@@ -809,39 +805,11 @@ bool SecStaticCode::verifySignature()
 // This may be a simple SecPolicyRef or a CFArray of policies.
 // The caller owns the return value.
 //
-#if !SECTRUST_OSX
-static SecPolicyRef makeCRLPolicy()
-{
-	CFRef<SecPolicyRef> policy;
-	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_REVOCATION_CRL, &policy.aref()));
-	CSSM_APPLE_TP_CRL_OPTIONS options;
-	memset(&options, 0, sizeof(options));
-	options.Version = CSSM_APPLE_TP_CRL_OPTS_VERSION;
-	options.CrlFlags = CSSM_TP_ACTION_FETCH_CRL_FROM_NET | CSSM_TP_ACTION_CRL_SUFFICIENT;
-	CSSM_DATA optData = { sizeof(options), (uint8 *)&options };
-	MacOSError::check(SecPolicySetValue(policy, &optData));
-	return policy.yield();
-}
-
-static SecPolicyRef makeOCSPPolicy()
-{
-	CFRef<SecPolicyRef> policy;
-	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_REVOCATION_OCSP, &policy.aref()));
-	CSSM_APPLE_TP_OCSP_OPTIONS options;
-	memset(&options, 0, sizeof(options));
-	options.Version = CSSM_APPLE_TP_OCSP_OPTS_VERSION;
-	options.Flags = CSSM_TP_ACTION_OCSP_SUFFICIENT;
-	CSSM_DATA optData = { sizeof(options), (uint8 *)&options };
-	MacOSError::check(SecPolicySetValue(policy, &optData));
-	return policy.yield();
-}
-#else
 static SecPolicyRef makeRevocationPolicy(CFOptionFlags flags)
 {
 	CFRef<SecPolicyRef> policy(SecPolicyCreateRevocation(flags));
 	return policy.yield();
 }
-#endif
 
 CFArrayRef SecStaticCode::verificationPolicies()
 {
@@ -856,14 +824,8 @@ CFArrayRef SecStaticCode::verificationPolicies()
 	}
 	else if (mValidationFlags & kSecCSEnforceRevocationChecks) {
         // Add CRL and OCSP policies
-#if !SECTRUST_OSX
-		CFRef<SecPolicyRef> crl = makeCRLPolicy();
-		CFRef<SecPolicyRef> ocsp = makeOCSPPolicy();
-		return makeCFArray(3, core.get(), crl.get(), ocsp.get());
-#else
 		CFRef<SecPolicyRef> revoc = makeRevocationPolicy(kSecRevocationUseAnyAvailableMethod);
 		return makeCFArray(2, core.get(), revoc.get());
-#endif
 	} else {
 		return makeCFArray(1, core.get());
 	}

@@ -260,7 +260,7 @@ struct _krb5_encryption_type _krb5_enctype_des_cbc_crc = {
     &keytype_des,
     &_krb5_checksum_crc32,
     NULL,
-    F_DISABLED|F_WEAK,
+    F_DISABLED|F_WEAK|F_WARNING,
     evp_des_encrypt_key_ivec,
     0,
     NULL
@@ -290,7 +290,7 @@ struct _krb5_encryption_type _krb5_enctype_des_cbc_md5 = {
     &keytype_des,
     &_krb5_checksum_rsa_md5,
     &_krb5_checksum_rsa_md5_des,
-    F_DISABLED|F_WEAK,
+    F_DISABLED|F_WEAK|F_WARNING,
     evp_des_encrypt_null_ivec,
     0,
     NULL
@@ -305,7 +305,7 @@ struct _krb5_encryption_type _krb5_enctype_des_cbc_none = {
     &keytype_des,
     &_krb5_checksum_none,
     NULL,
-    F_PSEUDO|F_DISABLED|F_WEAK,
+    F_PSEUDO|F_DISABLED|F_WEAK|F_WARNING,
     evp_des_encrypt_null_ivec,
     0,
     NULL
@@ -339,7 +339,7 @@ struct _krb5_encryption_type _krb5_enctype_des_cfb64_none = {
     &keytype_des_old,
     &_krb5_checksum_none,
     NULL,
-    F_PSEUDO|F_DISABLED|F_WEAK,
+    F_PSEUDO|F_DISABLED|F_WEAK|F_WARNING,
     DES_CFB64_encrypt_null_ivec,
     0,
     NULL
@@ -371,7 +371,7 @@ struct _krb5_encryption_type _krb5_enctype_des_pcbc_none = {
     &keytype_des_old,
     &_krb5_checksum_none,
     NULL,
-    F_PSEUDO|F_DISABLED|F_WEAK,
+    F_PSEUDO|F_DISABLED|F_WEAK|F_WARNING,
     DES_PCBC_encrypt_key_ivec,
     0,
     NULL

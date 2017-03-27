@@ -220,8 +220,10 @@ typedef struct {
 
     CFURLRef  volumeRootURL;        // for prelinked kernel
 
-    char    * prelinkedKernelPath;            // -c option
+    char     *prelinkedKernelPath;            // -c option
+    char     *prelinkedKernelDirname;
     int       prelinkedKernel_fd;
+    int       prelinkedKernelDir_fd;
     Boolean   needDefaultPrelinkedKernelInfo; // -c option w/o arg;
                                               // prelinkedKernelURL is parent
                                               // directory of final kernelcache

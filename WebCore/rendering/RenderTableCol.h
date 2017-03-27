@@ -23,8 +23,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef RenderTableCol_h
-#define RenderTableCol_h
+#pragma once
 
 #include "RenderBox.h"
 
@@ -54,10 +53,10 @@ public:
     // Returns the next column or column-group.
     RenderTableCol* nextColumn() const;
 
-    const BorderValue& borderAdjoiningCellStartBorder(const RenderTableCell*) const;
-    const BorderValue& borderAdjoiningCellEndBorder(const RenderTableCell*) const;
-    const BorderValue& borderAdjoiningCellBefore(const RenderTableCell*) const;
-    const BorderValue& borderAdjoiningCellAfter(const RenderTableCell*) const;
+    const BorderValue& borderAdjoiningCellStartBorder() const;
+    const BorderValue& borderAdjoiningCellEndBorder() const;
+    const BorderValue& borderAdjoiningCellBefore(const RenderTableCell&) const;
+    const BorderValue& borderAdjoiningCellAfter(const RenderTableCell&) const;
 
     LayoutUnit offsetLeft() const override;
     LayoutUnit offsetTop() const override;
@@ -105,5 +104,3 @@ inline RenderTableCol* RenderTableCol::enclosingColumnGroupIfAdjacentAfter() con
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderTableCol, isRenderTableCol())
-
-#endif // RenderTableCol_h

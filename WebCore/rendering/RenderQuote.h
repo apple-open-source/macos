@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef RenderQuote_h
-#define RenderQuote_h
+#pragma once
 
 #include "RenderInline.h"
 
@@ -40,6 +39,7 @@ private:
     const char* renderName() const override { return "RenderQuote"; }
     bool isQuote() const override { return true; }
     void styleDidChange(StyleDifference, const RenderStyle*) override;
+    void insertedIntoTree() override;
     void willBeRemovedFromTree() override;
 
     String computeText() const;
@@ -57,5 +57,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderQuote, isQuote())
-
-#endif // RenderQuote_h

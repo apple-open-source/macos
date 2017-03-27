@@ -22,8 +22,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorApplicationCacheAgent_h
-#define InspectorApplicationCacheAgent_h
+#pragma once
 
 #include "ApplicationCacheHost.h"
 #include "InspectorWebAgentBase.h"
@@ -42,7 +41,6 @@ namespace WebCore {
 class Frame;
 class InspectorPageAgent;
 class Page;
-class ResourceResponse;
 
 typedef String ErrorString;
 
@@ -77,4 +75,3 @@ private:
 
 } // namespace WebCore
 
-#endif // InspectorApplicationCacheAgent_h

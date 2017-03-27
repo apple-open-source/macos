@@ -30,3 +30,4 @@
 #include "SOSCircle/Tool/keychain_sync_test.h"
 #include "SOSCircle/Tool/keychain_log.h"
 #include "SOSCircle/Tool/syncbackup.h"
+#include "SOSCircle/Tool/recovery_key.h"

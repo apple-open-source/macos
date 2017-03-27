@@ -37,6 +37,7 @@
 
 enum {
     kdummy = 0,
+    kapfsdriver,
     kalternateos,
     kbootinfo,
 	kbootefi,

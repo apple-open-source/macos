@@ -70,6 +70,7 @@ CFStringRef kSOSPeerDataLabel = CFSTR("iCloud Peer Data Meta-data");
 // PeerState dictionary keys
 static CFStringRef kSOSPeerSendObjectsKey = CFSTR("send-objects"); // bool
 static CFStringRef kSOSPeerMustSendMessageKey = CFSTR("must-send"); // bool
+static CFStringRef kSOSPeerHasBeenInSyncKey = CFSTR("has-been-in-sync"); // bool
 static CFStringRef kSOSPeerPendingObjectsKey = CFSTR("pending-objects"); // digest
 static CFStringRef kSOSPeerUnwantedManifestKey = CFSTR("unwanted-manifest"); // digest
 static CFStringRef kSOSPeerConfirmedManifestKey = CFSTR("confirmed-manifest");  //digest
@@ -215,6 +216,7 @@ CFTypeRef SOSPeerOrStateSetViewsKeyBagAndCreateCopy(CFTypeRef peerOrState, CFSet
 
 CFTypeRef SOSPeerOrStateSetViewsAndCopyState(CFTypeRef peerOrState, CFSetRef views) {
     assert(views);
+
     if (peerOrState && CFGetTypeID(peerOrState) == SOSPeerGetTypeID()) {
         // Inflated peer, update its views and deflate it
         SOSPeerRef peer = (SOSPeerRef)peerOrState;
@@ -222,8 +224,12 @@ CFTypeRef SOSPeerOrStateSetViewsAndCopyState(CFTypeRef peerOrState, CFSetRef vie
         return SOSPeerCopyState(peer, NULL);
     } else if (peerOrState && CFGetTypeID(peerOrState) == CFDictionaryGetTypeID()) {
         // We have a deflated peer.  Update its views and keep it deflated
+        CFSetRef oldViews = (CFSetRef) CFDictionaryGetValue(peerOrState, kSOSPeerViewsKey);
         CFMutableDictionaryRef state = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, peerOrState);
         CFDictionarySetValue(state, kSOSPeerViewsKey, views);
+        if (oldViews && !CFSetIsSubset(views, oldViews)) {
+            CFDictionarySetValue(state, kSOSPeerHasBeenInSyncKey, kCFBooleanFalse);
+        }
         return state;
     } else {
         return NULL;
@@ -315,6 +321,8 @@ struct __OpaqueSOSPeer {
     bool mustSendMessage;
     bool sendObjects;
 
+    bool hasBeenInSync;
+
     SOSManifestRef pendingObjects;
     SOSManifestRef unwantedManifest;
     SOSManifestRef confirmedManifest;
@@ -336,10 +344,11 @@ static CFStringRef SOSPeerCopyFormatDescription(CFTypeRef cf, CFDictionaryRef fo
         CFStringRef co = SOSManifestCreateOptionalDescriptionWithLabel(peer->confirmedManifest, CFSTR("C"));
         CFStringRef pe = SOSManifestArrayCreateOptionalDescriptionWithLabel(peer->proposedManifests, CFSTR("P"));
         CFStringRef lo = SOSManifestArrayCreateOptionalDescriptionWithLabel(peer->localManifests, CFSTR("L"));
-        CFStringRef desc = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<%@ %s%s%@%@%@%@%@>"),
+        CFStringRef desc = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<%@ %s%s%s%@%@%@%@%@>"),
                                                     SOSPeerGetID(peer),
                                                     SOSPeerMustSendMessage(peer) ? "F" : "f",
                                                     SOSPeerSendObjects(peer) ? "S" : "s",
+                                                    SOSPeerHasBeenInSync(peer) ? "K" : "k",
                                                     po, uo, co, pe, lo);
         CFReleaseSafe(lo);
         CFReleaseSafe(pe);
@@ -433,7 +442,9 @@ static FILE *fopen_journal(const char *journalPath, const char *mode, CFErrorRef
 
 #if !defined(NDEBUG)
 static off_t getFileSize(int fd) {
-    return lseek(fd, 0, SEEK_END);
+    struct stat sb;
+    fstat(fd, &sb);
+    return sb.st_size;
 }
 #endif
 
@@ -511,6 +522,7 @@ bool SOSPeerSetState(SOSPeerRef p, SOSEngineRef engine, CFDictionaryRef state, C
         p->sequenceNumber = SOSPeerGetPersistedInt64(state, kSOSPeerSequenceNumberKey);
         p->mustSendMessage = SOSPeerGetPersistedBoolean(state, kSOSPeerMustSendMessageKey);
         p->sendObjects = SOSPeerGetPersistedBoolean(state, kSOSPeerSendObjectsKey);
+        p->hasBeenInSync = SOSPeerGetPersistedBoolean(state, kSOSPeerHasBeenInSyncKey);
         CFRetainAssign(p->views, SOSPeerGetPersistedViewNameSet(p, state, kSOSPeerViewsKey));
         SOSPeerSetKeyBag(p, SOSPeerGetPersistedData(state, kSOSPeerKeyBagKey));
         CFAssignRetained(p->pendingObjects, SOSEngineCopyPersistedManifest(engine, state, kSOSPeerPendingObjectsKey));
@@ -598,6 +610,7 @@ CFDictionaryRef SOSPeerCopyState(SOSPeerRef peer, CFErrorRef *error) {
 
     SOSPeerPersistBool(state, kSOSPeerMustSendMessageKey, peer->mustSendMessage);
     SOSPeerPersistBool(state, kSOSPeerSendObjectsKey, peer->sendObjects);
+    SOSPeerPersistBool(state, kSOSPeerHasBeenInSyncKey, peer->hasBeenInSync);
     SOSPeerPersistOptionalValue(state, kSOSPeerViewsKey, peer->views);
 
     CFDataRef keybag = SOSPeerGetKeyBag(peer);
@@ -651,6 +664,10 @@ CFSetRef SOSPeerGetViewNameSet(SOSPeerRef peer) {
 }
 
 void SOSPeerSetViewNameSet(SOSPeerRef peer, CFSetRef views) {
+    if (peer->views && !CFSetIsSubset(views, peer->views)) {
+        SOSPeerSetHasBeenInSync(peer, false);
+    }
+
     CFRetainAssign(peer->views, views);
 }
 
@@ -675,9 +692,12 @@ static bool SOSPeerWriteReset(SOSPeerRef peer, CFErrorRef *error) {
         if (ok && !peer->_keyBag)
             ok = SOSBackupEventWriteCompleteMarker(journalFile, 999, &localError);
     });
+
     if (!ok) {
         secwarning("%@ failed to write reset to backup journal: %@", peer->peer_id, localError);
         CFErrorPropagate(localError, error);
+    } else {
+        secnotice("backup-peer", "%@ Wrote reset.", peer->peer_id);
     }
 
     // Forget we ever wrote anything to the journal.
@@ -698,7 +718,7 @@ void SOSPeerKeyBagDidChange(SOSPeerRef peer) {
         // Attempt to write a reset (ignoring failures since it will
         // be pended stickily if it fails).
         SOSPeerWriteReset(peer, NULL);
-        SOSCCSyncWithAllPeers();
+        SOSCCRequestSyncWithBackupPeer(SOSPeerGetID(peer));
     }
 }
 
@@ -743,6 +763,14 @@ bool SOSPeerSendObjects(SOSPeerRef peer) {
 
 void SOSPeerSetSendObjects(SOSPeerRef peer, bool sendObjects) {
     peer->sendObjects = sendObjects;
+}
+
+bool SOSPeerHasBeenInSync(SOSPeerRef peer) {
+    return peer->hasBeenInSync;
+}
+
+void SOSPeerSetHasBeenInSync(SOSPeerRef peer, bool hasBeenInSync) {
+    peer->hasBeenInSync = hasBeenInSync;
 }
 
 // MARK: Manifests
@@ -994,7 +1022,7 @@ bool SOSPeerDataSourceWillChange(SOSPeerRef peer, SOSDataSourceRef dataSource, S
 
     if (!ok) {
         // We were unable to stream everything out neatly
-        SOSCCSyncWithAllPeers();
+        SOSCCRequestSyncWithBackupPeer(SOSPeerGetID(peer));
     }
     return ok;
 }

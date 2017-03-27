@@ -22,10 +22,10 @@
  */
 
 // #define COMMON_HMAC_FUNCTIONS
-#include "CommonHMAC.h"
-#include "CommonHmacSPI.h"
-#include "CommonDigest.h"
-#include "CommonDigestSPI.h"
+#include <CommonCrypto/CommonHMAC.h>
+#include <CommonCrypto/CommonHmacSPI.h>
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
 #include "CommonDigestPriv.h"
 #include <corecrypto/cchmac.h>
 #include <corecrypto/cc_priv.h>
@@ -46,9 +46,14 @@
  * we have 384 bytes to work with
  */
 
+
 typedef struct {
     const struct ccdigest_info *di;
-    cchmac_ctx_decl(HMAC_MAX_BLOCK_SIZE, HMAC_MAX_DIGEST_SIZE, ctx);
+#if defined(_WIN32) //rdar://problem/27873676
+    struct cchmac_ctx ctx[cc_ctx_n(struct cchmac_ctx, cchmac_ctx_size(HMAC_MAX_DIGEST_SIZE, HMAC_MAX_BLOCK_SIZE))];
+#else
+    cchmac_ctx_decl(HMAC_MAX_DIGEST_SIZE, HMAC_MAX_BLOCK_SIZE, ctx); 
+#endif
 } _NewHmacContext;
 
 
@@ -92,20 +97,20 @@ void CCHmacInit(
 	_NewHmacContext		*hmacCtx = (_NewHmacContext *)ctx;
     // CCDigestCtxPtr  digestCtx = &hmacCtx->digestCtx;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", algorithm);
+    CC_DEBUG_LOG("Entering Algorithm: %d\n", algorithm);
 
 
 	ASSERT(sizeof(_NewHmacContext) < sizeof(CCHmacContext));    
 	
 	if(hmacCtx == NULL) {
-        CC_DEBUG_LOG(CC_DEBUG, "NULL Context passed in\n");
+        CC_DEBUG_LOG( "NULL Context passed in\n");
         return;
     }
 
 	CC_XZEROMEM(hmacCtx, sizeof(_NewHmacContext));
 	
     if((hmacCtx->di = convertccHmacSelector(algorithm)) == NULL) {
-        CC_DEBUG_LOG(CC_DEBUG, "CCHMac Unknown Digest %d\n", algorithm);
+        CC_DEBUG_LOG( "CCHMac Unknown Digest %d\n", algorithm);
         return;
 	}
     
@@ -121,7 +126,7 @@ void CCHmacUpdate(
 {
 	_NewHmacContext	*hmacCtx = (_NewHmacContext *)ctx;
 
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     cchmac_update(hmacCtx->di, hmacCtx->ctx, dataInLength, dataIn);
 }
 
@@ -131,7 +136,7 @@ void CCHmacFinal(
 {
 	_NewHmacContext	*hmacCtx = (_NewHmacContext *)ctx;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     cchmac_final(hmacCtx->di, hmacCtx->ctx, macOut);
 }
 
@@ -147,7 +152,7 @@ size_t
 CCHmacOutputSizeFromRef(CCHmacContextRef ctx)
 {
 	_NewHmacContext		*hmacCtx = (_NewHmacContext *)ctx;
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return hmacCtx->di->output_size;
 }
 
@@ -155,7 +160,7 @@ CCHmacOutputSizeFromRef(CCHmacContextRef ctx)
 size_t
 CCHmacOutputSize(CCDigestAlg alg)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	return CCDigestGetOutputSize(alg);
 }
 
@@ -172,7 +177,7 @@ void CCHmac(
             size_t dataLength,		/* length of data in bytes */
             void *macOut)			/* MAC written here */
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", algorithm);
+    CC_DEBUG_LOG("Entering Algorithm: %d\n", algorithm);
     cchmac(convertccHmacSelector(algorithm), keyLength, key, dataLength, data, macOut);
 }
 
@@ -183,14 +188,14 @@ CCHmacCreate(CCDigestAlg alg, const void *key, size_t keyLength)
 {
 	_NewHmacContext		*hmacCtx;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
     if((hmacCtx = CC_XMALLOC(sizeof(_NewHmacContext))) == NULL) return NULL;
 	
 	CC_XZEROMEM(hmacCtx, sizeof(_NewHmacContext));
 	
     if((hmacCtx->di = CCDigestGetDigestInfo(alg)) == NULL) {
-        CC_DEBUG_LOG(CC_DEBUG, "CCHMac Unknown Digest %d\n");
+        CC_DEBUG_LOG( "CCHMac Unknown Digest %d\n");
         CC_XFREE(hmacCtx, sizeof(_NewHmacContext));
         return NULL;
 	}
@@ -208,7 +213,7 @@ CCHmacContextRef
 CCHmacClone(CCHmacContextRef ctx) {
 	_NewHmacContext		*hmacCtx;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
 	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
     if((hmacCtx = CC_XMALLOC(sizeof(_NewHmacContext))) == NULL) return NULL;
 	

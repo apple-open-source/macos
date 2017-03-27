@@ -423,8 +423,16 @@ dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 		dtp->dt_prcmode = DT_PROC_STOP_PREINIT;
 	else if (strcmp(arg, "postinit") == 0)
 		dtp->dt_prcmode = DT_PROC_STOP_POSTINIT;
+#if defined(__APPLE__)
+	/*
+	 * On Darwin, we do not support stopping at main
+	 */
+	 else if (strcmp(arg, "main") == 0)
+		return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
+#else
 	else if (strcmp(arg, "main") == 0)
 		dtp->dt_prcmode = DT_PROC_STOP_MAIN;
+#endif
 	else
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 

@@ -56,7 +56,10 @@ __private_extern__ void             AutoWakeCalendarChange(void);
 __private_extern__ IOReturn         createSCSession(SCPreferencesRef *prefs, uid_t euid, int lock);
 __private_extern__ void             schedulePowerEventType(CFStringRef type);
 __private_extern__ void             destroySCSession(SCPreferencesRef prefs, int unlock);
+__private_extern__ CFAbsoluteTime   getWakeScheduleTime(CFDictionaryRef event);
 __private_extern__ CFTimeInterval   getEarliestRequestAutoWake(void);
+__private_extern__ CFDictionaryRef copyEarliestRequestAutoWakeEvent(void);
 __private_extern__ bool             checkPendingWakeReqs(int options);
+
 
 #endif // _AutoWakeScheduler_h_

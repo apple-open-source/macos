@@ -65,14 +65,13 @@ SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gesta
 
 SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key,
                                                       CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS,
-                                                      CFBooleanRef preferFragmentation, CFSetRef enabledViews,
-                                                      SecKeyRef signingKey, CFErrorRef* error);
+                                                      CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews, SecKeyRef signingKey, CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFErrorRef* error);
 SOSPeerInfoRef SOSPeerInfoCreateCurrentCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy,
-                                            CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS, CFBooleanRef preferFragmentation, CFSetRef enabledViews,
+                                            CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS, CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews,
                                             SecKeyRef signingKey, CFErrorRef* error);
 bool SOSPeerInfoVersionIsCurrent(SOSPeerInfoRef pi);
 bool SOSPeerInfoVersionHasV2Data(SOSPeerInfoRef pi);
@@ -206,9 +205,12 @@ CFBooleanRef SOSPeerInfoCopyIDSPreference(SOSPeerInfoRef peer);
 SOSPeerInfoRef SOSPeerInfoSetIDSPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
 
 CFBooleanRef SOSPeerInfoCopyIDSFragmentationPreference(SOSPeerInfoRef peer);
+CFBooleanRef SOSPeerInfoCopyIDSACKModelPreference(SOSPeerInfoRef peer);
 SOSPeerInfoRef SOSPeerInfoSetIDSFragmentationPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
+SOSPeerInfoRef SOSPeerInfoSetIDSACKModelPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error);
 
 CFStringRef SOSPeerInfoCopyTransportType(SOSPeerInfoRef peer);
+bool SOSPeerInfoTransportTypeIs(SOSPeerInfoRef pi, CFStringRef transportType);
 SOSPeerInfoRef SOSPeerInfoSetTransportType(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef transportType, SecKeyRef signingKey, CFErrorRef *error);
 bool SOSPeerInfoKVSOnly(SOSPeerInfoRef pi);
 
@@ -219,8 +221,22 @@ SOSPeerInfoRef SOSPeerInfoSetDeviceID(CFAllocatorRef allocator, SOSPeerInfoRef t
 
 bool SOSPeerInfoShouldUseIDSTransport(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
 bool SOSPeerInfoShouldUseIDSMessageFragmentation(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
+bool SOSPeerInfoShouldUseACKModel(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer);
 
 void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr);
+
+enum {
+    SOSPeerInfo_unknown = 0,
+    SOSPeerInfo_iCloud = 1,
+    SOSPeerInfo_iOS = 2,
+    SOSPeerInfo_macOS = 3,
+    SOSPeerInfo_watchOS = 4,
+    SOSPeerInfo_tvOS = 5,
+};
+typedef uint32_t SOSPeerInfoDeviceClass;
+
+SOSPeerInfoDeviceClass SOSPeerInfoGetClass(SOSPeerInfoRef pi);
+
 
 __END_DECLS
 

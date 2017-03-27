@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef CallFrameShuffler_h
-#define CallFrameShuffler_h
+#pragma once
 
 #if ENABLE(JIT)
 
@@ -103,6 +102,7 @@ public:
 
         CallFrameShuffleData data;
         data.numLocals = numLocals();
+        data.numPassedArgs = m_numPassedArgs;
         data.callee = getNew(VirtualRegister { CallFrameSlot::callee })->recovery();
         data.args.resize(argCount());
         for (size_t i = 0; i < argCount(); ++i)
@@ -795,10 +795,10 @@ private:
     // It returns false if it was unable to perform some safe writes
     // due to high register pressure.
     bool performSafeWrites();
+    
+    unsigned m_numPassedArgs { UINT_MAX };
 };
 
 } // namespace JSC
 
 #endif // ENABLE(JIT)
-
-#endif // CallFrameShuffler_h

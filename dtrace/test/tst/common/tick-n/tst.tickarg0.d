@@ -38,6 +38,7 @@
 
 #pragma D option quiet
 #pragma D option statusrate=15ms
+#pragma D option nolibs
 
 tick-10msec
 {

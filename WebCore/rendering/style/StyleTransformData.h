@@ -22,12 +22,11 @@
  *
  */
 
-#ifndef StyleTransformData_h
-#define StyleTransformData_h
+#pragma once
 
 #include "Length.h"
 #include "TransformOperations.h"
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -56,5 +55,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // StyleTransformData_h

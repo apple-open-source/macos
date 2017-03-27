@@ -69,7 +69,7 @@ using namespace CssmClient;
  * DB files when they are the source of these copies; this is the same mechanism
  * used by the underlying AtomicFile. 
  *
- * The sticky bit in /var/db/mds ensures that users cannot modify other userss private 
+ * The sticky bit in /var/db/mds ensures that users cannot modify other users' private 
  * MDS directories. 
  */
 namespace Security
@@ -785,9 +785,6 @@ MDSSession::LockHelper::obtainLock(
 			return true;
 		}
 	}
-	
-	/* not reached */
-	return false;
 }
 
 //
@@ -943,7 +940,7 @@ static void safeCopyFile(
 			}
 			else {
 				break;
-				haveLock = true;
+				//haveLock = true;
 			}
 		}
 

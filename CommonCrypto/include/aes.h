@@ -30,14 +30,9 @@
  *
  */
 
-#ifdef CC_Building
-#include "CommonCryptor.h"
-#include "CommonCryptorSPI.h"
-#include "CommonCryptorPriv.h"
-#else
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
-#endif /* CC_Building */
+#include <CommonCrypto/CommonCryptorPriv.h>
 
 #if !defined( _CC_AES_H_ )
 #define _CC_AES_H_

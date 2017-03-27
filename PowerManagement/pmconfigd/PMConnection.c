@@ -515,16 +515,21 @@ exit:
     connection->notifyEnable = (disable == 0);
 
     if (!disable && (MACH_PORT_NULL == connection->notifyPort)) {
+        dispatch_source_t src;
         connection->notifyPort = notify_port_in;
 
-        connection->procExit = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, callerPID,
+        src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, callerPID,
                                             DISPATCH_PROC_EXIT, dispatch_get_main_queue());
-        if (connection->procExit != NULL) {
-            dispatch_source_set_event_handler(connection->procExit, ^{
+        if (src != NULL) {
+            dispatch_source_set_event_handler(src, ^{
                     PMConnectionHandleDeadName(connection_id);
                     });
-            dispatch_source_set_cancel_handler(connection->procExit, ^{dispatch_release(connection->procExit); });
-            dispatch_resume(connection->procExit);
+            dispatch_source_set_cancel_handler(src, ^{dispatch_release(src);});
+            dispatch_resume(src);
+
+            // Create dispatch source in local variable 'src' to force the cancel handler
+            // block to make a copy of the address
+            connection->procExit = src;
         }
         else {
             ERROR_LOG("Failed to create dispatch src to cleanup connection %d from pid %d\n", connection_id, callerPID);
@@ -2863,20 +2868,41 @@ static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
 #endif
 
     /* Check for user wake requests in the end to give highest priority, in case of conflict */
-    userWake = getEarliestRequestAutoWake();
-    if (VALID_DATE(userWake)) {
-        m = describeWakeRequest(m, getpid(), "UserWake", userWake, NULL);
-        if (userWake <= earliestWake) {
-            earliestWake = userWake;
-            type = kChooseFullWake;
-            chosenReq = reqCnt;
-            if (earliestWake < (CFAbsoluteTimeGetCurrent()+60)) {
-                // Make sure that wake request is at least 1 min from now
-                earliestWake = (CFAbsoluteTimeGetCurrent()+60);
+    CFDictionaryRef     event = copyEarliestRequestAutoWakeEvent();
+    if (event)
+    {
+        userWake = getWakeScheduleTime(event);
+    
+        if (VALID_DATE(userWake)) {
+            CFStringRef appName;
+            CFNumberRef appPID;
+            CFMutableStringRef appInfo=NULL;
+            appName = CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventAppNameKey));
+            appPID = CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventAppPIDKey));
+            if (isA_CFString(appName) && isA_CFNumber(appPID))
+            {
+                appInfo = CFStringCreateMutable(NULL, MAXPATHLEN);
+                CFStringAppendFormat(appInfo, NULL, CFSTR("%@,%@"),appName, appPID);
             }
+            m = describeWakeRequest(m, getpid(), "UserWake", userWake, appInfo);
+            
+            if (userWake <= earliestWake) {
+                earliestWake = userWake;
+                type = kChooseFullWake;
+                chosenReq = reqCnt;
+                if (earliestWake < (CFAbsoluteTimeGetCurrent()+60)) {
+                    // Make sure that wake request is at least 1 min from now
+                    earliestWake = (CFAbsoluteTimeGetCurrent()+60);
+                }
+            }
+            if (appInfo)
+            {
+                CFRelease(appInfo);
+            }
+            userWakeReq = true;
+            reqCnt++;
         }
-        userWakeReq = true;
-        reqCnt++;
+        CFRelease(event);
     }
 
 #ifndef TARGET_OS_EMBEDDED

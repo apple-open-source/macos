@@ -47,12 +47,28 @@ DISPATCH_EXPORT DISPATCH_NOTHROW
 void
 dispatch_atfork_prepare(void)
 {
+	_os_object_atfork_prepare();
 }
 
 DISPATCH_EXPORT DISPATCH_NOTHROW
 void
 dispatch_atfork_parent(void)
 {
+	_os_object_atfork_parent();
+}
+
+DISPATCH_EXPORT DISPATCH_NOTHROW
+void
+dispatch_atfork_child(void)
+{
+	_os_object_atfork_child();
+	_voucher_atfork_child();
+	if (_dispatch_is_multithreaded_inline()) {
+		_dispatch_child_of_unsafe_fork = true;
+	}
+	_dispatch_queue_atfork_child();
+	// clear the _PROHIBIT and _MULTITHREADED bits if set
+	_dispatch_unsafe_fork = 0;
 }
 
 #pragma mark -
@@ -1057,6 +1073,24 @@ os_release(void *obj)
 	}
 }
 
+void
+_os_object_atfork_prepare(void)
+{
+	return;
+}
+
+void
+_os_object_atfork_parent(void)
+{
+	return;
+}
+
+void
+_os_object_atfork_child(void)
+{
+	return;
+}
+
 #pragma mark -
 #pragma mark dispatch_autorelease_pool no_objc
 
@@ -1102,8 +1136,7 @@ static void
 dispatch_source_type_timer_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask,
-	dispatch_queue_t q)
+	unsigned long mask)
 {
 	if (fastpath(!ds->ds_refs)) {
 		ds->ds_refs = _dispatch_calloc(1ul,
@@ -1111,11 +1144,6 @@ dispatch_source_type_timer_init(dispatch_source_t ds,
 	}
 	ds->ds_needs_rearm = true;
 	ds->ds_is_timer = true;
-	if (q == dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0)
-			|| q == dispatch_get_global_queue(
-			DISPATCH_QUEUE_PRIORITY_BACKGROUND, DISPATCH_QUEUE_OVERCOMMIT)){
-		mask |= DISPATCH_TIMER_BACKGROUND; // <rdar://problem/12200216>
-	}
 	ds_timer(ds->ds_refs).flags = mask;
 }
 
@@ -1130,10 +1158,9 @@ const struct dispatch_source_type_s _dispatch_source_type_timer = {
 
 static void
 dispatch_source_type_after_init(dispatch_source_t ds,
-	dispatch_source_type_t type, uintptr_t handle, unsigned long mask,
-	dispatch_queue_t q)
+	dispatch_source_type_t type, uintptr_t handle, unsigned long mask)
 {
-	dispatch_source_type_timer_init(ds, type, handle, mask, q);
+	dispatch_source_type_timer_init(ds, type, handle, mask);
 	ds->ds_needs_rearm = false;
 	ds_timer(ds->ds_refs).flags |= DISPATCH_TIMER_AFTER;
 }
@@ -1147,12 +1174,11 @@ const struct dispatch_source_type_s _dispatch_source_type_after = {
 
 static void
 dispatch_source_type_timer_with_aggregate_init(dispatch_source_t ds,
-	dispatch_source_type_t type, uintptr_t handle, unsigned long mask,
-	dispatch_queue_t q)
+	dispatch_source_type_t type, uintptr_t handle, unsigned long mask)
 {
 	ds->ds_refs = _dispatch_calloc(1ul,
 			sizeof(struct dispatch_timer_source_aggregate_refs_s));
-	dispatch_source_type_timer_init(ds, type, handle, mask, q);
+	dispatch_source_type_timer_init(ds, type, handle, mask);
 	ds_timer(ds->ds_refs).flags |= DISPATCH_TIMER_WITH_AGGREGATE;
 	ds->dq_specific_q = (void*)handle;
 	_dispatch_retain(ds->dq_specific_q);
@@ -1169,10 +1195,9 @@ const struct dispatch_source_type_s _dispatch_source_type_timer_with_aggregate={
 
 static void
 dispatch_source_type_interval_init(dispatch_source_t ds,
-	dispatch_source_type_t type, uintptr_t handle, unsigned long mask,
-	dispatch_queue_t q)
+	dispatch_source_type_t type, uintptr_t handle, unsigned long mask)
 {
-	dispatch_source_type_timer_init(ds, type, handle, mask, q);
+	dispatch_source_type_timer_init(ds, type, handle, mask);
 	ds_timer(ds->ds_refs).flags |= DISPATCH_TIMER_INTERVAL;
 	unsigned long ident = _dispatch_source_timer_idx(ds->ds_refs);
 	ds->ds_dkev->dk_kevent.ident = ds->ds_ident_hack = ident;
@@ -1193,11 +1218,10 @@ static void
 dispatch_source_type_readwrite_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	unsigned long mask DISPATCH_UNUSED)
 {
 	ds->ds_is_level = true;
-#ifdef HAVE_DECL_NOTE_LOWAT
+#if HAVE_DECL_NOTE_LOWAT
 	// bypass kernel check for device kqueue support rdar://19004921
 	ds->ds_dkev->dk_kevent.fflags = NOTE_LOWAT;
 #endif
@@ -1241,8 +1265,7 @@ static void
 dispatch_source_type_memorypressure_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	unsigned long mask DISPATCH_UNUSED)
 {
 	static dispatch_once_t pred;
 	dispatch_once_f(&pred, NULL, _dispatch_ios_simulator_memorypressure_init);
@@ -1279,8 +1302,7 @@ static void
 dispatch_source_type_vm_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	unsigned long mask DISPATCH_UNUSED)
 {
 	// Map legacy vm pressure to memorypressure warning rdar://problem/15907505
 	mask = NOTE_MEMORYSTATUS_PRESSURE_WARN;
@@ -1288,7 +1310,7 @@ dispatch_source_type_vm_init(dispatch_source_t ds,
 	ds->ds_pending_data_mask = mask;
 	ds->ds_vmpressure_override = 1;
 #if TARGET_IPHONE_SIMULATOR
-	dispatch_source_type_memorypressure_init(ds, type, handle, mask, q);
+	dispatch_source_type_memorypressure_init(ds, type, handle, mask);
 #endif
 }
 
@@ -1301,17 +1323,7 @@ const struct dispatch_source_type_s _dispatch_source_type_vm = {
 	.init = dispatch_source_type_vm_init,
 };
 
-#elif DISPATCH_USE_VM_PRESSURE
-
-const struct dispatch_source_type_s _dispatch_source_type_vm = {
-	.ke = {
-		.filter = EVFILT_VM,
-		.flags = EV_DISPATCH|EV_UDATA_SPECIFIC,
-	},
-	.mask = NOTE_VM_PRESSURE,
-};
-
-#endif // DISPATCH_USE_VM_PRESSURE
+#endif // DISPATCH_USE_MEMORYSTATUS
 
 const struct dispatch_source_type_s _dispatch_source_type_signal = {
 	.ke = {
@@ -1325,8 +1337,7 @@ static void
 dispatch_source_type_proc_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	unsigned long mask DISPATCH_UNUSED)
 {
 	ds->ds_dkev->dk_kevent.fflags |= NOTE_EXIT; // rdar://16655831
 }
@@ -1379,6 +1390,12 @@ const struct dispatch_source_type_s _dispatch_source_type_vfs = {
 #if HAVE_DECL_VQ_QUOTA
 			|VQ_QUOTA
 #endif
+#if HAVE_DECL_VQ_NEARLOWDISK
+			|VQ_NEARLOWDISK
+#endif
+#if HAVE_DECL_VQ_DESIRED_DISK
+			|VQ_DESIRED_DISK
+#endif
 			,
 };
 
@@ -1409,8 +1426,7 @@ static void
 dispatch_source_type_data_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	unsigned long mask DISPATCH_UNUSED)
 {
 	ds->ds_is_installed = true;
 	ds->ds_is_custom_source = true;
@@ -1441,8 +1457,7 @@ const struct dispatch_source_type_s _dispatch_source_type_data_or = {
 static void
 dispatch_source_type_mach_send_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
-	uintptr_t handle DISPATCH_UNUSED, unsigned long mask,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	uintptr_t handle DISPATCH_UNUSED, unsigned long mask)
 {
 	if (!mask) {
 		// Preserve legacy behavior that (mask == 0) => DISPATCH_MACH_SEND_DEAD
@@ -1464,8 +1479,7 @@ static void
 dispatch_source_type_mach_recv_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	unsigned long mask DISPATCH_UNUSED)
 {
 	ds->ds_pending_data_mask = DISPATCH_MACH_RECV_MESSAGE;
 #if DISPATCH_EVFILT_MACHPORT_PORTSET_FALLBACK

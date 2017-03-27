@@ -23,7 +23,7 @@
  * readline.c
  */
 
-#include "readline.h"
+#include "readline_cssm.h"
 #include "security_tool.h"
 
 #include <errno.h>

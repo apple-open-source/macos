@@ -76,7 +76,8 @@ __BEGIN_DECLS
 #define SECLOG_LEVEL_DEBUG  7
 
 #include <os/log_private.h>
-extern os_log_t logObjForScope(const char *scope);
+extern os_log_t logObjForScope(const char *scope); /* XXX don't use me, remove */
+extern os_log_t secLogObjForScope(const char *scope);
 extern bool secLogEnabled(void);
 extern void secLogDisable(void);
 extern void secLogEnable(void);
@@ -122,22 +123,22 @@ extern const char *api_trace;
     CFReleaseNull(info); return _r; \
 }
 
-#define secemergency(format, ...)       os_log_error(logObjForScope("SecEmergency"), format, ## __VA_ARGS__)
-#define secalert(format, ...)           os_log_error(logObjForScope("SecAlert"), format, ## __VA_ARGS__)
-#define seccritical(format, ...)        os_log(logObjForScope("SecCritical"), format, ## __VA_ARGS__)
-#define secerror(format, ...)           os_log(logObjForScope("SecError"), format, ## __VA_ARGS__)
-#define secerrorq(format, ...)          os_log(logObjForScope("SecError"), format, ## __VA_ARGS__)
-#define secwarning(format, ...)         os_log(logObjForScope("SecWarning"), format, ## __VA_ARGS__)
-#define secnotice(scope, format, ...)	os_log(logObjForScope(scope), format, ## __VA_ARGS__)
-#define secnoticeq(scope, format, ...)	os_log(logObjForScope(scope), format, ## __VA_ARGS__)
-#define secinfo(scope, format, ...)     os_log_debug(logObjForScope(scope), format, ## __VA_ARGS__)
+#define secemergency(format, ...)       os_log_error(secLogObjForScope("SecEmergency"), format, ## __VA_ARGS__)
+#define secalert(format, ...)           os_log_error(secLogObjForScope("SecAlert"), format, ## __VA_ARGS__)
+#define seccritical(format, ...)        os_log(secLogObjForScope("SecCritical"), format, ## __VA_ARGS__)
+#define secerror(format, ...)           os_log(secLogObjForScope("SecError"), format, ## __VA_ARGS__)
+#define secerrorq(format, ...)          os_log(secLogObjForScope("SecError"), format, ## __VA_ARGS__)
+#define secwarning(format, ...)         os_log(secLogObjForScope("SecWarning"), format, ## __VA_ARGS__)
+#define secnotice(scope, format, ...)	os_log(secLogObjForScope(scope), format, ## __VA_ARGS__)
+#define secnoticeq(scope, format, ...)	os_log(secLogObjForScope(scope), format, ## __VA_ARGS__)
+#define secinfo(scope, format, ...)     os_log_debug(secLogObjForScope(scope), format, ## __VA_ARGS__)
 
-#define secinfoenabled(scope)           os_log_debug_enabled(logObjForScope(scope))
+#define secinfoenabled(scope)           os_log_debug_enabled(secLogObjForScope(scope))
 
 // secdebug is used for things that might not be privacy safe at all, so only debug builds can have these traces
 #undef secdebug
 #if !defined(NDEBUG)
-#define secdebug(scope, format, ...)	os_log_debug(logObjForScope(scope), format, ## __VA_ARGS__)
+#define secdebug(scope, format, ...)	os_log_debug(secLogObjForScope(scope), format, ## __VA_ARGS__)
 #else
 # define secdebug(scope,...)	/* nothing */
 #endif

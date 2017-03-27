@@ -43,7 +43,10 @@ static void create_random_key_worker(id keyType, int keySize, bool permPub, bool
     };
 
     id privateKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)params, (void *)&error));
-    ok(privateKey != nil, "successfully generated keys");
+    ok(privateKey != nil, "generating key (type:%@, size:%d, permPub:%d, permPriv:%d) : %@", keyType, keySize, (int)permPub, (int)permPriv, error);
+
+    id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privateKey));
+    ok(publicKey != nil, "got public key from generated private key");
 
     params = @{
         (id)kSecClass: (id)kSecClassKey,
@@ -63,6 +66,12 @@ static void create_random_key_worker(id keyType, int keySize, bool permPub, bool
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrKeyType: keyType,
             (id)kSecAttrKeySizeInBits: @(keySize),
+#if TARGET_OS_OSX
+            // Despite headerdoc and other docs, SecItemDelete on macOS deletes only first found item, we need to persuade
+            // it to delete everything passing the query.  On the other hand, iOS implementation errs out when
+            // kSecMatchLimit is given, so we need to add it only for macOS.
+            (id)kSecMatchLimit: (id)kSecMatchLimitAll,
+#endif
             (id)kSecAttrLabel: @"si-44-seckey-gen:0",
         };
         ok_status(SecItemDelete((CFDictionaryRef)params), "clear generated pair from keychain");
@@ -79,7 +88,7 @@ static void test_create_random_key() {
     create_random_key_worker((id)kSecAttrKeyTypeECSECPrimeRandom, 256, false, true);
     create_random_key_worker((id)kSecAttrKeyTypeECSECPrimeRandom, 256, true, true);
 }
-static const int TestCountCreateRandomKey = (3 * 4 + 1 * 3) * 2;
+static const int TestCountCreateRandomKey = (4 * 4 + 1 * 3) * 2;
 
 static const int TestCount = TestCountCreateRandomKey;
 

@@ -26,7 +26,7 @@
 // ssclient - SecurityServer client interface library
 //
 #include "ssblob.h"
-
+#include <utilities/SecCFRelease.h>
 
 namespace Security {
 namespace SecurityServer {
@@ -46,11 +46,11 @@ uint32 CommonBlob::getCurrentVersion() {
             secnotice("integrity", "creating a old-style keychain; global is off");
             ret = version_MacOS_10_0;
         }
-        CFRelease(integrity);
     } else {
         secnotice("integrity", "global integrity not set, defaulting to on");
         ret = version_partition;
     }
+    CFReleaseSafe(integrity);
 
     return ret;
 }

@@ -52,6 +52,10 @@ do
 	NOLIBS_TOTALTIME=`awk "BEGIN { print ($TOTALTIME < $NOLIBS_TOTALTIME ? $TOTALTIME : $NOLIBS_TOTALTIME)}"`
 done
 
+if [ -z $PERFDATA_FILE ]; then
+	PERFDATA_FILE='/dev/fd/1'
+fi
+
 echo '{
 	"version": "1.0",
 	"measurements": {' > $PERFDATA_FILE

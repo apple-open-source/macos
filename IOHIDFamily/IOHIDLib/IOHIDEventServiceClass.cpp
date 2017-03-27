@@ -40,7 +40,6 @@ __BEGIN_DECLS
 #include <asl.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
-#include <IOKit/iokitmig.h>
 #include <IOKit/IOMessage.h>
 #include <mach/mach_time.h>
 __END_DECLS
@@ -178,6 +177,10 @@ static PROPERTY_INFO PropertyInfoTable [] = {
     {
         CFSTR(kIOHIDBuiltInKey),
         kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDEventServiceQueueSize),
+        kPropertyInfoCache
     }
 };
 
@@ -518,6 +521,7 @@ IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable __unused, i
             if (value == 0) {
                createQueue =  false;
             }
+            CFDictionarySetValue(_serviceProperties, CFSTR(kIOHIDEventServiceQueueSize), queueSize);
             CFRelease(queueSize);
         }
         

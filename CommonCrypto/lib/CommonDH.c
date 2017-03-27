@@ -22,10 +22,9 @@
  */
 
 // #define COMMON_DH_FUNCTIONS
-#include "CommonDH.h"
-#include "CommonRandomSPI.h"
-#include <dispatch/dispatch.h>
-#include <dispatch/queue.h>
+#include <CommonCrypto/CommonDH.h>
+#include <CommonCrypto/CommonRandomSPI.h>
+#include "ccDispatch.h"
 #include <corecrypto/ccn.h>
 #include <corecrypto/ccdh.h>
 #include <corecrypto/ccdh_gp.h>
@@ -58,7 +57,7 @@ CCDHCreate(CCDHParameters dhParameter)
     CCDH retval = NULL;
     size_t retSize = 0;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CC_NONULLPARMRETNULL(dhParameter);
     if (dhParameter == kCCDHRFC2409Group2) {
         stockParm = CC_XMALLOC(sizeof(CCDHParmSetstruct));
@@ -94,7 +93,7 @@ error:
 void
 CCDHRelease(CCDHRef ref)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if(ref == NULL) return;
     CCDH keyref = (CCDH) ref;
     if(keyref->ctx._full) 
@@ -108,7 +107,7 @@ CCDHRelease(CCDHRef ref)
 int
 CCDHGenerateKey(CCDHRef ref, void *output, size_t *outputLength)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CC_NONULLPARM(ref);
     CC_NONULLPARM(output);
     CC_NONULLPARM(outputLength);
@@ -133,7 +132,7 @@ CCDHGenerateKey(CCDHRef ref, void *output, size_t *outputLength)
 int
 CCDHComputeKey(unsigned char *sharedKey, size_t *sharedKeyLen, const void *peerPubKey, size_t peerPubKeyLen, CCDHRef ref)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CC_NONULLPARM(sharedKey);
     CC_NONULLPARM(sharedKeyLen);
     CC_NONULLPARM(peerPubKey);
@@ -166,7 +165,7 @@ CCDHComputeKey(unsigned char *sharedKey, size_t *sharedKeyLen, const void *peerP
 CCDHParameters
 CCDHParametersCreateFromData(const void *p, size_t pLen, const void *g, size_t gLen, size_t l)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CC_NONULLPARMRETNULL(p);
     CC_NONULLPARMRETNULL(g);
     
@@ -193,7 +192,7 @@ error:
 void
 CCDHParametersRelease(CCDHParameters parameters)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     if(parameters == NULL) return;
     if(parameters == kCCDHRFC2409Group2) return;
     if(parameters == kCCDHRFC3526Group5) return;
@@ -211,7 +210,7 @@ CCDHParametersRelease(CCDHParameters parameters)
 CCDHParameters
 CCDHParametersCreateFromPKCS3(const void *data, size_t __unused len)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     CC_NONULLPARMRETNULL(data);
     return NULL;
 }
@@ -219,14 +218,14 @@ CCDHParametersCreateFromPKCS3(const void *data, size_t __unused len)
 size_t
 CCDHParametersPKCS3EncodeLength(CCDHParameters __unused parms)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     return 0;
 }
 
 size_t
 CCDHParametersPKCS3Encode(CCDHParameters __unused parms, void * __unused data, size_t __unused dataAvailable)
 {
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    CC_DEBUG_LOG("Entering\n");
     return 0;
 }
 

@@ -1,3 +1,0 @@
-The libpcap sources have been configured with the following flags:
---prefix=/usr
---enable-ipv6

@@ -30,7 +30,7 @@
 
 #include "SecTrust.h"
 #include <security_keychain/StorageManager.h>
-#include <security_keychain/SecTrustSettings.h>
+#include <Security/SecTrustSettings.h>
 
 /*
  * Clarification of the bool arguments to our main constructor.

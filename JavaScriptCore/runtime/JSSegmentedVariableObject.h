@@ -26,20 +26,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JSSegmentedVariableObject_h
-#define JSSegmentedVariableObject_h
+#pragma once
 
-#include "ConcurrentJITLock.h"
+#include "ConcurrentJSLock.h"
 #include "JSObject.h"
 #include "JSSymbolTableObject.h"
-#include "Register.h"
 #include "SymbolTable.h"
 #include <wtf/SegmentedVector.h>
 
 namespace JSC {
 
 class LLIntOffsetsExtractor;
-class Register;
 
 // This is a mostly drop-in replacement for JSEnvironmentRecord, except that it preserves
 // the invariant that after a variable is created, its address in memory will not change
@@ -49,6 +46,8 @@ class Register;
 // requires nor allows for the subclasses to manage that memory. Finally,
 // JSSegmentedVariableObject has its own GC tracing functionality, since it knows the
 // exact dimensions of the variables array at all times.
+
+// Except for JSGlobalObject, subclasses of this don't call the destructor and leak memory.
 
 class JSSegmentedVariableObject : public JSSymbolTableObject {
     friend class JIT;
@@ -86,7 +85,7 @@ public:
     
     JS_EXPORT_PRIVATE static void visitChildren(JSCell*, SlotVisitor&);
     JS_EXPORT_PRIVATE static void heapSnapshot(JSCell*, HeapSnapshotBuilder&);
-
+    
 protected:
     JSSegmentedVariableObject(VM& vm, Structure* structure, JSScope* scope)
         : JSSymbolTableObject(vm, structure, scope)
@@ -99,11 +98,11 @@ protected:
         setSymbolTable(vm, SymbolTable::create(vm));
     }
     
+private:
+    // FIXME: This needs a destructor, which can only be added using custom subspace.
+    
     SegmentedVector<WriteBarrier<Unknown>, 16> m_variables;
-    ConcurrentJITLock m_lock;
+    ConcurrentJSLock m_lock;
 };
 
 } // namespace JSC
-
-#endif // JSSegmentedVariableObject_h
-

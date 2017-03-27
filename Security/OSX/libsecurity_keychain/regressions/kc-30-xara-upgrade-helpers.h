@@ -31,6 +31,10 @@
 #include "kc-30-xara-key-helpers.h"
 #include "kc-keychain-file-helpers.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+#pragma clang diagnostic ignored "-Wunused-function"
+
 static void makeOldKeychainBlob() {
     char* name = "makeOldKeychainBlob";
 
@@ -43,8 +47,7 @@ static void makeOldKeychainBlob() {
 }
 
 static void makeEmptyKeychainBlob() {
-    char * name = "makeEmptyKeychainBlob";
-    SecKeychainRef kc = newKeychain(keychainName);
+    newKeychain(keychainName);
 }
 
 // To construct, use the function above.
@@ -3927,6 +3930,8 @@ static void writeFullV512Keychain(const char* testname, const char * path) {
 static void writeFullV512Keyfile(const char* testname, const char * path) {
     writeFile(path, full_v512_keyfile, FULL_V512_KEYFILE_SIZE);
 }
+
+#pragma clang diagnostic pop
 
 #else
 

@@ -24,10 +24,11 @@
  */
 
 #import "config.h"
-#import "NetworkSession.h"
+#import "NetworkSessionCocoa.h"
 
 #if USE(NETWORK_SESSION)
 
+#import "AuthenticationManager.h"
 #import "CustomProtocolManager.h"
 #import "DataReference.h"
 #import "Download.h"
@@ -40,10 +41,10 @@
 #import <WebCore/CFNetworkSPI.h>
 #import <WebCore/Credential.h>
 #import <WebCore/FrameLoaderTypes.h>
+#import <WebCore/NetworkLoadTiming.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/ResourceError.h>
-#import <WebCore/ResourceLoadTiming.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/ResourceResponse.h>
 #import <WebCore/SharedBuffer.h>
@@ -81,17 +82,18 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 }
 
 @interface WKNetworkSessionDelegate : NSObject <NSURLSessionDataDelegate> {
-    RefPtr<WebKit::NetworkSession> _session;
+    RefPtr<WebKit::NetworkSessionCocoa> _session;
     bool _withCredentials;
 }
 
-- (id)initWithNetworkSession:(WebKit::NetworkSession&)session withCredentials:(bool)withCredentials;
+- (id)initWithNetworkSession:(WebKit::NetworkSessionCocoa&)session withCredentials:(bool)withCredentials;
+- (void)sessionInvalidated;
 
 @end
 
 @implementation WKNetworkSessionDelegate
 
-- (id)initWithNetworkSession:(WebKit::NetworkSession&)session withCredentials:(bool)withCredentials
+- (id)initWithNetworkSession:(WebKit::NetworkSessionCocoa&)session withCredentials:(bool)withCredentials
 {
     self = [super init];
     if (!self)
@@ -103,13 +105,21 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
     return self;
 }
 
-- (void)URLSession:(NSURLSession *)session didBecomeInvalidWithError:(nullable NSError *)error
+- (void)sessionInvalidated
 {
     _session = nullptr;
 }
 
+- (void)URLSession:(NSURLSession *)session didBecomeInvalidWithError:(nullable NSError *)error
+{
+    ASSERT(!_session);
+}
+
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didSendBodyData:(int64_t)bytesSent totalBytesSent:(int64_t)totalBytesSent totalBytesExpectedToSend:(int64_t)totalBytesExpectedToSend
 {
+    if (!_session)
+        return;
+
     auto storedCredentials = _withCredentials ? WebCore::StoredCredentials::AllowStoredCredentials : WebCore::StoredCredentials::DoNotAllowStoredCredentials;
     if (auto* networkDataTask = _session->dataTaskForIdentifier(task.taskIdentifier, storedCredentials))
         networkDataTask->didSendData(totalBytesSent, totalBytesExpectedToSend);
@@ -117,6 +127,11 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task willPerformHTTPRedirection:(NSHTTPURLResponse *)response newRequest:(NSURLRequest *)request completionHandler:(void (^)(NSURLRequest *))completionHandler
 {
+    if (!_session) {
+        completionHandler(nil);
+        return;
+    }
+
     auto taskIdentifier = task.taskIdentifier;
     LOG(NetworkSession, "%llu willPerformHTTPRedirection from %s to %s", taskIdentifier, response.URL.absoluteString.UTF8String, request.URL.absoluteString.UTF8String);
     
@@ -136,6 +151,11 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask*)task _schemeUpgraded:(NSURLRequest*)request completionHandler:(void (^)(NSURLRequest*))completionHandler
 {
+    if (!_session) {
+        completionHandler(nil);
+        return;
+    }
+
     auto taskIdentifier = task.taskIdentifier;
     LOG(NetworkSession, "%llu _schemeUpgraded %s", taskIdentifier, request.URL.absoluteString.UTF8String);
     
@@ -155,6 +175,11 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask willCacheResponse:(NSCachedURLResponse *)proposedResponse completionHandler:(void (^)(NSCachedURLResponse * _Nullable cachedResponse))completionHandler
 {
+    if (!_session) {
+        completionHandler(nil);
+        return;
+    }
+
     // FIXME: remove if <rdar://problem/20001985> is ever resolved.
     if ([proposedResponse.response respondsToSelector:@selector(allHeaderFields)]
         && [[(id)proposedResponse.response allHeaderFields] objectForKey:@"Content-Range"])
@@ -165,6 +190,11 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler
 {
+    if (!_session) {
+        completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+        return;
+    }
+
     auto taskIdentifier = task.taskIdentifier;
     LOG(NetworkSession, "%llu didReceiveChallenge", taskIdentifier);
     
@@ -175,7 +205,7 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
         auto sessionID = _session->sessionID();
         auto challengeCompletionHandler = [completionHandlerCopy, sessionID, authenticationChallenge, taskIdentifier](WebKit::AuthenticationChallengeDisposition disposition, const WebCore::Credential& credential)
         {
-            LOG(NetworkSession, "%llu didReceiveChallenge completionHandler", taskIdentifier);
+            LOG(NetworkSession, "%llu didReceiveChallenge completionHandler %d", taskIdentifier, disposition);
 #if !USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
             UNUSED_PARAM(sessionID);
             UNUSED_PARAM(authenticationChallenge);
@@ -186,7 +216,7 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
                 WebCore::URL urlToStore;
                 if (authenticationChallenge.failureResponse().httpStatusCode() == 401)
                     urlToStore = authenticationChallenge.failureResponse().url();
-                if (auto storageSession = WebKit::SessionTracker::storageSession(sessionID))
+                if (auto storageSession = WebCore::NetworkStorageSession::storageSession(sessionID))
                     storageSession->credentialStorage().set(nonPersistentCredential, authenticationChallenge.protectionSpace(), urlToStore);
                 else
                     ASSERT_NOT_REACHED();
@@ -206,7 +236,10 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error
 {
-    LOG(NetworkSession, "%llu didCompleteWithError", task.taskIdentifier);
+    if (!_session)
+        return;
+
+    LOG(NetworkSession, "%llu didCompleteWithError %@", task.taskIdentifier, error);
     auto storedCredentials = _withCredentials ? WebCore::StoredCredentials::AllowStoredCredentials : WebCore::StoredCredentials::DoNotAllowStoredCredentials;
     if (auto* networkDataTask = _session->dataTaskForIdentifier(task.taskIdentifier, storedCredentials))
         networkDataTask->didCompleteWithError(error);
@@ -231,6 +264,11 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler
 {
+    if (!_session) {
+        completionHandler(NSURLSessionResponseCancel);
+        return;
+    }
+
     auto taskIdentifier = dataTask.taskIdentifier;
     LOG(NetworkSession, "%llu didReceiveResponse", taskIdentifier);
     auto storedCredentials = _withCredentials ? WebCore::StoredCredentials::AllowStoredCredentials : WebCore::StoredCredentials::DoNotAllowStoredCredentials;
@@ -249,10 +287,10 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
         // all the fields when sending the response to the WebContent process over IPC.
         resourceResponse.disableLazyInitialization();
 
-        copyTimingData([dataTask _timingData], resourceResponse.resourceLoadTiming());
+        copyTimingData([dataTask _timingData], resourceResponse.networkLoadTiming());
         auto completionHandlerCopy = Block_copy(completionHandler);
         networkDataTask->didReceiveResponse(WTFMove(resourceResponse), [completionHandlerCopy, taskIdentifier](WebCore::PolicyAction policyAction) {
-            LOG(NetworkSession, "%llu didReceiveResponse completionHandler (cancel)", taskIdentifier);
+            LOG(NetworkSession, "%llu didReceiveResponse completionHandler (%d)", taskIdentifier, policyAction);
             completionHandlerCopy(toNSURLSessionResponseDisposition(policyAction));
             Block_release(completionHandlerCopy);
         });
@@ -264,6 +302,9 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data
 {
+    if (!_session)
+        return;
+
     auto storedCredentials = _withCredentials ? WebCore::StoredCredentials::AllowStoredCredentials : WebCore::StoredCredentials::DoNotAllowStoredCredentials;
     if (auto* networkDataTask = _session->dataTaskForIdentifier(dataTask.taskIdentifier, storedCredentials))
         networkDataTask->didReceiveData(WebCore::SharedBuffer::wrapNSData(data));
@@ -271,6 +312,9 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location
 {
+    if (!_session)
+        return;
+
     auto downloadID = _session->takeDownloadID([downloadTask taskIdentifier]);
     if (auto* download = WebKit::NetworkProcess::singleton().downloadManager().download(downloadID))
         download->didFinish();
@@ -278,6 +322,9 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didWriteData:(int64_t)bytesWritten totalBytesWritten:(int64_t)totalBytesWritten totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
 {
+    if (!_session)
+        return;
+
     auto storedCredentials = _withCredentials ? WebCore::StoredCredentials::AllowStoredCredentials : WebCore::StoredCredentials::DoNotAllowStoredCredentials;
     ASSERT_WITH_MESSAGE_UNUSED(storedCredentials, !_session->dataTaskForIdentifier([downloadTask taskIdentifier], storedCredentials), "The NetworkDataTask should be destroyed immediately after didBecomeDownloadTask returns");
 
@@ -288,23 +335,27 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didResumeAtOffset:(int64_t)fileOffset expectedTotalBytes:(int64_t)expectedTotalBytes
 {
+    if (!_session)
+        return;
+
     notImplemented();
 }
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didBecomeDownloadTask:(NSURLSessionDownloadTask *)downloadTask
 {
+    if (!_session)
+        return;
+
     auto storedCredentials = _withCredentials ? WebCore::StoredCredentials::AllowStoredCredentials : WebCore::StoredCredentials::DoNotAllowStoredCredentials;
     if (auto* networkDataTask = _session->dataTaskForIdentifier([dataTask taskIdentifier], storedCredentials)) {
+        Ref<NetworkDataTaskCocoa> protectedNetworkDataTask(*networkDataTask);
         auto downloadID = networkDataTask->pendingDownloadID();
         auto& downloadManager = WebKit::NetworkProcess::singleton().downloadManager();
-        auto download = std::make_unique<WebKit::Download>(downloadManager, downloadID, downloadTask, _session->sessionID());
+        auto download = std::make_unique<WebKit::Download>(downloadManager, downloadID, downloadTask, _session->sessionID(), networkDataTask->suggestedFilename());
         networkDataTask->transferSandboxExtensionToDownload(*download);
         ASSERT(WebCore::fileExists(networkDataTask->pendingDownloadLocation()));
         download->didCreateDestination(networkDataTask->pendingDownloadLocation());
-        download->didReceiveResponse([downloadTask response]);
-        auto pendingDownload = downloadManager.dataTaskBecameDownloadTask(downloadID, WTFMove(download));
-
-        networkDataTask->didBecomeDownload();
+        downloadManager.dataTaskBecameDownloadTask(downloadID, WTFMove(download));
 
         _session->addDownloadID([downloadTask taskIdentifier], downloadID);
     }
@@ -314,14 +365,11 @@ static NSURLSessionAuthChallengeDisposition toNSURLSessionAuthChallengeDispositi
 
 namespace WebKit {
     
-static NSURLSessionConfiguration *configurationForType(NetworkSession::Type type)
+static NSURLSessionConfiguration *configurationForSessionID(const WebCore::SessionID& session)
 {
-    switch (type) {
-    case NetworkSession::Type::Normal:
-        return [NSURLSessionConfiguration defaultSessionConfiguration];
-    case NetworkSession::Type::Ephemeral:
+    if (session.isEphemeral())
         return [NSURLSessionConfiguration ephemeralSessionConfiguration];
-    }
+    return [NSURLSessionConfiguration defaultSessionConfiguration];
 }
 
 static RefPtr<CustomProtocolManager>& globalCustomProtocolManager()
@@ -336,42 +384,107 @@ static RetainPtr<CFDataRef>& globalSourceApplicationAuditTokenData()
     return sourceApplicationAuditTokenData.get();
 }
 
-void NetworkSession::setCustomProtocolManager(CustomProtocolManager* customProtocolManager)
+static String& globalSourceApplicationBundleIdentifier()
 {
+    static NeverDestroyed<String> sourceApplicationBundleIdentifier;
+    return sourceApplicationBundleIdentifier.get();
+}
+
+static String& globalSourceApplicationSecondaryIdentifier()
+{
+    static NeverDestroyed<String> sourceApplicationSecondaryIdentifier;
+    return sourceApplicationSecondaryIdentifier.get();
+}
+
+#if PLATFORM(IOS)
+static String& globalCTDataConnectionServiceType()
+{
+    static NeverDestroyed<String> ctDataConnectionServiceType;
+    return ctDataConnectionServiceType.get();
+}
+#endif
+
+#if !ASSERT_DISABLED
+static bool sessionsCreated = false;
+#endif
+
+void NetworkSessionCocoa::setCustomProtocolManager(CustomProtocolManager* customProtocolManager)
+{
+    ASSERT(!sessionsCreated);
     globalCustomProtocolManager() = customProtocolManager;
 }
     
-void NetworkSession::setSourceApplicationAuditTokenData(RetainPtr<CFDataRef>&& data)
+void NetworkSessionCocoa::setSourceApplicationAuditTokenData(RetainPtr<CFDataRef>&& data)
 {
+    ASSERT(!sessionsCreated);
     globalSourceApplicationAuditTokenData() = data;
 }
 
-Ref<NetworkSession> NetworkSession::create(Type type, WebCore::SessionID sessionID, CustomProtocolManager* customProtocolManager, std::unique_ptr<WebCore::NetworkStorageSession> networkStorageSession)
+void NetworkSessionCocoa::setSourceApplicationBundleIdentifier(const String& identifier)
 {
-    return adoptRef(*new NetworkSession(type, sessionID, customProtocolManager, WTFMove(networkStorageSession)));
+    ASSERT(!sessionsCreated);
+    globalSourceApplicationBundleIdentifier() = identifier;
 }
 
-NetworkSession& NetworkSession::defaultSession()
+void NetworkSessionCocoa::setSourceApplicationSecondaryIdentifier(const String& identifier)
+{
+    ASSERT(!sessionsCreated);
+    globalSourceApplicationSecondaryIdentifier() = identifier;
+}
+
+#if PLATFORM(IOS)
+void NetworkSessionCocoa::setCTDataConnectionServiceType(const String& type)
+{
+    ASSERT(!sessionsCreated);
+    globalCTDataConnectionServiceType() = type;
+}
+#endif
+
+Ref<NetworkSession> NetworkSessionCocoa::create(WebCore::SessionID sessionID, CustomProtocolManager* customProtocolManager)
+{
+    return adoptRef(*new NetworkSessionCocoa(sessionID, customProtocolManager));
+}
+
+NetworkSession& NetworkSessionCocoa::defaultSession()
 {
     ASSERT(isMainThread());
-    static NetworkSession* session = &NetworkSession::create(NetworkSession::Type::Normal, WebCore::SessionID::defaultSessionID(), globalCustomProtocolManager().get(), nullptr).leakRef();
+    static NetworkSession* session = &NetworkSessionCocoa::create(WebCore::SessionID::defaultSessionID(), globalCustomProtocolManager().get()).leakRef();
     return *session;
 }
 
-NetworkSession::NetworkSession(Type type, WebCore::SessionID sessionID, CustomProtocolManager* customProtocolManager, std::unique_ptr<WebCore::NetworkStorageSession> networkStorageSession)
-    : m_sessionID(sessionID)
-    , m_networkStorageSession(WTFMove(networkStorageSession))
+NetworkSessionCocoa::NetworkSessionCocoa(WebCore::SessionID sessionID, CustomProtocolManager* customProtocolManager)
+    : NetworkSession(sessionID)
 {
     relaxAdoptionRequirement();
 
-    NSURLSessionConfiguration *configuration = configurationForType(type);
+#if !ASSERT_DISABLED
+    sessionsCreated = true;
+#endif
+
+    NSURLSessionConfiguration *configuration = configurationForSessionID(m_sessionID);
 
     if (NetworkCache::singleton().isEnabled())
         configuration.URLCache = nil;
     
     if (auto& data = globalSourceApplicationAuditTokenData())
         configuration._sourceApplicationAuditTokenData = (NSData *)data.get();
-    
+
+    auto& sourceApplicationBundleIdentifier = globalSourceApplicationBundleIdentifier();
+    if (!sourceApplicationBundleIdentifier.isEmpty()) {
+        configuration._sourceApplicationBundleIdentifier = sourceApplicationBundleIdentifier;
+        configuration._sourceApplicationAuditTokenData = nil;
+    }
+
+    auto& sourceApplicationSecondaryIdentifier = globalSourceApplicationSecondaryIdentifier();
+    if (!sourceApplicationSecondaryIdentifier.isEmpty())
+        configuration._sourceApplicationSecondaryIdentifier = sourceApplicationSecondaryIdentifier;
+
+#if PLATFORM(IOS)
+    auto& ctDataConnectionServiceType = globalCTDataConnectionServiceType();
+    if (!ctDataConnectionServiceType.isEmpty())
+        configuration._CTDataConnectionServiceType = ctDataConnectionServiceType;
+#endif
+
     if (customProtocolManager)
         customProtocolManager->registerProtocolClass(configuration);
     
@@ -381,13 +494,13 @@ NetworkSession::NetworkSession(Type type, WebCore::SessionID sessionID, CustomPr
     setCollectsTimingData();
 #endif
 
-    if (m_networkStorageSession) {
-        ASSERT(type == Type::Ephemeral);
-        if (CFHTTPCookieStorageRef storage = m_networkStorageSession->cookieStorage().get())
+    if (sessionID == WebCore::SessionID::defaultSessionID()) {
+        if (CFHTTPCookieStorageRef storage = WebCore::NetworkStorageSession::defaultStorageSession().cookieStorage().get())
             configuration.HTTPCookieStorage = [[[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:storage] autorelease];
     } else {
-        ASSERT(type == Type::Normal);
-        if (CFHTTPCookieStorageRef storage = WebCore::NetworkStorageSession::defaultStorageSession().cookieStorage().get())
+        auto* storageSession = WebCore::NetworkStorageSession::storageSession(sessionID);
+        RELEASE_ASSERT(storageSession);
+        if (CFHTTPCookieStorageRef storage = storageSession->cookieStorage().get())
             configuration.HTTPCookieStorage = [[[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:storage] autorelease];
     }
 
@@ -400,25 +513,21 @@ NetworkSession::NetworkSession(Type type, WebCore::SessionID sessionID, CustomPr
     LOG(NetworkSession, "Created NetworkSession with cookieAcceptPolicy %lu", configuration.HTTPCookieStorage.cookieAcceptPolicy);
 }
 
-NetworkSession::~NetworkSession()
+NetworkSessionCocoa::~NetworkSessionCocoa()
 {
 }
 
-void NetworkSession::invalidateAndCancel()
+void NetworkSessionCocoa::invalidateAndCancel()
 {
+    NetworkSession::invalidateAndCancel();
+
     [m_sessionWithCredentialStorage invalidateAndCancel];
     [m_sessionWithoutCredentialStorage invalidateAndCancel];
+    [m_sessionWithCredentialStorageDelegate sessionInvalidated];
+    [m_sessionWithoutCredentialStorageDelegate sessionInvalidated];
 }
 
-
-WebCore::NetworkStorageSession& NetworkSession::networkStorageSession()
-{
-    if (!m_networkStorageSession)
-        return WebCore::NetworkStorageSession::defaultStorageSession();
-    return *m_networkStorageSession;
-}
-
-void NetworkSession::clearCredentials()
+void NetworkSessionCocoa::clearCredentials()
 {
 #if !USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
     ASSERT(m_dataTaskMapWithCredentials.isEmpty());
@@ -430,7 +539,7 @@ void NetworkSession::clearCredentials()
 #endif
 }
 
-NetworkDataTask* NetworkSession::dataTaskForIdentifier(NetworkDataTask::TaskIdentifier taskIdentifier, WebCore::StoredCredentials storedCredentials)
+NetworkDataTaskCocoa* NetworkSessionCocoa::dataTaskForIdentifier(NetworkDataTaskCocoa::TaskIdentifier taskIdentifier, WebCore::StoredCredentials storedCredentials)
 {
     ASSERT(isMainThread());
     if (storedCredentials == WebCore::StoredCredentials::AllowStoredCredentials)
@@ -438,7 +547,7 @@ NetworkDataTask* NetworkSession::dataTaskForIdentifier(NetworkDataTask::TaskIden
     return m_dataTaskMapWithoutCredentials.get(taskIdentifier);
 }
 
-void NetworkSession::addDownloadID(NetworkDataTask::TaskIdentifier taskIdentifier, DownloadID downloadID)
+void NetworkSessionCocoa::addDownloadID(NetworkDataTaskCocoa::TaskIdentifier taskIdentifier, DownloadID downloadID)
 {
 #ifndef NDEBUG
     ASSERT(!m_downloadMap.contains(taskIdentifier));
@@ -448,13 +557,13 @@ void NetworkSession::addDownloadID(NetworkDataTask::TaskIdentifier taskIdentifie
     m_downloadMap.add(taskIdentifier, downloadID);
 }
 
-DownloadID NetworkSession::downloadID(NetworkDataTask::TaskIdentifier taskIdentifier)
+DownloadID NetworkSessionCocoa::downloadID(NetworkDataTaskCocoa::TaskIdentifier taskIdentifier)
 {
     ASSERT(m_downloadMap.get(taskIdentifier).downloadID());
     return m_downloadMap.get(taskIdentifier);
 }
 
-DownloadID NetworkSession::takeDownloadID(NetworkDataTask::TaskIdentifier taskIdentifier)
+DownloadID NetworkSessionCocoa::takeDownloadID(NetworkDataTaskCocoa::TaskIdentifier taskIdentifier)
 {
     auto downloadID = m_downloadMap.take(taskIdentifier);
     return downloadID;

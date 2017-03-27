@@ -1479,12 +1479,11 @@ finish:
 int
 rebuild_kext_boot_cache_file(
     struct bootCaches *caches,
-    Boolean wait,
     const char * kext_boot_cache_file,
-    const char * kernel_file)
+    const char * kernel_file,
+    Boolean startup_kexts_ok)
 {   
     int             rval                    = ELAST + 1;
-    int             pid                     = -1;
     CFIndex i, argi = 0, argc = 0, narchs = 0;
     CFDictionaryRef pbDict, mkDict;
     CFArrayRef      archArray;
@@ -1592,7 +1591,7 @@ rebuild_kext_boot_cache_file(
     if (generateKernelcache) {
         // for '/' only, include all kexts loaded since boot (9130863)
         // TO DO: can we optimize for the install->first boot case?
-        if (0 == strcmp(caches->root, "/")) {
+        if (0 == strcmp(caches->root, "/") && startup_kexts_ok) {
             kcargs[argi++] = "-all-loaded";
         }
         pathcpy(fullkernelp, caches->root);
@@ -1653,24 +1652,17 @@ rebuild_kext_boot_cache_file(
         }
 
     }
-    rval = 0;
 
-   /* wait:false means the return value is <0 for fork/exec failures and
-    * the pid of the forked process if >0.
-    *
-    * wait:true means the return value is <0 for fork/exec failures and
-    * the exit status of the forked process (>=0) otherwise.
-    */
-    pid = fork_program("/usr/sbin/kextcache", kcargs, wait);  // logs errors
+    /* wait:true means the return value is <0 for spawn failures and
+     * the exit status of the forked process (>=0) otherwise.
+     */
+    rval = fork_program("/usr/sbin/kextcache", kcargs, true /*wait*/);  // logs
 
 finish:
-    if (rval) {
+    if (rval == ELAST + 1) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Data error before mkext rebuild.");
-    }
-    if (wait || pid < 0) {
-        rval = pid;
+            "Data error before rebuild of primary kext cache");
     }
 
     if (archstrs) {

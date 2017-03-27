@@ -100,7 +100,7 @@ static void
 testPubKeyImport(void)
 {
 	OSStatus status = errSecSuccess;
-	NSArray* outputItems = nil;
+	CFArrayRef outputItems = nil;
     SecKeychainRef keychain = NULL;
 	NSData* keyData = [NSData dataWithBytes:kPublicKey length:sizeof(kPublicKey)];
 	SecExternalFormat format = kSecFormatUnknown;
@@ -111,7 +111,7 @@ testPubKeyImport(void)
 
 	status = SecItemImport((CFDataRef)keyData,
 		NULL, &format, &keyType, 0, NULL,
-        keychain, (CFArrayRef *)&outputItems);
+        keychain, &outputItems);
 
 	NSLog(@"SecItemImport result = %d", (int)status);
 
@@ -189,6 +189,7 @@ testPubKeyImportWithModulusAndExponent(SecKeychainRef keychain)
     CFArrayRef outArray = NULL;
 
     status = SecItemImport(pkcs1, NULL, &externalFormat, &externalItemType, 0, NULL, keychain, &outArray);
+    CFReleaseNull(pkcs1);
     ok_status(status, "%s: SecItemImport", testName);
     if (status != errSecSuccess) {
     	NSLog(@"SecItemImport result = %d", (int)status);
@@ -207,10 +208,8 @@ int kc_26_key_import_public(int argc, char *const *argv)
 
     SecKeychainRef kc = getPopulatedTestKeychain();
 
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 //    testPubKeyImport();
     testPubKeyImportWithModulusAndExponent(kc);
-    [pool drain];
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", testName);
     CFReleaseNull(kc);

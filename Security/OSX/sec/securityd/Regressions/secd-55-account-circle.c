@@ -338,14 +338,7 @@ static void tests(void)
     CFReleaseNull(bob_account);
     CFReleaseNull(alice_account);
     CFReleaseNull(carol_account);
-    
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-    
+    SOSTestCleanup();
 }
 
 int secd_55_account_circle(int argc, char *const *argv)

@@ -2578,7 +2578,6 @@ AppleDatabase::passThrough(DbContext &dbContext,
 
 	default:
 		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
-		break;
 	}
 }
 

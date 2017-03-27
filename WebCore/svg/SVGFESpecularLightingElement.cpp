@@ -24,7 +24,6 @@
 
 #include "FilterEffect.h"
 #include "RenderStyle.h"
-#include "SVGColor.h"
 #include "SVGFELightElement.h"
 #include "SVGFilterBuilder.h"
 #include "SVGNames.h"
@@ -198,7 +197,7 @@ RefPtr<FilterEffect> SVGFESpecularLightingElement::build(SVGFilterBuilder* filte
     if (!renderer)
         return nullptr;
     
-    Color color = renderer->style().svgStyle().lightingColor();
+    const Color& color = renderer->style().svgStyle().lightingColor();
 
     RefPtr<FilterEffect> effect = FESpecularLighting::create(filter, color, surfaceScale(), specularConstant(),
                                           specularExponent(), kernelUnitLengthX(), kernelUnitLengthY(), WTFMove(lightSource));

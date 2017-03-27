@@ -638,7 +638,10 @@ res_getTableItemByIndex(const ResourceData *pResData, Resource table,
                         int32_t indexR, const char **key) {
     uint32_t offset=RES_GET_OFFSET(table);
     int32_t length;
-    U_ASSERT(indexR>=0); /* to ensure the index is not negative */
+    //U_ASSERT(indexR>=0); /* to ensure the index is not negative */
+    if (indexR < 0) {
+        return RES_BOGUS;
+    }
     switch(RES_GET_TYPE(table)) {
     case URES_TABLE: {
         if (offset != 0) { /* empty if offset==0 */
@@ -781,7 +784,10 @@ ures_getAllTableItems(const ResourceData *pResData, Resource table,
 U_CAPI Resource U_EXPORT2
 res_getArrayItem(const ResourceData *pResData, Resource array, int32_t indexR) {
     uint32_t offset=RES_GET_OFFSET(array);
-    U_ASSERT(indexR>=0); /* to ensure the index is not negative */
+    //U_ASSERT(indexR>=0); /* to ensure the index is not negative */
+    if (indexR < 0) {
+        return RES_BOGUS;
+    }
     switch(RES_GET_TYPE(array)) {
     case URES_ARRAY: {
         if (offset!=0) { /* empty if offset==0 */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,7 @@
 #include <SystemConfiguration/SCPrivate.h>
 
 #include <IOKit/IOKitLib.h>
+#include <IOKit/IOKitKeysPrivate.h>
 #include <IOKit/IOMessage.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include "UserEventAgentInterface.h"
@@ -551,6 +552,67 @@ notify_configure(MyType *myInstance)
 
 #pragma mark -
 
+static Boolean
+onConsole()
+{
+	CFArrayRef		console_sessions;
+	Boolean			on		= FALSE;
+	io_registry_entry_t	root;
+	uid_t			uid		= geteuid();
+
+	root = IORegistryGetRootEntry(kIOMasterPortDefault);
+	console_sessions = IORegistryEntryCreateCFProperty(root,
+							   CFSTR(kIOConsoleUsersKey),
+							   NULL,
+							   0);
+	if (console_sessions != NULL) {
+		CFIndex	n;
+
+		n = isA_CFArray(console_sessions) ? CFArrayGetCount(console_sessions) : 0;
+		for (CFIndex i = 0; i < n; i++) {
+			CFBooleanRef	bVal;
+			CFDictionaryRef	session;
+			uint64_t	sessionUID;
+			CFNumberRef	val;
+
+			session = CFArrayGetValueAtIndex(console_sessions, i);
+			if (!isA_CFDictionary(session)) {
+				// if not dictionary
+				continue;
+			}
+
+			if (!CFDictionaryGetValueIfPresent(session,
+							   CFSTR(kIOConsoleSessionUIDKey),
+							   (const void **)&val) ||
+			    !isA_CFNumber(val) ||
+			    !CFNumberGetValue(val, kCFNumberSInt64Type, (void *)&sessionUID) ||
+			    (uid != sessionUID)) {
+				// if not my session
+				continue;
+			}
+
+			if (CFDictionaryGetValueIfPresent(session,
+							  CFSTR(kIOConsoleSessionOnConsoleKey),
+							  (const void **)&bVal) &&
+			    isA_CFBoolean(bVal) &&
+			    CFBooleanGetValue(bVal)) {
+				// if "on console" session
+				on = TRUE;
+			}
+
+			break;
+		}
+
+		CFRelease(console_sessions);
+	}
+	IOObjectRelease(root);
+
+	return on;
+}
+
+
+#pragma mark -
+
 
 // configure ONLY IF authorized
 #define kSCNetworkInterfaceConfigurationActionValueConfigureAuthorized	CFSTR("Configure-Authorized")
@@ -566,6 +628,10 @@ updateInterfaceList(MyType *myInstance)
 	CFIndex			n;
 	SCPreferencesRef	prefs;
 	SCNetworkSetRef		set		= NULL;
+
+	if (!onConsole()) {
+		return;
+	}
 
 	prefs = SCPreferencesCreate(NULL, CFSTR("SCMonitor"), NULL);
 	if (prefs == NULL) {

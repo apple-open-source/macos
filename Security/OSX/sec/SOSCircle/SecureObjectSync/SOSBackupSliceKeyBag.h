@@ -31,6 +31,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
 
+extern CFStringRef bskbRkbgPrefix;
+
 // We don't have a portable header (particularly for the SIM) so for now we define the one type we need.
 // This should be fixed when we get a portable AKS interface.
 typedef int32_t bskb_keybag_handle_t;
@@ -41,6 +43,11 @@ CFTypeRef SOSBackupSliceKeyBageGetTypeID(void);
 
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreate(CFAllocatorRef allocator, CFSetRef peers, CFErrorRef* error);
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateDirect(CFAllocatorRef allocator, CFDataRef aks_bag, CFErrorRef *error);
+
+SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateWithAdditionalKeys(CFAllocatorRef allocator,
+                                                                     CFSetRef /*SOSPeerInfoRef*/ peers,
+                                                                     CFDictionaryRef /*CFStringRef (prefix) CFDataRef (keydata) */ additionalKeys,
+                                                                     CFErrorRef* error);
 
 SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagCreateFromData(CFAllocatorRef allocator, CFDataRef data, CFErrorRef *error);
 
@@ -54,6 +61,8 @@ CFSetRef SOSBSKBGetPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag);
 int SOSBSKBCountPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag);
 
 bool SOSBSKBPeerIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, SOSPeerInfoRef pi);
+bool SOSBKSBKeyIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFDataRef publicKey);
+bool SOSBKSBPrefixedKeyIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFStringRef prefix, CFDataRef publicKey);
 
 // Keybag fetching
 CFDataRef SOSBSKBCopyAKSBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFErrorRef* error);
@@ -83,7 +92,14 @@ bskb_keybag_handle_t SOSBSKBLoadAndUnlockWithDirectSecret(SOSBackupSliceKeyBagRe
                                                           CFDataRef directSecret,
                                                           CFErrorRef *error);
 
+bskb_keybag_handle_t SOSBSKBLoadAndUnlockWithWrappingSecret(SOSBackupSliceKeyBagRef backupSliceKeyBag,
+                                                            CFDataRef wrappingSecret,
+                                                            CFErrorRef *error);
+
 // Utilities for backup keys
 bool SOSBSKBIsGoodBackupPublic(CFDataRef publicKey, CFErrorRef *error);
+
+CFDataRef SOSBSKBCopyRecoveryKey(SOSBackupSliceKeyBagRef bskb);
+bool SOSBSKBHasRecoveryKey(SOSBackupSliceKeyBagRef bskb);
 
 #endif /* defined(_sec_SOSBackupSliceKeyBag_) */

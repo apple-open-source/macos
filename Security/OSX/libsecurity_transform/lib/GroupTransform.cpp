@@ -73,7 +73,9 @@ CFTypeRef GroupTransform::Make()
 
 static CFComparisonResult tr_cmp(const void *val1, const void *val2, void *context)
 {
-	return (intptr_t)val1 - (intptr_t)val2;
+    return (((intptr_t) val1 == (intptr_t) val2) ? kCFCompareEqualTo
+          : ((intptr_t) val1 >  (intptr_t) val2) ? kCFCompareGreaterThan
+          :                                        kCFCompareLessThan);
 }
 
 bool GroupTransform::HasMember(SecTransformRef member)

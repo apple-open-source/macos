@@ -45,7 +45,10 @@ enum {
 #define kOptSaveKext     'x'
 #define kOptNameSaveKext "extract"
 
-#define kOptChars  "a:hMvulx:"
+#define kOptJSON         'j'
+#define kOptNameJSON     "json"
+
+#define kOptChars  "a:hjMvulx:"
 
 int longopt = 0;
 
@@ -57,6 +60,7 @@ struct option sOptInfo[] = {
     { kOptNameSaveKext,              required_argument,  NULL,     kOptSaveKext },
     { kOptNameVerbose,               no_argument,        NULL,     kOptVerbose },
     { kOptNameLayoutMap,             no_argument,        NULL,     kOptLayoutMap },
+    { kOptNameJSON,                  no_argument,        NULL,     kOptJSON },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
 };
@@ -70,6 +74,7 @@ typedef struct {
     Boolean            verbose;
     Boolean            printUUIDs;
     Boolean            printMap;
+    Boolean            printJSON;
 } KclistArgs;
 
 /*

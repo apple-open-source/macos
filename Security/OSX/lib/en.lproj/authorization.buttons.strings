@@ -139,3 +139,6 @@
 "system.preferences.continuity" = "Unlock";
 
 "com.apple.ctkbind.admin" = "Pair";
+
+"com.apple.security.sudo" = "Allow";
+

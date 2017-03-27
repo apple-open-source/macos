@@ -1165,6 +1165,9 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
     int elementValue = 0;
     uint32_t psID = 0;
     char upsLabelString[kInternalUPSLabelLength];
+#if TARGET_OS_EMBEDDED
+    CFTypeRef value = NULL;
+#endif
     
     if (!upsDataRef || !properties || !capabilities)
         return kIOReturnError;
@@ -1305,6 +1308,12 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
 #endif
         else
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSTypeKey), CFSTR(kIOPSUPSType));
+
+#if TARGET_OS_EMBEDDED
+        if (CFDictionaryGetValueIfPresent(properties, CFSTR(kIOPSAccessoryIdentifierKey), (const void **)&value)) {
+            CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSAccessoryIdentifierKey), value);
+        }
+#endif
     }
     
     // Uniquely name each Sys Config key

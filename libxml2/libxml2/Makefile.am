@@ -1008,6 +1008,33 @@ Schemastests: testSchemas$(EXEEXT)
 	          rm res.$$name err.$$name ; \
 	       fi ; fi ;\
 	  done; done)
+	@echo "## Schemas streaming regression tests"
+	-@(for i in $(srcdir)/test/schemas/*_*.xsd ; do \
+	  name=`basename $$i | sed 's+_.*++'`; \
+	  sno=`basename $$i | sed 's+.*_\(.*\).xsd+\1+'`; \
+	  for j in $(srcdir)/test/schemas/"$$name"_*.xml ; do \
+	      if [ -f $$j ] ; then \
+	      xno=`basename $$j | sed 's+.*_\(.*\).xml+\1+'`; \
+	      if [ ! -f $(srcdir)/result/schemas/"$$name"_"$$sno"_"$$xno" ]; \
+	      then \
+		  echo New test file "$$name"_"$$sno"_"$$xno" ; \
+		  $(CHECKER) $(top_builddir)/testSchemas --stream $$i $$j \
+		    > $(srcdir)/result/schemas/"$$name"_"$$sno"_"$$xno" \
+		    2> $(srcdir)/result/schemas/"$$name"_"$$sno"_"$$xno".err.rdr; \
+	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	      else \
+	          log=`$(CHECKER) $(top_builddir)/testSchemas --stream $$i $$j \
+		    > res.$$name 2> err.$$name;\
+	          grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0";\
+	          diff $(srcdir)/result/schemas/"$$name"_"$$sno"_"$$xno" \
+		       res.$$name;\
+	          diff $(srcdir)/result/schemas/"$$name"_"$$sno"_"$$xno".err.rdr \
+		       err.$$name;\
+		  grep Unimplemented err.$$name`; \
+	          if [ -n "$$log" ] ; then echo "$$name"_"$$sno"_"$$xno" result ; echo $$log ; fi ; \
+	          rm res.$$name err.$$name ; \
+	       fi ; fi ;\
+	  done; done)
 
 Relaxtests: xmllint$(EXEEXT)
 	@(echo > .memdump)

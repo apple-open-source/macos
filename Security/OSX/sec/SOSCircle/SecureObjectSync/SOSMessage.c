@@ -318,21 +318,25 @@ static CFStringRef SOSMessageCopyFormatDescription(CFTypeRef cf, CFDictionaryRef
     SOSDataSourceFactoryRef dsf = SecItemDataSourceFactoryGetDefault();
     SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(dsf, kSecAttrAccessibleWhenUnlocked, NULL);
 
-    __block size_t maxEntries = 16;
-    CFStringAppendFormat(objects, NULL, CFSTR("{[%zu]"), SOSMessageCountObjects(message));
-    SOSMessageWithSOSObjects(message, ds, NULL, ^(SOSObjectRef object, bool *stop) {
-        CFDataRef digest = SOSObjectCopyDigest(ds, object, NULL);
-        const uint8_t *O = CFDataGetBytePtr(digest);
-        CFStringAppendFormat(objects, NULL, CFSTR(" %02X%02X%02X%02X"), O[0],O[1],O[2],O[3]);
-        CFReleaseSafe(digest);
-        if (!--maxEntries) {
-            CFStringAppend(objects, CFSTR("..."));
-            *stop = true;
-        }
-    });
-    CFStringAppend(objects, CFSTR("}"));
+    if (ds) {
+        __block size_t maxEntries = 16;
+        CFStringAppendFormat(objects, NULL, CFSTR("{[%zu]"), SOSMessageCountObjects(message));
+        SOSMessageWithSOSObjects(message, ds, NULL, ^(SOSObjectRef object, bool *stop) {
+            CFDataRef digest = SOSObjectCopyDigest(ds, object, NULL);
+            const uint8_t *O = CFDataGetBytePtr(digest);
+            CFStringAppendFormat(objects, NULL, CFSTR(" %02X%02X%02X%02X"), O[0],O[1],O[2],O[3]);
+            CFReleaseSafe(digest);
+            if (!--maxEntries) {
+                CFStringAppend(objects, CFSTR("..."));
+                *stop = true;
+            }
+        });
+        CFStringAppend(objects, CFSTR("}"));
+    } else {
+        CFStringAppend(objects, CFSTR("{NO DATASOURCE}"));
+    }
 
-    CFStringRef desc;
+    CFStringRef desc = NULL;
     if (message->version == 0) {
         switch (SOSMessageInferType(message, NULL)) {
             case SOSManifestInvalidMessageType:

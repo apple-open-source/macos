@@ -29,8 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSGridTemplateAreasValue_h
-#define CSSGridTemplateAreasValue_h
+#pragma once
 
 #if ENABLE(CSS_GRID_LAYOUT)
 
@@ -39,7 +38,7 @@
 
 namespace WebCore {
 
-class CSSGridTemplateAreasValue : public CSSValue {
+class CSSGridTemplateAreasValue final : public CSSValue {
 public:
     static Ref<CSSGridTemplateAreasValue> create(const NamedGridAreaMap& gridAreaMap, size_t rowCount, size_t columnCount)
     {
@@ -68,6 +67,4 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSGridTemplateAreasValue, isGridTemplateAreasValue())
 
-#endif /* ENABLE(CSS_GRID_LAYOUT) */
-
-#endif // CSSGridTemplateAreasValue_h
+#endif // ENABLE(CSS_GRID_LAYOUT)

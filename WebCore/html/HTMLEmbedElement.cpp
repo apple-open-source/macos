@@ -54,6 +54,11 @@ Ref<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Doc
     return adoptRef(*new HTMLEmbedElement(tagName, document, createdByParser));
 }
 
+Ref<HTMLEmbedElement> HTMLEmbedElement::create(Document& document)
+{
+    return adoptRef(*new HTMLEmbedElement(embedTag, document, false));
+}
+
 static inline RenderWidget* findWidgetRenderer(const Node* node)
 {
     if (!node->renderer()) {
@@ -135,7 +140,7 @@ void HTMLEmbedElement::parametersForPlugin(Vector<String>& paramNames, Vector<St
 
 // FIXME: This should be unified with HTMLObjectElement::updateWidget and
 // moved down into HTMLPluginImageElement.cpp
-void HTMLEmbedElement::updateWidget(PluginCreationOption pluginCreationOption)
+void HTMLEmbedElement::updateWidget(CreatePlugins createPlugins)
 {
     ASSERT(!renderEmbeddedObject()->isPluginUnavailable());
     ASSERT(needsWidgetUpdate());
@@ -152,7 +157,7 @@ void HTMLEmbedElement::updateWidget(PluginCreationOption pluginCreationOption)
     // FIXME: It's sadness that we have this special case here.
     //        See http://trac.webkit.org/changeset/25128 and
     //        plugins/netscape-plugin-setwindow-size.html
-    if (pluginCreationOption == CreateOnlyNonNetscapePlugins && wouldLoadAsNetscapePlugin(m_url, m_serviceType)) {
+    if (createPlugins == CreatePlugins::No && wouldLoadAsPlugIn(m_url, m_serviceType)) {
         // Ensure updateWidget() is called again during layout to create the Netscape plug-in.
         setNeedsWidgetUpdate(true);
         return;
@@ -175,6 +180,10 @@ void HTMLEmbedElement::updateWidget(PluginCreationOption pluginCreationOption)
         return;
     }
     if (!renderer()) // Do not load the plugin if beforeload removed this element or its renderer.
+        return;
+
+    // beforeLoad could have changed the document. Make sure the URL is still safe to load.
+    if (!allowedToLoadFrameURL(m_url))
         return;
 
     // FIXME: beforeLoad could have detached the renderer!  Just like in the <object> case above.

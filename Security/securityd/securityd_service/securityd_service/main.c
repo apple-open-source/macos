@@ -1187,6 +1187,5 @@ int main(int argc, const char * argv[])
     xpc_connection_resume(listener);
 
     dispatch_main();
-    exit(EXIT_FAILURE);
 }
 

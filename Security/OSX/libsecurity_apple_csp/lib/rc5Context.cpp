@@ -20,7 +20,7 @@
  * rc5Context.cpp - glue between BlockCrytpor and ssleay RC5 implementation
  */
  
-#include <openssl/rc5.h>
+#include <openssl/rc5_legacy.h>
 #include <misc/rc5_locl.h>
 #include "rc5Context.h"
 

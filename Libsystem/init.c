@@ -50,6 +50,7 @@ extern void libdispatch_init(void);		// from libdispatch.dylib
 extern void _libxpc_initializer(void);		// from libxpc.dylib
 extern void _libsecinit_initializer(void);        // from libsecinit.dylib
 extern void _libtrace_init(void);		// from libsystem_trace.dylib
+extern void _container_init(const char *apple[]); // from libsystem_containermanager.dylib
 
 
 // signal malloc stack logging that initialisation has finished
@@ -62,7 +63,9 @@ extern void _pthread_clear_qos_tsd(mach_port_t) __attribute__((weak_import));
 extern void _pthread_fork_prepare(void);
 extern void _pthread_fork_parent(void);
 extern void _pthread_fork_child(void);
-extern void _pthread_fork_child_postinit(void);
+extern void _pthread_atfork_prepare_handlers();
+extern void _pthread_atfork_parent_handlers(void);
+extern void _pthread_atfork_child_handlers(void);
 extern void _pthread_exit_if_canceled(int);
 
 extern void dispatch_atfork_prepare(void);
@@ -162,8 +165,15 @@ libSystem_initializer(int argc,
 	libdispatch_init();
 	_libxpc_initializer();
 
+	// must be initialized after dispatch
+	_libtrace_init();
+
 #if !(TARGET_OS_EMBEDDED || TARGET_OS_SIMULATOR)
 	_libsecinit_initializer();
+#endif
+
+#if TARGET_OS_EMBEDDED
+	_container_init(apple);
 #endif
 
 	__stack_logging_early_finished();
@@ -171,8 +181,6 @@ libSystem_initializer(int argc,
 #if TARGET_OS_EMBEDDED && !TARGET_OS_WATCH && !__LP64__
 	_vminterpose_init();
 #endif
-
-	_libtrace_init(); // must be initialized after dispatch
 
 #if !TARGET_OS_IPHONE
     /* <rdar://problem/22139800> - Preserve the old behavior of apple[] for
@@ -196,50 +204,59 @@ libSystem_initializer(int argc,
 
 /*
  * libSystem_atfork_{prepare,parent,child}() are called by libc during fork(2).
- * They call the corresponding atfork handlers for other libsystem components.
  */
 void
 libSystem_atfork_prepare(void)
 {
+	// first call client prepare handlers registered with pthread_atfork()
+	_pthread_atfork_prepare_handlers();
+
+	// second call hardwired fork prepare handlers for Libsystem components
+	// in the _reverse_ order of library initalization above
 	_libSC_info_fork_prepare();
 	xpc_atfork_prepare();
 	dispatch_atfork_prepare();
-	_pthread_fork_prepare();
 	_malloc_fork_prepare();
+	_pthread_fork_prepare();
 }
 
 void
 libSystem_atfork_parent(void)
 {
-	_malloc_fork_parent();
+	// first call hardwired fork parent handlers for Libsystem components
+	// in the order of library initalization above
 	_pthread_fork_parent();
+	_malloc_fork_parent();
 	dispatch_atfork_parent();
 	xpc_atfork_parent();
 	_libSC_info_fork_parent();
+
+	// second call client parent handlers registered with pthread_atfork()
+	_pthread_atfork_parent_handlers();
 }
 
 void
 libSystem_atfork_child(void)
 {
+	// first call hardwired fork child handlers for Libsystem components
+	// in the order of library initalization above
 	_dyld_fork_child();
 	_pthread_fork_child();
-	_malloc_fork_child();
-	dispatch_atfork_child();
-	
 	_mach_fork_child();
-	_libc_fork_child();
-
+	_malloc_fork_child();
+	_libc_fork_child(); // _arc4_fork_child calls malloc
+	dispatch_atfork_child();
 #if defined(HAVE_SYSTEM_CORESERVICES)
 	_libcoreservices_fork_child();
 #endif
-
 	_asl_fork_child();
 	_notify_fork_child();
 	xpc_atfork_child();
+	_libtrace_fork_child();
 	_libSC_info_fork_child();
 
-	_pthread_fork_child_postinit();
-	_libtrace_fork_child(); // no prep work required for the fork
+	// second call client parent handlers registered with pthread_atfork()
+	_pthread_atfork_child_handlers();
 }
 
 /*  

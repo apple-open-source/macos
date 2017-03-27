@@ -66,20 +66,29 @@ extern struct one_test_s testlist[];
 /* this test harnes rely on shadowing for TODO, SKIP and SETUP blocks */
 #pragma GCC diagnostic ignored "-Wshadow"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+// Call this function to stop the analyzer on a test failure. No-op.
+static void test_failed_noreturn() __attribute((analyzer_noreturn)) {
+    // No-op.
+}
+#define TEST_CHECK(result) ((result) ? 1 : ({ test_failed_noreturn(); 0; }))
+#pragma clang diagnostic pop
+
+
 #define test_create_description(TESTNAME, ...) \
     CFStringCreateWithFormat(NULL, NULL, CFSTR(TESTNAME), ## __VA_ARGS__)
 
 #define ok(THIS, ...) \
 ({ \
-    bool is_ok = !!(THIS); \
-    test_ok(is_ok, test_create_description(__VA_ARGS__), test_directive, \
+    test_ok(TEST_CHECK(!!(THIS)), test_create_description(__VA_ARGS__), test_directive, \
         test_reason, __FILE__, __LINE__, NULL); \
 })
 #define is(THIS, THAT, ...) \
 ({ \
     __typeof__(THIS) _this = (THIS); \
     __typeof__(THAT) _that = (THAT); \
-    test_ok((_this == _that), test_create_description(__VA_ARGS__), \
+    test_ok(TEST_CHECK(_this == _that), test_create_description(__VA_ARGS__), \
         test_directive, test_reason, __FILE__, __LINE__, \
 		"#          got: '%d'\n" \
 		"#     expected: '%d'\n", \
@@ -93,7 +102,7 @@ extern struct one_test_s testlist[];
 ({ \
 	__typeof__(THIS) _this = (THIS); \
 	__typeof__(THAT) _that = (THAT); \
-	test_ok((_this OP _that), test_create_description(__VA_ARGS__), \
+	test_ok(TEST_CHECK(_this OP _that), test_create_description(__VA_ARGS__), \
         test_directive, test_reason, __FILE__, __LINE__, \
 	   "#     '%d'\n" \
 	   "#         " #OP "\n" \
@@ -104,7 +113,7 @@ extern struct one_test_s testlist[];
 ({ \
 	const char *_this = (THIS); \
 	const char *_that = (THAT); \
-	test_ok(!strcmp(_this, _that), test_create_description(__VA_ARGS__), \
+	test_ok(TEST_CHECK(!strcmp(_this, _that)), test_create_description(__VA_ARGS__), \
         test_directive, test_reason, __FILE__, __LINE__, \
 	   "#     '%s'\n" \
 	   "#         eq\n" \
@@ -117,7 +126,7 @@ extern struct one_test_s testlist[];
 	__typeof__(THATLEN) _thatlen = (THATLEN); \
 	const char *_this = (THIS); \
 	const char *_that = (THAT); \
-	test_ok(_thislen == _thatlen && !strncmp(_this, _that, _thislen), \
+	test_ok(TEST_CHECK(_thislen == _thatlen) && TEST_CHECK(!strncmp(_this, _that, _thislen)), \
 		test_create_description(__VA_ARGS__), test_directive, test_reason, \
 		__FILE__, __LINE__, \
 	   "#     '%.*s'\n" \
@@ -129,7 +138,7 @@ extern struct one_test_s testlist[];
 ({ \
     CFTypeRef _this = (THIS); \
     CFTypeRef _that = (THAT); \
-    test_ok(CFEqualSafe(_this, _that), test_create_description(__VA_ARGS__), test_directive, test_reason, \
+    test_ok(TEST_CHECK(CFEqualSafe(_this, _that)), test_create_description(__VA_ARGS__), test_directive, test_reason, \
     __FILE__, __LINE__, \
     "#     '%@'\n" \
     "#      eq\n" \
@@ -157,7 +166,7 @@ extern struct one_test_s testlist[];
 
 #define ok_status(THIS, ...) \
 ({ \
-	OSStatus _this = (THIS); \
+	OSStatus _this = THIS; \
 	test_ok(!_this, test_create_description(__VA_ARGS__), \
         test_directive, test_reason, __FILE__, __LINE__, \
 	   "#     status: %s(%" PRId32 ")\n", \
@@ -167,7 +176,7 @@ extern struct one_test_s testlist[];
 ({ \
     OSStatus _this = (THIS); \
     OSStatus _that = (THAT); \
-    test_ok(_this == _that, test_create_description(__VA_ARGS__), \
+    test_ok(TEST_CHECK(_this == _that), test_create_description(__VA_ARGS__), \
         test_directive, test_reason, __FILE__, __LINE__, \
 	   "#          got: %s(%" PRId32 ")\n" \
 	   "#     expected: %s(%" PRId32 ")\n", \

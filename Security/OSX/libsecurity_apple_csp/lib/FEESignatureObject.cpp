@@ -113,7 +113,7 @@ void CryptKit::FEERawSigner::sign(
 {
 	feeSig 			fsig;
 	feeReturn		frtn;
-	unsigned char	*feeSig;
+	unsigned char	*feeSig = NULL;
 	unsigned		feeSigLen=0;
 	
 	if(mFeeKey == NULL) {

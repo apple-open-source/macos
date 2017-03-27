@@ -23,13 +23,14 @@
 #include "protocol.h"
 #include "protocolServer.h"
 #endif
-#include <sys/mount.h>
 
 #define DKEV_DISPOSE_IMMEDIATE_DELETE 0x1
 #define DKEV_UNREGISTER_DISCONNECTED 0x2
 #define DKEV_UNREGISTER_REPLY_REMOVE 0x4
 #define DKEV_UNREGISTER_WAKEUP 0x8
 
+static pthread_priority_t
+_dispatch_source_compute_kevent_priority(dispatch_source_t ds);
 static void _dispatch_source_handler_free(dispatch_source_t ds, long kind);
 static void _dispatch_source_merge_kevent(dispatch_source_t ds,
 		const _dispatch_kevent_qos_s *ke);
@@ -77,7 +78,6 @@ static const char * _evfiltstr(short filt);
 static void dispatch_kevent_debug(const char *verb,
 		const _dispatch_kevent_qos_s *kev, int i, int n,
 		const char *function, unsigned int line);
-static void _dispatch_kevent_debugger(void *context);
 #define DISPATCH_ASSERT_ON_MANAGER_QUEUE() \
 	dispatch_assert(_dispatch_queue_get_current() == &_dispatch_mgr_q)
 #else
@@ -125,10 +125,6 @@ dispatch_source_create(dispatch_source_type_t type, uintptr_t handle,
 		switch (type->ke.filter) {
 		case DISPATCH_EVFILT_TIMER:
 			break; // timers don't need masks
-#if DISPATCH_USE_VM_PRESSURE
-		case EVFILT_VM:
-			break; // type->init forces the only acceptable mask
-#endif
 		case DISPATCH_EVFILT_MACH_NOTIFICATION:
 			break; // type->init handles zero mask as a legacy case
 		default:
@@ -144,9 +140,6 @@ dispatch_source_create(dispatch_source_type_t type, uintptr_t handle,
 		}
 		break;
 	case EVFILT_FS:
-#if DISPATCH_USE_VM_PRESSURE
-	case EVFILT_VM:
-#endif
 #if DISPATCH_USE_MEMORYSTATUS
 	case EVFILT_MEMORYSTATUS:
 #endif
@@ -207,7 +200,7 @@ dispatch_source_create(dispatch_source_type_t type, uintptr_t handle,
 	}
 	// Some sources require special processing
 	if (type->init != NULL) {
-		type->init(ds, type, handle, mask, dq);
+		type->init(ds, type, handle, mask);
 	}
 	dispatch_assert(!(ds->ds_is_level && ds->ds_is_adder));
 	if (!ds->ds_is_custom_source && (dk->dk_kevent.flags & EV_VANISHED)) {
@@ -717,6 +710,12 @@ _dispatch_source_kevent_register(dispatch_source_t ds, pthread_priority_t pp)
 	dispatch_assert_zero((bool)ds->ds_is_installed);
 	switch (ds->ds_dkev->dk_kevent.filter) {
 	case DISPATCH_EVFILT_TIMER:
+		// aggressively coalesce background/maintenance QoS timers
+		// <rdar://problem/12200216&27342536>
+		pp = _dispatch_source_compute_kevent_priority(ds);
+		if (_dispatch_is_background_priority(pp)) {
+			ds_timer(ds->ds_refs).flags |= DISPATCH_TIMER_BACKGROUND;
+		}
 		_dispatch_timers_update(ds);
 		_dispatch_queue_atomic_flags_set(ds->_as_dq, DSF_ARMED);
 		_dispatch_debug("kevent-source[%p]: armed kevent[%p]", ds, ds->ds_dkev);
@@ -1251,30 +1250,6 @@ done:
 #pragma mark -
 #pragma mark dispatch_kevent_t
 
-#if DISPATCH_USE_GUARDED_FD_CHANGE_FDGUARD
-static void _dispatch_kevent_guard(dispatch_kevent_t dk);
-static void _dispatch_kevent_unguard(dispatch_kevent_t dk);
-#else
-static inline void _dispatch_kevent_guard(dispatch_kevent_t dk) { (void)dk; }
-static inline void _dispatch_kevent_unguard(dispatch_kevent_t dk) { (void)dk; }
-#endif
-
-#if !DISPATCH_USE_EV_UDATA_SPECIFIC
-static struct dispatch_kevent_s _dispatch_kevent_data_or = {
-	.dk_kevent = {
-		.filter = DISPATCH_EVFILT_CUSTOM_OR,
-		.flags = EV_CLEAR,
-	},
-	.dk_sources = TAILQ_HEAD_INITIALIZER(_dispatch_kevent_data_or.dk_sources),
-};
-static struct dispatch_kevent_s _dispatch_kevent_data_add = {
-	.dk_kevent = {
-		.filter = DISPATCH_EVFILT_CUSTOM_ADD,
-	},
-	.dk_sources = TAILQ_HEAD_INITIALIZER(_dispatch_kevent_data_add.dk_sources),
-};
-#endif // !DISPATCH_USE_EV_UDATA_SPECIFIC
-
 #define DSL_HASH(x) ((x) & (DSL_HASH_SIZE - 1))
 
 DISPATCH_CACHELINE_ALIGN
@@ -1287,17 +1262,6 @@ _dispatch_kevent_init()
 	for (i = 0; i < DSL_HASH_SIZE; i++) {
 		TAILQ_INIT(&_dispatch_sources[i]);
 	}
-
-#if !DISPATCH_USE_EV_UDATA_SPECIFIC
-	TAILQ_INSERT_TAIL(&_dispatch_sources[0],
-			&_dispatch_kevent_data_or, dk_list);
-	TAILQ_INSERT_TAIL(&_dispatch_sources[0],
-			&_dispatch_kevent_data_add, dk_list);
-	_dispatch_kevent_data_or.dk_kevent.udata =
-			(_dispatch_kevent_qos_udata_t)&_dispatch_kevent_data_or;
-	_dispatch_kevent_data_add.dk_kevent.udata =
-			(_dispatch_kevent_qos_udata_t)&_dispatch_kevent_data_add;
-#endif // !DISPATCH_USE_EV_UDATA_SPECIFIC
 }
 
 static inline uintptr_t
@@ -1333,7 +1297,6 @@ static void
 _dispatch_kevent_insert(dispatch_kevent_t dk)
 {
 	if (dk->dk_kevent.flags & EV_UDATA_SPECIFIC) return;
-	_dispatch_kevent_guard(dk);
 	uintptr_t hash = _dispatch_kevent_hash(dk->dk_kevent.ident,
 			dk->dk_kevent.filter);
 	TAILQ_INSERT_TAIL(&_dispatch_sources[hash], dk, dk_list);
@@ -1500,7 +1463,6 @@ _dispatch_kevent_dispose(dispatch_kevent_t dk, unsigned int options)
 				dk->dk_kevent.filter);
 		TAILQ_REMOVE(&_dispatch_sources[hash], dk, dk_list);
 	}
-	_dispatch_kevent_unguard(dk);
 	free(dk);
 	return r;
 }
@@ -1598,10 +1560,6 @@ _dispatch_kevent_error(_dispatch_kevent_qos_s *ke)
 static void
 _dispatch_kevent_drain(_dispatch_kevent_qos_s *ke)
 {
-#if DISPATCH_DEBUG
-	static dispatch_once_t pred;
-	dispatch_once_f(&pred, NULL, _dispatch_kevent_debugger);
-#endif
 	if (ke->filter == EVFILT_USER) {
 		_dispatch_kevent_mgr_debug(ke);
 		return;
@@ -1643,61 +1601,6 @@ _dispatch_kevent_merge(_dispatch_kevent_qos_s *ke)
 	}
 }
 
-#if DISPATCH_USE_GUARDED_FD_CHANGE_FDGUARD
-static void
-_dispatch_kevent_guard(dispatch_kevent_t dk)
-{
-	guardid_t guard;
-	const unsigned int guard_flags = GUARD_CLOSE;
-	int r, fd_flags = 0;
-	switch (dk->dk_kevent.filter) {
-	case EVFILT_READ:
-	case EVFILT_WRITE:
-	case EVFILT_VNODE:
-		guard = &dk->dk_kevent;
-		r = change_fdguard_np((int)dk->dk_kevent.ident, NULL, 0,
-				&guard, guard_flags, &fd_flags);
-		if (slowpath(r == -1)) {
-			int err = errno;
-			if (err != EPERM) {
-				(void)dispatch_assume_zero(err);
-			}
-			return;
-		}
-		dk->dk_kevent.ext[0] = guard_flags;
-		dk->dk_kevent.ext[1] = fd_flags;
-		break;
-	}
-}
-
-static void
-_dispatch_kevent_unguard(dispatch_kevent_t dk)
-{
-	guardid_t guard;
-	unsigned int guard_flags;
-	int r, fd_flags;
-	switch (dk->dk_kevent.filter) {
-	case EVFILT_READ:
-	case EVFILT_WRITE:
-	case EVFILT_VNODE:
-		guard_flags = (unsigned int)dk->dk_kevent.ext[0];
-		if (!guard_flags) {
-			return;
-		}
-		guard = &dk->dk_kevent;
-		fd_flags = (int)dk->dk_kevent.ext[1];
-		r = change_fdguard_np((int)dk->dk_kevent.ident, &guard,
-				guard_flags, NULL, 0, &fd_flags);
-		if (slowpath(r == -1)) {
-			(void)dispatch_assume_zero(errno);
-			return;
-		}
-		dk->dk_kevent.ext[0] = 0;
-		break;
-	}
-}
-#endif // DISPATCH_USE_GUARDED_FD_CHANGE_FDGUARD
-
 #pragma mark -
 #pragma mark dispatch_source_timer
 
@@ -1721,49 +1624,23 @@ static dispatch_source_refs_t
 DISPATCH_NOINLINE
 static void
 _dispatch_source_timer_telemetry_slow(dispatch_source_t ds,
-		uintptr_t ident, struct dispatch_timer_source_s *values)
+		dispatch_clock_t clock, struct dispatch_timer_source_s *values)
 {
 	if (_dispatch_trace_timer_configure_enabled()) {
-		_dispatch_trace_timer_configure(ds, ident, values);
+		_dispatch_trace_timer_configure(ds, clock, values);
 	}
 }
 
 DISPATCH_ALWAYS_INLINE
 static inline void
-_dispatch_source_timer_telemetry(dispatch_source_t ds, uintptr_t ident,
+_dispatch_source_timer_telemetry(dispatch_source_t ds, dispatch_clock_t clock,
 		struct dispatch_timer_source_s *values)
 {
 	if (_dispatch_trace_timer_configure_enabled() ||
 			_dispatch_source_timer_telemetry_enabled()) {
-		_dispatch_source_timer_telemetry_slow(ds, ident, values);
+		_dispatch_source_timer_telemetry_slow(ds, clock, values);
 		asm(""); // prevent tailcall
 	}
-}
-
-// approx 1 year (60s * 60m * 24h * 365d)
-#define FOREVER_NSEC 31536000000000000ull
-
-DISPATCH_ALWAYS_INLINE
-static inline uint64_t
-_dispatch_source_timer_now(uint64_t nows[], unsigned int tidx)
-{
-	unsigned int tk = DISPATCH_TIMER_KIND(tidx);
-	if (nows && fastpath(nows[tk] != 0)) {
-		return nows[tk];
-	}
-	uint64_t now;
-	switch (tk) {
-	case DISPATCH_TIMER_KIND_MACH:
-		now = _dispatch_absolute_time();
-		break;
-	case DISPATCH_TIMER_KIND_WALL:
-		now = _dispatch_get_nanoseconds();
-		break;
-	}
-	if (nows) {
-		nows[tk] = now;
-	}
-	return now;
 }
 
 static inline unsigned long
@@ -1772,7 +1649,7 @@ _dispatch_source_timer_data(dispatch_source_refs_t dr, unsigned long prev)
 	// calculate the number of intervals since last fire
 	unsigned long data, missed;
 	uint64_t now;
-	now = _dispatch_source_timer_now(NULL, _dispatch_source_timer_idx(dr));
+	now = _dispatch_time_now(DISPATCH_TIMER_CLOCK(_dispatch_source_timer_idx(dr)));
 	missed = (unsigned long)((now - ds_timer(dr).last_fire) /
 			ds_timer(dr).interval);
 	// correct for missed intervals already delivered last time
@@ -1783,8 +1660,8 @@ _dispatch_source_timer_data(dispatch_source_refs_t dr, unsigned long prev)
 
 struct dispatch_set_timer_params {
 	dispatch_source_t ds;
-	uintptr_t ident;
 	struct dispatch_timer_source_s values;
+	dispatch_clock_t clock;
 };
 
 static void
@@ -1793,21 +1670,31 @@ _dispatch_source_set_timer3(void *context)
 	// Called on the _dispatch_mgr_q
 	struct dispatch_set_timer_params *params = context;
 	dispatch_source_t ds = params->ds;
-	ds->ds_ident_hack = params->ident;
-	ds_timer(ds->ds_refs) = params->values;
+	dispatch_timer_source_refs_t dt = (dispatch_timer_source_refs_t)ds->ds_refs;
+
+	params->values.flags = ds_timer(dt).flags;
+	if (params->clock == DISPATCH_CLOCK_WALL) {
+		params->values.flags |= DISPATCH_TIMER_WALL_CLOCK;
+#if HAVE_MACH
+		_dispatch_mach_host_calendar_change_register();
+#endif
+	} else {
+		params->values.flags &= ~(unsigned long)DISPATCH_TIMER_WALL_CLOCK;
+	}
+	ds_timer(dt) = params->values;
+	ds->ds_ident_hack = _dispatch_source_timer_idx(ds->ds_refs);
 	// Clear any pending data that might have accumulated on
 	// older timer params <rdar://problem/8574886>
 	ds->ds_pending_data = 0;
-	// Re-arm in case we got disarmed because of pending set_timer suspension
-	_dispatch_queue_atomic_flags_set(ds->_as_dq, DSF_ARMED);
-	_dispatch_debug("kevent-source[%p]: rearmed kevent[%p]", ds, ds->ds_dkev);
+
 	dispatch_resume(ds);
-	// Must happen after resume to avoid getting disarmed due to suspension
-	_dispatch_timers_update(ds);
-	dispatch_release(ds);
-	if (params->values.flags & DISPATCH_TIMER_WALL_CLOCK) {
-		_dispatch_mach_host_calendar_change_register();
+	if (_dispatch_source_tryarm(ds)) {
+		// Re-arm in case we got disarmed because of pending set_timer suspension
+		_dispatch_debug("kevent-source[%p]: rearmed kevent[%p]", ds, dt);
+		// Must happen after resume to avoid getting disarmed due to suspension
+		_dispatch_timers_update(ds);
 	}
+	dispatch_release(ds);
 	free(params);
 }
 
@@ -1829,7 +1716,6 @@ _dispatch_source_timer_params(dispatch_source_t ds, dispatch_time_t start,
 	struct dispatch_set_timer_params *params;
 	params = _dispatch_calloc(1ul, sizeof(struct dispatch_set_timer_params));
 	params->ds = ds;
-	params->values.flags = ds_timer(ds->ds_refs).flags;
 
 	if (interval == 0) {
 		// we use zero internally to mean disabled
@@ -1850,7 +1736,7 @@ _dispatch_source_timer_params(dispatch_source_t ds, dispatch_time_t start,
 	if ((int64_t)start < 0) {
 		// wall clock
 		start = (dispatch_time_t)-((int64_t)start);
-		params->values.flags |= DISPATCH_TIMER_WALL_CLOCK;
+		params->clock = DISPATCH_CLOCK_WALL;
 	} else {
 		// absolute clock
 		interval = _dispatch_time_nano2mach(interval);
@@ -1862,9 +1748,8 @@ _dispatch_source_timer_params(dispatch_source_t ds, dispatch_time_t start,
 			interval = 1;
 		}
 		leeway = _dispatch_time_nano2mach(leeway);
-		params->values.flags &= ~(unsigned long)DISPATCH_TIMER_WALL_CLOCK;
+		params->clock = DISPATCH_CLOCK_MACH;
 	}
-	params->ident = DISPATCH_TIMER_IDENT(params->values.flags);
 	params->values.target = start;
 	params->values.deadline = (start < UINT64_MAX - leeway) ?
 			start + leeway : UINT64_MAX;
@@ -1887,7 +1772,7 @@ _dispatch_source_set_timer(dispatch_source_t ds, dispatch_time_t start,
 	struct dispatch_set_timer_params *params;
 	params = _dispatch_source_timer_params(ds, start, interval, leeway);
 
-	_dispatch_source_timer_telemetry(ds, params->ident, &params->values);
+	_dispatch_source_timer_telemetry(ds, params->clock, &params->values);
 	// Suspend the source so that it doesn't fire with pending changes
 	// The use of suspend/resume requires the external retain/release
 	dispatch_retain(ds);
@@ -1917,8 +1802,11 @@ _dispatch_source_set_runloop_timer_4CF(dispatch_source_t ds,
 void
 _dispatch_source_set_interval(dispatch_source_t ds, uint64_t interval)
 {
+#define NSEC_PER_FRAME (NSEC_PER_SEC/60)
+// approx 1 year (60s * 60m * 24h * 365d)
+#define FOREVER_NSEC 31536000000000000ull
+
 	dispatch_source_refs_t dr = ds->ds_refs;
-	#define NSEC_PER_FRAME (NSEC_PER_SEC/60)
 	const bool animation = ds_timer(dr).flags & DISPATCH_INTERVAL_UI_ANIMATION;
 	if (fastpath(interval <= (animation ? FOREVER_NSEC/NSEC_PER_FRAME :
 			FOREVER_NSEC/NSEC_PER_MSEC))) {
@@ -1935,7 +1823,8 @@ _dispatch_source_set_interval(dispatch_source_t ds, uint64_t interval)
 	ds_timer(dr).deadline = target + leeway;
 	ds_timer(dr).interval = interval;
 	ds_timer(dr).leeway = leeway;
-	_dispatch_source_timer_telemetry(ds, ds->ds_ident_hack, &ds_timer(dr));
+	dispatch_clock_t clock = DISPATCH_TIMER_CLOCK(ds->ds_ident_hack);
+	_dispatch_source_timer_telemetry(ds, clock, &ds_timer(dr));
 }
 
 #pragma mark -
@@ -1958,7 +1847,7 @@ typedef struct dispatch_timer_s {
 	}
 #define DISPATCH_TIMER_INIT(kind, qos) \
 		DISPATCH_TIMER_INITIALIZER(DISPATCH_TIMER_INDEX( \
-		DISPATCH_TIMER_KIND_##kind, DISPATCH_TIMER_QOS_##qos))
+		DISPATCH_CLOCK_##kind, DISPATCH_TIMER_QOS_##qos))
 
 struct dispatch_timer_s _dispatch_timer[] =  {
 	DISPATCH_TIMER_INIT(WALL, NORMAL),
@@ -1998,7 +1887,7 @@ struct dispatch_timer_s _dispatch_timer[] =  {
 	}
 #define DISPATCH_KEVENT_TIMER_INIT(kind, qos) \
 		DISPATCH_KEVENT_TIMER_INITIALIZER(DISPATCH_TIMER_INDEX( \
-		DISPATCH_TIMER_KIND_##kind, DISPATCH_TIMER_QOS_##qos))
+		DISPATCH_CLOCK_##kind, DISPATCH_TIMER_QOS_##qos))
 
 struct dispatch_kevent_s _dispatch_kevent_timer[] = {
 	DISPATCH_KEVENT_TIMER_INIT(WALL, NORMAL),
@@ -2022,7 +1911,7 @@ struct dispatch_kevent_s _dispatch_kevent_timer[] = {
 	}
 #define DISPATCH_KEVENT_TIMEOUT_INIT(kind, qos, note) \
 		DISPATCH_KEVENT_TIMEOUT_INITIALIZER(DISPATCH_TIMER_INDEX( \
-		DISPATCH_TIMER_KIND_##kind, DISPATCH_TIMER_QOS_##qos), note)
+		DISPATCH_CLOCK_##kind, DISPATCH_TIMER_QOS_##qos), note)
 
 _dispatch_kevent_qos_s _dispatch_kevent_timeout[] = {
 	DISPATCH_KEVENT_TIMEOUT_INIT(WALL, NORMAL, NOTE_MACH_CONTINUOUS_TIME),
@@ -2198,13 +2087,13 @@ _dispatch_timers_update(dispatch_source_t ds)
 }
 
 static inline void
-_dispatch_timers_run2(uint64_t nows[], unsigned int tidx)
+_dispatch_timers_run2(dispatch_clock_now_cache_t nows, unsigned int tidx)
 {
 	dispatch_source_refs_t dr;
 	dispatch_source_t ds;
 	uint64_t now, missed;
 
-	now = _dispatch_source_timer_now(nows, tidx);
+	now = _dispatch_time_now_cached(DISPATCH_TIMER_CLOCK(tidx), nows);
 	while ((dr = TAILQ_FIRST(&_dispatch_kevent_timer[tidx].dk_sources))) {
 		ds = _dispatch_source_from_refs(dr);
 		// We may find timers on the wrong list due to a pending update from
@@ -2255,7 +2144,7 @@ _dispatch_timers_run2(uint64_t nows[], unsigned int tidx)
 
 DISPATCH_NOINLINE
 static void
-_dispatch_timers_run(uint64_t nows[])
+_dispatch_timers_run(dispatch_clock_now_cache_t nows)
 {
 	unsigned int tidx;
 	for (tidx = 0; tidx < DISPATCH_TIMER_COUNT; tidx++) {
@@ -2265,27 +2154,33 @@ _dispatch_timers_run(uint64_t nows[])
 	}
 }
 
-static inline unsigned int
-_dispatch_timers_get_delay(uint64_t nows[], struct dispatch_timer_s timer[],
-		uint64_t *delay, uint64_t *leeway, int qos, int kind)
-{
-	unsigned int tidx, ridx = DISPATCH_TIMER_COUNT;
-	uint64_t tmp, delta = UINT64_MAX, dldelta = UINT64_MAX;
+#define DISPATCH_TIMERS_GET_DELAY_ALL (~0u)
 
-	for (tidx = 0; tidx < DISPATCH_TIMER_COUNT; tidx++) {
-		if (qos >= 0 && qos != DISPATCH_TIMER_QOS(tidx)){
-			continue;
-		}
-		if (kind >= 0 && kind != DISPATCH_TIMER_KIND(tidx)){
-			continue;
-		}
+static inline unsigned int
+_dispatch_timers_get_delay(dispatch_clock_now_cache_t nows,
+		struct dispatch_timer_s timer[],
+		uint64_t *delay, uint64_t *leeway, unsigned int query)
+{
+	unsigned int tidx, ridx = DISPATCH_TIMER_COUNT, minidx, maxidx;
+	uint64_t tmp, delta = INT64_MAX, dldelta = INT64_MAX;
+
+	if (query == DISPATCH_TIMERS_GET_DELAY_ALL) {
+		minidx = 0;
+		maxidx = DISPATCH_TIMER_COUNT - 1;
+	} else {
+		minidx = maxidx = query;
+	}
+
+	for (tidx = minidx; tidx <= maxidx; tidx++) {
+		dispatch_clock_t clock = DISPATCH_TIMER_CLOCK(tidx);
 		uint64_t target = timer[tidx].target;
-		if (target == UINT64_MAX) {
+		if (target >= INT64_MAX) {
 			continue;
 		}
 		uint64_t deadline = timer[tidx].deadline;
-		if (qos >= 0) {
+		if (query != DISPATCH_TIMERS_GET_DELAY_ALL) {
 			// Timer pre-coalescing <rdar://problem/13222034>
+			unsigned int qos = DISPATCH_TIMER_QOS(tidx);
 			uint64_t window = _dispatch_kevent_coalescing_window[qos];
 			uint64_t latest = deadline > window ? deadline - window : 0;
 			dispatch_source_refs_t dri;
@@ -2296,13 +2191,13 @@ _dispatch_timers_get_delay(uint64_t nows[], struct dispatch_timer_s timer[],
 				target = tmp;
 			}
 		}
-		uint64_t now = _dispatch_source_timer_now(nows, tidx);
+		uint64_t now = _dispatch_time_now_cached(clock, nows);
 		if (target <= now) {
 			delta = 0;
 			break;
 		}
 		tmp = target - now;
-		if (DISPATCH_TIMER_KIND(tidx) != DISPATCH_TIMER_KIND_WALL) {
+		if (clock != DISPATCH_CLOCK_WALL) {
 			tmp = _dispatch_time_mach2nano(tmp);
 		}
 		if (tmp < INT64_MAX && tmp < delta) {
@@ -2311,7 +2206,7 @@ _dispatch_timers_get_delay(uint64_t nows[], struct dispatch_timer_s timer[],
 		}
 		dispatch_assert(target <= deadline);
 		tmp = deadline - now;
-		if (DISPATCH_TIMER_KIND(tidx) != DISPATCH_TIMER_KIND_WALL) {
+		if (clock != DISPATCH_CLOCK_WALL) {
 			tmp = _dispatch_time_mach2nano(tmp);
 		}
 		if (tmp < INT64_MAX && tmp < dldelta) {
@@ -2319,7 +2214,7 @@ _dispatch_timers_get_delay(uint64_t nows[], struct dispatch_timer_s timer[],
 		}
 	}
 	*delay = delta;
-	*leeway = delta && delta < UINT64_MAX ? dldelta - delta : UINT64_MAX;
+	*leeway = delta && delta < INT64_MAX ? dldelta - delta : INT64_MAX;
 	return ridx;
 }
 
@@ -2335,24 +2230,28 @@ _dispatch_timers_get_delay(uint64_t nows[], struct dispatch_timer_s timer[],
 
 static void
 _dispatch_kevent_timer_set_delay(_dispatch_kevent_qos_s *ke, uint64_t delay,
-		uint64_t leeway, uint64_t nows[])
+		uint64_t leeway, dispatch_clock_now_cache_t nows)
 {
 	// call to update nows[]
-	_dispatch_source_timer_now(nows, DISPATCH_TIMER_KIND_WALL);
+	_dispatch_time_now_cached(DISPATCH_CLOCK_WALL, nows);
+#ifdef KEVENT_NSEC_NOT_SUPPORTED
 	// adjust nsec based delay to msec based and ignore leeway
 	delay /= 1000000L;
 	if ((int64_t)(delay) <= 0) {
 		delay = 1; // if value <= 0 the dispatch will stop
 	}
+#else
+	ke->fflags |= NOTE_NSECONDS;
+#endif
 	ke->data = (int64_t)delay;
 }
 
 #else
 static void
 _dispatch_kevent_timer_set_delay(_dispatch_kevent_qos_s *ke, uint64_t delay,
-		uint64_t leeway, uint64_t nows[])
+		uint64_t leeway, dispatch_clock_now_cache_t nows)
 {
-	delay += _dispatch_source_timer_now(nows, DISPATCH_TIMER_KIND_WALL);
+	delay += _dispatch_time_now_cached(DISPATCH_CLOCK_WALL, nows);
 	if (slowpath(_dispatch_timers_force_max_leeway)) {
 		ke->data = (int64_t)(delay + leeway);
 		ke->ext[1] = 0;
@@ -2364,14 +2263,13 @@ _dispatch_kevent_timer_set_delay(_dispatch_kevent_qos_s *ke, uint64_t delay,
 #endif // __linux__
 
 static bool
-_dispatch_timers_program2(uint64_t nows[], _dispatch_kevent_qos_s *ke,
-		unsigned int tidx)
+_dispatch_timers_program2(dispatch_clock_now_cache_t nows,
+		_dispatch_kevent_qos_s *ke, unsigned int tidx)
 {
 	bool poll;
 	uint64_t delay, leeway;
 
-	_dispatch_timers_get_delay(nows, _dispatch_timer, &delay, &leeway,
-			(int)DISPATCH_TIMER_QOS(tidx), (int)DISPATCH_TIMER_KIND(tidx));
+	_dispatch_timers_get_delay(nows, _dispatch_timer, &delay, &leeway, tidx);
 	poll = (delay == 0);
 	if (poll || delay == UINT64_MAX) {
 		_dispatch_trace_next_timer_set(NULL, DISPATCH_TIMER_QOS(tidx));
@@ -2400,7 +2298,7 @@ _dispatch_timers_program2(uint64_t nows[], _dispatch_kevent_qos_s *ke,
 
 DISPATCH_NOINLINE
 static bool
-_dispatch_timers_program(uint64_t nows[])
+_dispatch_timers_program(dispatch_clock_now_cache_t nows)
 {
 	bool poll = false;
 	unsigned int tidx, timerm = _dispatch_timers_mask;
@@ -2433,7 +2331,7 @@ _dispatch_timers_calendar_change(void)
 	_dispatch_timer_expired = true;
 	for (qos = 0; qos < DISPATCH_TIMER_QOS_COUNT; qos++) {
 		_dispatch_timers_mask |=
-				1 << DISPATCH_TIMER_INDEX(DISPATCH_TIMER_KIND_WALL, qos);
+				1 << DISPATCH_TIMER_INDEX(DISPATCH_CLOCK_WALL, qos);
 	}
 }
 #endif
@@ -2456,10 +2354,10 @@ _dispatch_timers_kevent(_dispatch_kevent_qos_s *ke)
 static inline bool
 _dispatch_mgr_timers(void)
 {
-	uint64_t nows[DISPATCH_TIMER_KIND_COUNT] = {};
+	dispatch_clock_now_cache_s nows = { };
 	bool expired = slowpath(_dispatch_timer_expired);
 	if (expired) {
-		_dispatch_timers_run(nows);
+		_dispatch_timers_run(&nows);
 	}
 	bool reconfigure = slowpath(_dispatch_timers_reconfigure);
 	if (reconfigure || expired) {
@@ -2468,7 +2366,7 @@ _dispatch_mgr_timers(void)
 			_dispatch_timers_reconfigure = false;
 		}
 		if (reconfigure || expired) {
-			expired = _dispatch_timer_expired = _dispatch_timers_program(nows);
+			expired = _dispatch_timer_expired = _dispatch_timers_program(&nows);
 			expired = expired || _dispatch_mgr_q.dq_items_tail;
 		}
 		_dispatch_timers_mask = 0;
@@ -2534,9 +2432,9 @@ static void
 _dispatch_timer_aggregate_get_delay(void *ctxt)
 {
 	dispatch_timer_delay_t dtd = ctxt;
-	struct { uint64_t nows[DISPATCH_TIMER_KIND_COUNT]; } dtn = {};
-	_dispatch_timers_get_delay(dtn.nows, dtd->timer, &dtd->delay, &dtd->leeway,
-			-1, -1);
+	dispatch_clock_now_cache_s nows = { };
+	_dispatch_timers_get_delay(&nows, dtd->timer, &dtd->delay, &dtd->leeway,
+			DISPATCH_TIMERS_GET_DELAY_ALL);
 }
 
 uint64_t
@@ -3172,12 +3070,9 @@ _dispatch_kevent_worker_thread(_dispatch_kevent_qos_s **events, int *nevents)
 		DISPATCH_MEMORYPRESSURE_CRITICAL | \
 		DISPATCH_MEMORYPRESSURE_PROC_LIMIT_WARN | \
 		DISPATCH_MEMORYPRESSURE_PROC_LIMIT_CRITICAL)
-#elif DISPATCH_USE_VM_PRESSURE_SOURCE
-#define DISPATCH_MEMORYPRESSURE_SOURCE_TYPE DISPATCH_SOURCE_TYPE_VM
-#define DISPATCH_MEMORYPRESSURE_SOURCE_MASK DISPATCH_VM_PRESSURE
 #endif
 
-#if DISPATCH_USE_MEMORYPRESSURE_SOURCE || DISPATCH_USE_VM_PRESSURE_SOURCE
+#if DISPATCH_USE_MEMORYPRESSURE_SOURCE
 static dispatch_source_t _dispatch_memorypressure_source;
 
 static void
@@ -3211,9 +3106,6 @@ _dispatch_memorypressure_handler(void *context DISPATCH_UNUSED)
 	if (memorypressure & DISPATCH_MEMORYPRESSURE_MALLOC_MASK) {
 		malloc_memory_event_handler(memorypressure & DISPATCH_MEMORYPRESSURE_MALLOC_MASK);
 	}
-#elif DISPATCH_USE_VM_PRESSURE_SOURCE
-	// we must have gotten DISPATCH_VM_PRESSURE
-	malloc_zone_pressure_relief(0,0);
 #endif
 }
 
@@ -3230,7 +3122,7 @@ _dispatch_memorypressure_init(void)
 }
 #else
 static inline void _dispatch_memorypressure_init(void) {}
-#endif // DISPATCH_USE_MEMORYPRESSURE_SOURCE || DISPATCH_USE_VM_PRESSURE_SOURCE
+#endif // DISPATCH_USE_MEMORYPRESSURE_SOURCE
 
 #pragma mark -
 #pragma mark dispatch_mach
@@ -3322,8 +3214,7 @@ static void
 _dispatch_source_type_mach_recv_direct_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
-	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
+	unsigned long mask DISPATCH_UNUSED)
 {
 	ds->ds_pending_data_mask = DISPATCH_MACH_RECV_MESSAGE_DIRECT;
 #if DISPATCH_EVFILT_MACHPORT_PORTSET_FALLBACK
@@ -6414,9 +6305,6 @@ _evfiltstr(short filt)
 #endif
 	_evfilt2(EVFILT_FS);
 	_evfilt2(EVFILT_USER);
-#ifdef EVFILT_VM
-	_evfilt2(EVFILT_VM);
-#endif
 #ifdef EVFILT_SOCK
 	_evfilt2(EVFILT_SOCK);
 #endif
@@ -6598,174 +6486,6 @@ dispatch_kevent_debug(const char *verb, const _dispatch_kevent_qos_s *kev,
 #endif
 			function, line);
 #endif
-}
-
-static void
-_dispatch_kevent_debugger2(void *context)
-{
-	struct sockaddr sa;
-	socklen_t sa_len = sizeof(sa);
-	int c, fd = (int)(long)context;
-	unsigned int i;
-	dispatch_kevent_t dk;
-	dispatch_source_t ds;
-	dispatch_source_refs_t dr;
-	FILE *debug_stream;
-
-	c = accept(fd, &sa, &sa_len);
-	if (c == -1) {
-		if (errno != EAGAIN) {
-			(void)dispatch_assume_zero(errno);
-		}
-		return;
-	}
-#if 0
-	int r = fcntl(c, F_SETFL, 0); // disable non-blocking IO
-	if (r == -1) {
-		(void)dispatch_assume_zero(errno);
-	}
-#endif
-	debug_stream = fdopen(c, "a");
-	if (!dispatch_assume(debug_stream)) {
-		close(c);
-		return;
-	}
-
-	fprintf(debug_stream, "HTTP/1.0 200 OK\r\n");
-	fprintf(debug_stream, "Content-type: text/html\r\n");
-	fprintf(debug_stream, "Pragma: nocache\r\n");
-	fprintf(debug_stream, "\r\n");
-	fprintf(debug_stream, "<html>\n");
-	fprintf(debug_stream, "<head><title>PID %u</title></head>\n", getpid());
-	fprintf(debug_stream, "<body>\n<ul>\n");
-
-	for (i = 0; i < DSL_HASH_SIZE; i++) {
-		if (TAILQ_EMPTY(&_dispatch_sources[i])) {
-			continue;
-		}
-		TAILQ_FOREACH(dk, &_dispatch_sources[i], dk_list) {
-			fprintf(debug_stream, "\t<br><li>DK %p ident %lu filter %s flags "
-					"0x%hx fflags 0x%x data 0x%lx udata %p\n",
-					dk, (unsigned long)dk->dk_kevent.ident,
-					_evfiltstr(dk->dk_kevent.filter), dk->dk_kevent.flags,
-					dk->dk_kevent.fflags, (unsigned long)dk->dk_kevent.data,
-					(void*)dk->dk_kevent.udata);
-			fprintf(debug_stream, "\t\t<ul>\n");
-			TAILQ_FOREACH(dr, &dk->dk_sources, dr_list) {
-				ds = _dispatch_source_from_refs(dr);
-				fprintf(debug_stream, "\t\t\t<li>DS %p refcnt 0x%x state "
-						"0x%llx data 0x%lx mask 0x%lx flags 0x%x</li>\n",
-						ds, ds->do_ref_cnt + 1, ds->dq_state,
-						ds->ds_pending_data, ds->ds_pending_data_mask,
-						ds->dq_atomic_flags);
-				if (_dq_state_is_enqueued(ds->dq_state)) {
-					dispatch_queue_t dq = ds->do_targetq;
-					fprintf(debug_stream, "\t\t<br>DQ: %p refcnt 0x%x state "
-							"0x%llx label: %s\n", dq, dq->do_ref_cnt + 1,
-							dq->dq_state, dq->dq_label ?: "");
-				}
-			}
-			fprintf(debug_stream, "\t\t</ul>\n");
-			fprintf(debug_stream, "\t</li>\n");
-		}
-	}
-	fprintf(debug_stream, "</ul>\n</body>\n</html>\n");
-	fflush(debug_stream);
-	fclose(debug_stream);
-}
-
-static void
-_dispatch_kevent_debugger2_cancel(void *context)
-{
-	int ret, fd = (int)(long)context;
-
-	ret = close(fd);
-	if (ret != -1) {
-		(void)dispatch_assume_zero(errno);
-	}
-}
-
-static void
-_dispatch_kevent_debugger(void *context DISPATCH_UNUSED)
-{
-	union {
-		struct sockaddr_in sa_in;
-		struct sockaddr sa;
-	} sa_u = {
-		.sa_in = {
-			.sin_family = AF_INET,
-			.sin_addr = { htonl(INADDR_LOOPBACK), },
-		},
-	};
-	dispatch_source_t ds;
-	const char *valstr;
-	int val, r, fd, sock_opt = 1;
-	socklen_t slen = sizeof(sa_u);
-
-#ifndef __linux__
-	if (issetugid()) {
-		return;
-	}
-#endif
-	valstr = getenv("LIBDISPATCH_DEBUGGER");
-	if (!valstr) {
-		return;
-	}
-	val = atoi(valstr);
-	if (val == 2) {
-		sa_u.sa_in.sin_addr.s_addr = 0;
-	}
-	fd = socket(PF_INET, SOCK_STREAM, 0);
-	if (fd == -1) {
-		(void)dispatch_assume_zero(errno);
-		return;
-	}
-	r = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt,
-			(socklen_t) sizeof sock_opt);
-	if (r == -1) {
-		(void)dispatch_assume_zero(errno);
-		goto out_bad;
-	}
-#if 0
-	r = fcntl(fd, F_SETFL, O_NONBLOCK);
-	if (r == -1) {
-		(void)dispatch_assume_zero(errno);
-		goto out_bad;
-	}
-#endif
-	r = bind(fd, &sa_u.sa, sizeof(sa_u));
-	if (r == -1) {
-		(void)dispatch_assume_zero(errno);
-		goto out_bad;
-	}
-	r = listen(fd, SOMAXCONN);
-	if (r == -1) {
-		(void)dispatch_assume_zero(errno);
-		goto out_bad;
-	}
-	r = getsockname(fd, &sa_u.sa, &slen);
-	if (r == -1) {
-		(void)dispatch_assume_zero(errno);
-		goto out_bad;
-	}
-
-	ds = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)fd, 0,
-			&_dispatch_mgr_q);
-	if (dispatch_assume(ds)) {
-		_dispatch_log("LIBDISPATCH: debug port: %hu",
-				(in_port_t)ntohs(sa_u.sa_in.sin_port));
-
-		/* ownership of fd transfers to ds */
-		dispatch_set_context(ds, (void *)(long)fd);
-		dispatch_source_set_event_handler_f(ds, _dispatch_kevent_debugger2);
-		dispatch_source_set_cancel_handler_f(ds,
-				_dispatch_kevent_debugger2_cancel);
-		dispatch_resume(ds);
-
-		return;
-	}
-out_bad:
-	close(fd);
 }
 
 #if HAVE_MACH

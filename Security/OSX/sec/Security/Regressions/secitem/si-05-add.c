@@ -293,11 +293,11 @@ static void tests(void)
     CFDataRef tagData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
         (const UInt8 *)"funnytag", 8, kCFAllocatorNull);
     CFDictionaryAddValue(dict, kSecAttrApplicationTag, tagData);
-    is_status(SecItemAdd(dict, &certHandle), errSecParam,
-        "Case 7: add certificate with bogus attribute returns errSecParam");
+    is_status(SecItemAdd(dict, &certHandle), errSecNoSuchAttr,
+        "Case 7: add certificate with bogus attribute returns errSecNoSuchAttr");
     CFReleaseNull(certHandle);
-    is_status(SecItemDelete(dict), errSecParam,
-        "delete certificate with bogus attribute returns errSecParam");
+    is_status(SecItemDelete(dict), errSecNoSuchAttr,
+        "delete certificate with bogus attribute returns errSecNoSuchAttr");
     CFDictionaryRemoveValue(dict, kSecAttrApplicationTag);
     CFReleaseNull(tagData);
 

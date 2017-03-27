@@ -40,7 +40,7 @@
 namespace IPC {
 class Attachment;
 class Connection;
-class MessageDecoder;
+class Decoder;
 class MessageReceiver;
 }
 
@@ -106,7 +106,7 @@ public:
     static Ref<WebVideoFullscreenManager> create(WebPage&, WebPlaybackSessionManager&);
     virtual ~WebVideoFullscreenManager();
     
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Interface to ChromeClient
     bool supportsVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) const;
@@ -133,7 +133,7 @@ protected:
     void videoDimensionsChanged(uint64_t contextId, const WebCore::FloatSize&);
 
     // Messages from WebVideoFullscreenManagerProxy
-    void requestFullscreenMode(uint64_t contextId, WebCore::HTMLMediaElementEnums::VideoFullscreenMode);
+    void requestFullscreenMode(uint64_t contextId, WebCore::HTMLMediaElementEnums::VideoFullscreenMode, bool finishedWithMedia);
     void didSetupFullscreen(uint64_t contextId);
     void didExitFullscreen(uint64_t contextId);
     void didEnterFullscreen(uint64_t contextId);

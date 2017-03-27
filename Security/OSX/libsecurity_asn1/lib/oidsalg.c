@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 #include "SecAsn1Types.h"
-#include "oidsbase.h"
+#include <Security/oidsbase.h>
 
 static const uint8_t
 	OID_MD2[]   	       	= { OID_RSA_HASH, 2 },

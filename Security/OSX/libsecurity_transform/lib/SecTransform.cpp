@@ -445,7 +445,7 @@ SecTransformRef SecTransformCreateFromExternalRepresentation(
 	CFIndex numTransforms = CFArrayGetCount(transforms);
 	CFIndex n;
 
-	SecTransformRef aTransform;
+	SecTransformRef aTransform = NULL;
 
 	for (n = 0; n < numTransforms; ++n)
 	{

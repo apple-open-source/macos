@@ -62,9 +62,12 @@ bool clobbersExitState(Graph& graph, Node* node)
     case MaterializeNewObject:
     case PhantomNewFunction:
     case PhantomNewGeneratorFunction:
+    case PhantomNewAsyncFunction:
     case PhantomCreateActivation:
     case MaterializeCreateActivation:
     case CountExecution:
+    case StoreBarrier:
+    case FencedStoreBarrier:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
         // These do clobber memory, but nothing that is observable. It may be nice to separate the
@@ -78,6 +81,7 @@ bool clobbersExitState(Graph& graph, Node* node)
 
     case NewFunction:
     case NewGeneratorFunction:
+    case NewAsyncFunction:
         // Like above, but with the JSFunction allocation caveat.
         return node->castOperand<FunctionExecutable*>()->singletonFunction()->isStillValid();
 

@@ -29,6 +29,7 @@
 
 #include <bindings/ScriptObject.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -52,21 +53,24 @@ public:
     static const AtomicString& alwaysOnKeyword();
     static const AtomicString& manualKeyword();
 
-    Vector<RefPtr<TextTrack>> sortedTrackListForMenu(TextTrackList*);
-    Vector<RefPtr<AudioTrack>> sortedTrackListForMenu(AudioTrackList*);
-    String displayNameForTrack(TextTrack*);
-    String displayNameForTrack(AudioTrack*);
+    Vector<RefPtr<TextTrack>> sortedTrackListForMenu(TextTrackList&);
+    Vector<RefPtr<AudioTrack>> sortedTrackListForMenu(AudioTrackList&);
+
+    using TextOrAudioTrack = WTF::Variant<RefPtr<TextTrack>, RefPtr<AudioTrack>>;
+    String displayNameForTrack(const std::optional<TextOrAudioTrack>&);
+
     TextTrack* captionMenuOffItem();
     TextTrack* captionMenuAutomaticItem();
-    AtomicString captionDisplayMode();
+    AtomicString captionDisplayMode() const;
     void setSelectedTextTrack(TextTrack*);
     Element* textTrackContainer();
     void updateTextTrackContainer();
     bool allowsInlineMediaPlayback() const;
-    bool supportsFullscreen();
-    bool isVideoLayerInline();
+    bool supportsFullscreen() const;
+    bool isVideoLayerInline() const;
+    bool isInMediaDocument() const;
     bool userGestureRequired() const;
-    void setPreparedForInline(bool);
+    void setPreparedToReturnVideoLayerToInline(bool);
 
     void updateCaptionDisplaySizes();
     void enteredFullscreen();
@@ -81,6 +85,9 @@ public:
     void setControlsDependOnPageScaleFactor(bool v);
 
     String generateUUID() const;
+
+    String shadowRootCSSText() const;
+    String base64StringForIconAndPlatform(const String& iconName, const String& platform) const;
 
 private:
     MediaControlsHost(HTMLMediaElement*);

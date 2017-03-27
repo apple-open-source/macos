@@ -188,6 +188,106 @@ int BLCreateEFIXMLRepresentationForPath(BLContextPtr context,
     return 0;
 }
 
+
+
+int BLCreateEFIXMLRepresentationForPartialPath(BLContextPtr context,
+                                               const char *bsdName,
+                                               const char *path,
+                                               const char *optionalData,
+                                               CFStringRef *xmlString,
+                                               bool shortForm)
+{
+    int ret;
+    mach_port_t masterPort;
+    kern_return_t kret;
+    int i;
+    size_t slen;
+    char    newPath[MAXPATHLEN];
+    
+    CFDataRef xmlData;
+    CFMutableDictionaryRef dict;
+    CFMutableArrayRef array;
+    
+    const UInt8 *xmlBuffer;
+    UInt8 *outBuffer;
+    CFIndex count;
+    
+    CFStringRef pathString;
+    
+    kret = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    if (kret) return 1;
+    
+    strlcpy(newPath, path, sizeof newPath);
+    slen = strlen(newPath);
+    for (i=0; i < slen; i++) {
+        if (newPath[i] == '/')
+            newPath[i] = '\\';
+    }
+    pathString = CFStringCreateWithCString(kCFAllocatorDefault, newPath, kCFStringEncodingUTF8);
+
+    array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    
+    dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+                                     &kCFTypeDictionaryValueCallBacks);
+    
+    ret = addMatchingInfoForBSDName(context, masterPort, dict, bsdName, shortForm);
+    if (ret) {
+        CFRelease(dict);
+        CFRelease(array);
+        return 2;
+    }
+    CFArrayAppendValue(array, dict);
+    CFRelease(dict);
+    
+    if (pathString) {
+        dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+                                         &kCFTypeDictionaryValueCallBacks);
+        CFDictionaryAddValue(dict, CFSTR("IOEFIDevicePathType"),
+                             CFSTR("MediaFilePath"));
+        CFDictionaryAddValue(dict, CFSTR("Path"),
+                             pathString);
+        CFArrayAppendValue(array, dict);
+        CFRelease(dict);
+        
+        CFRelease(pathString);
+    }
+    
+    if (optionalData) {
+        CFStringRef optString = CFStringCreateWithCString(kCFAllocatorDefault, optionalData, kCFStringEncodingUTF8);
+        
+        dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+                                         &kCFTypeDictionaryValueCallBacks);
+        CFDictionaryAddValue(dict, CFSTR("IOEFIBootOption"),
+                             optString);
+        CFArrayAppendValue(array, dict);
+        CFRelease(dict);
+        
+        CFRelease(optString);
+    }
+    
+    xmlData = IOCFSerialize(array, 0);
+    CFRelease(array);
+    
+    if (xmlData == NULL) {
+        contextprintf(context, kBLLogLevelError, "Can't create XML representation\n");
+        return 2;
+    }
+    
+    count = CFDataGetLength(xmlData);
+    xmlBuffer = CFDataGetBytePtr(xmlData);
+    outBuffer = calloc(count+1, sizeof(char)); // terminate
+    
+    memcpy(outBuffer, xmlBuffer, count);
+    CFRelease(xmlData);
+    
+    *xmlString = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)outBuffer, kCFStringEncodingUTF8);
+    
+    free(outBuffer);
+    
+    return 0;
+}
+
+
 // first look up the media object, then create a
 // custom matching dictionary that should be persistent
 // from boot to boot

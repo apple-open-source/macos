@@ -32,7 +32,7 @@
 #import <Foundation/NSURLAuthenticationChallenge.h>
 #import <Foundation/NSURLProtectionSpace.h>
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
 #import "CFNSURLConnectionSPI.h"
 #endif
 
@@ -41,7 +41,7 @@ using namespace WebCore;
 @interface WebCoreAuthenticationClientAsChallengeSender : NSObject <NSURLAuthenticationChallengeSender>
 {
     AuthenticationClient* m_client;
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
     CFURLAuthChallengeRef m_cfChallenge;
 #endif
 }
@@ -101,7 +101,7 @@ using namespace WebCore;
         m_client->receivedCancellation(core(challenge));
 }
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
 - (void)setCFChallenge:(CFURLAuthChallengeRef)challenge
 {
     m_cfChallenge = challenge;
@@ -117,7 +117,7 @@ using namespace WebCore;
 
 namespace WebCore {
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
 
 AuthenticationChallenge core(NSURLAuthenticationChallenge *macChallenge)
 {
@@ -215,6 +215,6 @@ AuthenticationChallenge core(NSURLAuthenticationChallenge *macChallenge)
     return AuthenticationChallenge(macChallenge);
 }
 
-#endif // USE(CFNETWORK)
+#endif // USE(CFURLCONNECTION)
 
 } // namespace WebCore

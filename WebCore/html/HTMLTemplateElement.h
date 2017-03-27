@@ -28,8 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HTMLTemplateElement_h
-#define HTMLTemplateElement_h
+#pragma once
 
 #include "HTMLElement.h"
 
@@ -49,11 +48,9 @@ private:
     HTMLTemplateElement(const QualifiedName&, Document&);
 
     Ref<Node> cloneNodeInternal(Document&, CloningOperation) final;
-    void didMoveToNewDocument(Document* oldDocument) final;
+    void didMoveToNewDocument(Document& oldDocument) final;
 
     mutable RefPtr<TemplateContentDocumentFragment> m_content;
 };
 
 } // namespace WebCore
-
-#endif // HTMLTemplateElement_h

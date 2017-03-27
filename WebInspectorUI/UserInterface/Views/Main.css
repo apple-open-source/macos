@@ -49,10 +49,6 @@ body {
 
     -webkit-font-smoothing: subpixel-antialiased;
 
-    tab-size: 4; /* FIXME: This should be controlled by a setting. <rdar://problem/10593948> */
-}
-
-body:not(.mavericks) {
     background-color: white;
 }
 
@@ -158,6 +154,10 @@ body.docked.right #navigation-sidebar.collapsed > .resizer {
     cursor: row-resize;
 
     background-color: var(--panel-background-color);
+}
+
+#split-content-browser > .navigation-bar :matches(.find-banner, .find-banner + .divider) {
+    display: none;
 }
 
 #split-content-browser > .navigation-bar .item {

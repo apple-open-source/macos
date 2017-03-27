@@ -77,13 +77,13 @@
 #include <stdio.h>
 #include <string.h>
 #include "cryptlib.h"
-#include <openssl/crypto.h>
+#include <openssl/crypto_legacy.h>
 
 #if defined(WIN32) || defined(WIN16)
 static double SSLeay_MSVC5_hack=0.0; /* and for VC1.5 */
 #endif
 
-/* real #defines in crypto.h, keep these upto date */
+/* real #defines in crypto_legacy.h, keep these upto date */
 #if defined(LOCK_DEBUG)
 static const char* const lock_names[CRYPTO_NUM_LOCKS] =
 	{
@@ -114,7 +114,7 @@ static const char* const lock_names[CRYPTO_NUM_LOCKS] =
 	"dh",
 	"debug_malloc2",
 #if CRYPTO_NUM_LOCKS != 26
-# error "Inconsistency between crypto.h and cryptlib.c"
+# error "Inconsistency between crypto_legacy.h and cryptlib.c"
 #endif
 	};
 #endif /*LOCK_DEBUG*/

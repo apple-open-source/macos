@@ -36,6 +36,7 @@
 #include "IOHIDEventTypes.h"
 #include "IOHIDDebug.h"
 #include "IOHIDEvent.h"
+#include <IOKit/hidsystem/IOHIDShared.h>
 
 enum {
     kMouseButtons   = 0x1,
@@ -66,6 +67,14 @@ enum {
 #define kDefaultPreferredAxisRemovalPercentage          10
 
 #define kHIDUsage_MFiGameController_LED0                0xFF00
+
+#define SET_NUMBER(key, num) do { \
+    tmpNumber = OSNumber::withNumber(num, 32); \
+    if (tmpNumber) { \
+        kbEnableEventProps->setObject(key, tmpNumber); \
+        tmpNumber->release(); \
+    } \
+}while (0);
 
 //===========================================================================
 // EventElementCollection class
@@ -218,6 +227,7 @@ OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
 #define _preferredAxisRemovalPercentage _reserved->preferredAxisRemovalPercentage
 #define _lastReportTime                 _reserved->lastReportTime
 #define _vendorMessage                  _reserved->vendorMessage
+#define _biometric                      _reserved->biometric
 
 //====================================================================================================
 // IOHIDEventDriver::init
@@ -259,6 +269,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_vendorMessage.elements);
     OSSafeReleaseNULL(_vendorMessage.pendingEvents);
     OSSafeReleaseNULL(_supportedElements);
+    OSSafeReleaseNULL(_biometric.elements);
 
     if (_reserved) {
         IODelete(_reserved, ExpansionData, 1);
@@ -487,7 +498,8 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
                 parseScrollElement(element) ||
                 parseLEDElement(element) ||
                 parseKeyboardElement(element) ||
-                parseUnicodeElement(element)
+                parseUnicodeElement(element) ||
+                parseBiometricElement(element)
                 ) {
             result = true;
             continue;
@@ -575,6 +587,7 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
     setUnicodeProperties();
     setAccelerationProperties();
     setVendorMessageProperties();
+    setBiometricProperties();
     
 exit:
 
@@ -792,7 +805,6 @@ void IOHIDEventDriver::processUnicodeElements()
     
 }
 
-
 //====================================================================================================
 // IOHIDEventDriver::setRelativeProperties
 //====================================================================================================
@@ -1005,6 +1017,24 @@ void IOHIDEventDriver::setVendorMessageProperties()
     
     setProperty("VendorMessage", properties );
 
+exit:
+    OSSafeReleaseNULL(properties);
+}
+
+//====================================================================================================
+// IOHIDEventDriver::setBiometricProperties
+//====================================================================================================
+void IOHIDEventDriver::setBiometricProperties()
+{
+    OSDictionary *properties = OSDictionary::withCapacity(4);
+    
+    require(properties, exit);
+    require(_biometric.elements, exit);
+    
+    properties->setObject(kIOHIDElementKey, _biometric.elements);
+    
+    setProperty("Biometric", properties);
+    
 exit:
     OSSafeReleaseNULL(properties);
 }
@@ -1540,6 +1570,40 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
         case kHIDPage_KeyboardOrKeypad:
             if (( usage < kHIDUsage_KeyboardA ) || ( usage > kHIDUsage_KeyboardRightGUI ))
                 break;
+            
+            // This usage is used to let the OS know if a keyboard is in an enabled state where
+            // user input is possible
+            
+            if (usage == kHIDUsage_KeyboardPower) {
+                OSDictionary * kbEnableEventProps   = NULL;
+                OSNumber * tmpNumber                = NULL;
+                UInt32 value                        = NULL;
+
+                // To avoid problems with un-intentional clearing of the flag
+                // we require this report to be a feature report so that the current
+                // state can be polled if necessary
+
+                if (element->getType() == kIOHIDElementTypeFeature) {
+                    value = element->getValue(kIOHIDValueOptionsUpdateElementValues);
+                    
+                    kbEnableEventProps = OSDictionary::withCapacity(3);
+                    if (!kbEnableEventProps)
+                        break;
+                    
+                    SET_NUMBER(kIOHIDKeyboardEnabledEventEventTypeKey, kIOHIDEventTypeKeyboard);
+                    SET_NUMBER(kIOHIDKeyboardEnabledEventUsagePageKey, kHIDPage_KeyboardOrKeypad);
+                    SET_NUMBER(kIOHIDKeyboardEnabledEventUsageKey, kHIDUsage_KeyboardPower);
+                    
+                    setProperty(kIOHIDKeyboardEnabledEventKey, kbEnableEventProps);
+                    setProperty(kIOHIDKeyboardEnabledByEventKey, kOSBooleanTrue);
+                    setProperty(kIOHIDKeyboardEnabledKey, value ? kOSBooleanTrue : kOSBooleanFalse);
+                    
+                    kbEnableEventProps->release();
+                }
+                
+                store = true;
+                break;
+            }
         case kHIDPage_Consumer:
             if (usage == kHIDUsage_Csmr_ACKeyboardLayoutSelect)
                 setProperty(kIOHIDSupportsGlobeKeyKey, kOSBooleanTrue);
@@ -1771,6 +1835,38 @@ exit:
     return result;
 }
 
+//====================================================================================================
+// IOHIDEventDriver::parseBiometricElement
+//====================================================================================================
+bool IOHIDEventDriver::parseBiometricElement(IOHIDElement * element)
+{
+    UInt32 usagePage    = element->getUsagePage();
+    UInt32 usage        = element->getUsage();
+    bool   store        = false;
+    
+    if (!_biometric.elements) {
+        _biometric.elements = OSArray::withCapacity(4);
+        require(_biometric.elements, exit);
+    }
+    
+    switch (usagePage) {
+        case kHIDPage_Sensor:
+            switch (usage) {
+                case kHIDUsage_Snsr_Data_Biometric_HumanPresence:
+                case kHIDUsage_Snsr_Data_Biometric_HumanProximityRange:
+                    store = true;
+                    break;
+            }
+            break;
+    }
+    
+    require(store, exit);
+    _biometric.elements->setObject(element);
+    
+exit:
+    return store;
+}
+
 
 
 //====================================================================================================
@@ -1949,6 +2045,7 @@ void IOHIDEventDriver::handleInterruptReport (
     handleScrollReport(timeStamp, reportID);
     handleKeboardReport(timeStamp, reportID);
     handleUnicodeReport(timeStamp, reportID);
+    handleBiometricReport(timeStamp, reportID);
 
     handleVendorMessageReport(timeStamp, report, reportID, kIODispatchVendorMessageReport);
 
@@ -1970,7 +2067,7 @@ void IOHIDEventDriver::handleBootPointingReport(AbsoluteTime timeStamp, IOMemory
 
     // Get a pointer to the data in the descriptor.
     reportLength = report->getLength();
-    require(reportLength >= 3, exit);
+    require(reportLength >= sizeof(_keyboard.bootMouseData), exit);
 
     report->readBytes( 0, (void *)_keyboard.bootMouseData, sizeof(_keyboard.bootMouseData) );
     
@@ -2793,6 +2890,16 @@ void IOHIDEventDriver::handleKeboardReport(AbsoluteTime timeStamp, UInt32 report
                 continue;
         }
         
+        else if (usage == kHIDUsage_KeyboardPower && usagePage == kHIDPage_KeyboardOrKeypad) {
+            if (value == 0) {
+                setProperty(kIOHIDKeyboardEnabledKey, kOSBooleanFalse);
+            }
+            
+            else {
+                setProperty(kIOHIDKeyboardEnabledKey, kOSBooleanTrue);
+            }
+        }
+        
         dispatchKeyboardEvent(timeStamp, usagePage, usage, value);
     }
 
@@ -3066,6 +3173,74 @@ void IOHIDEventDriver::handleVendorMessageReport(AbsoluteTime timeStamp,  IOMemo
             }
         }
     }
+}
+
+//====================================================================================================
+// IOHIDEventDriver::handleBiometricReport
+//====================================================================================================
+void IOHIDEventDriver::handleBiometricReport(AbsoluteTime timeStamp, UInt32 reportID)
+{
+    IOFixed                     level = 0;
+    UInt32                      index, count;
+    IOHIDBiometricEventType     eventType;
+    
+    require_quiet(_biometric.elements, exit);
+    
+    for (index = 0, count = _biometric.elements->getCount(); index < count; index++) {
+        IOHIDElement *  element;
+        AbsoluteTime    elementTimeStamp;
+        UInt32          usagePage, usage, exponent, value;
+        
+        element = OSDynamicCast(IOHIDElement, _biometric.elements->getObject(index));
+        if (!element)
+            continue;
+        
+        if (element->getReportID() != reportID)
+            continue;
+        
+        elementTimeStamp = element->getTimeStamp();
+        if (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp) != 0)
+            continue;
+        
+        usagePage   = element->getUsagePage();
+        usage       = element->getUsage();
+        value       = element->getValue();
+        
+        switch (usagePage) {
+            case kHIDPage_Sensor:
+                switch (usage) {
+                    case kHIDUsage_Snsr_Data_Biometric_HumanPresence:
+                        if (element->getValue(kIOHIDValueOptionsFlagPrevious) && value)
+                            continue;
+                        
+                        level = value ? 1 << 16 : 0;
+                        eventType = kIOHIDBiometricEventTypeHumanPresence;
+                        dispatchBiometricEvent(timeStamp, level, eventType, 0);
+                        break;
+                    case kHIDUsage_Snsr_Data_Biometric_HumanProximityRange:
+                        if (element->getUnit() != 0x11)
+                            continue;
+                        
+                        if (element->getUnitExponent()) {
+                            level = element->getScaledFixedValue(kIOHIDValueScaleTypeExponent);
+                        } else {
+                            level = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        }
+                        
+                        eventType = kIOHIDBiometricEventTypeHumanProximity;
+                        dispatchBiometricEvent(timeStamp, level, eventType, 0);
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    
+exit:
+    return;
 }
 
 //====================================================================================================

@@ -170,9 +170,6 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
     SecCmsRecipientInfoRef *recipientinfos;
     SecCmsContentInfoRef cinfo;
     SecSymmetricKeyRef bulkkey = NULL;
-#if USE_CDSA_CRYPTO
-    SecAsn1AlgId algorithm;
-#endif
     SECOidTag bulkalgtag;
     //CK_MECHANISM_TYPE type;
     //PK11SlotInfo *slot;
@@ -189,9 +186,6 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
     recipientinfos = envd->recipientInfos;
     if (recipientinfos == NULL) {
 	PORT_SetError(SEC_ERROR_BAD_DATA);
-#if 0
-	PORT_SetErrorString("Cannot find recipientinfos to encode.");
-#endif
 	goto loser;
     }
 
@@ -221,28 +215,12 @@ SecCmsEnvelopedDataEncodeBeforeStart(SecCmsEnvelopedDataRef envd)
 	bulkalgtag = SEC_OID_DES_EDE3_CBC;
     }
 
-#if USE_CDSA_CRYPTO
-    algorithm = SECOID_FindyCssmAlgorithmByTag(bulkalgtag);
-    if (!algorithm)
-	goto loser;
-    rv = SecKeyGenerate(NULL,	/* keychainRef */
-		algorithm,
-		SecCmsContentInfoGetBulkKeySize(cinfo),
-		0,		/* contextHandle */
-		CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT,
-		CSSM_KEYATTR_EXTRACTABLE,
-		NULL,		/* initialAccess */
-		&bulkkey);
-    if (rv)
-	goto loser;
-#else
     {
         size_t keysize = (cinfo->keysize + 7)/8;
         uint8_t key_material[keysize];
         require_noerr(SecRandomCopyBytes(kSecRandomDefault, keysize, key_material), loser);
         bulkkey = (SecSymmetricKeyRef)CFDataCreate(kCFAllocatorDefault, key_material, keysize);
     }
-#endif
 
     mark = PORT_ArenaMark(poolp);
 

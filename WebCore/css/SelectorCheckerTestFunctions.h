@@ -24,8 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SelectorCheckerTestFunctions_h
-#define SelectorCheckerTestFunctions_h
+#pragma once
 
 #include "FocusController.h"
 #include "HTMLInputElement.h"
@@ -51,24 +50,22 @@ ALWAYS_INLINE bool matchesDefaultPseudoClass(const Element& element)
     return element.matchesDefaultPseudoClass();
 }
 
-ALWAYS_INLINE bool isDisabled(const Element& element)
+// https://html.spec.whatwg.org/multipage/scripting.html#selector-disabled
+ALWAYS_INLINE bool matchesDisabledPseudoClass(const Element& element)
 {
-    return (is<HTMLFormControlElement>(element) || is<HTMLOptionElement>(element) || is<HTMLOptGroupElement>(element))
-        && element.isDisabledFormControl();
+    return is<HTMLElement>(element) && downcast<HTMLElement>(element).isActuallyDisabled();
 }
 
-ALWAYS_INLINE bool isEnabled(const Element& element)
+// https://html.spec.whatwg.org/multipage/scripting.html#selector-enabled
+ALWAYS_INLINE bool matchesEnabledPseudoClass(const Element& element)
 {
-    return (is<HTMLFormControlElement>(element) || is<HTMLOptionElement>(element) || is<HTMLOptGroupElement>(element))
-        && !element.isDisabledFormControl();
+    return is<HTMLElement>(element) && downcast<HTMLElement>(element).canBeActuallyDisabled() && !element.isDisabledFormControl();
 }
 
-#if ENABLE(CUSTOM_ELEMENTS)
 ALWAYS_INLINE bool isDefinedElement(const Element& element)
 {
-    return !element.isUnresolvedCustomElement();
+    return !element.isUndefinedCustomElement();
 }
-#endif
 
 ALWAYS_INLINE bool isMediaDocument(const Element& element)
 {
@@ -378,5 +375,3 @@ ALWAYS_INLINE bool matchesPastCuePseudoClass(const Element& element)
 #endif
 
 } // namespace WebCore
-
-#endif // SelectorCheckerTestFunctions_h

@@ -25,6 +25,7 @@
 #include <Foundation/Foundation.h>
 #include <Security/Security.h>
 #include <Security/SecBreadcrumb.h>
+#include <utilities/SecCFRelease.h>
 
 #include "breadcrumb_regressions.h"
 
@@ -50,7 +51,7 @@ int bc_10_password(int argc, char *const *argv)
     ok(SecBreadcrumbCopyPassword(password, breadcrumb, encryptedKey, &oldPassword, NULL), "unwrap failed");
 
     ok(oldPassword && CFStringCompare(password, oldPassword, 0) == kCFCompareEqualTo, "not same password");
-    CFRelease(oldPassword);
+    CFReleaseSafe(oldPassword);
 
     CFDataRef newEncryptedKey;
 
@@ -66,9 +67,9 @@ int bc_10_password(int argc, char *const *argv)
     
     ok(oldPassword && CFStringCompare(password, oldPassword, 0) == kCFCompareEqualTo, "not same password");
 
-    CFRelease(breadcrumb);
-    CFRelease(oldPassword);
-    CFRelease(newEncryptedKey);
+    CFReleaseSafe(breadcrumb);
+    CFReleaseSafe(oldPassword);
+    CFReleaseSafe(newEncryptedKey);
 
     /*
      * Check KAT for IV less operation (version1)
@@ -81,9 +82,9 @@ int bc_10_password(int argc, char *const *argv)
 
     ok(oldPassword && CFStringCompare(password, oldPassword, 0) == kCFCompareEqualTo, "not same password");
 
-    CFRelease(breadcrumb);
-    CFRelease(oldPassword);
-    CFRelease(newEncryptedKey);
+    CFReleaseSafe(breadcrumb);
+    CFReleaseSafe(oldPassword);
+    CFReleaseSafe(newEncryptedKey);
 
     /*
      * Check KAT for IV less operation (version2)
@@ -96,9 +97,9 @@ int bc_10_password(int argc, char *const *argv)
 
     ok(oldPassword && CFStringCompare(password, oldPassword, 0) == kCFCompareEqualTo, "not same password");
 
-    CFRelease(breadcrumb);
-    CFRelease(oldPassword);
-    CFRelease(newEncryptedKey);
+    CFReleaseSafe(breadcrumb);
+    CFReleaseSafe(oldPassword);
+    CFReleaseSafe(newEncryptedKey);
 
     return 0;
 }

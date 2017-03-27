@@ -57,6 +57,7 @@
 /* for parsing boot-args */
 #include <pexpert/pexpert.h>
 #include <kern/kalloc.h>
+#include <kern/zalloc.h>
 
 #include "hfs_iokit.h"
 #include "hfs.h"
@@ -815,7 +816,14 @@ OSErr hfs_MountHFSPlusVolume(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,
 	/* reset retval == 0. we don't care about errors in volname conversion */
 	retval = 0;
 
-	
+	/* 
+	 * pull in the volume UUID while we are still single-threaded.
+	 * This brings the volume UUID into the cached one dangling off of the HFSMP
+	 * Otherwise it would have to be computed on first access.
+	 */
+	uuid_t throwaway;
+	hfs_getvoluuid (hfsmp, throwaway); 
+
 	/* 
 	 * We now always initiate a full bitmap scan even if the volume is read-only because this is 
 	 * our only shot to do I/Os of dramaticallly different sizes than what the buffer cache ordinarily
@@ -2323,7 +2331,7 @@ hfs_getdirhint(struct cnode *dcp, int index, int detach)
 		need_init = true;
 		if (dcp->c_dirhintcnt < HFS_MAXDIRHINTS) { /* we don't need recycling */
 			/* Create a default directory hint */
-			hint = hfs_malloc(sizeof(directoryhint_t));
+			hint = hfs_zalloc(HFS_DIRHINT_ZONE);
 			++dcp->c_dirhintcnt;
 			need_remove = false;
 		} else {				/* recycle the last (i.e., the oldest) hint */
@@ -2387,7 +2395,7 @@ hfs_reldirhint(struct cnode *dcp, directoryhint_t * relhint)
 		relhint->dh_desc.cd_flags &= ~CD_HASBUF;
 		vfs_removename((const char *)name);
 	}
-	hfs_free(relhint, sizeof(*relhint));
+	hfs_zfree(relhint, HFS_DIRHINT_ZONE);
 }
 
 /*
@@ -2418,7 +2426,7 @@ hfs_reldirhints(struct cnode *dcp, int stale_hints_only)
 		}
 		prev = TAILQ_PREV(hint, hfs_hinthead, dh_link); /* must save this pointer before calling FREE_ZONE on this node */
 		TAILQ_REMOVE(&dcp->c_hintlist, hint, dh_link);
-		hfs_free(hint, sizeof(*hint));
+		hfs_zfree(hint, HFS_DIRHINT_ZONE);
 		--dcp->c_dirhintcnt;
 	}
 }
@@ -4251,7 +4259,6 @@ bool hfs_dump_allocations(void)
 HFS_SYSCTL(QUAD, _vfs_generic_hfs, OID_AUTO, allocated,
 		   CTLFLAG_RD | CTLFLAG_LOCKED, &hfs_allocated, "Memory allocated")
 
-// Any allocation >= PAGE_SIZE will be page aligned
 void *hfs_malloc(size_t size)
 {
 #if HFS_MALLOC_DEBUG
@@ -4260,11 +4267,7 @@ void *hfs_malloc(size_t size)
 	struct alloc_debug_header *hdr;
 
 	void *ptr;
-
-	if (size >= PAGE_SIZE)
-		ptr = IOMallocAligned(size + sizeof(*hdr), PAGE_SIZE);
-	else
-		ptr = kalloc(size + sizeof(*hdr));
+	ptr = kalloc(size + sizeof(*hdr));
 
 	hdr = ptr + size;
 
@@ -4281,10 +4284,7 @@ void *hfs_malloc(size_t size)
 		hdr->chain.le_prev = NULL;
 #else
 	void *ptr;
-	if (size >= PAGE_SIZE)
-		ptr = IOMallocAligned(size, PAGE_SIZE);
-	else
-		ptr = kalloc(size);
+	ptr = kalloc(size);
 #endif
 
 	OSAddAtomic64(size, &hfs_allocated);
@@ -4313,15 +4313,9 @@ void hfs_free(void *ptr, size_t size)
 		lck_mtx_unlock(hfs_alloc_mtx);
 	}
 
-	if (size >= PAGE_SIZE)
-		IOFreeAligned(ptr, size + sizeof(*hdr));
-	else
-		kfree(ptr, size + sizeof(*hdr));
+	kfree(ptr, size + sizeof(*hdr));
 #else
-	if (size >= PAGE_SIZE)
-		IOFreeAligned(ptr, size);
-	else
-		kfree(ptr, size);
+	kfree(ptr, size);
 #endif
 }
 
@@ -4330,6 +4324,41 @@ void *hfs_mallocz(size_t size)
 	void *ptr = hfs_malloc(size);
 	bzero(ptr, size);
 	return ptr;
+}
+
+// -- Zone allocator-related structures and routines --
+
+hfs_zone_entry_t hfs_zone_entries[HFS_NUM_ZONES] = {
+	{ HFS_CNODE_ZONE, sizeof(struct cnode), "HFS node", true },
+	{ HFS_FILEFORK_ZONE, sizeof(struct filefork), "HFS fork", true },
+	{ HFS_DIRHINT_ZONE, sizeof(struct directoryhint), "HFS dirhint", true }
+};
+
+hfs_zone_t hfs_zones[HFS_NUM_ZONES];
+
+void hfs_init_zones(void) {
+	for (int i = 0; i < HFS_NUM_ZONES; i++) {
+		hfs_zones[i].hz_zone = zinit(hfs_zone_entries[i].hze_elem_size, 1024 * 1024, PAGE_SIZE, hfs_zone_entries[i].hze_name);
+		hfs_zones[i].hz_elem_size = hfs_zone_entries[i].hze_elem_size;
+		
+		zone_change(hfs_zones[i].hz_zone, Z_CALLERACCT, false);
+		if (hfs_zone_entries[i].hze_noencrypt)
+			zone_change(hfs_zones[i].hz_zone, Z_NOENCRYPT, true);
+	}
+}
+
+void *hfs_zalloc(hfs_zone_kind_t zone)
+{
+	OSAddAtomic64(hfs_zones[zone].hz_elem_size, &hfs_allocated);
+	
+	return zalloc(hfs_zones[zone].hz_zone);
+}
+
+void hfs_zfree(void *ptr, hfs_zone_kind_t zone)
+{
+	OSAddAtomic64(-(int64_t)hfs_zones[zone].hz_elem_size, &hfs_allocated);
+	
+	zfree(hfs_zones[zone].hz_zone, ptr);
 }
 
 struct hfs_sysctl_chain *sysctl_list;

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef AlternativeTextController_h
-#define AlternativeTextController_h
+#pragma once
 
 #include "AlternativeTextClient.h"
 #include "DocumentMarker.h"
@@ -121,7 +120,7 @@ public:
     bool isAutomaticSpellingCorrectionEnabled() UNLESS_ENABLED({ return false; })
     bool shouldRemoveMarkersUponEditing();
 
-    void recordAutocorrectionResponseReversed(const String& replacedString, PassRefPtr<Range> replacementRange) UNLESS_ENABLED({ UNUSED_PARAM(replacedString); UNUSED_PARAM(replacementRange); })
+    void recordAutocorrectionResponse(AutocorrectionResponse, const String& replacedString, PassRefPtr<Range> replacementRange) UNLESS_ENABLED({ UNUSED_PARAM(replacedString); UNUSED_PARAM(replacementRange); })
     void markReversed(PassRefPtr<Range> changedRange) UNLESS_ENABLED({ UNUSED_PARAM(changedRange); })
     void markCorrection(PassRefPtr<Range> replacedRange, const String& replacedString) UNLESS_ENABLED({ UNUSED_PARAM(replacedRange); UNUSED_PARAM(replacedString); })
 
@@ -139,7 +138,6 @@ private:
     String dismissSoon(ReasonForDismissingAlternativeText);
     void applyAlternativeTextToRange(const Range*, const String& alternative, AlternativeTextType, const Vector<DocumentMarker::MarkerType>&);
     void timerFired();
-    void recordAutocorrectionResponseReversed(const String& replacedString, const String& replacementString);
     void recordSpellcheckerResponseForModifiedCorrection(Range* rangeOfCorrection, const String& corrected, const String& correction);
     String markerDescriptionForAppliedAlternativeText(AlternativeTextType, DocumentMarker::MarkerType);
 
@@ -176,5 +174,3 @@ inline bool AlternativeTextController::shouldRemoveMarkersUponEditing()
 }
 
 } // namespace WebCore
-
-#endif // AlternativeTextController_h

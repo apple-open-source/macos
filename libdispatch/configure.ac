@@ -3,13 +3,53 @@
 #
 
 AC_PREREQ(2.69)
-AC_INIT([libdispatch], [1.3], [libdispatch@macosforge.org], [libdispatch], [http://libdispatch.macosforge.org])
+AC_INIT([libdispatch], [1.3], [https://bugs.swift.org], [libdispatch], [https://github.com/apple/swift-corelibs-libdispatch])
 AC_REVISION([$$])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER([config/config_ac.h])
 AC_CONFIG_MACRO_DIR([m4])
 ac_clean_files=a.out.dSYM
 AM_MAINTAINER_MODE
+
+#
+# Command line argument to specify build variant (default to release).
+# Impacts default value of CFLAGS et al. so must come before AC_PROG_CC
+#
+AC_ARG_WITH([build-variant],
+  [AS_HELP_STRING([--with-build-variant=release|debug|releaseassert|releasedebuginfo], [Specify build variant [default=release]])],
+  [dispatch_build_variant=${withval}],
+  [dispatch_build_variant=release]
+)
+AS_CASE([$dispatch_build_variant],
+  [debug], [
+    default_compiler_flags="-g -O0"
+    dispatch_enable_asserts=true
+    dispatch_enable_optimization=false
+  ],
+  [release], [
+    default_compiler_flags="-O2"
+    dispatch_enable_asserts=false
+    dispatch_enable_optimization=true
+  ],
+  [releaseassert], [
+    default_compiler_flags="-O2"
+    dispatch_enable_asserts=true
+    dispatch_enable_optimization=true
+  ],
+  [releasedebuginfo], [
+    default_compiler_flags="-g -O2"
+    dispatch_enable_asserts=false
+    dispatch_enable_optimization=true
+  ],
+  [AC_MSG_ERROR("invalid build-variant $dispatch_build_variant")]
+)
+AM_CONDITIONAL(DISPATCH_ENABLE_ASSERTS, $dispatch_enable_asserts)
+AM_CONDITIONAL(DISPATCH_ENABLE_OPTIMIZATION, $dispatch_enable_optimization)
+
+: ${CFLAGS=$default_compiler_flags}
+: ${CXXFLAGS=$default_compiler_flags}
+: ${OBJCFLAGS=$default_compiler_flags}
+: ${OBJCXXFLAGS=$default_compiler_flags}
 
 AC_PROG_CC([clang gcc cc])
 AC_PROG_CXX([clang++ g++ c++])
@@ -107,6 +147,12 @@ AC_ARG_WITH([swift-toolchain],
    case $target_os in
       linux*)
 	    os_string="linux"
+	    case $target_cpu in
+		    armv7l*)
+			target_cpu="armv7"
+			;;
+			*)
+            esac
 	    ;;
 	  *)
         os_string=$target_os
@@ -183,12 +229,18 @@ esac
 AC_SEARCH_LIBS(clock_gettime, rt)
 AC_SEARCH_LIBS(pthread_create, pthread)
 
-#
-# Prefer native kqueue(2); otherwise use libkqueue if present.
-#
-AC_CHECK_HEADER(sys/event.h, [],
-  [PKG_CHECK_MODULES(KQUEUE, libkqueue)]
+AS_IF([test -f $srcdir/libkqueue/configure.ac],
+  [AC_DEFINE(BUILD_OWN_KQUEUES, 1, [Define if building libkqueue from source])
+   ac_configure_args="--disable-libkqueue-install $ac_configure_args"
+   AC_CONFIG_SUBDIRS([libkqueue])
+   build_own_kqueues=true],
+  [build_own_kqueues=false
+   AC_CHECK_HEADER(sys/event.h, [],
+     [PKG_CHECK_MODULES(KQUEUE, libkqueue)]
+   )
+  ]
 )
+AM_CONDITIONAL(BUILD_OWN_KQUEUES, $build_own_kqueues)
 
 AC_CHECK_FUNCS([strlcpy getprogname], [],
   [PKG_CHECK_MODULES(BSD_OVERLAY, libbsd-overlay,[
@@ -305,13 +357,13 @@ AC_CHECK_FUNCS([mach_port_construct])
 #
 # Find functions and declarations we care about.
 #
-AC_CHECK_DECLS([CLOCK_UPTIME, CLOCK_MONOTONIC], [], [],
+AC_CHECK_DECLS([CLOCK_UPTIME, CLOCK_MONOTONIC, CLOCK_REALTIME], [], [],
   [[#include <time.h>]])
 AC_CHECK_DECLS([NOTE_NONE, NOTE_REAP, NOTE_REVOKE, NOTE_SIGNAL, NOTE_LOWAT], [], [],
   [[#include <sys/event.h>]])
 AC_CHECK_DECLS([FD_COPY], [], [], [[#include <sys/select.h>]])
 AC_CHECK_DECLS([SIGEMT], [], [], [[#include <signal.h>]])
-AC_CHECK_DECLS([VQ_UPDATE, VQ_VERYLOWDISK, VQ_QUOTA], [], [], [[#include <sys/mount.h>]])
+AC_CHECK_DECLS([VQ_UPDATE, VQ_VERYLOWDISK, VQ_QUOTA, VQ_NEARLOWDISK, VQ_DESIRED_DISK], [], [], [[#include <sys/mount.h>]])
 AC_CHECK_DECLS([program_invocation_short_name], [], [], [[#include <errno.h>]])
 AC_CHECK_FUNCS([pthread_key_init_np pthread_main_np mach_absolute_time malloc_create_zone sysconf])
 
@@ -385,6 +437,20 @@ AS_IF([test "x$have_mach" = "xtrue"], [
 AM_CONDITIONAL(HAVE_DARWIN_LD, [test "x$dispatch_cv_ld_darwin" == "xyes"])
 
 #
+# symlink platform-specific module.modulemap files
+#
+AS_CASE([$target_os],
+  [darwin*], [ dispatch_module_map_os=darwin ],
+  [ dispatch_module_map_os=generic ]
+)
+AC_CONFIG_COMMANDS([modulemaps], [
+      ln -fs $dispatch_module_map_os/module.modulemap $ac_top_srcdir/dispatch/module.modulemap
+      ln -fs $dispatch_module_map_os/module.modulemap $ac_top_srcdir/private/module.modulemap
+  ],
+  [dispatch_module_map_os="$dispatch_module_map_os"]
+)
+
+#
 # Temporary: some versions of clang do not mark __builtin_trap() as
 # __attribute__((__noreturn__)).  Detect and add if required.
 #
@@ -401,6 +467,6 @@ AC_CONFIG_FILES([Makefile dispatch/Makefile man/Makefile os/Makefile private/Mak
 #
 # Generate testsuite links
 #
-AC_CONFIG_LINKS([tests/dispatch:$top_srcdir/private tests/leaks-wrapper:tests/leaks-wrapper.sh])
+AC_CONFIG_LINKS([tests/dispatch:$ac_top_srcdir/private tests/leaks-wrapper:tests/leaks-wrapper.sh])
 
 AC_OUTPUT

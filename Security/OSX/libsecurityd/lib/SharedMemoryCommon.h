@@ -38,6 +38,24 @@ const unsigned kPoolAvailableForData = kSharedMemoryPoolSize - kBytesWrittenLeng
 
 typedef u_int32_t SegmentOffsetType;
 
-#define SECURITY_MESSAGES_NAME "SecurityMessages"
+class SharedMemoryCommon
+{
+public:
+    SharedMemoryCommon() {}
+    virtual ~SharedMemoryCommon ();
+
+    // Is this a system user or a regular user?
+    static uid_t fixUID(uid_t uid) { return (uid < 500) ? 0 : uid; }
+
+    static std::string SharedMemoryFilePath(const char *segmentName, uid_t uid);
+    static std::string notificationDescription(int domain, int event);
+
+    constexpr static const char* const kMDSDirectory = "/private/var/db/mds/";
+    constexpr static const char* const kMDSMessagesDirectory = "/private/var/db/mds/messages/";
+    constexpr static const char* const kUserPrefix = "se_";
+
+    constexpr static const char* const kDefaultSecurityMessagesName = "SecurityMessages";
+};
+
 
 #endif

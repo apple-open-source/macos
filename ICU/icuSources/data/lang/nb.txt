@@ -615,7 +615,7 @@ nb{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wolof"}
-        wuu{"wu"}
+        wuu{"shanghainesisk"}
         xal{"kalmyk"}
         xh{"xhosa"}
         xmf{"mingrelsk"}

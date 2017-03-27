@@ -30,8 +30,11 @@
 #include "config.h"
 #include "DOMCSSNamespace.h"
 
+#include "CSSMarkup.h"
 #include "CSSParser.h"
+#include "CSSPropertyParser.h"
 #include "StyleProperties.h"
+#include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -50,7 +53,7 @@ static String valueWithoutImportant(const String& value)
     return newValue;
 }
 
-bool DOMCSSNamespace::supports(const String& property, const String& value)
+bool DOMCSSNamespace::supports(Document& document, const String& property, const String& value)
 {
     CSSPropertyID propertyID = cssPropertyID(property.stripWhiteSpace());
 
@@ -67,14 +70,21 @@ bool DOMCSSNamespace::supports(const String& property, const String& value)
         return false;
 
     auto dummyStyle = MutableStyleProperties::create();
-    return CSSParser::parseValue(dummyStyle, propertyID, normalizedValue, false, CSSStrictMode, nullptr) != CSSParser::ParseResult::Error;
+    return CSSParser::parseValue(dummyStyle, propertyID, normalizedValue, false, document) != CSSParser::ParseResult::Error;
 }
 
-bool DOMCSSNamespace::supports(const String& conditionText)
+bool DOMCSSNamespace::supports(Document& document, const String& conditionText)
 {
-    CSSParserContext context(CSSStrictMode);
+    CSSParserContext context(document);
     CSSParser parser(context);
     return parser.parseSupportsCondition(conditionText);
+}
+
+String DOMCSSNamespace::escape(const String& ident)
+{
+    StringBuilder builder;
+    serializeIdentifier(ident, builder);
+    return builder.toString();
 }
 
 }

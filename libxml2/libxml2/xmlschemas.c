@@ -3212,8 +3212,8 @@ xmlSchemaPSimpleTypeErr(xmlSchemaParserCtxtPtr ctxt,
 		"valid.");
 	}
 	if (expected) {
-	    msg = xmlStrcat(msg, BAD_CAST " Expected is '");
 	    xmlChar *expectedEscaped = xmlCharStrdup(expected);
+	    msg = xmlStrcat(msg, BAD_CAST " Expected is '");
 	    msg = xmlStrcat(msg, xmlEscapeFormatString(&expectedEscaped));
 	    FREE_AND_NULL(expectedEscaped);
 	    msg = xmlStrcat(msg, BAD_CAST "'.\n");
@@ -26147,7 +26147,7 @@ xmlSchemaValidatorPopElem(xmlSchemaValidCtxtPtr vctxt)
 
 	    /*
 	    * Get hold of the still expected content, since a further
-	    * call to xmlRegExecPushString() will loose this information.
+	    * call to xmlRegExecPushString() will lose this information.
 	    */
 	    xmlRegExecNextValues(inode->regexCtxt,
 		&nbval, &nbneg, &values[0], &terminal);
@@ -27444,6 +27444,7 @@ xmlSchemaSAXHandleStartElementNs(void *ctx,
     * attributes yet.
     */
     if (nb_attributes != 0) {
+	int valueLen, k, l;
 	xmlChar *value;
 
         for (j = 0, i = 0; i < nb_attributes; i++, j += 5) {
@@ -27453,12 +27454,31 @@ xmlSchemaSAXHandleStartElementNs(void *ctx,
 	    * libxml2 differs from normal SAX here in that it escapes all ampersands
 	    * as &#38; instead of delivering the raw converted string. Changing the
 	    * behavior at this point would break applications that use this API, so
-	    * we are forced to work around it. There is no danger of accidentally
-	    * decoding some entity other than &#38; in this step because without
-	    * unescaped ampersands there can be no other entities in the string.
+	    * we are forced to work around it.
 	    */
-	    value = xmlStringLenDecodeEntities(vctxt->parserCtxt, attributes[j+3],
-		attributes[j+4] - attributes[j+3], XML_SUBSTITUTE_REF, 0, 0, 0);
+	    valueLen = attributes[j+4] - attributes[j+3];
+	    value = xmlMallocAtomic(valueLen + 1);
+	    if (value == NULL) {
+		xmlSchemaVErrMemory(vctxt,
+		    "allocating string for decoded attribute",
+		    NULL);
+		goto internal_error;
+	    }
+	    for (k = 0, l = 0; k < valueLen; l++) {
+		if (k < valueLen - 4 &&
+		    attributes[j+3][k+0] == '&' &&
+		    attributes[j+3][k+1] == '#' &&
+		    attributes[j+3][k+2] == '3' &&
+		    attributes[j+3][k+3] == '8' &&
+		    attributes[j+3][k+4] == ';') {
+		    value[l] = '&';
+		    k += 5;
+		} else {
+		    value[l] = attributes[j+3][k];
+		    k++;
+		}
+	    }
+	    value[l] = '\0';
 	    /*
 	    * TODO: Set the node line.
 	    */

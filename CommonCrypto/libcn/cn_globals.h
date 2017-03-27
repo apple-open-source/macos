@@ -30,10 +30,9 @@
  */
 
 #include <asl.h>
-#include <dispatch/dispatch.h>
 #include "crc.h"
 #include "basexx.h"
-#include "CommonCRC.h"
+#include <CommonNumerics/CommonCRC.h>
 
 #if __has_include(<os/alloc_once_private.h>)
 #include <os/alloc_once_private.h>

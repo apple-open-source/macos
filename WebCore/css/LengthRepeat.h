@@ -23,22 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LengthRepeat_h
-#define LengthRepeat_h
+#pragma once
 
 #if ENABLE(CSS_SCROLL_SNAP)
 
 #include "CSSPrimitiveValue.h"
 #include <wtf/RefPtr.h>
-#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-class LengthRepeat : public RefCounted<LengthRepeat> {
+class LengthRepeat final : public RefCounted<LengthRepeat> {
 public:
     static Ref<LengthRepeat> create(PassRefPtr<CSSValue> interval) { return adoptRef(*new LengthRepeat(interval)); }
-
-    Ref<LengthRepeat> cloneForCSSOM() const { return create(interval()); }
 
     CSSValue* interval() const { return m_interval.get(); }
 
@@ -65,6 +61,4 @@ private:
 
 } // namespace WebCore
 
-#endif /* ENABLE(CSS_SCROLL_SNAP) */
-
-#endif // LengthRepeat_h
+#endif // ENABLE(CSS_SCROLL_SNAP)

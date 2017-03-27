@@ -25,10 +25,8 @@
 
 #pragma once
 
-#include "APISession.h"
 #include "APIUserInitiatedAction.h"
 #include "ChildProcessProxy.h"
-#include "CustomProtocolManagerProxy.h"
 #include "MessageReceiverMap.h"
 #include "PluginInfoStore.h"
 #include "ProcessLauncher.h"
@@ -62,7 +60,8 @@ class WebPageGroup;
 class WebProcessPool;
 enum class WebsiteDataType;
 struct WebNavigationDataStore;
-    
+struct WebsiteData;
+
 class WebProcessProxy : public ChildProcessProxy, ResponsivenessTimer::Client, private ProcessThrottlerClient {
 public:
     typedef HashMap<uint64_t, RefPtr<WebBackForwardListItem>> WebBackForwardListItemMap;
@@ -72,11 +71,6 @@ public:
 
     static Ref<WebProcessProxy> create(WebProcessPool&);
     ~WebProcessProxy();
-
-    static WebProcessProxy* fromConnection(IPC::Connection* connection)
-    {
-        return static_cast<WebProcessProxy*>(ChildProcessProxy::fromConnection(connection));
-    }
 
     WebConnection* webConnection() const { return m_webConnection.get(); }
 
@@ -123,9 +117,9 @@ public:
     void didSaveToPageCache();
     void releasePageCache();
 
-    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::function<void (WebsiteData)> completionHandler);
-    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
-    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebsiteDataType>, const Vector<RefPtr<WebCore::SecurityOrigin>>& origins, std::function<void ()> completionHandler);
+    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, Function<void(WebsiteData)> completionHandler);
+    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, Function<void()> completionHandler);
+    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, Function<void()> completionHandler);
 
     void enableSuddenTermination();
     void disableSuddenTermination();
@@ -174,10 +168,6 @@ private:
 
     void shouldTerminate(bool& shouldTerminate);
 
-    void didFetchWebsiteData(uint64_t callbackID, const WebsiteData&);
-    void didDeleteWebsiteData(uint64_t callbackID);
-    void didDeleteWebsiteDataForOrigins(uint64_t callbackID);
-
     // Plugins
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void getPlugins(bool refresh, Vector<WebCore::PluginInfo>& plugins, Vector<WebCore::PluginInfo>& applicationPlugins);
@@ -194,22 +184,23 @@ private:
     void releaseIconForPageURL(const String& pageURL);
     void releaseRemainingIconsForPageURLs();
 
+    bool platformIsBeingDebugged() const;
+
     static const HashSet<String>& platformPathsWithAssumedReadAccess();
 
     // IPC::Connection::Client
     friend class WebConnectionToWebProcess;
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&) override;
     void didClose(IPC::Connection&) override;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
-    IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
-    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Web; }
 
     // ResponsivenessTimer::Client
     void didBecomeUnresponsive() override;
     void didBecomeResponsive() override;
     void willChangeIsResponsive() override;
     void didChangeIsResponsive() override;
+    bool mayBecomeUnresponsive() override;
 
     // ProcessThrottlerClient
     void sendProcessWillSuspendImminently() override;
@@ -222,8 +213,8 @@ private:
     void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
 
     // Implemented in generated WebProcessProxyMessageReceiver.cpp
-    void didReceiveWebProcessProxyMessage(IPC::Connection&, IPC::MessageDecoder&);
-    void didReceiveSyncWebProcessProxyMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
+    void didReceiveWebProcessProxyMessage(IPC::Connection&, IPC::Decoder&);
+    void didReceiveSyncWebProcessProxyMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
     bool canTerminateChildProcess();
 
@@ -242,12 +233,6 @@ private:
 
     HashSet<VisitedLinkStore*> m_visitedLinkStores;
     HashSet<WebUserContentControllerProxy*> m_webUserContentControllerProxies;
-
-    CustomProtocolManagerProxy m_customProtocolManagerProxy;
-
-    HashMap<uint64_t, std::function<void (WebsiteData)>> m_pendingFetchWebsiteDataCallbacks;
-    HashMap<uint64_t, std::function<void ()>> m_pendingDeleteWebsiteDataCallbacks;
-    HashMap<uint64_t, std::function<void ()>> m_pendingDeleteWebsiteDataForOriginsCallbacks;
 
     int m_numberOfTimesSuddenTerminationWasDisabled;
     ProcessThrottler m_throttler;

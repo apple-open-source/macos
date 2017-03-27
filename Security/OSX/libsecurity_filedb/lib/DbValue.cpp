@@ -425,7 +425,6 @@ BigNumValue::evaluate(const BigNumValue &other, CSSM_DB_OPERATOR op) const
 			int c = compare(Data, other.Data, length1);
 			return sign1 ? (c > 0) : (c < 0);
 		}
-		break;
 		
 	case CSSM_DB_GREATER_THAN:
 		if (sign1 ^ sign2)
@@ -436,7 +435,6 @@ BigNumValue::evaluate(const BigNumValue &other, CSSM_DB_OPERATOR op) const
 			int c = compare(Data, other.Data, length1);
 			return sign1 ? (c < 0) : (c > 0);
 		}
-		break;
 		
 	case CSSM_DB_CONTAINS:
 	case CSSM_DB_CONTAINS_INITIAL_SUBSTRING:

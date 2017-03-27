@@ -344,6 +344,9 @@ out:
 
 static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTrustRef *trust)
 {
+    CFMutableArrayRef peer_cert_array = NULL;
+    CFMutableArrayRef orig_peer_cert_array = NULL;
+
     /* verify peer cert chain */
     require_noerr(SSLCopyPeerTrust(ctx, trust), out);
     SecTrustResultType trust_result = 0;
@@ -353,10 +356,8 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
     CFIndex n_certs = SecTrustGetCertificateCount(*trust);
     /* fprintf(stderr, "%ld certs; trust_eval: %d\n", n_certs, trust_result); */
 
-    CFMutableArrayRef peer_cert_array =
-    CFArrayCreateMutable(NULL, n_certs, &kCFTypeArrayCallBacks);
-    CFMutableArrayRef orig_peer_cert_array =
-        CFArrayCreateMutableCopy(NULL, n_certs, ssl->peer_certs);
+    peer_cert_array = CFArrayCreateMutable(NULL, n_certs, &kCFTypeArrayCallBacks);
+    orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, n_certs, ssl->peer_certs);
     while (n_certs--)
         CFArrayInsertValueAtIndex(peer_cert_array, 0,
                                   SecTrustGetCertificateAtIndex(*trust, n_certs));
@@ -369,8 +370,8 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
     CFRelease(peer_cert);
 
     require(CFEqual(orig_peer_cert_array, peer_cert_array), out);
-    CFRelease(orig_peer_cert_array);
-    CFRelease(peer_cert_array);
+    CFReleaseNull(orig_peer_cert_array);
+    CFReleaseNull(peer_cert_array);
 
     /*
      CFStringRef cert_name = SecCertificateCopySubjectSummary(cert);
@@ -382,6 +383,8 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
      */
     return true;
 out:
+    CFReleaseNull(orig_peer_cert_array);
+    CFReleaseNull(peer_cert_array);
     return false;
 }
 

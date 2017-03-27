@@ -31,6 +31,7 @@
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameSelection.h"
 #include "HTMLBRElement.h"
@@ -38,9 +39,10 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "Logging.h"
+#include "NoEventDispatchAssertion.h"
 #include "NodeTraversal.h"
 #include "Page.h"
-#include "RenderBlockFlow.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
 #include "ShadowRoot.h"
@@ -57,11 +59,11 @@ static Position positionForIndex(TextControlInnerTextElement*, unsigned);
 
 HTMLTextFormControlElement::HTMLTextFormControlElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
     : HTMLFormControlElementWithState(tagName, document, form)
-    , m_cachedSelectionStart(-1)
-    , m_cachedSelectionEnd(-1)
     , m_cachedSelectionDirection(SelectionHasNoDirection)
     , m_lastChangeWasUserEdit(false)
     , m_isPlaceholderVisible(false)
+    , m_cachedSelectionStart(-1)
+    , m_cachedSelectionEnd(-1)
 {
 }
 
@@ -110,13 +112,15 @@ void HTMLTextFormControlElement::didEditInnerTextValue()
     if (!isTextFormControl())
         return;
 
+    LOG(Editing, "HTMLTextFormControlElement %p didEditInnerTextValue", this);
+
     m_lastChangeWasUserEdit = true;
     subtreeHasChanged();
 }
 
-void HTMLTextFormControlElement::forwardEvent(Event* event)
+void HTMLTextFormControlElement::forwardEvent(Event& event)
 {
-    if (event->type() == eventNames().blurEvent || event->type() == eventNames().focusEvent)
+    if (event.type() == eventNames().blurEvent || event.type() == eventNames().focusEvent)
         return;
     innerTextElement()->defaultEventHandler(event);
 }
@@ -164,7 +168,7 @@ void HTMLTextFormControlElement::updatePlaceholderVisibility()
     if (placeHolderWasVisible == m_isPlaceholderVisible)
         return;
 
-    setNeedsStyleRecalc();
+    invalidateStyleForSubtree();
 }
 
 void HTMLTextFormControlElement::setSelectionStart(int start)
@@ -210,17 +214,15 @@ void HTMLTextFormControlElement::dispatchFormControlChangeEvent()
     setChangedSinceLastFormControlChangeEvent(false);
 }
 
-void HTMLTextFormControlElement::setRangeText(const String& replacement, ExceptionCode& ec)
+ExceptionOr<void> HTMLTextFormControlElement::setRangeText(const String& replacement)
 {
-    setRangeText(replacement, selectionStart(), selectionEnd(), String(), ec);
+    return setRangeText(replacement, selectionStart(), selectionEnd(), String());
 }
 
-void HTMLTextFormControlElement::setRangeText(const String& replacement, unsigned start, unsigned end, const String& selectionMode, ExceptionCode& ec)
+ExceptionOr<void> HTMLTextFormControlElement::setRangeText(const String& replacement, unsigned start, unsigned end, const String& selectionMode)
 {
-    if (start > end) {
-        ec = INDEX_SIZE_ERR;
-        return;
-    }
+    if (start > end)
+        return Exception { INDEX_SIZE_ERR };
 
     String text = innerTextValue();
     unsigned textLength = text.length();
@@ -240,7 +242,7 @@ void HTMLTextFormControlElement::setRangeText(const String& replacement, unsigne
 
     // FIXME: What should happen to the value (as in value()) if there's no renderer?
     if (!renderer())
-        return;
+        return { };
 
     subtreeHasChanged();
 
@@ -267,6 +269,8 @@ void HTMLTextFormControlElement::setRangeText(const String& replacement, unsigne
     }
 
     setSelectionRange(newSelectionStart, newSelectionEnd, SelectionHasNoDirection);
+
+    return { };
 }
 
 void HTMLTextFormControlElement::setSelectionRange(int start, int end, const String& directionString, const AXTextStateChangeIntent& intent)
@@ -293,7 +297,12 @@ void HTMLTextFormControlElement::setSelectionRange(int start, int end, TextField
     if (!hasFocus && innerText) {
         // FIXME: Removing this synchronous layout requires fixing <https://webkit.org/b/128797>
         document().updateLayoutIgnorePendingStylesheets();
-        if (RenderElement* rendererTextControl = renderer()) {
+
+        // Double-check the state of innerTextElement after the layout.
+        innerText = innerTextElement();
+        auto* rendererTextControl = renderer();
+
+        if (innerText && rendererTextControl) {
             if (rendererTextControl->style().visibility() == HIDDEN || !innerText->renderBox()->height()) {
                 cacheSelection(start, end, direction);
                 return;
@@ -554,10 +563,16 @@ void HTMLTextFormControlElement::setInnerTextValue(const String& value)
                 cache->postNotification(this, AXObjectCache::AXValueChanged, TargetObservableParent);
         }
 #endif
-        innerText->setInnerText(value, ASSERT_NO_EXCEPTION);
 
-        if (value.endsWith('\n') || value.endsWith('\r'))
-            innerText->appendChild(HTMLBRElement::create(document()), ASSERT_NO_EXCEPTION);
+        {
+            // Events dispatched on the inner text element cannot execute arbitrary author scripts.
+            NoEventDispatchAssertion::EventAllowedScope allowedScope(*userAgentShadowRoot());
+
+            innerText->setInnerText(value);
+
+            if (value.endsWith('\n') || value.endsWith('\r'))
+                innerText->appendChild(HTMLBRElement::create(document()));
+        }
 
 #if HAVE(ACCESSIBILITY) && PLATFORM(COCOA)
         if (textIsChanged && renderer()) {
@@ -758,12 +773,20 @@ String HTMLTextFormControlElement::directionForFormData() const
     return "ltr";
 }
 
-void HTMLTextFormControlElement::setMaxLengthForBindings(int maxLength, ExceptionCode& ec)
+ExceptionOr<void> HTMLTextFormControlElement::setMaxLength(int maxLength)
 {
-    if (maxLength < 0)
-        ec = INDEX_SIZE_ERR;
-    else
-        setIntegralAttribute(maxlengthAttr, maxLength);
+    if (maxLength < 0 || (m_minLength >= 0 && maxLength < m_minLength))
+        return Exception { INDEX_SIZE_ERR };
+    setIntegralAttribute(maxlengthAttr, maxLength);
+    return { };
+}
+
+ExceptionOr<void> HTMLTextFormControlElement::setMinLength(int minLength)
+{
+    if (minLength < 0 || (m_maxLength >= 0 && minLength > m_maxLength))
+        return Exception { INDEX_SIZE_ERR };
+    setIntegralAttribute(minlengthAttr, minLength);
+    return { };
 }
 
 void HTMLTextFormControlElement::adjustInnerTextStyle(const RenderStyle& parentStyle, RenderStyle& textBlockStyle) const

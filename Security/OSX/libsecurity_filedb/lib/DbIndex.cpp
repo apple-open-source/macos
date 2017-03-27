@@ -287,7 +287,6 @@ DbConstIndex::performQuery(const DbQueryKey &queryKey,
 		
 	default:
 		CssmError::throwMe(CSSMERR_DL_INTERNAL_ERROR);
-		break;
 	}
 }
 

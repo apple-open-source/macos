@@ -28,12 +28,9 @@
 
 #include "BuiltinNames.h"
 #include "Error.h"
-#include "JSCJSValueInlines.h"
-#include "JSCellInlines.h"
+#include "JSCInlines.h"
 #include "JSPromiseConstructor.h"
 #include "Microtask.h"
-#include "SlotVisitorInlines.h"
-#include "StructureInlines.h"
 
 namespace JSC {
 
@@ -60,8 +57,7 @@ void JSPromise::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     putDirect(vm, vm.propertyNames->builtinNames().promiseStatePrivateName(), jsNumber(static_cast<unsigned>(Status::Pending)));
-    putDirect(vm, vm.propertyNames->builtinNames().promiseFulfillReactionsPrivateName(), jsUndefined());
-    putDirect(vm, vm.propertyNames->builtinNames().promiseRejectReactionsPrivateName(), jsUndefined());
+    putDirect(vm, vm.propertyNames->builtinNames().promiseReactionsPrivateName(), jsUndefined());
     putDirect(vm, vm.propertyNames->builtinNames().promiseResultPrivateName(), jsUndefined());
 }
 

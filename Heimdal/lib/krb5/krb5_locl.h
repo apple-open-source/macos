@@ -328,7 +328,7 @@ typedef struct krb5_context_data {
     void *mutex;			/* protects error_string */
     int large_msg_size;
     int max_msg_size;
-    int max_srv_entries;
+    unsigned max_srv_entries;
     krb5_deltat tgs_negative_timeout;		/* timeout for TGS negative cache */
     int flags;
 #define KRB5_CTX_F_DNS_CANONICALIZE_HOSTNAME	1
@@ -422,6 +422,7 @@ struct srv_reply {
     krb5_krbhst_info *hostinfo;
     struct {
 	unsigned int getAddrDone:1;
+	unsigned int canceled:1;
 	unsigned int recvIPv4:1;
 	unsigned int recvIPv6:1;
 	unsigned int noIPv4:1;
@@ -447,7 +448,7 @@ struct _krb5_srv_query_ctx {
 
     /* replys */
     struct srv_reply **array;
-    size_t len;
+    unsigned len;
 #endif
 };
 

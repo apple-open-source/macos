@@ -1082,7 +1082,7 @@ unsigned char secp521r1server_secp521r1ca_cer[714]={
 
 static void test_trust_ok(const uint8_t *cert_data, size_t cert_len,
     const uint8_t *root_data, size_t root_len, const char *date_str,
-    CFStringRef testname, const char *directive,
+    CFStringRef CF_CONSUMED testname, const char *directive,
     const char *reason, const char *file, int line) {
     SecTrustResultType trustResult;
     SETUP: {

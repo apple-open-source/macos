@@ -81,6 +81,7 @@ private:
 	SSUniqueRecord mUniqueId;
 	CSSM_DB_RECORDTYPE mRecordType;
 	SecurityServer::ClientSession &mClientSession;
+    mutable RecursiveMutex mMutex;
 };
 
 

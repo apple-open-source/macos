@@ -185,6 +185,7 @@ static bool is_trust_operation(enum SecXPCOperation op) {
 		case sec_trust_evaluate_id:
 		case sec_trust_store_copy_all_id:
 		case sec_trust_store_copy_usage_constraints_id:
+		case sec_device_is_internal_id:
 			return true;
 		default:
 			break;

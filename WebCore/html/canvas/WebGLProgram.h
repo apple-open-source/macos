@@ -23,13 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebGLProgram_h
-#define WebGLProgram_h
-
-#include "WebGLSharedObject.h"
+#pragma once
 
 #include "WebGLShader.h"
-
+#include "WebGLSharedObject.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -38,7 +35,7 @@ class WebGLProgram final : public WebGLSharedObject {
 public:
     virtual ~WebGLProgram();
 
-    static Ref<WebGLProgram> create(WebGLRenderingContextBase*);
+    static Ref<WebGLProgram> create(WebGLRenderingContextBase&);
 
     unsigned numActiveAttribLocations();
     GC3Dint getActiveAttribLocation(GC3Duint index);
@@ -61,7 +58,7 @@ public:
     bool detachShader(WebGLShader*);
 
 protected:
-    WebGLProgram(WebGLRenderingContextBase*);
+    WebGLProgram(WebGLRenderingContextBase&);
 
     void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 
@@ -86,5 +83,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // WebGLProgram_h

@@ -84,7 +84,7 @@ int EstablishSession(uint32 sourceAddress,
   double ts1 = 0, ts2;
   int flag = 1;
 	
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("In EstablishSession...\n");
   }
 
@@ -295,7 +295,7 @@ int EstablishSession(uint32 sourceAddress,
   free(synPacket->tcp);
   free(synPacket); 
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out of EstablishSession...\n");
   }
 
@@ -320,7 +320,7 @@ int PrepareRequest(char *data, char *filename)
   char deffile[] = DEFAULT_FILENAME;
   
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("In PrepareRequest...\n");
   }
 
@@ -353,7 +353,7 @@ int PrepareRequest(char *data, char *filename)
 	    h4);
   }
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out PrepareRequest...\n");
   }
 
@@ -376,7 +376,7 @@ void SendRequest(char *filename, void (*ackData)(struct IPPacket *p))
   int datalen;
   int ipsz; 
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("In SendRequest...\n");
   }
 
@@ -497,7 +497,7 @@ void SendRequest(char *filename, void (*ackData)(struct IPPacket *p))
   free(datapkt->tcp);
   free(datapkt);
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out of SendRequest...\n");
   }
 }
@@ -506,7 +506,7 @@ void SendSessionPacket(struct IPPacket *p,
     uint16 ip_len, uint8  tcp_flags, uint16 ip_optlen, uint16 optlen,
     uint8  iptos)
 {
-	if (session.debug == SESSION_DEBUG_HIGH) {
+	if (session.debug >= SESSION_DEBUG_HIGH) {
 	    printf("In SendSessionPacket...\n");
 	}
 	WriteIPPacket(p,
@@ -527,7 +527,7 @@ void SendSessionPacket(struct IPPacket *p,
 	  ip_optlen, /* ip options len */
 	  optlen);   /* tcp options len */
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out of SendSessionPacket...\n");
   }
 
@@ -543,7 +543,7 @@ void SendICMPReply(struct IPPacket *p)
   struct IpHeader *ip = p->ip;
   struct TcpHeader *tcp = p->tcp;
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("In SendICMPReply...\n");
   }
 
@@ -613,7 +613,7 @@ void SendICMPReply(struct IPPacket *p)
 
   SendICMPPkt(icmp_pkt, sizeof(struct ICMPUnreachableErrorPacket));
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out of SendICMPReply...\n");
   }
 
@@ -625,7 +625,7 @@ void SendPkt(struct IPPacket *p, uint16 ip_len, int ip_optlen,
 	struct sockaddr_in sockAddr;
 	char *assembled_pkt;
 
-	if (session.debug == SESSION_DEBUG_HIGH) {
+	if (session.debug >= SESSION_DEBUG_HIGH) {
 		printf("In SendPkt...\n");
 	}
 	/*  Assemble contiguos packet to be sent */
@@ -669,7 +669,7 @@ void SendPkt(struct IPPacket *p, uint16 ip_len, int ip_optlen,
 
   free(assembled_pkt);
 
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("Out SendPkt...\n");
   }
 
@@ -707,7 +707,7 @@ void rcvData (void (*ackData)(struct IPPacket *p))
   char *read_packet;
   double startTime = GetTime () ;
   
-  if (session.debug == SESSION_DEBUG_HIGH) {
+  if (session.debug >= SESSION_DEBUG_HIGH) {
     printf("In rcvData...\n");
   }
 

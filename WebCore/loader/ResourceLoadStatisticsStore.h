@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ResourceLoadStatisticsStore_h
-#define ResourceLoadStatisticsStore_h
+#pragma once
 
 #include "ResourceLoadStatistics.h"
 
@@ -61,8 +60,10 @@ public:
 
     void fireDataModificationHandler();
 
-    WEBCORE_EXPORT bool hasEnoughDataForStatisticsProcessing();
     WEBCORE_EXPORT void processStatistics(std::function<void(ResourceLoadStatistics&)>&&);
+
+    WEBCORE_EXPORT Vector<String> prevalentResourceDomainsWithoutUserInteraction();
+    WEBCORE_EXPORT void updateStatisticsForRemovedDataRecords(const Vector<String>& prevalentResourceDomains);
 private:
     ResourceLoadStatisticsStore() = default;
 
@@ -71,5 +72,3 @@ private:
 };
     
 } // namespace WebCore
-
-#endif /* ResourceLoadStatisticsStore_h */

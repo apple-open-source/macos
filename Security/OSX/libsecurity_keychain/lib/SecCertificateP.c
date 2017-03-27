@@ -55,7 +55,7 @@
 #include <stdlib.h>
 #include <libkern/OSByteOrder.h>
 #include <ctype.h>
-#include "SecInternalP.h"
+#include "SecInternal.h"
 #include "SecBase64P.h"
 
 #include <security_utilities/debugging.h>
@@ -216,13 +216,13 @@ static CFTypeID kSecCertificateTypeID = _kCFRuntimeNotATypeID;
 static CFDictionaryRef gExtensionParsers;
 
 /* Forward declartions of static functions. */
-static CFStringRef SecCertificateDescribe(CFTypeRef cf);
+static CFStringRef SecCertificateCopyDescription(CFTypeRef cf);
 static void SecCertificateDestroy(CFTypeRef cf);
 static bool derDateGetAbsoluteTime(const DERItem *dateChoice,
     CFAbsoluteTime *absTime);
 
 /* Static functions. */
-static CFStringRef SecCertificateDescribe(CFTypeRef cf) {
+static CFStringRef SecCertificateCopyDescription(CFTypeRef cf) {
     SecCertificateRefP certificate = (SecCertificateRefP)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR("<cert(%p) s: %@ i: %@>"), certificate,
@@ -723,7 +723,8 @@ static void SecCEPCertificatePolicies(SecCertificateRefP certificate,
     require_quiet(drtn == DR_EndOfSequence, badDER);
     policies = (SecCEPolicyInformation *)malloc(sizeof(SecCEPolicyInformation)
         * policy_count);
-    DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
+    drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
+    require_noerr_quiet(drtn, badDER);
     DERSize policy_ix = 0;
     while ((policy_ix < (policy_count > 0 ? policy_count : 1)) &&
            (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
@@ -773,7 +774,8 @@ static void SecCEPPolicyMappings(SecCertificateRefP certificate,
     }
     mappings = (SecCEPolicyMapping *)malloc(sizeof(SecCEPolicyMapping)
         * mapping_count);
-    DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
+    drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
+    require_noerr_quiet(drtn, badDER);
     DERSize mapping_ix = 0;
     while ((drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
         DERPolicyMapping pm;
@@ -805,6 +807,7 @@ static void SecCEPPolicyMappings(SecCertificateRefP certificate,
     DERTag tag;
     DERSequence pmSeq;
     CFMutableDictionaryRef mappings = NULL;
+    CFDataRef idp = NULL, sdp = NULL;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
     require_noerr_quiet(drtn, badDER);
     require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
@@ -820,7 +823,7 @@ static void SecCEPPolicyMappings(SecCertificateRefP certificate,
             DERPolicyMappingItemSpecs,
             &pm, sizeof(pm));
         require_noerr_quiet(drtn, badDER);
-        CFDataRef idp, sdp;
+
         require_quiet(idp = CFDataCreate(kCFAllocatorDefault,
             pm.issuerDomainPolicy.data, pm.issuerDomainPolicy.length), badDER);
         require_quiet(sdp = CFDataCreate(kCFAllocatorDefault,
@@ -835,11 +838,15 @@ static void SecCEPPolicyMappings(SecCertificateRefP certificate,
             CFDictionarySetValue(mappings, idp, sdps);
             CFRelease(sdps);
         }
+        CFReleaseNull(idp);
+        CFReleaseNull(sdp);
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
     certificate->_policyMappings = mappings;
 	return;
 badDER:
+    CFReleaseNull(idp);
+    CFReleaseNull(sdp);
     CFReleaseSafe(mappings);
     certificate->_policyMappings = NULL;
 	secinfo("cert", "Invalid CertificatePolicies Extension");
@@ -1005,7 +1012,6 @@ static void SecCEPAuthorityInfoAccess(SecCertificateRefP certificate,
             secinfo("cert", "bad general name for id-ad-ocsp AccessDescription t: 0x%02llx v: %.*s",
                 generalNameContent.tag, (int)generalNameContent.content.length, generalNameContent.content.data);
             goto badDER;
-            break;
         }
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
@@ -1066,7 +1072,7 @@ static void SecCertificateRegisterClass(void) {
 		SecCertificateEqual,							/* equal */
 		SecCertificateHash,								/* hash */
 		NULL,											/* copyFormattingDesc */
-		SecCertificateDescribe                          /* copyDebugDesc */
+		SecCertificateCopyDescription                          /* copyDebugDesc */
 	};
 
     kSecCertificateTypeID = _CFRuntimeRegisterClass(&kSecCertificateClass);
@@ -2195,7 +2201,7 @@ static void appendDERThingProperty(CFMutableArrayRef properties,
     CFStringRef value = copyDERThingDescription(CFGetAllocator(properties),
         derThing, false);
     appendPropertyP(properties, kSecPropertyTypeString, label, value);
-    CFRelease(value);
+    CFReleaseSafe(value);
 }
 
 static OSStatus appendRDNProperty(void *context, const DERItem *rdnType,
@@ -2597,7 +2603,6 @@ static bool appendGeneralNameContentProperty(CFMutableArrayRef properties,
 		break;
 	default:
 		goto badDER;
-		break;
 	}
 	return true;
 badDER:

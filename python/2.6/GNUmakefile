@@ -143,6 +143,7 @@ $(OBJROOT)/$(PROJECT):
 	sed 's/@VERSION@/$(VERS)/' $(FIX)/python.c.ed | ed - $(PROJECT)/Modules/python.c && \
 	ed - $(PROJECT)/Modules/readline.c < $(FIX)/readline.c.ed && \
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
+	patch $(PROJECT)/Modules/zipimport.c $(FIX)/Modules_zipimport.c.patch && \
 	patch $(PROJECT)/Objects/bufferobject.c $(FIX)/bufferobject.c.patch && \
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \

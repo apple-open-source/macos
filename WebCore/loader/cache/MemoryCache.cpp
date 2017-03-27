@@ -43,7 +43,7 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/TemporaryChange.h>
+#include <wtf/SetForScope.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -89,14 +89,19 @@ auto MemoryCache::ensureSessionResourceMap(SessionID sessionID) -> CachedResourc
     return *map;
 }
 
-URL MemoryCache::removeFragmentIdentifierIfNeeded(const URL& originalURL)
+bool MemoryCache::shouldRemoveFragmentIdentifier(const URL& originalURL)
 {
     if (!originalURL.hasFragmentIdentifier())
-        return originalURL;
+        return false;
     // Strip away fragment identifier from HTTP URLs.
-    // Data URLs must be unmodified. For file and custom URLs clients may expect resources 
+    // Data URLs must be unmodified. For file and custom URLs clients may expect resources
     // to be unique even when they differ by the fragment identifier only.
-    if (!originalURL.protocolIsInHTTPFamily())
+    return originalURL.protocolIsInHTTPFamily();
+}
+
+URL MemoryCache::removeFragmentIdentifierIfNeeded(const URL& originalURL)
+{
+    if (!shouldRemoveFragmentIdentifier(originalURL))
         return originalURL;
     URL url = originalURL;
     url.removeFragmentIdentifier();
@@ -154,7 +159,7 @@ void MemoryCache::revalidationSucceeded(CachedResource& revalidatingResource, co
         insertInLiveDecodedResourcesList(resource);
     if (delta)
         adjustSize(resource.hasClients(), delta);
-    
+
     revalidatingResource.switchClientsToRevalidatedResource();
     ASSERT(!revalidatingResource.m_deleted);
     // this deletes the revalidating resource
@@ -171,6 +176,8 @@ void MemoryCache::revalidationFailed(CachedResource& revalidatingResource)
 
 CachedResource* MemoryCache::resourceForRequest(const ResourceRequest& request, SessionID sessionID)
 {
+    // FIXME: Change all clients to make sure HTTP(s) URLs have no fragment identifiers before calling here.
+    // CachedResourceLoader is now doing this. Add an assertion once all other clients are doing it too.
     auto* resources = sessionResourceMap(sessionID);
     if (!resources)
         return nullptr;
@@ -221,9 +228,9 @@ bool MemoryCache::addImageToCache(NativeImagePtr&& image, const URL& url, const 
     if (!bitmapImage)
         return false;
 
-    std::unique_ptr<CachedImage> cachedImage = std::make_unique<CachedImage>(url, bitmapImage.get(), CachedImage::ManuallyCached, sessionID);
+    auto cachedImage = std::make_unique<CachedImage>(url, bitmapImage.get(), sessionID);
 
-    cachedImage->addClient(&dummyCachedImageClient());
+    cachedImage->addClient(dummyCachedImageClient());
     cachedImage->setDecodedSize(bitmapImage->decodedSize());
 #if ENABLE(CACHE_PARTITIONING)
     cachedImage->resourceRequest().setDomainForCachePartition(domainForCachePartition);
@@ -258,7 +265,7 @@ void MemoryCache::removeImageFromCache(const URL& url, const String& domainForCa
     // dead resources are pruned. That might be immediately since
     // removing the last client triggers a MemoryCache::prune, so the
     // resource may be deleted after this call.
-    downcast<CachedImage>(*resource).removeClient(&dummyCachedImageClient());
+    downcast<CachedImage>(*resource).removeClient(dummyCachedImageClient());
 }
 
 void MemoryCache::pruneLiveResources(bool shouldDestroyDecodedDataForAllLiveResources)
@@ -307,7 +314,7 @@ void MemoryCache::pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestr
 {
     if (m_inPruneResources)
         return;
-    TemporaryChange<bool> reentrancyProtector(m_inPruneResources, true);
+    SetForScope<bool> reentrancyProtector(m_inPruneResources, true);
 
     double currentTime = FrameView::currentPaintTimeStamp();
     if (!currentTime) // In case prune is called directly, outside of a Frame paint.
@@ -364,7 +371,7 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
 {
     if (m_inPruneResources)
         return;
-    TemporaryChange<bool> reentrancyProtector(m_inPruneResources, true);
+    SetForScope<bool> reentrancyProtector(m_inPruneResources, true);
  
     if (targetSize && m_deadSize <= targetSize)
         return;

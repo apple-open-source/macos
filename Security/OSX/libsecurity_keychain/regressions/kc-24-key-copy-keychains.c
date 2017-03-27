@@ -76,7 +76,7 @@ static OSStatus GenerateRSAKeyPair(
 	CFDictionaryAddValue( params, kSecUseKeychain, keychain );
 	CFDictionaryAddValue( params, kSecAttrAccess, access );
 	CFDictionaryAddValue( params, kSecAttrKeyType, kSecAttrKeyTypeRSA );
-	CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize );
+    CFDictionaryAddValue( params, kSecAttrKeySizeInBits, keySize ); CFReleaseNull(keySize);
     CFDictionaryAddValue( params, kSecAttrIsPermanent, kCFBooleanTrue );
 
 	if (extractable)
@@ -208,7 +208,7 @@ static int testCopyKey(SecKeychainRef userKeychain, SecKeychainRef tempKeychain)
     ok_status(status, "%s: SecItemExport", testName);
 
 	if (!exportedData || status != noErr) {
-		warnc(EXIT_FAILURE, "Unable to export key! (error %d)", (int)status);
+		errx(EXIT_FAILURE, "Unable to export key! (error %d)", (int)status);
 	}
 
 	// set up an explicit access control instance for the imported key
@@ -258,7 +258,7 @@ static int testCopyKey(SecKeychainRef userKeychain, SecKeychainRef tempKeychain)
 	}
 
     // ensure that key was copied, and its label changed
-    checkN(testName, makeQueryKeyDictionaryWithLabel(userKeychain, kSecAttrKeyClassPrivate, label), 1);
+    checkN(testName, createQueryKeyDictionaryWithLabel(userKeychain, kSecAttrKeyClassPrivate, label), 1);
 
 	if (access) CFRelease(access);
 

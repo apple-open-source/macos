@@ -25,7 +25,6 @@
 #include "Error.h"
 #include "GetterSetter.h"
 #include "JSCInlines.h"
-#include "RegExpMatchesArray.h"
 #include "RegExpPrototype.h"
 #include "StructureInlines.h"
 
@@ -210,56 +209,59 @@ inline Structure* getRegExpStructure(ExecState* exec, JSGlobalObject* globalObje
 
 inline RegExpFlags toFlags(ExecState* exec, JSValue flags)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     if (flags.isUndefined())
         return NoFlags;
-    JSString* flagsString = flags.toString(exec);
-    if (!flagsString) {
-        ASSERT(exec->hadException());
+    JSString* flagsString = flags.toStringOrNull(exec);
+    ASSERT(!!scope.exception() == !flagsString);
+    if (UNLIKELY(!flagsString))
         return InvalidFlags;
-    }
 
     RegExpFlags result = regExpFlags(flagsString->value(exec));
-    if (exec->hadException())
-        return InvalidFlags;
+    RETURN_IF_EXCEPTION(scope, InvalidFlags);
     if (result == InvalidFlags)
-        throwSyntaxError(exec, ASCIILiteral("Invalid flags supplied to RegExp constructor."));
+        throwSyntaxError(exec, scope, ASCIILiteral("Invalid flags supplied to RegExp constructor."));
     return result;
 }
 
 static JSObject* regExpCreate(ExecState* exec, JSGlobalObject* globalObject, JSValue newTarget, JSValue patternArg, JSValue flagsArg)
 {
     VM& vm = exec->vm();
-    String pattern = patternArg.isUndefined() ? emptyString() : patternArg.toString(exec)->value(exec);
-    if (exec->hadException())
-        return nullptr;
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    String pattern = patternArg.isUndefined() ? emptyString() : patternArg.toWTFString(exec);
+    RETURN_IF_EXCEPTION(scope, nullptr);
 
     RegExpFlags flags = toFlags(exec, flagsArg);
-    if (flags == InvalidFlags)
+    ASSERT(!!scope.exception() == (flags == InvalidFlags));
+    if (UNLIKELY(flags == InvalidFlags))
         return nullptr;
 
     RegExp* regExp = RegExp::create(vm, pattern, flags);
     if (!regExp->isValid())
-        return vm.throwException(exec, createSyntaxError(exec, regExp->errorMessage()));
+        return throwException(exec, scope, createSyntaxError(exec, regExp->errorMessage()));
 
     Structure* structure = getRegExpStructure(exec, globalObject, newTarget);
-    if (vm.exception())
-        return nullptr;
+    RETURN_IF_EXCEPTION(scope, nullptr);
     return RegExpObject::create(vm, structure, regExp);
 }
 
 JSObject* constructRegExp(ExecState* exec, JSGlobalObject* globalObject, const ArgList& args,  JSObject* callee, JSValue newTarget)
 {
     VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     JSValue patternArg = args.at(0);
     JSValue flagsArg = args.at(1);
 
     bool isPatternRegExp = patternArg.inherits(RegExpObject::info());
     bool constructAsRegexp = isRegExp(vm, exec, patternArg);
+    RETURN_IF_EXCEPTION(scope, nullptr);
 
     if (newTarget.isUndefined() && constructAsRegexp && flagsArg.isUndefined()) {
         JSValue constructor = patternArg.get(exec, vm.propertyNames->constructor);
-        if (vm.exception())
-            return nullptr;
+        RETURN_IF_EXCEPTION(scope, nullptr);
         if (callee == constructor) {
             // We know that patternArg is a object otherwise constructAsRegexp would be false.
             return patternArg.getObject();
@@ -269,26 +271,30 @@ JSObject* constructRegExp(ExecState* exec, JSGlobalObject* globalObject, const A
     if (isPatternRegExp) {
         RegExp* regExp = jsCast<RegExpObject*>(patternArg)->regExp();
         Structure* structure = getRegExpStructure(exec, globalObject, newTarget);
-        if (exec->hadException())
-            return nullptr;
+        RETURN_IF_EXCEPTION(scope, nullptr);
 
         if (!flagsArg.isUndefined()) {
             RegExpFlags flags = toFlags(exec, flagsArg);
+            ASSERT(!!scope.exception() == (flags == InvalidFlags));
             if (flags == InvalidFlags)
                 return nullptr;
             regExp = RegExp::create(vm, regExp->pattern(), flags);
         }
 
-        return RegExpObject::create(exec->vm(), structure, regExp);
+        return RegExpObject::create(vm, structure, regExp);
     }
 
     if (constructAsRegexp) {
         JSValue pattern = patternArg.get(exec, vm.propertyNames->source);
-        if (flagsArg.isUndefined())
+        RETURN_IF_EXCEPTION(scope, nullptr);
+        if (flagsArg.isUndefined()) {
             flagsArg = patternArg.get(exec, vm.propertyNames->flags);
+            RETURN_IF_EXCEPTION(scope, nullptr);
+        }
         patternArg = pattern;
     }
 
+    scope.release();
     return regExpCreate(exec, globalObject, newTarget, patternArg, flagsArg);
 }
 
@@ -303,7 +309,7 @@ EncodedJSValue JSC_HOST_CALL esSpecRegExpCreate(ExecState* exec)
 static EncodedJSValue JSC_HOST_CALL constructWithRegExpConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return JSValue::encode(constructRegExp(exec, asInternalFunction(exec->callee())->globalObject(), args, exec->callee(), exec->newTarget()));
+    return JSValue::encode(constructRegExp(exec, asInternalFunction(exec->jsCallee())->globalObject(), args, exec->jsCallee(), exec->newTarget()));
 }
 
 ConstructType RegExpConstructor::getConstructData(JSCell*, ConstructData& constructData)
@@ -315,7 +321,7 @@ ConstructType RegExpConstructor::getConstructData(JSCell*, ConstructData& constr
 static EncodedJSValue JSC_HOST_CALL callRegExpConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return JSValue::encode(constructRegExp(exec, asInternalFunction(exec->callee())->globalObject(), args, exec->callee()));
+    return JSValue::encode(constructRegExp(exec, asInternalFunction(exec->jsCallee())->globalObject(), args, exec->jsCallee()));
 }
 
 CallType RegExpConstructor::getCallData(JSCell*, CallData& callData)

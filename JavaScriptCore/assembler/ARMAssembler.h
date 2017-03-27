@@ -24,8 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ARMAssembler_h
-#define ARMAssembler_h
+#pragma once
 
 #if ENABLE(ASSEMBLER) && CPU(ARM_TRADITIONAL)
 
@@ -216,6 +215,7 @@ namespace JSC {
 #endif
             NOP = 0xe1a00000,
             DMB_SY = 0xf57ff05f,
+            DMB_ISHST = 0xf57ff05a,
 #if HAVE(ARM_IDIV_INSTRUCTIONS)
             SDIV = 0x0710f010,
             UDIV = 0x0730f010,
@@ -723,6 +723,11 @@ namespace JSC {
             m_buffer.putInt(DMB_SY);
         }
 
+        void dmbISHST()
+        {
+            m_buffer.putInt(DMB_ISHST);
+        }
+
         void bx(int rm, Condition cc = AL)
         {
             emitInstruction(toARMWord(cc) | BX, 0, 0, RM(rm));
@@ -961,6 +966,11 @@ namespace JSC {
             patchPointerInternal(getAbsoluteJumpAddress(from), to);
         }
 
+        static void relinkJumpToNop(void* from)
+        {
+            relinkJump(from, from);
+        }
+
         static void linkCall(void* code, AssemblerLabel from, void* to)
         {
             patchPointerInternal(getAbsoluteJumpAddress(code, from.m_offset), to);
@@ -1000,6 +1010,11 @@ namespace JSC {
         static ptrdiff_t maxJumpReplacementSize()
         {
             return sizeof(ARMWord) * 2;
+        }
+
+        static constexpr ptrdiff_t patchableJumpSize()
+        {
+            return sizeof(ARMWord) * 3;
         }
 
         static void replaceWithLoad(void* instructionStart)
@@ -1195,5 +1210,3 @@ namespace JSC {
 } // namespace JSC
 
 #endif // ENABLE(ASSEMBLER) && CPU(ARM_TRADITIONAL)
-
-#endif // ARMAssembler_h

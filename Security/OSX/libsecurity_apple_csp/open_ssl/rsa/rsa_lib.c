@@ -75,11 +75,11 @@
  */
 
 #include <stdio.h>
-#include <openssl/crypto.h>
+#include <openssl/crypto_legacy.h>
 #include "cryptlib.h"
-#include <openssl/lhash.h>
-#include <openssl/bn.h>
-#include <openssl/rsa.h>
+#include <openssl/lhash_legacy.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/rsa_legacy.h>
 #include <pthread.h>
 
 const char *RSA_version="RSA" OPENSSL_VERSION_PTEXT;
@@ -369,7 +369,6 @@ static struct BN_BLINDING_STRUCT* RSA_get_blinding_struct(RSA *r)
 		if (pthread_equal(current, r->blinding_array[i].thread_ID)) // do we have storage for this thread?
 		{
 			return &(r->blinding_array[i]);
-			break;
 		}
 	}
 	

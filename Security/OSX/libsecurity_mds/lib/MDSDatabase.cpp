@@ -140,7 +140,6 @@ MDSDatabase::dataGetNext (DbContext &dbContext,
                           CSSM_DB_UNIQUE_RECORD_PTR &UniqueRecordIdentifier)
 {
     CssmError ::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
-	return false;
 }
 
 void

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JSInjectedScriptHost_h
-#define JSInjectedScriptHost_h
+#pragma once
 
 #include "JSDestructibleObject.h"
 
@@ -83,5 +82,3 @@ private:
 };
 
 } // namespace Inspector
-
-#endif // !defined(JSInjectedScriptHost_h)

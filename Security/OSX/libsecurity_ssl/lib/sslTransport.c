@@ -442,51 +442,15 @@ SSLHandshake(SSLContext *ctx)
 
 #if (TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR)
 
-#include <AggregateDictionary/ADClient.h>
-
-typedef void (*type_ADClientAddValueForScalarKey)(CFStringRef key, int64_t value);
-static type_ADClientAddValueForScalarKey gADClientAddValueForScalarKey = NULL;
-static dispatch_once_t gADFunctionPointersSet = 0;
-static CFBundleRef gAggdBundleRef = NULL;
-
-static bool InitializeADFunctionPointers()
-{
-    if (gADClientAddValueForScalarKey)
-    {
-        return true;
-    }
-
-    dispatch_once(&gADFunctionPointersSet,
-                  ^{
-                      CFStringRef path_to_aggd_framework = CFSTR("/System/Library/PrivateFrameworks/AggregateDictionary.framework");
-
-                      CFURLRef aggd_url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, path_to_aggd_framework, kCFURLPOSIXPathStyle, true);
-
-                      if (NULL != aggd_url)
-                      {
-                          gAggdBundleRef = CFBundleCreate(kCFAllocatorDefault, aggd_url);
-                          if (NULL != gAggdBundleRef)
-                          {
-                              gADClientAddValueForScalarKey = (type_ADClientAddValueForScalarKey)
-                              CFBundleGetFunctionPointerForName(gAggdBundleRef, CFSTR("ADClientAddValueForScalarKey"));
-                          }
-                          CFRelease(aggd_url);
-                      }
-                  });
-    
-    return (gADClientAddValueForScalarKey!=NULL);
-}
+#include "SecADWrapper.h"
 
 static void ad_log_SecureTransport_early_fail(long signature)
 {
-    if (InitializeADFunctionPointers()) {
+    CFStringRef key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("com.apple.SecureTransport.early_fail.%ld"), signature);
 
-        CFStringRef key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("com.apple.SecureTransport.early_fail.%ld"), signature);
-
-        if(key) {
-            gADClientAddValueForScalarKey(key, 1);
-            CFRelease(key);
-        }
+    if (key) {
+        SecADAddValueForScalarKey(key, 1);
+        CFRelease(key);
     }
 }
 

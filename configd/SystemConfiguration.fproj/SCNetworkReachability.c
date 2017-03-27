@@ -752,6 +752,8 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 	SCNetworkReachabilityPrivateRef	targetPrivate;
 	unsigned int			if_index = 0;
 	char				if_name[IFNAMSIZ];
+	CFDataRef			sourceAppAuditToken	= NULL;
+	CFStringRef			sourceAppBundleID	= NULL;
 
 	if (!isA_CFDictionary(options)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -799,6 +801,23 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
+	sourceAppAuditToken =
+		CFDictionaryGetValue(options, kSCNetworkReachabilityOptionSourceAppAuditToken);
+	if ((sourceAppAuditToken != NULL) &&
+		(!isA_CFData(sourceAppAuditToken) ||
+		(CFDataGetLength(sourceAppAuditToken) != sizeof(audit_token_t)))) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+	sourceAppBundleID =
+		CFDictionaryGetValue(options, kSCNetworkReachabilityOptionSourceAppBundleIdentifier);
+	if ((sourceAppBundleID != NULL) &&
+		(!isA_CFString(sourceAppBundleID) ||
+		(CFStringGetLength(sourceAppBundleID) == 0))) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
 
 	if (nodename != NULL) {
 		const char	*name;
@@ -863,6 +882,28 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 
 	if (resolverBypass != NULL) {
 		targetPrivate->resolverBypass = CFBooleanGetValue(resolverBypass);
+		haveOpt = TRUE;
+	}
+
+	if (sourceAppAuditToken != NULL) {
+		audit_token_t atoken;
+		CFDataGetBytes(sourceAppAuditToken,
+				CFRangeMake(0, CFDataGetLength(sourceAppAuditToken)),
+				(UInt8 *)&atoken);
+		nw_parameters_set_source_application(targetPrivate->parameters, atoken);
+		haveOpt = TRUE;
+	} else if (sourceAppBundleID != NULL) {
+		char *cBundleID = _SC_cfstring_to_cstring(sourceAppBundleID,
+								NULL,
+								0,
+								kCFStringEncodingUTF8);
+		if (cBundleID != NULL) {
+			nw_parameters_set_source_application_by_bundle_id(targetPrivate->parameters,
+									  cBundleID);
+			CFAllocatorDeallocate(NULL, (void *)cBundleID);
+		} else {
+			SC_log(LOG_WARNING, "failed to convert %@ to a C string", sourceAppBundleID);
+		}
 		haveOpt = TRUE;
 	}
 
@@ -1309,10 +1350,13 @@ SCNetworkReachabilityGetFlags(SCNetworkReachabilityRef		target,
 	pathEvaluator = nw_path_create_evaluator_for_endpoint(endpoint, targetPrivate->parameters);
 	path = nw_path_evaluator_copy_path(pathEvaluator);
 
-	crazyIvanPath = __SCNetworkReachabilityCreateCrazyIvan46Path(path, endpoint, targetPrivate->parameters, FALSE);
-	if (NULL != crazyIvanPath) {
-		network_release(path);
-		path = crazyIvanPath;
+	if (isReachabilityTypeAddress(targetPrivate->type)) {
+		crazyIvanPath = __SCNetworkReachabilityCreateCrazyIvan46Path(path, endpoint,
+									     targetPrivate->parameters, FALSE);
+		if (NULL != crazyIvanPath) {
+			network_release(path);
+			path = crazyIvanPath;
+		}
 	}
 
 	*flags = __SCNetworkReachabilityGetFlagsFromPath(path, 0, nw_resolver_status_invalid, NULL, FALSE, 0);
@@ -1629,11 +1673,22 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 	if (targetPrivate &&
 	    !targetPrivate->resolverBypass &&
 	    isReachabilityTypeName(targetPrivate->type)) {
+		nw_resolver_t resolver;
 		CFRetain(targetPrivate);
 		if (NULL != targetPrivate->resolver) {
 			nw_resolver_cancel(targetPrivate->resolver);
 		}
-		nw_resolver_t resolver = nw_resolver_create_with_endpoint(__SCNetworkReachabilityGetPrimaryEndpoint(targetPrivate), targetPrivate->lastPathParameters ? targetPrivate->lastPathParameters : targetPrivate->parameters);
+		if (targetPrivate->lastPath != NULL) {
+			resolver = nw_resolver_create_with_path(targetPrivate->lastPath);
+		} else {
+			resolver = nw_resolver_create_with_endpoint(__SCNetworkReachabilityGetPrimaryEndpoint(targetPrivate), targetPrivate->lastPathParameters ? targetPrivate->lastPathParameters : targetPrivate->parameters);
+		}
+		if (resolver == NULL) {
+			SC_log(LOG_ERR, "%sfailed to create a nw_resolver", targetPrivate->log_prefix);
+			targetPrivate->resolver = NULL;
+			CFRelease(targetPrivate);
+			return;
+		}
 		targetPrivate->resolver = resolver;
 		nw_resolver_set_cancel_handler(resolver, ^(void) {
 			MUTEX_LOCK(&targetPrivate->lock);
@@ -1743,11 +1798,13 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 		network_release(targetPrivate->lastPath);
 		targetPrivate->lastPath = nw_path_evaluator_copy_path(pathEvaluator);
 
-		crazyIvanPath = __SCNetworkReachabilityCreateCrazyIvan46Path(targetPrivate->lastPath, endpoint,
-									     targetPrivate->parameters, FALSE);
-		if (NULL != crazyIvanPath) {
-			network_release(targetPrivate->lastPath);
-			targetPrivate->lastPath = crazyIvanPath;
+		if (isReachabilityTypeAddress(targetPrivate->type)) {
+			crazyIvanPath = __SCNetworkReachabilityCreateCrazyIvan46Path(targetPrivate->lastPath, endpoint,
+										     targetPrivate->parameters, FALSE);
+			if (NULL != crazyIvanPath) {
+				network_release(targetPrivate->lastPath);
+				targetPrivate->lastPath = crazyIvanPath;
+			}
 		}
 
 		network_release(targetPrivate->lastPathParameters);
@@ -1781,13 +1838,16 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 				network_release(targetPrivate->lastPath);
 				targetPrivate->lastPath = network_retain(path);
 
-				crazyIvanPath = __SCNetworkReachabilityCreateCrazyIvan46Path(targetPrivate->lastPath,
+				if (isReachabilityTypeAddress(targetPrivate->type)) {
+					crazyIvanPath =
+						__SCNetworkReachabilityCreateCrazyIvan46Path(targetPrivate->lastPath,
 											     endpoint,
 											     targetPrivate->parameters,
 											     TRUE);
-				if (NULL != crazyIvanPath) {
-					network_release(targetPrivate->lastPath);
-					targetPrivate->lastPath = crazyIvanPath;
+					if (NULL != crazyIvanPath) {
+						network_release(targetPrivate->lastPath);
+						targetPrivate->lastPath = crazyIvanPath;
+					}
 				}
 
 				if (targetPrivate->lastResolverStatus == nw_resolver_status_complete) {

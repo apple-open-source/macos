@@ -42,7 +42,7 @@ public:
     
     int baselinePositionAdjustment(ControlPart) const override;
 
-    Optional<FontCascadeDescription> controlFont(ControlPart, const FontCascade&, float zoomFactor) const override;
+    std::optional<FontCascadeDescription> controlFont(ControlPart, const FontCascade&, float zoomFactor) const override;
     
     LengthSize controlSize(ControlPart, const FontCascade&, const LengthSize&, float zoomFactor) const override;
     LengthSize minimumControlSize(ControlPart, const FontCascade&, float zoomFactor) const override;
@@ -54,6 +54,8 @@ public:
 
     void paint(ControlPart, ControlStates&, GraphicsContext&, const FloatRect&, float zoomFactor, ScrollView*, float deviceScaleFactor, float pageScaleFactor) override;
     void inflateControlPaintRect(ControlPart, const ControlStates&, FloatRect&, float zoomFactor) const override;
+
+    bool userPrefersReducedMotion() const override;
 
     // FIXME: Once RenderThemeMac is converted over to use Theme then this can be internal to ThemeMac.
     static NSView* ensuredView(ScrollView*, const ControlStates&, bool useUnparentedView = false);

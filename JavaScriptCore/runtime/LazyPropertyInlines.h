@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LazyPropertyInlines_h
-#define LazyPropertyInlines_h
+#pragma once
 
 #include "Heap.h"
 #include <wtf/StdLibExtras.h>
@@ -70,7 +69,7 @@ template<typename OwnerType, typename ElementType>
 void LazyProperty<OwnerType, ElementType>::visit(SlotVisitor& visitor)
 {
     if (m_pointer && !(m_pointer & lazyTag))
-        visitor.appendUnbarrieredReadOnlyPointer(bitwise_cast<ElementType*>(m_pointer));
+        visitor.appendUnbarriered(bitwise_cast<ElementType*>(m_pointer));
 }
 
 template<typename OwnerType, typename ElementType>
@@ -103,6 +102,3 @@ ElementType* LazyProperty<OwnerType, ElementType>::callFunc(const Initializer& i
 }
 
 } // namespace JSC
-
-#endif // LazyPropertyInlines_h
-

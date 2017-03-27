@@ -144,13 +144,7 @@ static void tests(void)
     CFReleaseNull(alice_account);
     CFReleaseNull(carole_account);
     
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-   
+    SOSTestCleanup();
 }
 
 int secd_62_account_hsa_join(int argc, char *const *argv)

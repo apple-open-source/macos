@@ -113,7 +113,7 @@ sec_xdr_reference(XDR *xdrs, uint8_t **pp, u_int size, xdrproc_t proc)
                         memset(obj, 0, size);
 						loc = &obj[0];
                     }
-					if (!sizeof_alloc)
+					if (!sizeof_alloc && pp != NULL)
 						*pp = loc;
 					break;
                 }
@@ -125,7 +125,9 @@ sec_xdr_reference(XDR *xdrs, uint8_t **pp, u_int size, xdrproc_t proc)
 
     if (xdrs->x_op == XDR_FREE) {
         sec_mem_free(xdrs, loc, size);
-        *pp = NULL;
+        if(pp) {
+            *pp = NULL;
+        }
     }
     return (stat);
 }
@@ -143,7 +145,7 @@ sec_xdr_pointer(XDR *xdrs, uint8_t **objpp, u_int obj_size, xdrproc_t xdr_obj)
     bool_t sizeof_alloc = sec_xdr_arena_size_allocator(xdrs);
 
     if (! more_data) {
-        if ((xdrs->x_op == XDR_DECODE) && !sizeof_alloc)
+        if ((xdrs->x_op == XDR_DECODE) && !sizeof_alloc && objpp != NULL)
             *objpp = NULL;
         return (TRUE);
     }

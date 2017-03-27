@@ -25,7 +25,7 @@
 
 #include "keychain_set_settings.h"
 #include "keychain_utilities.h"
-#include "readline.h"
+#include "readline_cssm.h"
 #include "security_tool.h"
 
 #include <limits.h>

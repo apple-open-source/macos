@@ -336,6 +336,7 @@ static void cmsEncoderFinalize(
 	CFRELEASE(cmsEncoder->otherCerts);
 	if(cmsEncoder->cmsMsg != NULL) {
 		SecCmsMessageDestroy(cmsEncoder->cmsMsg);
+		cmsEncoder->cmsMsg = NULL;
 	}
 	if(cmsEncoder->arena != NULL) {
 		SecArenaPoolFree(cmsEncoder->arena, false);

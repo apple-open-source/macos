@@ -869,7 +869,7 @@ _CreateAttributesDictionaryFromKeyItem(
 
 	CFMutableDictionaryRef dict = CFDictionaryCreateMutable(allocator, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	unsigned int ix;
-	SecItemClass itemClass = 0;
+	SecItemClass itemClass = (SecItemClass) 0;
 	UInt32 itemID;
 	SecKeychainAttributeList *attrList = NULL;
 	SecKeychainAttributeInfo *info = NULL;
@@ -1187,7 +1187,7 @@ _CreateAttributesDictionaryFromInternetPasswordItem(
 	// add kSecAttrAuthenticationType
 	if ( attrList.attr[6].length > 0 ) {
 		keys[numValues] = kSecAttrAuthenticationType;
-		values[numValues] = _SecAttrAuthenticationTypeForSecAuthenticationType(*(SecProtocolType*)attrList.attr[6].data);
+		values[numValues] = _SecAttrAuthenticationTypeForSecAuthenticationType( (SecAuthenticationType) (*(SecProtocolType*)attrList.attr[6].data));
 		if ( values[numValues] != NULL ) {
 			CFRetain(values[numValues]);
 			++numValues;
@@ -2005,7 +2005,7 @@ _CreateSecKeychainAttributeListFromDictionary(
  * _AppNameFromSecTrustedApplication attempts to pull the name of the
  * application/tool from the SecTrustedApplicationRef.
  */
-static CFStringRef
+static CFStringRef CF_RETURNS_RETAINED
 _AppNameFromSecTrustedApplication(
 	CFAllocatorRef alloc,
 	SecTrustedApplicationRef appRef)
@@ -2420,7 +2420,7 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 		return errSecParam;
 	}
 
-	SecItemClass itemClass;
+	SecItemClass itemClass = (SecItemClass) 0;
 	SecAccessRef access = NULL;
 	SecKeychainAttributeList *changeAttrList = NULL;
 	SecKeychainItemRef itemToUpdate = NULL;
@@ -2492,6 +2492,13 @@ _UpdateKeychainItem(CFTypeRef item, CFDictionaryRef changedAttributes)
 			status = _CreateSecKeychainKeyAttributeListFromDictionary(changedAttributes, &changeAttrList);
 			require_noerr(status, update_failed);
 		}
+		break;
+		case kSecAppleSharePasswordItemClass:
+		{
+			// do nothing (legacy behavior).
+		}
+		break;
+
 	}
 
 	// get the password
@@ -2739,7 +2746,7 @@ _ItemClassFromItemList(CFArrayRef itemList)
 	// Given a list of items (standard or persistent references),
 	// determine whether they all have the same item class. Returns
 	// the item class, or 0 if multiple classes in list.
-	SecItemClass result = 0;
+	SecItemClass result = (SecItemClass) 0;
 	CFIndex index, count = (itemList) ? CFArrayGetCount(itemList) : 0;
 	for (index=0; index < count; index++) {
 		CFTypeRef item = (CFTypeRef) CFArrayGetValueAtIndex(itemList, index);
@@ -2754,7 +2761,7 @@ _ItemClassFromItemList(CFArrayRef itemList)
 				itemRef = (SecKeychainItemRef) CFRetain(item);
 			}
 			if (itemRef) {
-				SecItemClass itemClass = 0;
+				SecItemClass itemClass = (SecItemClass) 0;
 				CFTypeID itemTypeID = CFGetTypeID(itemRef);
 				if (itemTypeID == SecIdentityGetTypeID() || itemTypeID == SecCertificateGetTypeID()) {
 					// Identities and certificates have the same underlying item class
@@ -2781,7 +2788,7 @@ _ItemClassFromItemList(CFArrayRef itemList)
 				CFRelease(itemRef);
 				if (itemClass != 0) {
 					if (result != 0 && result != itemClass) {
-						return 0; // different item classes in list; bail out
+						return (SecItemClass) 0; // different item classes in list; bail out
 					}
 					result = itemClass;
 				}
@@ -3226,31 +3233,6 @@ _ImportKey(
 	END_SECAPI
 }
 
-#if !SECTRUST_OSX
-static Boolean
-_CanIgnoreLeafStatusCodes(CSSM_TP_APPLE_EVIDENCE_INFO *evidence)
-{
-	/* Check for ignorable status codes in leaf certificate's evidence */
-	Boolean result = true;
-	unsigned int i;
-	for (i=0; i < evidence->NumStatusCodes; i++) {
-		CSSM_RETURN scode = evidence->StatusCodes[i];
-		if (scode == CSSMERR_APPLETP_INVALID_CA) {
-			// the TP has rejected this CA cert because it's in the leaf position
-			result = true;
-		}
-		else if (ignorableRevocationStatusCode(scode)) {
-			result = true;
-		}
-		else {
-			result = false;
-			break;
-		}
-	}
-	return result;
-}
-#endif
-
 static OSStatus
 _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
 {
@@ -3262,9 +3244,6 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
 	SecTrustRef trust = NULL;
 
 	SecTrustResultType	trustResult;
-#if !SECTRUST_OSX
-	CSSM_TP_APPLE_EVIDENCE_INFO *evidence = NULL;
-#endif
 	Boolean needChain = false;
 	OSStatus status;
 	if (!policy || !cert) return errSecParam;
@@ -3290,40 +3269,10 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
 	}
 
 	if (!needChain) {
-#if !SECTRUST_OSX
-		/* To make the evaluation as lightweight as possible, specify an empty array
-		 * of keychains which will be searched for certificates.
-		 */
-		keychains = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
-		status = SecTrustSetKeychains(trust, keychains);
-		if(status) goto cleanup;
-
-		/* To make the evaluation as lightweight as possible, specify an empty array
-		 * of trusted anchors.
-		 */
-		anchors = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
-		status = SecTrustSetAnchorCertificates(trust, anchors);
-		if(status) goto cleanup;
-#else
 		status = SecTrustEvaluateLeafOnly(trust, &trustResult);
 	} else {
 		status = SecTrustEvaluate(trust, &trustResult);
-#endif
 	}
-
-#if !SECTRUST_OSX
-	/* All parameters are locked and loaded, ready to evaluate! */
-	status = SecTrustEvaluate(trust, &trustResult);
-	if(status) goto cleanup;
-
-	/* If we didn't provide trust anchors or a way to look for them,
-	 * the evaluation will fail with kSecTrustResultRecoverableTrustFailure.
-	 * However, we can tell whether the policy evaluation succeeded by
-	 * looking at the per-cert status codes in the returned evidence.
-	 */
-	status = SecTrustGetResult(trust, &trustResult, &chain, &evidence);
-	if(status) goto cleanup;
-#endif
 
 	if (!(trustResult == kSecTrustResultProceed ||
 		  trustResult == kSecTrustResultUnspecified ||
@@ -3336,18 +3285,8 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
 	/* If there are no per-cert policy status codes,
 	 * and the cert has not expired, consider it valid for the policy.
 	 */
-#if SECTRUST_OSX
 	if (true) {
 		(void)SecTrustGetCssmResultCode(trust, &status);
-#else
-	if((evidence != NULL) && _CanIgnoreLeafStatusCodes(evidence) &&
-	   ((evidence[0].StatusBits & CSSM_CERT_STATUS_EXPIRED) == 0) &&
-	   ((evidence[0].StatusBits & CSSM_CERT_STATUS_NOT_VALID_YET) == 0)) {
-		status = errSecSuccess;
-#endif
-	}
-	else {
-		status = errSecCertificateCannotOperate;
 	}
 
 cleanup:
@@ -4188,7 +4127,7 @@ CFTypeRef
 SecItemCreateFromAttributeDictionary_osx(CFDictionaryRef refAttributes) {
 	CFTypeRef ref = NULL;
 	CFStringRef item_class_string = (CFStringRef)CFDictionaryGetValue(refAttributes, kSecClass);
-	SecItemClass item_class = 0;
+	SecItemClass item_class = (SecItemClass) 0;
 
 	if (CFEqual(item_class_string, kSecClassGenericPassword)) {
 		item_class = kSecGenericPasswordItemClass;
@@ -4642,8 +4581,10 @@ SecItemMergeResults(bool can_target_ios, OSStatus status_ios, CFTypeRef result_i
 		// If both keychains were targetted, examine returning statuses and decide what to do.
 		if (status_ios != errSecSuccess) {
 			// iOS keychain failed to produce results because of some error, go with results from OSX keychain.
+            // Since iOS keychain queries will fail without a keychain-access-group or proper entitlements, SecItemCopyMatching
+            // calls against the OSX keychain API that should return errSecItemNotFound will return nonsense from the iOS keychain.
 			AssignOrReleaseResult(result_osx, result);
-			return status_osx;
+            return status_osx;
 		} else if (status_osx != errSecSuccess) {
 			if (status_osx != errSecItemNotFound) {
 				// OSX failed to produce results with some failure mode (else than not_found), but iOS produced results.
@@ -4693,20 +4634,32 @@ SecItemMergeResults(bool can_target_ios, OSStatus status_ios, CFTypeRef result_i
 }
 
 static bool
-ShouldTryUnlockKeybag(OSErr status)
+ShouldTryUnlockKeybag(CFDictionaryRef query, OSErr status)
 {
-    static typeof(SASSessionStateForUser) *soft_SASSessionStateForUser = NULL;
+    static __typeof(SASSessionStateForUser) *soft_SASSessionStateForUser = NULL;
 	static dispatch_once_t onceToken;
 	static void *framework;
 
 	if (status != errSecInteractionNotAllowed)
 		return false;
 
+    // If the query disabled authUI, respect it.
+    CFTypeRef authUI = NULL;
+    if (query) {
+        authUI = CFDictionaryGetValue(query, kSecUseAuthenticationUI);
+        if (authUI == NULL) {
+            authUI = CFDictionaryGetValue(query, kSecUseNoAuthenticationUI);
+            authUI = (authUI != NULL && CFEqual(authUI, kCFBooleanTrue)) ? kSecUseAuthenticationUIFail : NULL;
+        }
+    }
+    if (authUI && !CFEqual(authUI, kSecUseAuthenticationUIAllow))
+        return false;
+
     dispatch_once(&onceToken, ^{
 		framework = dlopen("/System/Library/PrivateFrameworks/login.framework/login", RTLD_LAZY);
 		if (framework == NULL)
 			return;
-		soft_SASSessionStateForUser = (typeof(soft_SASSessionStateForUser)) dlsym(framework, "SASSessionStateForUser");
+		soft_SASSessionStateForUser = (__typeof(soft_SASSessionStateForUser)) dlsym(framework, "SASSessionStateForUser");
     });
 
     if (soft_SASSessionStateForUser == NULL)
@@ -4744,7 +4697,7 @@ SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
 		}
 		else {
 			status_ios = SecItemCopyMatching_ios(attrs_ios, &result_ios);
-            if(ShouldTryUnlockKeybag(status_ios)) {
+            if(ShouldTryUnlockKeybag(query, status_ios)) {
                 // The keybag is locked. Attempt to unlock it...
 				secitemlog(LOG_WARNING, "SecItemCopyMatching triggering SecurityAgent");
                 if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
@@ -4805,7 +4758,7 @@ SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result)
 			status = errSecParam;
 		} else {
             status = SecItemAdd_ios(attrs_ios, &result_ios);
-            if(ShouldTryUnlockKeybag(status)) {
+            if(ShouldTryUnlockKeybag(attributes, status)) {
                 // The keybag is locked. Attempt to unlock it...
 				secitemlog(LOG_WARNING, "SecItemAdd triggering SecurityAgent");
                 if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(3)) {
@@ -4859,7 +4812,7 @@ SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate)
 		else {
             if (SecItemHasSynchronizableUpdate(true, attributesToUpdate)) {
                 status_ios = SecItemChangeSynchronizability(attrs_ios, attributesToUpdate, false);
-                if(ShouldTryUnlockKeybag(status_ios)) {
+                if(ShouldTryUnlockKeybag(query, status_ios)) {
                     // The keybag is locked. Attempt to unlock it...
 					secitemlog(LOG_WARNING, "SecItemUpdate triggering SecurityAgent");
                     if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
@@ -4868,7 +4821,7 @@ SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate)
                 }
             } else {
                 status_ios = SecItemUpdate_ios(attrs_ios, attributesToUpdate);
-                if(ShouldTryUnlockKeybag(status_ios)) {
+                if(ShouldTryUnlockKeybag(query, status_ios)) {
                     // The keybag is locked. Attempt to unlock it...
 					secitemlog(LOG_WARNING, "SecItemUpdate triggering SecurityAgent");
                     if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
@@ -4954,7 +4907,7 @@ OSStatus
 SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes)
 {
 	OSStatus status = SecItemUpdateTokenItems_ios(tokenID, tokenItemsAttributes);
-    if(ShouldTryUnlockKeybag(status)) {
+    if(ShouldTryUnlockKeybag(NULL, status)) {
         // The keybag is locked. Attempt to unlock it...
         if(errSecSuccess == SecKeychainVerifyKeyStorePassphrase(1)) {
 			secitemlog(LOG_WARNING, "SecItemUpdateTokenItems triggering SecurityAgent");

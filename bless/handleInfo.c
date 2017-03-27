@@ -58,8 +58,8 @@
 #include <IOKit/IOBSD.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-static int interpretEFIString(BLContextPtr context, CFStringRef efiString, 
-                              char *bootdevice);
+static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char *bootdevice, int deviceLen,
+                              char *relPath, char *relPathLen);
 
 static void addElements(const void *key, const void *value, void *context);
 
@@ -105,10 +105,11 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     struct statfs       sb;
     CFMutableDictionaryRef  allInfo = NULL;
 	int					isHFS = 0;
+    int                 isAPFS = 0;
 	
     if(!actargs[kinfo].hasArg || actargs[kgetboot].present) {
-        char currentString[1024];
         char currentDev[1024]; // may contain URLs like bsdp://foo
+        char currentPath[MAXPATHLEN];
         BLPreBootEnvType	preboot;
         
         ret = BLGetPreBootEnvironmentType(context, &preboot);
@@ -141,7 +142,8 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                 return 2;                    					
             }
             
-            ret = interpretEFIString(context, efibootdev, currentDev);
+            ret = interpretEFIString(context, efibootdev, currentDev, sizeof currentDev,
+                                     currentPath, sizeof currentPath);
             if(ret) {
                 CFRelease(efibootdev);
                 blesscontextprintf(context, kBLLogLevelError,
@@ -162,6 +164,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             BLPartitionType mapType;
             io_service_t service = IO_OBJECT_NULL;
             CFStringRef contentHint;
+            int apfs = 0;
             
             ret = BLGetIOServiceForDeviceName(context, currentDev + 5, &service);
             if (ret) {
@@ -171,53 +174,168 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             }
             
             contentHint = IORegistryEntryCreateCFProperty(service, CFSTR(kIOMediaContentKey), kCFAllocatorDefault, 0);
+            IOObjectRelease(service);
             
             if (contentHint && CFGetTypeID(contentHint) == CFStringGetTypeID()) {
                 bool doSearch = false;
                 char booterPart[MNAMELEN];
+                CFDictionaryRef booterDict;
+                CFArrayRef  prebootBSDs;
+                CFStringRef prebootDev;
+                char prebootNode[MNAMELEN];
+                CFMutableDictionaryRef  matching;
                 
                 ret = BLGetParentDeviceAndPartitionType(context, currentDev,
                                                         parentDev,
                                                         &partNum,
                                                         &mapType);
+                if (ret == 10) {
+                    blesscontextprintf(context, kBLLogLevelVerbose, "Detected APFS volume.  Skipping Boot!=Root check.\n");
+                    apfs = 1;
+                    ret = 0;
+                }
                 if (ret) {
                     blesscontextprintf(context, kBLLogLevelError,
                                        "Can't determine parent media for %s\n", currentDev);
                     return 3;
                 }
-                
-                switch(mapType) {
-                    case kBLPartitionType_APM:
-                        if (CFEqual(contentHint, CFSTR("Apple_Boot"))) {
-                            doSearch = true;
-                            snprintf(booterPart, sizeof(booterPart), "%ss%u", parentDev, partNum+1);
-                        }
-                        break;
-                    case kBLPartitionType_GPT:
-                        if (CFEqual(contentHint, CFSTR("426F6F74-0000-11AA-AA11-00306543ECAC"))) {
-                            doSearch = true;
-                            snprintf(booterPart, sizeof(booterPart), "%ss%u", parentDev, partNum-1);
-                        }
-                        break;
-                    default:
-                        blesscontextprintf(context, kBLLogLevelVerbose,
-                                           "Partition map type does not support Boot!=Root\n");
-                        break;
-                }
-                
-                if (doSearch) {
-                    ret = findBootRootAggregate(context, booterPart, currentDev, sizeof currentDev);
+                if (apfs) {
+                    ret = BLCreateBooterInformationDictionary(context, currentDev + strlen("/dev/"), &booterDict);
                     if (ret) {
-                        blesscontextprintf(context, kBLLogLevelError,
-                                           "Failed to find Boot!=Root aggregate media for %s\n", currentDev);
+                        blesscontextprintf(context, kBLLogLevelError, "Can't get booter information for %s\n", currentDev);
                         return 3;
                     }
+                    prebootBSDs = CFDictionaryGetValue(booterDict, kBLAPFSPrebootVolumesKey);
+                    if (prebootBSDs && CFGetTypeID(prebootBSDs) == CFArrayGetTypeID()) {
+                        CFIndex count, i;
+                        CFStringRef uuidStr;
+                        char *slash = NULL;
+                        CFStringRef newBSDName;
+                        
+                        count = CFArrayGetCount(prebootBSDs);
+                        for (i = 0; i < count; i++) {
+                            prebootDev = CFArrayGetValueAtIndex(prebootBSDs, i);
+                            CFStringGetCString(prebootDev, prebootNode, sizeof prebootNode, kCFStringEncodingUTF8);
+                            if (strcmp(prebootNode, currentDev + strlen("/dev/")) == 0) break;
+                        }
+                        if (i < count) {
+                            // NVRAM contained a reference to an APFS preboot volume.  Let's find out
+                            // the UUID of the system volume it references.
+                            if (currentPath[0] == '/') {
+                                // There was a path in NVRAM.  Let's just pull the UUID out of there.
+                                // First character should be '/', UUID is right after it, followed by
+                                // another '/'.
+                                slash = strchr(currentPath + 1, '/');
+                                if (!slash || slash - (currentPath+1) != 36) slash = NULL;
+                            }
+                            if (!slash) {
+                                // Either there was no path in NVRAM or it didn't have the right form.
+                                // Let's try to get the path from the volume bless information.
+                                // Check if the preboot volume is mounted.
+                                int             mntsize;
+                                struct statfs   *mnts;
+                                char            prebootMountPoint[MAXPATHLEN];
+                                char            realMountPoint[MAXPATHLEN];
+                                bool            mustUnmount = false;
+                                uint64_t        blessWords[2];
+                                
+                                mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+                                for (i = 0; i < mntsize; i++) {
+                                    if (strcmp(mnts[i].f_mntfromname, currentDev) == 0) break;
+                                }
+                                if (i < mntsize) {
+                                    strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
+                                } else {
+                                    // The preboot volume isn't mounted right now.  We'll have to mount it.
+                                    ret = MountPrebootVolume(context, currentDev + strlen("/dev/"), prebootMountPoint, sizeof prebootMountPoint);
+                                    if (ret) {
+                                        blesscontextprintf(context, kBLLogLevelError, "Couldn't mount preboot volume %s\n", currentDev);
+                                        return 3;
+                                    }
+                                    mustUnmount = true;
+                                }
+                                ret = BLGetAPFSBlessData(context, prebootMountPoint, blessWords);
+                                if (ret) {
+                                    blesscontextprintf(context, kBLLogLevelError, "Couldn't get bless data from preboot volume.\n");
+                                }
+                                if (!ret) {
+                                    ret = BLLookupFileIDOnMount64(context, prebootMountPoint, blessWords[0], currentPath, sizeof currentPath);
+                                    if (ret) {
+                                        blesscontextprintf(context, kBLLogLevelError,
+                                                           "Couldn't find path for blessed file %lld on preboot volume.\n",
+                                                           (long long)blessWords[0]);
+                                    }
+                                }
+                                if (mustUnmount) UnmountPrebootVolume(context, prebootMountPoint);
+                                if (ret) {
+                                    CFRelease(booterDict);
+                                    return 4;
+                                }
+                                realpath(prebootMountPoint, realMountPoint);
+                                memmove(currentPath, currentPath + strlen(realMountPoint), strlen(currentPath) - strlen(realMountPoint) + 1);
+                                slash = strchr(currentPath + 1, '/');
+                                if (!slash || slash - (currentPath+1) != 36) slash = NULL;
+                            }
+                            if (!slash) {
+                                // Can't find a valid UUID in blessed path.
+                                blesscontextprintf(context, kBLLogLevelError, "Couldn't find a valid volume UUID in the boot path\n");
+                                CFRelease(booterDict);
+                                return 4;
+                            }
+                            *slash = '\0';
+                            uuidStr = CFStringCreateWithCString(kCFAllocatorDefault, currentPath + 1, kCFStringEncodingUTF8);
+                            *slash = '/';
+                            matching = IOServiceMatching("AppleAPFSVolume");
+                            CFDictionarySetValue(matching, CFSTR(kIOMediaUUIDKey), uuidStr);
+                            CFRelease(uuidStr);
+                            service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+                            if (service) {
+                                newBSDName = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+                                if (newBSDName) {
+                                    blesscontextprintf(context, kBLLogLevelVerbose, "%s is a preboot volume\n", currentDev);
+                                    CFStringGetCString(newBSDName,
+                                                       currentDev + strlen("/dev/"),
+                                                       sizeof currentDev - strlen("/dev/"),
+                                                       kCFStringEncodingUTF8);
+                                    blesscontextprintf(context, kBLLogLevelVerbose, "Substituting found system volume %s\n", currentDev);
+                                }
+                            }
+                        }
+                    }
+                    CFRelease(booterDict);
+                } else {
+                    switch(mapType) {
+                        case kBLPartitionType_APM:
+                            if (CFEqual(contentHint, CFSTR("Apple_Boot"))) {
+                                doSearch = true;
+                                snprintf(booterPart, sizeof(booterPart), "%ss%u", parentDev, partNum+1);
+                            }
+                            break;
+                        case kBLPartitionType_GPT:
+                            if (CFEqual(contentHint, CFSTR("426F6F74-0000-11AA-AA11-00306543ECAC"))) {
+                                doSearch = true;
+                                snprintf(booterPart, sizeof(booterPart), "%ss%u", parentDev, partNum-1);
+                            }
+                            break;
+                        default:
+                            blesscontextprintf(context, kBLLogLevelVerbose,
+                                               "Partition map type does not support Boot!=Root\n");
+                            break;
+                    }
+                    
+                    if (doSearch) {
+                        ret = findBootRootAggregate(context, booterPart, currentDev, sizeof currentDev);
+                        if (ret) {
+                            blesscontextprintf(context, kBLLogLevelError,
+                                               "Failed to find Boot!=Root aggregate media for %s\n", currentDev);
+                            return 3;
+                        }
+                    }
                 }
-            }            
+            }
             
 
             if (contentHint) CFRelease(contentHint);
-            IOObjectRelease(service);
             
         }
             
@@ -280,7 +398,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 	    if(!actargs[kinfo].hasArg) {
             blesscontextprintf(context, kBLLogLevelError,
                                "Volume for path %s is not available\n",
-                               currentString);
+                               currentDev);
             return 2;
 	    }
     }
@@ -304,8 +422,15 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 		blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
 		return 1;
     }
+    
+    ret = BLIsMountAPFS(context, actargs[kmount].argument, &isAPFS);
+    if(ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
+        return 1;
+    }
+
 	
-	if(isHFS) {
+	if (isHFS) {
 		ret = BLCreateVolumeInformationDictionary(context, actargs[kmount].argument,
 												  &dict);
 		if(ret) {
@@ -316,13 +441,22 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 		allInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dict);
 		CFRelease(dict);
 		dict = NULL;
-	} else {
+    } else if (isAPFS) {
+        ret = BLCreateAPFSVolumeInformationDictionary(context, actargs[kmount].argument, &dict);
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError,  "Can't print volume boot information\n" );
+            return 1;
+        }
+        allInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dict);
+        CFRelease(dict);
+        dict = NULL;
+    } else {
 		allInfo = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	}
     
     
     ret = BLCreateBooterInformationDictionary(context, sb.f_mntfromname + 5, &dict);
-    if(ret) {
+    if (ret) {
         blesscontextprintf(context, kBLLogLevelError,  "Can't get booter information\n" );
 		return 3;
     }
@@ -341,7 +475,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
         
         CFRelease(tempData);
         
-    } else if(isHFS) {
+    } else if (isHFS) {
         CFArrayRef finfo = CFDictionaryGetValue(dict, CFSTR("Finder Info"));
         int j;
         CFNumberRef vsdbref;
@@ -380,6 +514,34 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     	blesscontextprintf(context, kBLLogLevelNormal, "%s 0x%016llX\n", messages[6][1],
                            vsdb);
         
+    } else if (isAPFS) {
+        CFArrayRef binfo = CFDictionaryGetValue(dict, CFSTR("Bless Info"));
+        int j;
+        
+        for (j = 0; j < 2; j++) {
+            CFDictionaryRef word = CFArrayGetValueAtIndex(binfo, j);
+            CFNumberRef dirID = CFDictionaryGetValue(word, CFSTR("Directory ID"));
+            CFStringRef path = CFDictionaryGetValue(word, CFSTR("Path"));
+            uint64_t dirint;
+            char cpath[MAXPATHLEN];
+            
+            if (!CFNumberGetValue(dirID, kCFNumberSInt64Type, &dirint)) {
+                continue;
+            }
+            
+            if (dirint > 0 && CFStringGetLength(path) == 0) {
+                strlcpy(cpath, MISSINGMSG, sizeof cpath);
+            } else {
+                if (!CFStringGetCString(path, cpath, MAXPATHLEN, kCFStringEncodingUTF8)) {
+                    continue;
+                }
+            }
+            
+            blesscontextprintf(context, kBLLogLevelNormal,
+                               "%12llu => %s%s\n", dirint,
+                               messages[1-j][dirint > 0], cpath);
+            
+        }
     }
     
 	CFRelease(dict);
@@ -387,22 +549,25 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     return 0;
 }
 
-static int interpretEFIString(BLContextPtr context, CFStringRef efiString, 
-                              char *bootdevice)
+static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char *bootdevice, int deviceLen,
+                              char *relPath, char *relPathLen)
 {
     char                interface[IF_NAMESIZE];
     char                host[NS_MAXDNAME];
     char                path[1024];
     int                 ret;
     
-    ret = BLInterpretEFIXMLRepresentationAsDevice(context,
-                                                  efiString,
-                                                  path,
-                                                  sizeof path);
+    *relPath = '\0';
+    ret = BLInterpretEFIXMLRepresentationAsDeviceWithPath(context,
+                                                          efiString,
+                                                          path,
+                                                          sizeof path,
+                                                          relPath,
+                                                          relPathLen);
     if(ret == 0) {
         blesscontextprintf(context, kBLLogLevelVerbose,  "Disk boot device detected\n" );
         
-        sprintf(bootdevice, "/dev/%s", path);
+        snprintf(bootdevice, deviceLen, "/dev/%s", path);
         
         return 0;
     } else {
@@ -549,7 +714,7 @@ static int findBootRootAggregate(BLContextPtr context, char *memberPartition, ch
             contextprintf(context, kBLLogLevelVerbose,  "Found Boot!=Root aggregate media %s\n", BLGetCStringDescription(bsdName));
             
             strlcpy(bootRootDevice, "/dev/", deviceLen);
-            CFStringGetCString(bsdName, bootRootDevice+5, 1024-5, kCFStringEncodingUTF8);
+            CFStringGetCString(bsdName, bootRootDevice+5, deviceLen-5, kCFStringEncodingUTF8);
             
             CFRelease(bsdName);
             

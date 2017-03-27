@@ -1,4 +1,47 @@
 =================
+WebKitGTK+ 2.15.2
+=================
+
+What's new in WebKitGTK+ 2.15.2?
+
+  - Add new API to notify about dynamically added forms to Web Extensions.
+  - Implement selection interface and states for elements supporting aria-selected and for menu roles.
+  - Expose STATE_SINGLE_LINE and STATE_MULTI_LINE for ARIA searchbox role.
+  - Enable WebMemorySampler.
+  - Downloads started by context menu actions now have a web view associated.
+  - Fix a network process crash when main resource load is converted into a download.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.15.1
+=================
+
+What's new in WebKitGTK+ 2.15.1?
+
+  - GObject DOM bindings API marked as unstable has been removed.
+  - Expose WebKitDOMHTMLInputElement APIs for form autofill.
+  - Properly update WebKitWebView and WebKitWebPage URI properties when request is modified by
+    WebKitWebPage:send-request signal.
+  - Switch to use GMenu internally in the context menu implementation.
+  - Dot not leak the default WebKitWebsiteDataManager in WebKitWebContext.
+  - The network backend now always sniff contents for Downloads.
+  - Use eglGetPlatformDisplay when available instead of eglGetDisplay.
+  - Avoid strstr() when checking (E)GL extensions.
+  - Fix the build with ENABLE_OPENGL=OFF and allow to build on Wayland without OpenGL again.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.13.4
+=================
+
+What's new in WebKitGTK+ 2.13.4?
+
+  - Switched to use the threaded compositor. Accelerated compositing mode is now always enabled by default
+    and happens in a separate thread in the web process.
+  - Make web view background colors work in accelerated compositing mode.
+  - Fix several crashes and rendering issues.
+
+=================
 WebKitGTK+ 2.13.3
 =================
 

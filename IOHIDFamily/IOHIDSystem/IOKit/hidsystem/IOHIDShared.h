@@ -261,6 +261,23 @@ extern MasterAudioFunctions *masterAudioFunctions;
 #endif
 #endif /* !KERNEL */
 
+
+/*!
+ @defined kIOHIDOpenedByEventSystem
+ @abstract option passed to open for IOHIDInterface  if opened by IOHIDEventDriver
+ */
+enum {
+    kIOHIDOpenedByEventSystem = 0x10000
+};
+
+/*!
+ @defined kIOHIDMessageOpenedByEventSystem
+ @abstract message to IOHIDInterface and /or IOHIDDevice if instance of corresponding  IOHIDEventService opened by event system and ready to receive events
+ */
+
+#define kIOHIDMessageOpenedByEventSystem  iokit_vendor_specific_msg(1)
+
+
 __END_DECLS
 
 

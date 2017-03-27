@@ -61,7 +61,9 @@ SecCmsEncryptedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysiz
     void *mark;
     SecCmsEncryptedDataRef encd;
     PLArenaPool *poolp;
+#if 0
     SECAlgorithmID *pbe_algid;
+#endif
     OSStatus rv;
 
     poolp = cmsg->poolp;
@@ -87,10 +89,11 @@ SecCmsEncryptedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysiz
 	/* Assume password-based-encryption.  At least, try that. */
 #if 1
 	// @@@ Fix me
-	pbe_algid = NULL;
+        rv = SECFailure;
+        break;
 #else
 	pbe_algid = PK11_CreatePBEAlgorithmID(algorithm, 1, NULL);
-#endif
+
 	if (pbe_algid == NULL) {
 	    rv = SECFailure;
 	    break;
@@ -98,6 +101,7 @@ SecCmsEncryptedDataCreate(SecCmsMessageRef cmsg, SECOidTag algorithm, int keysiz
 	rv = SecCmsContentInfoSetContentEncAlgID((SecArenaPoolRef)poolp, &(encd->contentInfo), pbe_algid, keysize);
 	SECOID_DestroyAlgorithmID (pbe_algid, PR_TRUE);
 	break;
+#endif
     }
     if (rv != SECSuccess)
 	goto loser;

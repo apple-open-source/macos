@@ -23,8 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebGLLoseContext_h
-#define WebGLLoseContext_h
+#pragma once
 
 #include "WebGLExtension.h"
 
@@ -34,7 +33,7 @@ class WebGLRenderingContextBase;
 
 class WebGLLoseContext final : public WebGLExtension {
 public:
-    explicit WebGLLoseContext(WebGLRenderingContextBase*);
+    explicit WebGLLoseContext(WebGLRenderingContextBase&);
     virtual ~WebGLLoseContext();
 
     ExtensionName getName() const override;
@@ -44,5 +43,3 @@ public:
 };
 
 } // namespace WebCore
-
-#endif // WebGLLoseContext_h

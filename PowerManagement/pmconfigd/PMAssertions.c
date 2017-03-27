@@ -2009,6 +2009,7 @@ static void processInfoRelease(pid_t p)
         if (proc->aggregateExceptionAggdKey) CFRelease(proc->aggregateExceptionAggdKey);
 
         CFDictionaryRemoveValue(gProcessDict, (uintptr_t)p);
+        memset(proc, 0, sizeof(*proc));
         free(proc);
     }
     else {
@@ -2381,13 +2382,13 @@ void updateAppStats(assertion_t *assertion, assertionOps op)
 
                     // If allocation failed, use the process creating the assertion itself
                     if (!assertion->causingPinfo)
-                        assertion->causingPinfo = assertion->pinfo;
+                        assertion->causingPinfo = processInfoRetain(assertion->pinfo->pid);
                 }
             }
 
             pinfo = assertion->causingPinfo;
         }
-        else {
+        if (!pinfo) {
             pinfo = assertion->pinfo;
         }
 
@@ -4987,7 +4988,6 @@ static void copyAssertion(assertion_t *assertion, CFMutableDictionaryRef asserti
     CFNumberRef             pidCF = NULL;
     CFMutableDictionaryRef  processDict = NULL;
     CFMutableArrayRef       pidAssertionsArr = NULL;
-    CFStringRef             processName = NULL;
 
     pidCF = CFNumberCreate(0, kCFNumberIntType, &assertion->pinfo->pid);
 
@@ -5014,13 +5014,6 @@ static void copyAssertion(assertion_t *assertion, CFMutableDictionaryRef asserti
         pidAssertionsArr = (CFMutableArrayRef)CFDictionaryGetValue(processDict, CFSTR("PerTaskAssertions"));
     }
 
-    processName = assertion->pinfo->name;
-    if (isA_CFString(processName)) {
-        CFDictionarySetValue(assertion->props, kIOPMAssertionProcessNameKey, processName);
-    }
-    else {
-        ERROR_LOG("Process name for pid %d not available\n", assertion->pinfo->pid);
-    }
     if (assertion->kassert < kIOPMNumAssertionTypes) {
         CFDictionarySetValue(assertion->props, kIOPMAssertionTrueTypeKey, assertion_types_arr[assertion->kassert]);
     }

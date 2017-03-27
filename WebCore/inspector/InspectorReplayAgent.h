@@ -25,8 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorReplayAgent_h
-#define InspectorReplayAgent_h
+#pragma once
 
 #if ENABLE(WEB_REPLAY)
 
@@ -42,7 +41,6 @@ namespace WebCore {
 class DocumentLoader;
 class Event;
 class Frame;
-class InspectorPageAgent;
 class Page;
 class ReplaySession;
 class ReplaySessionSegment;
@@ -67,8 +65,8 @@ public:
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
-    // InspectorInstrumentation callbacks.
-    void frameNavigated(DocumentLoader*);
+    // InspectorInstrumentation
+    void frameNavigated(Frame&);
     void frameDetached(Frame&);
     void willDispatchEvent(const Event&, Frame*);
 
@@ -125,5 +123,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(WEB_REPLAY)
-
-#endif // InspectorReplayAgent_h

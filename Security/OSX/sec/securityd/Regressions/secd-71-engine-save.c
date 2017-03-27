@@ -44,105 +44,148 @@
 #include <AssertMacros.h>
 #include <stdint.h>
 
-static int kTestTestCount = 28 + 1; // +1 for secd_test_setup_temp_keychain
+static int kTestTestCount = 8;
+
+/*
+ Attributes for a v0 engine-state genp item
+
+ MANGO-iPhone:~ mobile$ security item class=genp,acct=engine-state
+ acct       : engine-state
+ agrp       : com.apple.security.sos
+ cdat       : 2016-04-18 20:40:33 +0000
+ mdat       : 2016-04-18 20:40:33 +0000
+ musr       : //
+ pdmn       : dk
+ svce       : SOSDataSource-ak
+ sync       : 0
+ tomb       : 0
+ */
 
 #include "secd-71-engine-save-sample1.h"
 
-static bool addEngineStateWithData(CFDataRef engineStateData) {
-    /*
-     MANGO-iPhone:~ mobile$ security item class=genp,acct=engine-state
-     acct       : engine-state
-     agrp       : com.apple.security.sos
-     cdat       : 2016-04-18 20:40:33 +0000
-     mdat       : 2016-04-18 20:40:33 +0000
-     musr       : //
-     pdmn       : dk
-     svce       : SOSDataSource-ak
-     sync       : 0
-     tomb       : 0
-     */
+static bool verifyV2EngineState(SOSDataSourceRef ds, CFStringRef myPeerID) {
+    bool rx = false;
+    CFErrorRef error = NULL;
+    SOSTransactionRef txn = NULL;
+    CFDataRef basicEngineState = NULL;
+    CFDictionaryRef engineState = NULL;
 
-    CFMutableDictionaryRef item = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-
-    CFDictionarySetValue(item, kSecClass, kSecClassGenericPassword);
-    CFDictionarySetValue(item, kSecAttrAccount, CFSTR("engine-state"));
-    CFDictionarySetValue(item, kSecAttrAccessGroup, CFSTR("com.apple.security.sos"));
-    CFDictionarySetValue(item, kSecAttrAccessible, kSecAttrAccessibleAlwaysPrivate);
-    CFDictionarySetValue(item, kSecAttrService, CFSTR("SOSDataSource-ak"));
-    CFDictionarySetValue(item, kSecAttrSynchronizable, kCFBooleanFalse);
-    CFDictionarySetValue(item, kSecValueData, engineStateData);
-
-    CFErrorRef localError = NULL;
-    OSStatus status = noErr;
-    is_status(status = SecItemAdd(item, (CFTypeRef *)&localError), errSecSuccess, "add v0 engine-state");
-    CFReleaseSafe(item);
-    CFReleaseSafe(localError);
-    return status == noErr;
+    SKIP: {
+        CFDataRef basicEngineState = SOSDataSourceCopyStateWithKey(ds, kSOSEngineStatev2, kSecAttrAccessibleAlwaysPrivate, txn, &error);
+        skip("Failed to get V2 engine state", 2, basicEngineState);
+        ok(basicEngineState, "SOSDataSourceCopyStateWithKey:kSOSEngineStatev2");
+        engineState = derStateToDictionaryCopy(basicEngineState, &error);
+        skip("Failed to DER decode V2 engine state", 1, basicEngineState);
+        CFStringRef engID = (CFStringRef)asString(CFDictionaryGetValue(engineState, CFSTR("id")), &error);
+        ok(CFEqualSafe(myPeerID, engID),"Check myPeerID");
+        rx = true;
+    }
+    
+    CFReleaseSafe(basicEngineState);
+    CFReleaseSafe(engineState);
+    CFReleaseSafe(error);
+    return rx;
 }
 
-#if 0
-static void testsync2(const char *name,  const char *test_directive, const char *test_reason, void (^aliceInit)(SOSDataSourceRef ds), void (^bobInit)(SOSDataSourceRef ds), CFStringRef msg, ...) {
-    __block int iteration=0;
-    SOSTestDeviceListTestSync(name, test_directive, test_reason, kSOSPeerVersion, false, ^bool(SOSTestDeviceRef source, SOSTestDeviceRef dest) {
-        if (iteration == 96) {
-            pass("%@ before message", source);
+static bool verifyV2PeerStates(SOSDataSourceRef ds, CFStringRef myPeerID, CFArrayRef peers) {
+    bool rx = false;
+    __block CFErrorRef error = NULL;
+    SOSTransactionRef txn = NULL;
+    CFDictionaryRef peerStateDict = NULL;
+    CFDataRef data = NULL;
+    __block CFIndex peerCount = CFArrayGetCount(peers) - 1; // drop myPeerID
+
+    SKIP: {
+        data = SOSDataSourceCopyStateWithKey(ds, kSOSEnginePeerStates, kSOSEngineProtectionDomainClassD, txn, &error);
+        skip("Failed to get V2 peerStates", 3, data);
+
+        peerStateDict = derStateToDictionaryCopy(data, &error);
+        skip("Failed to DER decode V2 peerStates", 2, peerStateDict);
+        ok(peerStateDict, "SOSDataSourceCopyStateWithKey:kSOSEnginePeerStates");
+
+        // Check that each peer passed in exists in peerStateDict
+        CFArrayForEach(peers, ^(const void *key) {
+            CFStringRef peerID = (CFStringRef)asString(key, &error);
+            if (!CFEqualSafe(myPeerID, peerID)) {
+                if (CFDictionaryContainsKey(peerStateDict, peerID))
+                    peerCount--;
+            }
+        });
+        ok(peerCount==0,"Peers exist in peer list (%ld)", (CFArrayGetCount(peers) - 1 - peerCount));
+        rx = true;
+    }
+
+    CFReleaseSafe(peerStateDict);
+    CFReleaseSafe(data);
+    CFReleaseSafe(error);
+    return rx;
+}
+
+static bool checkV2EngineStates(SOSTestDeviceRef td, CFStringRef myPeerID, CFArrayRef peers) {
+    bool rx = true;
+    CFErrorRef error = NULL;
+    SOSTransactionRef txn = NULL;
+    CFDictionaryRef manifestCache = NULL;
+    CFDataRef data = NULL;
+//  CFMutableDictionaryRef codersDict = NULL;   // SOSEngineLoadCoders
+
+    rx &= verifyV2EngineState(td->ds, myPeerID);
+
+    data = SOSDataSourceCopyStateWithKey(td->ds, kSOSEngineManifestCache, kSOSEngineProtectionDomainClassD, txn, &error);
+    manifestCache = derStateToDictionaryCopy(data, &error);
+    CFReleaseNull(data);
+
+    rx &= verifyV2PeerStates(td->ds, myPeerID, peers);
+
+    CFReleaseSafe(manifestCache);
+    return rx;
+}
+
+static void testSaveRestore(void) {
+    CFMutableArrayRef deviceIDs = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFArrayAppendValue(deviceIDs, CFSTR("lemon"));
+    CFArrayAppendValue(deviceIDs, CFSTR("lime"));
+    CFArrayAppendValue(deviceIDs, CFSTR("orange"));
+    bool bx = false;
+    int version = 2;
+    CFErrorRef error = NULL;
+    __block int devIdx = 0;
+    CFMutableDictionaryRef testDevices = SOSTestDeviceListCreate(false, version, deviceIDs, ^(SOSDataSourceRef ds) {
+        // This block is called before SOSEngineLoad
+        if (devIdx == 0) {
+            // Test migration of v0 to v2 engine state
+            CFDataRef engineStateData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, es_mango_bin, es_mango_bin_len, kCFAllocatorNull);
+            SOSTestDeviceAddV0EngineStateWithData(ds, engineStateData);
+            CFReleaseSafe(engineStateData);
         }
-        return false;
-    }, ^bool(SOSTestDeviceRef source, SOSTestDeviceRef dest, SOSMessageRef message) {
-        iteration++;
-        if (iteration == 60) {
-            pass("%@ before addition", source);
-            //SOSTestDeviceAddGenericItem(source, CFSTR("test_account"), CFSTR("test service"));
-            SOSTestDeviceAddRemoteGenericItem(source, CFSTR("test_account"), CFSTR("test service"));
-            pass("%@ after addition", source);
-            return true;
-        }
-        return false;
-    }, CFSTR("alice"), CFSTR("bob"), CFSTR("claire"), CFSTR("dave"),CFSTR("edward"), CFSTR("frank"), CFSTR("gary"), NULL);
-}
-#endif
+        devIdx++;
+    });
 
-static void testsync2p(void) {
-    __block int iteration = 0;
-    SOSTestDeviceListTestSync("testsync2p", test_directive, test_reason, 0, false, ^bool(SOSTestDeviceRef source, SOSTestDeviceRef dest) {
-        iteration++;
-        // Add 10 items in first 10 sync messages
-        if (iteration <= 10) {
-            CFStringRef account = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("item%d"), iteration);
-            SOSTestDeviceAddGenericItem(source, account, CFSTR("testsync2p"));
-            CFReleaseSafe(account);
-            return true;
-        }
-        return false;
-    }, ^bool(SOSTestDeviceRef source, SOSTestDeviceRef dest, SOSMessageRef message) {
-        return false;
-    }, CFSTR("Atestsync2p"), CFSTR("Btestsync2p"), NULL);
-}
+    CFStringRef sourceID = (CFStringRef)CFArrayGetValueAtIndex(deviceIDs, 0);
+    SOSTestDeviceRef source = (SOSTestDeviceRef)CFDictionaryGetValue(testDevices, sourceID);
 
-static void savetests(void) {
-    ok(true,"message");
-//    SOSEngineSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error)
-    testsync2p();
-}
+    ok(SOSTestDeviceEngineSave(source, &error),"SOSTestDeviceEngineSave: %@",error);
 
+    bx = SOSTestDeviceEngineLoad(source, &error);
+    ok(bx,"SOSTestEngineLoad: %@",error);
+
+    bx = checkV2EngineStates(source, sourceID, deviceIDs);
+    ok(bx,"getV2EngineStates: %@",error);
+
+    bx = SOSTestDeviceEngineSave(source, &error);
+    ok(bx,"SOSTestDeviceEngineSave v2: %@",error);
+
+    SOSTestDeviceDestroyEngine(testDevices);
+    CFReleaseSafe(deviceIDs);
+    CFReleaseSafe(testDevices);
+    CFReleaseSafe(error);
+}
+                                                                                        
 int secd_71_engine_save(int argc, char *const *argv)
 {
     plan_tests(kTestTestCount);
 
-    /* custom keychain dir */
-  //  secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    secd_test_setup_temp_keychain(__FUNCTION__, ^{
-        CFStringRef keychain_path_cf = __SecKeychainCopyPath();
-
-        CFDataRef engineStateData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, es_mango_bin, es_mango_bin_len, kCFAllocatorNull);
-        ok(addEngineStateWithData(engineStateData),"failed to add v0 engine state");
-        CFReleaseSafe(engineStateData);
-        CFReleaseSafe(keychain_path_cf);
-    });
-
-    // TODO: use call that prepopulates keychain (block for above)
-    ok(sizeof(es_mango_bin)== es_mango_bin_len,"bad mango");
-    savetests();
+    testSaveRestore();
     
     return 0;
 }

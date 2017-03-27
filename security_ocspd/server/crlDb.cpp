@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011,2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -100,15 +100,16 @@ private:
 	Mutex					mLock;
 
 	/*
-	 * We maintain open handles to these two modules, but we do NOT maintain
-	 * a handle to an open DB - we open and close that as needed for robustness.
+	 * We maintain open handles to these two modules, as well as
+	 * a handle to an open DB (to avoid unnecessary disk thrashing)
 	 */
 	CSSM_DL_HANDLE			mDlHand;
 	CSSM_CL_HANDLE			mClHand;
+	CSSM_DB_HANDLE			mDbHand;
 };
 
 CrlDatabase::CrlDatabase()
-	: mDlHand(0), mClHand(0)
+	: mDlHand(0), mClHand(0), mDbHand(0)
 {
 	/* Attach to DL side of, CL, and CSP */
 	mDlHand = attachCommon(&gGuidAppleCSPDL, CSSM_SERVICE_DL);
@@ -129,6 +130,9 @@ CrlDatabase::CrlDatabase()
  */
 CrlDatabase::~CrlDatabase()
 {
+	if(mDbHand != 0) {
+		closeDatabase(mDbHand);
+	}
 	if(mDlHand != 0) {
 		detachCommon(&gGuidAppleCSPDL, mDlHand);
 	}
@@ -327,21 +331,24 @@ bool CrlDatabase::lookup(
 {
 	StLock<Mutex> _(mLock);
 
-	CSSM_DB_HANDLE	dbHand;
-	bool			didCreate;
+	bool			didCreate = false;
 
 	crlData.Data = NULL;
 	crlData.Length = 0;
 
-	if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
-		/* error: no DB, we're done */
-		ocspdErrorLog("CrlDatabase::lookup: no cache DB\n");
-		return false;
+	if(!mDbHand) {
+		/* no open database handle; attempt to create or open existing */
+		CSSM_DB_HANDLE	dbHand;
+		if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
+			/* error: no DB, we're done */
+			ocspdErrorLog("CrlDatabase::lookup: no cache DB\n");
+			return false;
+		}
+		mDbHand = dbHand;
 	}
 	if(didCreate) {
 		/* we just created empty DB, we're done */
 		ocspdCrlDebug("CrlDatabase::lookup: empty cache DB");
-		closeDatabase(dbHand);
 		return false;
 	}
 
@@ -350,9 +357,9 @@ bool CrlDatabase::lookup(
 	bool						ourRtn = false;
 	CSSM_HANDLE					resultHand = 0;
 	CSSM_RETURN					crtn;
-	CSSM_DL_DB_HANDLE			dlDbHand = {mDlHand, dbHand};
+	CSSM_DL_DB_HANDLE			dlDbHand = {mDlHand, mDbHand};
 
-	crtn = lookupPriv(dbHand, url, issuer, &verifyTime, &resultHand, &record, NULL, &dbCrl);
+	crtn = lookupPriv(mDbHand, url, issuer, &verifyTime, &resultHand, &record, NULL, &dbCrl);
 	if(crtn) {
 		ocspdCrlDebug("CrlDatabase::lookupPriv result %d", crtn);
 	}
@@ -374,9 +381,7 @@ bool CrlDatabase::lookup(
 			ocspdCrlDebug("CrlDatabase::lookup: DB read succeeded, but no data");
 		}
 		CSSM_DL_FreeUniqueRecord(dlDbHand, record);
-
 	}
-	closeDatabase(dbHand);
 	return ourRtn;
 }
 
@@ -386,15 +391,19 @@ CSSM_RETURN CrlDatabase::add(
 {
 	StLock<Mutex> _(mLock);
 
-	bool didCreate;
-	CSSM_DB_HANDLE dbHand;
+	bool didCreate = false;
 
-	if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
-		/* no DB, we're done */
-		ocspdErrorLog("CrlDatabase::add: no cache DB\n");
-		return false;
+	if(!mDbHand) {
+		/* no open database handle; attempt to create or open existing */
+		CSSM_DB_HANDLE dbHand;
+		if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
+			/* no DB, we're done */
+			ocspdErrorLog("CrlDatabase::add: no cache DB\n");
+			return false;
+		}
+		mDbHand = dbHand;
 	}
-	CSSM_DL_DB_HANDLE dlDbHand = {mDlHand, dbHand};
+	CSSM_DL_DB_HANDLE dlDbHand = {mDlHand, mDbHand};
 
 	/* this routine takes care of all the attributes, gleaning them from
 	 * the contents of the CRL itself */
@@ -405,7 +414,6 @@ CSSM_RETURN CrlDatabase::add(
 	else {
 		ocspdCrlDebug("CrlDatabase::add: CRL added to DB");
 	}
-	closeDatabase(dbHand);
 	return crtn;
 }
 
@@ -418,27 +426,30 @@ void CrlDatabase::flush(
 {
 	StLock<Mutex> _(mLock);
 
-	bool didCreate;
-	CSSM_DB_HANDLE dbHand;
+	bool didCreate = false;
 
-	if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
-		/* error: no DB, we're done */
-		ocspdErrorLog("CrlDatabase::flush: no cache DB\n");
-		return;
+	if(!mDbHand) {
+		/* no open database handle; attempt to create or open existing */
+		CSSM_DB_HANDLE dbHand;
+		if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
+			/* error: no DB, we're done */
+			ocspdErrorLog("CrlDatabase::flush: no cache DB\n");
+			return;
+		}
+		mDbHand = dbHand;
 	}
 	if(didCreate) {
 		/* we just created empty DB, we're done */
 		ocspdCrlDebug("CrlDatabase::flush: empty cache DB");
-		closeDatabase(dbHand);
 		return;
 	}
 
 	CSSM_DB_UNIQUE_RECORD_PTR	record = NULL;
 	CSSM_HANDLE					resultHand = 0;
 	CSSM_RETURN					crtn;
-	CSSM_DL_DB_HANDLE			dlDbHand = {mDlHand, dbHand};
+	CSSM_DL_DB_HANDLE			dlDbHand = {mDlHand, mDbHand};
 
-	crtn = lookupPriv(dbHand,
+	crtn = lookupPriv(mDbHand,
 		&url,
 		NULL,		// issuer
 		NULL,		// verify time
@@ -469,7 +480,6 @@ void CrlDatabase::flush(
 	}
 	catch (...) {}; // <rdar://8833413>
 done:
-	closeDatabase(dbHand);
 	return;
 
 }
@@ -483,25 +493,27 @@ void CrlDatabase::refresh(
 {
 	StLock<Mutex> _(mLock);
 
-	bool didCreate;
-	CSSM_DB_HANDLE dbHand;
+	bool didCreate = false;
 
-	if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
-		/* error: no DB, we're done */
-		ocspdErrorLog("CrlDatabase::refresh: no cache DB\n");
-		return;
+	if(!mDbHand) {
+		/* no open database handle; attempt to create or open existing */
+		CSSM_DB_HANDLE dbHand;
+		if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
+			/* error: no DB, we're done */
+			ocspdErrorLog("CrlDatabase::refresh: no cache DB\n");
+			return;
+		}
+		mDbHand = dbHand;
 	}
 	if(didCreate) {
 		/* we just created empty DB, we're done */
 		ocspdCrlDebug("CrlDatabase::refresh: empty cache DB");
-		closeDatabase(dbHand);
 		return;
 	}
 
-	CSSM_DL_DB_HANDLE dlDbHand = {mDlHand, dbHand};
+	CSSM_DL_DB_HANDLE dlDbHand = {mDlHand, mDbHand};
 	ocspdCrlRefresh(dlDbHand, mClHand, staleDays, expireOverlapSeconds,
 		purgeAll, fullCryptoVerify, doRefresh);
-	closeDatabase(dbHand);
 	return;
 }
 

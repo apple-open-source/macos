@@ -366,7 +366,11 @@ SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef s
     CFDictionaryRef parameters = NULL;
     
     require_noerr(SecIdentityCopyCertificate(ca_identity, &ca_certificate), out);
+#if TARGET_OS_IPHONE
     ca_public_key = SecCertificateCopyPublicKey(ca_certificate); /*@@@*/
+#else
+    ca_public_key = SecCertificateCopyPublicKey_ios(ca_certificate);
+#endif
 
     /* unwrap outer layer: */
     policy = SecPolicyCreateBasicX509();

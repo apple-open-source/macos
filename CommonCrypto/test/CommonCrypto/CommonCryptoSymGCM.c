@@ -41,7 +41,7 @@ entryPoint(CommonCryptoSymGCM,"CommonCrypto Symmetric GCM Testing")
 
 
 
-static int kTestTestCount = 16;
+static int kTestTestCount = 14;
 
 int CommonCryptoSymGCM(int __unused argc, char *const * __unused argv) {
 	char *keyStr;

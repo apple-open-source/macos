@@ -28,12 +28,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SubframeLoader_h
-#define SubframeLoader_h
+#pragma once
 
 #include "FrameLoaderTypes.h"
 #include <wtf/Forward.h>
-#include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -91,5 +89,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // SubframeLoader_h

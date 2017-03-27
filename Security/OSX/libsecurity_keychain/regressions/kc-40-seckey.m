@@ -180,7 +180,7 @@ static void testkeygen(size_t keySizeInBits) {
 	size_t keySizeInBytes = (keySizeInBits + 7) / 8;
 	CFNumberRef kzib;
 
-	kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keySizeInBits);
+	kzib = CFNumberCreate(NULL, kCFNumberSInt64Type, &keySizeInBits);
 	CFMutableDictionaryRef kgp = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
 	CFDictionaryAddValue(kgp, kSecAttrKeyType, kSecAttrKeyTypeRSA);
 	CFDictionaryAddValue(kgp, kSecAttrKeySizeInBits, kzib);
@@ -385,7 +385,7 @@ static void testkeygen2(size_t keySizeInBits) {
 	CFDictionaryAddValue(pubd, kSecAttrLabel, publicName);
 	CFDictionaryAddValue(privd, kSecAttrLabel, privateName);
 
-	kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keySizeInBits);
+	kzib = CFNumberCreate(NULL, kCFNumberSInt64Type, &keySizeInBits);
 	CFMutableDictionaryRef kgp = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
 	CFDictionaryAddValue(kgp, kSecAttrKeyType, kSecAttrKeyTypeRSA);
 	CFDictionaryAddValue(kgp, kSecAttrKeySizeInBits, kzib);
@@ -530,8 +530,13 @@ PBKDF2Test(KDFVector *kdfvec)
     int status = 1;
     
     ok(testSecKDF(password, salt, rounds, kSecAttrPRFHmacAlgSHA1, dklen, expectedBytes, kdfvec->expected_failure), "Test SecKeyDeriveFromPassword PBKDF2");
-    
-    if(expectedBytes) CFRelease(expectedBytes);
+
+    CFReleaseNull(expectedBytes);
+    CFReleaseNull(password);
+    CFReleaseNull(salt);
+    CFReleaseNull(rounds);
+    CFReleaseNull(dklen);
+
     return status;
 }
 
@@ -849,7 +854,9 @@ static void testcreatewithdata(unsigned long keySizeInBits)
         ok(dataKey, "priv key SecKeyCreateWithData failed");
         CFReleaseNull(error);
 
-        eq_cf(privExternalData, SecKeyCopyExternalRepresentation(dataKey, NULL), "priv keys differ");
+        CFDataRef external = SecKeyCopyExternalRepresentation(dataKey, NULL);
+        eq_cf(privExternalData, external, "priv keys differ");
+        CFReleaseNull(external);
         CFReleaseNull(dataKey);
 
         CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPublic);
@@ -885,7 +892,9 @@ static void testcreatewithdata(unsigned long keySizeInBits)
         ok(dataKey, "pub key SecKeyCreateWithData failed");
         CFReleaseNull(error);
 
-        eq_cf(pubExternalData, SecKeyCopyExternalRepresentation(dataKey, NULL), "pub keys differ");
+        CFDataRef external = SecKeyCopyExternalRepresentation(dataKey, NULL);
+        eq_cf(pubExternalData, external, "pub keys differ");
+        CFReleaseNull(external);
         CFReleaseNull(dataKey);
 
         CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
@@ -1143,8 +1152,8 @@ static void testcopypubkfromcert() {
     SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)certData);
     SecKeyRef pubKey = NULL;
     ok_status(SecCertificateCopyPublicKey(cert, &pubKey), "export public key from certificate");
-    NSData *pubKeyData = (NSData *)SecKeyCopyExternalRepresentation(pubKey, NULL);
-    eq_cf(pubKeyData, pubKData, "public key exports itself into expected data");
+    NSData *pubKeyData = (__bridge_transfer NSData *)SecKeyCopyExternalRepresentation(pubKey, NULL);
+    eq_cf( (__bridge CFTypeRef) pubKeyData, (__bridge CFTypeRef) pubKData, "public key exports itself into expected data");
     CFReleaseNull(pubKey);
     CFReleaseNull(cert);
 }

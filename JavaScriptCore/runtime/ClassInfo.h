@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -20,12 +20,10 @@
  *
  */
 
-#ifndef ClassInfo_h
-#define ClassInfo_h
+#pragma once
 
 #include "CallFrame.h"
 #include "ConstructData.h"
-#include "CopyToken.h"
 #include "JSCell.h"
 
 namespace JSC {
@@ -40,10 +38,7 @@ struct MethodTable {
 
     typedef void (*VisitChildrenFunctionPtr)(JSCell*, SlotVisitor&);
     VisitChildrenFunctionPtr visitChildren;
-
-    typedef void (*CopyBackingStoreFunctionPtr)(JSCell*, CopyVisitor&, CopyToken);
-    CopyBackingStoreFunctionPtr copyBackingStore;
-
+    
     typedef CallType (*GetCallDataFunctionPtr)(JSCell*, CallData&);
     GetCallDataFunctionPtr getCallData;
 
@@ -92,6 +87,9 @@ struct MethodTable {
     typedef String (*ClassNameFunctionPtr)(const JSObject*);
     ClassNameFunctionPtr className;
 
+    typedef String (*ToStringNameFunctionPtr)(const JSObject*, ExecState*);
+    ToStringNameFunctionPtr toStringName;
+
     typedef bool (*CustomHasInstanceFunctionPtr)(JSObject*, ExecState*, JSValue);
     CustomHasInstanceFunctionPtr customHasInstance;
 
@@ -124,6 +122,9 @@ struct MethodTable {
 
     typedef size_t (*EstimatedSizeFunctionPtr)(JSCell*);
     EstimatedSizeFunctionPtr estimatedSize;
+    
+    typedef void (*VisitOutputConstraintsPtr)(JSCell*, SlotVisitor&);
+    VisitOutputConstraintsPtr visitOutputConstraints;
 };
 
 #define CREATE_MEMBER_CHECKER(member) \
@@ -148,7 +149,6 @@ struct MethodTable {
 #define CREATE_METHOD_TABLE(ClassName) { \
         &ClassName::destroy, \
         &ClassName::visitChildren, \
-        &ClassName::copyBackingStore, \
         &ClassName::getCallData, \
         &ClassName::getConstructData, \
         &ClassName::put, \
@@ -166,6 +166,7 @@ struct MethodTable {
         &ClassName::getStructurePropertyNames, \
         &ClassName::getGenericPropertyNames, \
         &ClassName::className, \
+        &ClassName::toStringName, \
         &ClassName::customHasInstance, \
         &ClassName::defineOwnProperty, \
         &ClassName::slowDownAndWasteMemory, \
@@ -176,7 +177,8 @@ struct MethodTable {
         &ClassName::getPrototype, \
         &ClassName::dumpToStream, \
         &ClassName::heapSnapshot, \
-        &ClassName::estimatedSize \
+        &ClassName::estimatedSize, \
+        &ClassName::visitOutputConstraints \
     }, \
     ClassName::TypedArrayStorageType
 
@@ -207,5 +209,3 @@ struct ClassInfo {
 };
 
 } // namespace JSC
-
-#endif // ClassInfo_h

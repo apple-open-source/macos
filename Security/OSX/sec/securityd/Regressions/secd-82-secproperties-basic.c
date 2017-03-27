@@ -117,14 +117,7 @@ static void tests(void)
     SOSDataSourceRelease(test_source, NULL);
     SOSDataSourceFactoryRelease(test_factory);
     
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-    
+    SOSTestCleanup();
 }
 
 int secd_82_secproperties_basic(int argc, char *const *argv)

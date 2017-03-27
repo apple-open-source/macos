@@ -431,7 +431,7 @@ void CL_cssmGeneralNameToNss(
 	nssObj.item = cdsaObj.name;
 	unsigned char itemTag;			// for nssObj.tag
 	bool doCopy = false;			// unless we have to modify tag byte
-	unsigned char overrideTag;		// to force context-specific tag for
+	unsigned char overrideTag = '\0';		// to force context-specific tag for
 									//   an ASN_ANY
 	PRErrorCode prtn;
 									

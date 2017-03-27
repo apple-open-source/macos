@@ -12,7 +12,8 @@
 #include "testbyteBuffer.h"
 #include "testmore.h"
 #include "capabilities.h"
-#include "ccMemory.h"
+#include "../../lib/ccMemory.h"
+#include <CommonCrypto/CommonCryptorSPI.h>
 
 CCCryptorStatus
 CCCryptWithMode(CCOperation op, CCMode mode, CCAlgorithm alg, CCPadding padding, const void *iv, 
@@ -203,6 +204,9 @@ ccConditionalTextBuffer(char *inputText)
     return ret;
 }
 
+#define log(do_print, MSG, ARGS...) \
+if(do_print){test_diag(test_directive, test_reason, __FILE__, __LINE__, MSG, ## ARGS);}
+
 int
 CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, char *cipherText, char *plainText, bool log)
 {
@@ -273,9 +277,6 @@ errOut:
     free(iv);
 	return rc;
 }
-
-
-
 
 int
 CCMultiCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, char *cipherText, char *plainText)

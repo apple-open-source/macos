@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef IndentOutdentCommand_h
-#define IndentOutdentCommand_h
+#pragma once
 
 #include "ApplyBlockElementCommand.h"
 #include "EditAction.h"
@@ -39,12 +38,12 @@ public:
         return adoptRef(*new IndentOutdentCommand(document, type, marginInPixels));
     }
 
-    virtual bool preservesTypingStyle() const { return true; }
+    bool preservesTypingStyle() const override { return true; }
 
 private:
     IndentOutdentCommand(Document&, EIndentType, int marginInPixels);
 
-    virtual EditAction editingAction() const { return m_typeOfAction == Indent ? EditActionIndent : EditActionOutdent; }
+    EditAction editingAction() const override { return m_typeOfAction == Indent ? EditActionIndent : EditActionOutdent; }
 
     void indentRegion(const VisiblePosition&, const VisiblePosition&);
     void outdentRegion(const VisiblePosition&, const VisiblePosition&);
@@ -52,13 +51,11 @@ private:
     bool tryIndentingAsListItem(const Position&, const Position&);
     void indentIntoBlockquote(const Position&, const Position&, RefPtr<Element>&);
 
-    void formatSelection(const VisiblePosition& startOfSelection, const VisiblePosition& endOfSelection);
-    void formatRange(const Position& start, const Position& end, const Position& endOfSelection, RefPtr<Element>& blockquoteForNextIndent);
+    void formatSelection(const VisiblePosition& startOfSelection, const VisiblePosition& endOfSelection) override;
+    void formatRange(const Position& start, const Position& end, const Position& endOfSelection, RefPtr<Element>& blockquoteForNextIndent) override;
 
     EIndentType m_typeOfAction;
     int m_marginInPixels;
 };
 
 } // namespace WebCore
-
-#endif // IndentOutdentCommand_h

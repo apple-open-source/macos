@@ -37,21 +37,23 @@
 namespace WebCore {
 class SecurityOrigin;
 class SessionID;
+struct SecurityOriginData;
 }
 
 namespace WebKit {
 
 class WebProcessPool;
 enum class WebsiteDataType;
+struct WebsiteData;
 
 class DatabaseProcessProxy : public ChildProcessProxy {
 public:
     static Ref<DatabaseProcessProxy> create(WebProcessPool*);
     ~DatabaseProcessProxy();
 
-    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::function<void (WebsiteData)> completionHandler);
-    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
-    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebsiteDataType>, const Vector<RefPtr<WebCore::SecurityOrigin>>& origins, std::function<void ()> completionHandler);
+    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::function<void(WebsiteData)> completionHandler);
+    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, std::function<void()> completionHandler);
+    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, std::function<void()> completionHandler);
 
     void getDatabaseProcessConnection(PassRefPtr<Messages::WebProcessProxy::GetDatabaseProcessConnection::DelayedReply>);
 
@@ -63,20 +65,20 @@ private:
     void processWillShutDown(IPC::Connection&) override;
 
     // IPC::Connection::Client
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     void didClose(IPC::Connection&) override;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
-    IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
-    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Database; }
 
-    void didReceiveDatabaseProcessProxyMessage(IPC::Connection&, IPC::MessageDecoder&);
+    void didReceiveDatabaseProcessProxyMessage(IPC::Connection&, IPC::Decoder&);
 
     // Message handlers
     void didCreateDatabaseToWebProcessConnection(const IPC::Attachment&);
     void didFetchWebsiteData(uint64_t callbackID, const WebsiteData&);
     void didDeleteWebsiteData(uint64_t callbackID);
     void didDeleteWebsiteDataForOrigins(uint64_t callbackID);
+#if ENABLE(SANDBOX_EXTENSIONS)
     void getSandboxExtensionsForBlobFiles(uint64_t requestID, const Vector<String>& paths);
+#endif
 
     // ProcessLauncher::Client
     void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;

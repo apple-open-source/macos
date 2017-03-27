@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 					else {
 						test_t *test = it->second;
 						
-						int ret = systemx(progname, "--test", test->name, "--no-spawn", "run", NULL);
+						ret = systemx(progname, "--test", test->name, "--no-spawn", "run", NULL);
 						
 						if (ret)
 							std::cout << "[FAIL] " << test->name << std::endl;

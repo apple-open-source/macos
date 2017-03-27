@@ -25,7 +25,7 @@
 
 #include "keychain_add.h"
 #include "keychain_find.h"
-#include "readline.h"
+#include "readline_cssm.h"
 #include "security_tool.h"
 #include "access_utils.h"
 #include "keychain_utilities.h"

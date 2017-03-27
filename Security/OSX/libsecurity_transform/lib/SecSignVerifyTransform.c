@@ -221,16 +221,13 @@ CFErrorRef pick_sign_alg(CFStringRef digest, int digest_length, const CSSM_KEY *
 	switch (ckey->KeyHeader.AlgorithmId) {
 		case CSSM_ALGID_RSA:
 			return fancy_error(kSecTransformErrorDomain, kSecTransformErrorInvalidAlgorithm, CFSTR("Invalid digest algorithm for RSA signature, choose one of: SHA1, SHA2 (512bits, 348bits, 256bits, or 224 bits), MD2, or MD5"));
-			break;
 			
 		case CSSM_ALGID_ECDSA:
 			return fancy_error(kSecTransformErrorDomain, kSecTransformErrorInvalidAlgorithm, CFSTR("Invalid digest algorithm for ECDSA signature, choose one of: SHA1, or SHA2 (512bits, 348bits, 256bits, or 224 bits)"));
-			break;
-			
+
 		case CSSM_ALGID_DSA:
 			return fancy_error(kSecTransformErrorDomain, kSecTransformErrorInvalidAlgorithm, CFSTR("Invalid digest algorithm for DSA signature, only SHA1 is supported"));
-			break;
-			
+
 		default:
 			return fancy_error(kSecTransformErrorDomain, kSecTransformErrorInvalidAlgorithm, CFSTR("Expected key to be RSA, DSA or ECDSA key"));
 	}

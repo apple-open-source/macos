@@ -40,7 +40,7 @@
 #include <os/activity.h>
 #include <dirent.h>
 #include "SecTrustPriv.h"
-#include "SecTrustSettings.h"
+#include <Security/SecTrustSettingsPriv.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
 #include "utilities/SecDb.h"

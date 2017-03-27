@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.23
+Version    = 2.4.25
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = PR-18640257-SDK.diff \
@@ -12,7 +12,6 @@ Patch_List = PR-18640257-SDK.diff \
              PR-5432464.diff_httpd.conf \
              PR-16019492.diff \
              PR-5957348.diff \
-             PR-27313605.diff \
              patch-docs__conf__httpd.conf.in \
              PR-10154185.diff \
              PR-24076433 \
@@ -24,7 +23,8 @@ Patch_List = PR-18640257-SDK.diff \
              PR-15976165-ulimit.diff \
              PR-17754441-sbin.diff \
              PR-16019357-apxs.diff \
-	     PR-13708279.diff \
+             PR-13708279.diff \
+             PR-30247257.diff \
              mod_proxy_balancer-partialfix.diff
 
 Configure_Flags = --prefix=/usr \
@@ -34,7 +34,9 @@ Configure_Flags = --prefix=/usr \
                   --with-pcre=$(SRCROOT)/$(Project)/../\
                   --enable-mods-shared=all \
                   --enable-ssl \
-                  --with-ssl=/usr/local/libressl \
+                  --with-z=$(SDKROOT)/usr/include \
+                  --with-libxml2=$(SDKROOT)/usr/include/libxml2 \
+                  --with-ssl=$(SDKROOT)/usr/local/libressl \
                   --enable-cache \
                   --enable-mem-cache \
                   --enable-proxy-balancer \

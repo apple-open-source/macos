@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>keychain-cloud-circle</key>
+	<true/>
+	<key>com.apple.wifi.manager-access</key>
+	<true/>
+	<key>com.apple.private.ids.remoteurlconnection</key>
+	<true/>
+	<key>com.apple.private.ids.force-encryption-off</key>
+	<array>
+		<string>com.apple.private.alloy.keychainsync</string>
+	</array>
+	<key>com.apple.private.ids.messaging.high-priority</key>
+	<array>
+		<string>com.apple.private.alloy.keychainsync</string>
+	</array>
+	<key>com.apple.private.ids.messaging</key>
+	<array>
+		<string>com.apple.private.alloy.keychainsync</string>
+	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>apple</string>
+		<string>IMCore</string>
+		<string>InternetAccounts</string>
+	</array>
+	<key>application-identifier</key>
+	<string>com.apple.security.keychainsyncingoveridsproxy</string>
+</dict>
+</plist>

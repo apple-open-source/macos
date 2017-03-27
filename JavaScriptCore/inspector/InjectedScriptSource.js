@@ -55,17 +55,16 @@ function isUInt32(obj)
     return "" + (obj >>> 0) === obj;
 }
 
-function endsWith(str, suffix)
-{
-    var position = str.length - suffix.length;
-    if (position < 0)
-        return false;
-    return str.indexOf(suffix, position) === position;
-}
-
 function isSymbol(obj)
 {
     return typeof obj === "symbol";
+}
+
+function isEmptyObject(object)
+{
+    for (let key in object)
+        return false;
+    return true;
 }
 
 var InjectedScript = function()
@@ -646,7 +645,7 @@ InjectedScript.prototype = {
                 }
 
                 if (nativeGettersAsValues) {
-                    if (endsWith(String(descriptor.get), "[native code]\n}") || (!descriptor.get && descriptor.hasOwnProperty("get") && !descriptor.set && descriptor.hasOwnProperty("set"))) {
+                    if (String(descriptor.get).endsWith("[native code]\n}") || (!descriptor.get && descriptor.hasOwnProperty("get") && !descriptor.set && descriptor.hasOwnProperty("set"))) {
                         // Developers may create such a descriptor, so we should be resilient:
                         // var x = {}; Object.defineProperty(x, "p", {get:undefined}); Object.getOwnPropertyDescriptor(x, "p")
                         var fakeDescriptor = createFakeValueDescriptor(name, symbol, descriptor, isOwnProperty, true);
@@ -678,10 +677,10 @@ InjectedScript.prototype = {
         // For array types with a large length we attempt to skip getOwnPropertyNames and instead just sublist of indexes.
         var isArrayLike = false;
         try {
-            isArrayLike = injectedScript._subtype(object) === "array" && isFinite(object.length);
+            isArrayLike = injectedScript._subtype(object) === "array" && isFinite(object.length) && object.length > 0;
         } catch(e) {}
 
-        for (var o = object; this._isDefined(o); o = o.__proto__) {
+        for (var o = object; this._isDefined(o); o = Object.getPrototypeOf(o)) {
             var isOwnProperty = o === object;
 
             if (isArrayLike && isOwnProperty)
@@ -808,7 +807,7 @@ InjectedScript.prototype = {
 
         // NodeList in JSC is a function, check for array prior to this.
         if (typeof obj === "function")
-            return toString(obj);
+            return obj.toString();
 
         // If Object, try for a better name from the constructor.
         if (className === "Object") {
@@ -1335,15 +1334,19 @@ InjectedScript.CallFrameProxy._scopeTypeNames = {
 
 InjectedScript.CallFrameProxy._createScopeJson = function(object, {name, type, location}, groupId)
 {
-    var scope = {
+    let scope = {
         object: injectedScript._wrapObject(object, groupId),
         type: InjectedScript.CallFrameProxy._scopeTypeNames[type],
     };
 
     if (name)
         scope.name = name;
+
     if (location)
         scope.location = location;
+
+    if (isEmptyObject(object))
+        scope.empty = true;
 
     return scope;
 }

@@ -77,8 +77,8 @@ ItemImpl *ItemImpl::required(SecKeychainItemRef ptr)
 
 ItemImpl *ItemImpl::optional(SecKeychainItemRef ptr)
 {
-    if (SecCFObject *p = KeyItem::fromSecKeyRef(ptr)) {
-        return dynamic_cast<ItemImpl *>(p);
+    if (ptr != NULL && CFGetTypeID(ptr) == SecKeyGetTypeID()) {
+        return dynamic_cast<ItemImpl *>(KeyItem::fromSecKeyRef(ptr));
     } else if (SecCFObject *p = SecCFObject::optional(ptr)) {
         if (ItemImpl *pp = dynamic_cast<ItemImpl *>(p)) {
             return pp;

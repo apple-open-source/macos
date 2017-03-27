@@ -322,7 +322,7 @@ static void item_with_application_password(uint32_t *item_num)
     // Try to update item with ACL with application password with the same password (it will fail because ACM context is not allowd for update attributes).
     CFDictionarySetValue(update, kSecUseCredentialReference, credRefData);
     LASetErrorCodeBlock(okBlock);
-    is_status(SecItemUpdate(item, update), errSecParam, "update local - add application password");
+    is_status(SecItemUpdate(item, update), errSecNoSuchAttr, "update local - add application password");
 
     CFDictionaryRemoveValue(update, kSecUseCredentialReference);
     LASetErrorCodeBlock(okBlock);

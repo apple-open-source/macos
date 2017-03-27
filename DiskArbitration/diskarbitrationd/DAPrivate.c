@@ -37,6 +37,8 @@
 #include <sys/attr.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/storage/IOMedia.h>
 
 static int __DADiskRefreshRemoveMountPoint( void * context )
 {
@@ -359,6 +361,77 @@ _DADiskSetEncodingErr:
     if ( path2 )  CFRelease( path2 );
 
     return status;
+}
+
+DADiskRef _DAUnitGetParentUnit( DADiskRef disk )
+{
+    io_service_t media;
+
+    media = DADiskGetIOMedia( disk );
+
+    if ( media )
+    {
+        IOObjectRetain( media );
+
+        while ( media )
+        {
+            io_service_t parent = IO_OBJECT_NULL;
+
+            if ( IOObjectConformsTo( media, kIOMediaClass ) )
+            {
+                CFNumberRef key;
+
+                key = IORegistryEntryCreateCFProperty( media, CFSTR( kIOBSDUnitKey ), CFGetAllocator( disk ), 0 );
+
+                if ( key )
+                {
+                    if ( CFEqual( DADiskGetDescription( disk, kDADiskDescriptionMediaBSDUnitKey ), key ) == FALSE )
+                    {
+                        CFRelease( key );
+
+                        break;
+                    }
+
+                    CFRelease( key );
+                }
+            }
+
+            IORegistryEntryGetParentEntry( media, kIOServicePlane, &parent );
+
+            IOObjectRelease( media );
+
+            media = parent;
+        }
+    }
+
+    disk = NULL;
+
+    if ( media )
+    {
+        CFIndex count;
+        CFIndex index;
+
+        count = CFArrayGetCount( gDADiskList );
+
+        for ( index = 0; index < count; index++ )
+        {
+            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+            if ( IOObjectIsEqualTo( DADiskGetIOMedia( disk ), media ) )
+            {
+                break;
+            }
+        }
+
+        if ( index == count )
+        {
+            disk = NULL;
+        }
+
+        IOObjectRelease( media );
+    }
+
+    return disk;
 }
 
 Boolean _DAUnitIsUnreadable( DADiskRef disk )

@@ -19,8 +19,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGPathSegCurvetoQuadraticRel_h
-#define SVGPathSegCurvetoQuadraticRel_h
+#pragma once
 
 #include "SVGPathSegCurvetoQuadratic.h"
 
@@ -39,10 +38,8 @@ private:
     {
     }
 
-    unsigned short pathSegType() const override { return PATHSEG_CURVETO_QUADRATIC_REL; }
-    String pathSegTypeAsLetter() const override { return "q"; }
+    unsigned short pathSegType() const final { return PATHSEG_CURVETO_QUADRATIC_REL; }
+    String pathSegTypeAsLetter() const final { return "q"; }
 };
 
 } // namespace WebCore
-
-#endif

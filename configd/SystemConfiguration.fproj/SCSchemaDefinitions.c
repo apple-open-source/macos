@@ -213,6 +213,7 @@ const CFStringRef kSCValNetIPv6ConfigMethodManual                  = CFSTR("Manu
 const CFStringRef kSCValNetIPv6ConfigMethodRouterAdvertisement     = CFSTR("RouterAdvertisement");
 const CFStringRef kSCValNetIPv6ConfigMethod6to4                    = CFSTR("6to4");
 const CFStringRef kSCPropNetIPv6AdditionalRoutes                   = CFSTR("AdditionalRoutes");
+const CFStringRef kSCPropNetIPv6EnableCGA                          = CFSTR("EnableCGA");
 const CFStringRef kSCPropNetIPv6ExcludedRoutes                     = CFSTR("ExcludedRoutes");
 const CFStringRef kSCPropNetIPv6IncludedRoutes                     = CFSTR("IncludedRoutes");
 const CFStringRef kSCPropNetIPv6RouteDestinationAddress            = CFSTR("DestinationAddress");

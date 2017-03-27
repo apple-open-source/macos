@@ -150,6 +150,10 @@ static CFDataRef copyDigest(SOSObjectRef object, CFErrorRef *error) {
     return digest;
 }
 
+static CFDateRef copyModDate(SOSObjectRef object, CFErrorRef *error) {
+    return CFRetainSafe(asDate(CFDictionaryGetValue((CFDictionaryRef) object, kSecAttrModificationDate), NULL));
+}
+
 static CFDataRef copyPrimaryKey(SOSObjectRef object, CFErrorRef *error) {
     CFMutableDictionaryRef ocopy = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     CFTypeRef pkNames[] = {
@@ -314,7 +318,7 @@ static bool dsReadWith(SOSDataSourceRef ds, CFErrorRef *error, SOSDataSourceTran
     return true;
 }
 
-static bool dsSetStateWithKey(SOSDataSourceRef ds, SOSTransactionRef txn, CFStringRef pdmn, CFStringRef key, CFDataRef state, CFErrorRef *error) {
+static bool dsSetStateWithKey(SOSDataSourceRef ds, SOSTransactionRef txn, CFStringRef key, CFStringRef pdmn, CFDataRef state, CFErrorRef *error) {
     SOSTestDataSourceRef tds = (SOSTestDataSourceRef)ds;
     CFStringRef dbkey = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@-%@"), pdmn, key);
     CFDictionarySetValue(tds->statedb, dbkey, state);
@@ -354,6 +358,7 @@ SOSDataSourceRef SOSTestDataSourceCreate(void) {
     ds->ds.dsRestoreObject = dsRestoreObject;
 
     ds->ds.objectCopyDigest = copyDigest;
+    ds->ds.objectCopyModDate = copyModDate;
     ds->ds.objectCreateWithPropertyList = createWithPropertyList;
     ds->ds.objectCopyPropertyList = copyPropertyList;
     ds->ds.objectCopyBackup = objectCopyBackup;
@@ -506,6 +511,44 @@ SOSObjectRef SOSDataSourceCreateGenericItemWithData(SOSDataSourceRef ds, CFStrin
 
 SOSObjectRef SOSDataSourceCreateGenericItem(SOSDataSourceRef ds, CFStringRef account, CFStringRef service) {
     return SOSDataSourceCreateGenericItemWithData(ds, account, service, false, NULL);
+}
+
+SOSObjectRef SOSDataSourceCreateV0EngineStateWithData(SOSDataSourceRef ds, CFDataRef engineStateData) {
+    /*
+     MANGO-iPhone:~ mobile$ security item class=genp,acct=engine-state
+     acct       : engine-state
+     agrp       : com.apple.security.sos
+     cdat       : 2016-04-18 20:40:33 +0000
+     mdat       : 2016-04-18 20:40:33 +0000
+     musr       : //
+     pdmn       : dk
+     svce       : SOSDataSource-ak
+     sync       : 0
+     tomb       : 0
+     */
+    CFAbsoluteTime timestamp = 3700000;
+    CFDateRef now = CFDateCreate(kCFAllocatorDefault, timestamp);
+    CFDictionaryRef item = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                        kSecClass,                  kSecClassGenericPassword,
+                                                        kSecAttrSynchronizable,     kCFBooleanFalse,
+                                                        kSecAttrTombstone,          kCFBooleanFalse,
+                                                        kSecAttrAccount,            CFSTR("engine-state"),
+                                                        kSecAttrService,            CFSTR("SOSDataSource-ak"),
+                                                        kSecAttrCreationDate,       now,
+                                                        kSecAttrModificationDate,   now,
+                                                        kSecAttrAccessGroup,        CFSTR("com.apple.security.sos"),
+                                                        kSecAttrAccessible,         kSecAttrAccessibleAlwaysPrivate,
+                                                        engineStateData ?  kSecValueData : NULL, engineStateData,
+                                                        NULL);
+    CFReleaseSafe(now);
+    CFErrorRef localError = NULL;
+    SOSObjectRef object = ds->objectCreateWithPropertyList(item, &localError);
+    if (!object) {
+        secerror("createWithPropertyList: %@ failed: %@", item, localError);
+        CFRelease(localError);
+    }
+    CFRelease(item);
+    return object;
 }
 
 SOSObjectRef SOSDataSourceCopyObject(SOSDataSourceRef ds, SOSObjectRef match, CFErrorRef *error)

@@ -28,6 +28,7 @@
 
 #if ENABLE(JIT)
 
+#include "ArithProfile.h"
 #include "JSCJSValueInlines.h"
 #include "MathCommon.h"
 
@@ -81,7 +82,7 @@ void JITDivGenerator::generateFastPath(CCallHelpers& jit)
     loadOperand(jit, m_leftOperand, m_left, m_leftFPR);
 
 #if USE(JSVALUE64)
-    Optional<double> safeReciprocal;
+    std::optional<double> safeReciprocal;
     if (m_rightOperand.isConst()) {
         double constant = m_rightOperand.asConstNumber();
         safeReciprocal = safeReciprocalForDivByConst(constant);
@@ -101,9 +102,9 @@ void JITDivGenerator::generateFastPath(CCallHelpers& jit)
     }
 
     // Is the result actually an integer? The DFG JIT would really like to know. If it's
-    // not an integer, we increment a count. If this together with the slow case counter
-    // are below threshold then the DFG JIT will compile this division with a speculation
-    // that the remainder is zero.
+    // not an integer, we set a bit. If this together with the slow case counter are below
+    // threshold then the DFG JIT will compile this division with a speculation that the
+    // remainder is zero.
 
     // As well, there are cases where a double result here would cause an important field
     // in the heap to sometimes have doubles in it, resulting in double predictions getting
@@ -128,8 +129,8 @@ void JITDivGenerator::generateFastPath(CCallHelpers& jit)
 
     notDoubleZero.link(&jit);
 #endif
-    if (m_resultProfile)
-        jit.add32(CCallHelpers::TrustedImm32(1), CCallHelpers::AbsoluteAddress(m_resultProfile->addressOfSpecialFastPathCount()));
+    if (m_arithProfile)
+        jit.or32(CCallHelpers::TrustedImm32(ArithProfile::specialFastPathBit), CCallHelpers::AbsoluteAddress(m_arithProfile->addressOfBits()));
     jit.boxDouble(m_leftFPR, m_result);
 }
 

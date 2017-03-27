@@ -57,8 +57,6 @@ command_bubble(__unused int argc, __unused char * const * argv)
         } else {
             errx(1, "%s", [[NSString stringWithFormat:@"sync bubble failed to inflate: %@\n", error] UTF8String]);
         }
-        if (error)
-            CFRelease(error);
     }
 
     return 0;

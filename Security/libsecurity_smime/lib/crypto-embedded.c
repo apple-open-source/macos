@@ -396,6 +396,10 @@ SecSymmetricKeyRef
 WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, const SecAsn1Item *encKey, SECOidTag bulkalgtag)
 {
     size_t bulkkey_size = encKey->Length;
+    if (bulkkey_size > 16384) {
+        return NULL;
+    }
+
     uint8_t bulkkey_buffer[bulkkey_size];
     if (SecKeyDecrypt(privkey, kSecPaddingPKCS1, 
         encKey->Data, encKey->Length, bulkkey_buffer, &bulkkey_size))

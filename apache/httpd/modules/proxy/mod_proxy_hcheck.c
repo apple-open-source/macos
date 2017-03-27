@@ -426,6 +426,8 @@ static proxy_worker *hc_get_hcworker(sctx_t *ctx, proxy_worker *worker,
         PROXY_STRNCPY(hc->s->name,     wptr);
         PROXY_STRNCPY(hc->s->hostname, worker->s->hostname);
         PROXY_STRNCPY(hc->s->scheme,   worker->s->scheme);
+        PROXY_STRNCPY(hc->s->hcuri,    worker->s->hcuri);
+        PROXY_STRNCPY(hc->s->hcexpr,   worker->s->hcexpr);
         hc->hash.def = hc->s->hash.def = ap_proxy_hashfunc(hc->s->name, PROXY_HASHFUNC_DEFAULT);
         hc->hash.fnv = hc->s->hash.fnv = ap_proxy_hashfunc(hc->s->name, PROXY_HASHFUNC_FNV);
         hc->s->port = port;
@@ -775,7 +777,7 @@ static apr_status_t hc_check_http(sctx_t *ctx, apr_pool_t *ptemp, proxy_worker *
     return backend_cleanup("HCOH", backend, ctx->s, status);
 }
 
-static void *hc_check(apr_thread_t *thread, void *b)
+static void * APR_THREAD_FUNC hc_check(apr_thread_t *thread, void *b)
 {
     baton_t *baton = (baton_t *)b;
     sctx_t *ctx = baton->ctx;

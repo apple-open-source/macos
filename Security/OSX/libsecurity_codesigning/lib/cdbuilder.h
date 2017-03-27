@@ -62,7 +62,7 @@ public:
 	
 	size_t size(const uint32_t version);		// calculate size
 	CodeDirectory *build();						// build CodeDirectory and return it
-	const size_t fixedSize(const uint32_t version);	// calculate fixed size of the CodeDirectory
+    size_t fixedSize(const uint32_t version);	// calculate fixed size of the CodeDirectory
 	
 	uint32_t hashType() const { return mHashType; }
 

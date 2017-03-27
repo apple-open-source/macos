@@ -24,7 +24,7 @@
  */
 
 #include "keychain_unlock.h"
-#include "readline.h"
+#include "readline_cssm.h"
 #include "keychain_utilities.h"
 #include "security_tool.h"
 

@@ -22,14 +22,13 @@
  *
  */
 
-#ifndef StyleBackgroundData_h
-#define StyleBackgroundData_h
+#pragma once
 
 #include "Color.h"
 #include "FillLayer.h"
 #include "OutlineValue.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
@@ -63,5 +62,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // StyleBackgroundData_h

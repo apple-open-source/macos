@@ -29,6 +29,7 @@
 
 #include "JIT.h"
 
+#include "BytecodeGraph.h"
 #include "CodeBlock.h"
 #include "CodeBlockWithJITType.h"
 #include "DFGCapabilities.h"
@@ -36,18 +37,20 @@
 #include "JITInlines.h"
 #include "JITOperations.h"
 #include "JSArray.h"
+#include "JSCInlines.h"
 #include "JSFunction.h"
 #include "LinkBuffer.h"
 #include "MaxFrameExtentForSlowPathCall.h"
-#include "JSCInlines.h"
 #include "PCToCodeOriginMap.h"
 #include "ProfilerDatabase.h"
+#include "ProgramCodeBlock.h"
 #include "ResultType.h"
 #include "SlowPathCall.h"
 #include "StackAlignment.h"
-#include "SuperSampler.h"
 #include "TypeProfilerLog.h"
 #include <wtf/CryptographicallyRandomNumber.h>
+#include <wtf/GraphNodeWorklist.h>
+#include <wtf/SimpleStats.h>
 
 using namespace std;
 
@@ -66,7 +69,15 @@ void ctiPatchCallByReturnAddress(ReturnAddressPtr returnAddress, FunctionPtr new
         newCalleeFunction);
 }
 
-JIT::JIT(VM* vm, CodeBlock* codeBlock)
+JIT::CodeRef JIT::compileCTINativeCall(VM* vm, NativeFunction func)
+{
+    if (!vm->canUseJIT())
+        return CodeRef::createLLIntCodeRef(llint_native_call_trampoline);
+    JIT jit(vm, 0);
+    return jit.privateCompileCTINativeCall(vm, func);
+}
+
+JIT::JIT(VM* vm, CodeBlock* codeBlock, unsigned loopOSREntryBytecodeOffset)
     : JSInterfaceJIT(vm, codeBlock)
     , m_interpreter(vm->interpreter)
     , m_labels(codeBlock ? codeBlock->numberOfInstructions() : 0)
@@ -79,6 +90,7 @@ JIT::JIT(VM* vm, CodeBlock* codeBlock)
     , m_pcToCodeOriginMapBuilder(*vm)
     , m_canBeOptimized(false)
     , m_shouldEmitProfiling(false)
+    , m_loopOSREntryBytecodeOffset(loopOSREntryBytecodeOffset)
 {
 }
 
@@ -139,14 +151,18 @@ void JIT::assertStackPointerOffset()
 
 #define DEFINE_SLOW_OP(name) \
     case op_##name: { \
-        JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_##name); \
-        slowPathCall.call(); \
+        if (m_bytecodeOffset >= startBytecodeOffset) { \
+            JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_##name); \
+            slowPathCall.call(); \
+        } \
         NEXT_OPCODE(op_##name); \
     }
 
 #define DEFINE_OP(name) \
     case name: { \
-        emit_##name(currentInstruction); \
+        if (m_bytecodeOffset >= startBytecodeOffset) { \
+            emit_##name(currentInstruction); \
+        } \
         NEXT_OPCODE(name); \
     }
 
@@ -169,7 +185,42 @@ void JIT::privateCompileMainPass()
 
     m_callLinkInfoIndex = 0;
 
+    unsigned startBytecodeOffset = 0;
+    if (m_loopOSREntryBytecodeOffset && m_codeBlock->inherits(ProgramCodeBlock::info())) {
+        // We can only do this optimization because we execute ProgramCodeBlock's exactly once.
+        // This optimization would be invalid otherwise. When the LLInt determines it wants to
+        // do OSR entry into the baseline JIT in a loop, it will pass in the bytecode offset it
+        // was executing at when it kicked off our compilation. We only need to compile code for
+        // anything reachable from that bytecode offset.
+
+        // We only bother building the bytecode graph if it could save time and executable
+        // memory. We pick an arbitrary offset where we deem this is profitable.
+        if (m_loopOSREntryBytecodeOffset >= 200) {
+            // As a simplification, we don't find all bytecode ranges that are unreachable.
+            // Instead, we just find the minimum bytecode offset that is reachable, and
+            // compile code from that bytecode offset onwards.
+
+            BytecodeGraph<CodeBlock> graph(m_codeBlock, m_instructions);
+            BytecodeBasicBlock* block = graph.findBasicBlockForBytecodeOffset(m_loopOSREntryBytecodeOffset);
+            RELEASE_ASSERT(block);
+
+            GraphNodeWorklist<BytecodeBasicBlock*> worklist;
+            startBytecodeOffset = UINT_MAX;
+            worklist.push(block);
+            while (BytecodeBasicBlock* block = worklist.pop()) {
+                startBytecodeOffset = std::min(startBytecodeOffset, block->leaderOffset());
+                worklist.pushAll(block->successors());
+            }
+        }
+    }
+
     for (m_bytecodeOffset = 0; m_bytecodeOffset < instructionCount; ) {
+        if (m_bytecodeOffset == startBytecodeOffset && startBytecodeOffset > 0) {
+            // We've proven all bytecode instructions up until here are unreachable.
+            // Let's ensure that by crashing if it's ever hit.
+            breakpoint();
+        }
+
         if (m_disassembler)
             m_disassembler->setForBytecodeMainPath(m_bytecodeOffset, label());
         Instruction* currentInstruction = instructionsBegin + m_bytecodeOffset;
@@ -230,13 +281,12 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_create_direct_arguments)
         DEFINE_OP(op_create_scoped_arguments)
         DEFINE_OP(op_create_cloned_arguments)
+        DEFINE_OP(op_get_argument)
         DEFINE_OP(op_argument_count)
-        DEFINE_OP(op_copy_rest)
+        DEFINE_OP(op_create_rest)
         DEFINE_OP(op_get_rest_length)
         DEFINE_OP(op_check_tdz)
         DEFINE_OP(op_assert)
-        DEFINE_OP(op_save)
-        DEFINE_OP(op_resume)
         DEFINE_OP(op_debug)
         DEFINE_OP(op_del_by_id)
         DEFINE_OP(op_del_by_val)
@@ -261,9 +311,8 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_is_undefined)
         DEFINE_OP(op_is_boolean)
         DEFINE_OP(op_is_number)
-        DEFINE_OP(op_is_string)
-        DEFINE_OP(op_is_jsarray)
         DEFINE_OP(op_is_object)
+        DEFINE_OP(op_is_cell_with_type)
         DEFINE_OP(op_jeq_null)
         DEFINE_OP(op_jfalse)
         DEFINE_OP(op_jmp)
@@ -290,16 +339,21 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_new_array)
         DEFINE_OP(op_new_array_with_size)
         DEFINE_OP(op_new_array_buffer)
+        DEFINE_OP(op_new_array_with_spread)
+        DEFINE_OP(op_spread)
         DEFINE_OP(op_new_func)
         DEFINE_OP(op_new_func_exp)
         DEFINE_OP(op_new_generator_func)
         DEFINE_OP(op_new_generator_func_exp)
+        DEFINE_OP(op_new_async_func)
+        DEFINE_OP(op_new_async_func_exp)
         DEFINE_OP(op_new_object)
         DEFINE_OP(op_new_regexp)
         DEFINE_OP(op_not)
         DEFINE_OP(op_nstricteq)
         DEFINE_OP(op_dec)
         DEFINE_OP(op_inc)
+        DEFINE_OP(op_pow)
         DEFINE_OP(op_profile_type)
         DEFINE_OP(op_profile_control_flow)
         DEFINE_OP(op_push_with_scope)
@@ -316,6 +370,8 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_put_getter_setter_by_id)
         DEFINE_OP(op_put_getter_by_val)
         DEFINE_OP(op_put_setter_by_val)
+        DEFINE_OP(op_define_data_property)
+        DEFINE_OP(op_define_accessor_property)
 
         DEFINE_OP(op_ret)
         DEFINE_OP(op_rshift)
@@ -439,7 +495,6 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_get_by_val)
         DEFINE_SLOWCASE_OP(op_instanceof)
         DEFINE_SLOWCASE_OP(op_instanceof_custom)
-        DEFINE_SLOWCASE_OP(op_jfalse)
         DEFINE_SLOWCASE_OP(op_jless)
         DEFINE_SLOWCASE_OP(op_jlesseq)
         DEFINE_SLOWCASE_OP(op_jgreater)
@@ -448,7 +503,6 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_jnlesseq)
         DEFINE_SLOWCASE_OP(op_jngreater)
         DEFINE_SLOWCASE_OP(op_jngreatereq)
-        DEFINE_SLOWCASE_OP(op_jtrue)
         DEFINE_SLOWCASE_OP(op_loop_hint)
         DEFINE_SLOWCASE_OP(op_watchdog)
         DEFINE_SLOWCASE_OP(op_lshift)
@@ -514,7 +568,7 @@ void JIT::compileWithoutLinking(JITCompilationEffort effort)
         before = monotonicallyIncreasingTimeMS();
     
     {
-        ConcurrentJITLocker locker(m_codeBlock->m_lock);
+        ConcurrentJSLocker locker(m_codeBlock->m_lock);
         m_instructions = m_codeBlock->instructions().clone();
     }
 
@@ -660,7 +714,7 @@ void JIT::compileWithoutLinking(JITCompilationEffort effort)
 
     m_linkBuffer = std::unique_ptr<LinkBuffer>(new LinkBuffer(*m_vm, *this, m_codeBlock, effort));
 
-    double after;
+    double after = 0;
     if (UNLIKELY(computeCompileTimes())) {
         after = monotonicallyIncreasingTimeMS();
 
@@ -754,8 +808,9 @@ CompilationResult JIT::link()
     for (unsigned i = 0; i < m_callCompilationInfo.size(); ++i) {
         CallCompilationInfo& compilationInfo = m_callCompilationInfo[i];
         CallLinkInfo& info = *compilationInfo.callLinkInfo;
-        info.setCallLocations(patchBuffer.locationOfNearCall(compilationInfo.callReturnLocation),
-            patchBuffer.locationOf(compilationInfo.hotPathBegin),
+        info.setCallLocations(
+            CodeLocationLabel(patchBuffer.locationOfNearCall(compilationInfo.callReturnLocation)),
+            CodeLocationLabel(patchBuffer.locationOf(compilationInfo.hotPathBegin)),
             patchBuffer.locationOfNearCall(compilationInfo.hotPathOther));
     }
 
@@ -787,7 +842,7 @@ CompilationResult JIT::link()
         patchBuffer,
         ("Baseline JIT code for %s", toCString(CodeBlockWithJITType(m_codeBlock, JITCode::BaselineJIT)).data()));
     
-    m_vm->machineCodeBytesPerBytecodeWordForBaselineJIT.add(
+    m_vm->machineCodeBytesPerBytecodeWordForBaselineJIT->add(
         static_cast<double>(result.size()) /
         static_cast<double>(m_instructions.size()));
 

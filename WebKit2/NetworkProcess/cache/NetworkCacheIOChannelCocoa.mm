@@ -34,7 +34,6 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <wtf/text/CString.h>
-#include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
 namespace NetworkCache {
@@ -81,6 +80,11 @@ IOChannel::IOChannel(const String& filePath, Type type)
         // The target queue of a dispatch I/O channel specifies the priority of the global queue where its I/O operations are executed.
         dispatch_set_target_queue(m_dispatchIO.get(), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0));
     }
+}
+
+IOChannel::~IOChannel()
+{
+    RELEASE_ASSERT(!m_wasDeleted.exchange(true));
 }
 
 Ref<IOChannel> IOChannel::open(const String& filePath, IOChannel::Type type)

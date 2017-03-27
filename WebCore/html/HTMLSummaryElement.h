@@ -18,8 +18,7 @@
  *
  */
 
-#ifndef HTMLSummaryElement_h
-#define HTMLSummaryElement_h
+#pragma once
 
 #include "HTMLElement.h"
 
@@ -38,7 +37,7 @@ private:
     HTMLSummaryElement(const QualifiedName&, Document&);
 
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
-    void defaultEventHandler(Event*) final;
+    void defaultEventHandler(Event&) final;
 
     void didAddUserAgentShadowRoot(ShadowRoot*) final;
 
@@ -49,6 +48,4 @@ private:
     bool supportsFocus() const final;
 };
 
-}
-
-#endif // HTMLSummaryElement_h
+} // namespace WebCore

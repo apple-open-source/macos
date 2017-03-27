@@ -90,7 +90,6 @@ SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *it
 
 	*itemRef=item->handle();
 
-#if SECTRUST_OSX
 	bool itemChecked = false;
 	do {
 		/* see if we should convert outgoing item to a unified SecCertificateRef */
@@ -137,7 +136,6 @@ SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *it
 		/* never permit a NULL item reference to be returned without an error result */
 		return errSecItemNotFound;
 	}
-#endif
 
 	END_SECAPI
 }

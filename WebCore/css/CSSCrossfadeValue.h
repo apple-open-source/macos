@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSCrossfadeValue_h
-#define CSSCrossfadeValue_h
+#pragma once
 
 #include "CachedImageClient.h"
 #include "CachedResourceHandle.h"
@@ -40,7 +39,7 @@ class CrossfadeSubimageObserverProxy;
 class RenderElement;
 class Document;
 
-class CSSCrossfadeValue : public CSSImageGeneratorValue {
+class CSSCrossfadeValue final : public CSSImageGeneratorValue {
     friend class CrossfadeSubimageObserverProxy;
 public:
     static Ref<CSSCrossfadeValue> create(Ref<CSSValue>&& fromValue, Ref<CSSValue>&& toValue, Ref<CSSPrimitiveValue>&& percentageValue, bool prefixed = false)
@@ -57,7 +56,7 @@ public:
     FloatSize fixedSize(const RenderElement*);
 
     bool isPrefixed() const { return m_isPrefixed; }
-    bool isPending();
+    bool isPending() const;
     bool knownToBeOpaque(const RenderElement*) const;
 
     void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&);
@@ -90,7 +89,7 @@ private:
         }
 
         virtual ~CrossfadeSubimageObserverProxy() { }
-        void imageChanged(CachedImage*, const IntRect* = nullptr) override;
+        void imageChanged(CachedImage*, const IntRect* = nullptr) final;
         void setReady(bool ready) { m_ready = ready; }
     private:
         CSSCrossfadeValue* m_ownerValue;
@@ -115,5 +114,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCrossfadeValue, isCrossfadeValue())
-
-#endif // CSSCrossfadeValue_h

@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1997-1999 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1997-1999 by Apple Computer, Inc., all rights reserved.
 */
 
 #include <sys/ioctl.h>
@@ -1307,8 +1307,9 @@ static int BTKeyChk( SGlobPtr GPtr, NodeDescPtr nodeP, BTreeControlBlock *btcb )
 					} 
 					else
 					{
-						RcdError( GPtr, E_KeyOrd );
-						plog("Records %d and %d (0-based); offsets 0x%04X and 0x%04X\n", index-1, index, (long)prevkeyP - (long)nodeP, (long)keyPtr - (long)nodeP);
+                        RcdError( GPtr, E_KeyOrd );
+                        if (fsckGetVerbosity(GPtr->context) > 0)
+                            plog("Records %d and %d (0-based); offsets 0x%04X and 0x%04X\n", index-1, index, (long)prevkeyP - (long)nodeP, (long)keyPtr - (long)nodeP);
 						result = E_KeyOrd;
 					}
 				}

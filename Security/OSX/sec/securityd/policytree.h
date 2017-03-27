@@ -57,6 +57,7 @@ struct policy_tree {
     policy_set_t expected_policy_set;
     policy_tree_t children;
     policy_tree_t siblings;
+    policy_tree_t parent;
 };
 
 void policy_set_add(policy_set_t *policy_set, const oid_t *p_oid);
@@ -69,10 +70,13 @@ policy_tree_t policy_tree_create(const oid_t *p_oid, policy_qualifier_t p_q);
 bool policy_tree_walk_depth(policy_tree_t root, int depth,
     bool(*callback)(policy_tree_t, void *), void *ctx);
 
+void policy_tree_remove_node(policy_tree_t *node);
 void policy_tree_prune(policy_tree_t *node);
 void policy_tree_prune_childless(policy_tree_t *root, int depth);
 void policy_tree_add_child(policy_tree_t parent,
     const oid_t *p_oid, policy_qualifier_t p_q);
+void policy_tree_add_sibling(policy_tree_t sibling, const oid_t *p_oid,
+                             policy_qualifier_t p_q, policy_set_t p_expected);
 void policy_tree_set_expected_policy(policy_tree_t node,
     policy_set_t p_expected);
 

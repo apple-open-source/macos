@@ -76,13 +76,6 @@ WebInspector.NetworkSidebarPanel = class NetworkSidebarPanel extends WebInspecto
         return this._navigationBar.minimumWidth;
     }
 
-    closed()
-    {
-        super.closed();
-
-        WebInspector.frameResourceManager.removeEventListener(null, null, this);
-    }
-
     showDefaultContentView()
     {
         this.contentBrowser.showContentView(this._networkGridView);
@@ -181,7 +174,9 @@ WebInspector.NetworkSidebarPanel = class NetworkSidebarPanel extends WebInspecto
     _networkTimelineReset(event)
     {
         this.contentBrowser.contentViewContainer.closeAllContentViews();
-        this.showDefaultContentView();
+
+        if (this.visible)
+            this.showDefaultContentView();
     }
 
     _contentBrowserCurrentContentViewDidChange(event)

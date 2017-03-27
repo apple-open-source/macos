@@ -53,7 +53,7 @@ extern "C" {
     @param outputfn callback function for delivery of BER-encoded output will
         not be called if NULL.
     @param outputarg first argument passed to outputfn when it is called.
-    @param dest If non-NULL, a CFMutableDataRef to which the
+    @param outBer If non-NULL, a CFMutableDataRef to which the
         BER-encoded output will be appended.
     @param pwfn callback function for getting token password for enveloped
            data content with a password recipient.
@@ -61,9 +61,6 @@ extern "C" {
     @param encrypt_key_cb callback function for getting bulk key for encryptedData content.
     @param encrypt_key_cb_arg first argument passed to encrypt_key_cb when it is
         called.
-    @param detached_digestalgs digest algorithms in detached_digests
-    @param detached_digests digests from detached content (one for every element
-        in detached_digestalgs).
     @result On success a pointer to a SecCmsMessage containing the decoded message
         is returned. On failure returns NULL. Call PR_GetError() to find out what
         went wrong in this case.

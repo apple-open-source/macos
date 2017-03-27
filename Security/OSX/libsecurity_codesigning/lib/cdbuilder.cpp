@@ -115,7 +115,7 @@ CodeDirectory::Scatter *CodeDirectory::Builder::scatter(unsigned count)
 // the version chosen. We dynamically picked the least-needed version
 // to provide stability of virtual signatures.
 //
-const size_t CodeDirectory::Builder::fixedSize(const uint32_t version)
+size_t CodeDirectory::Builder::fixedSize(const uint32_t version)
 {
 	size_t cdSize = sizeof(CodeDirectory);
 	if (version < supportsCodeLimit64)

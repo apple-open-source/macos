@@ -20,8 +20,8 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/dsa.h>
-#include <openssl/asn1.h>
+#include <openssl/dsa_legacy.h>
+#include <openssl/asn1_legacy.h>
 #ifndef	_OPENSSL_APPLE_CDSA_
 #include <openssl/asn1_mac.h>
 #endif

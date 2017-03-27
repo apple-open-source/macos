@@ -23,12 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SpecializedThunkJIT_h
-#define SpecializedThunkJIT_h
+#pragma once
 
 #if ENABLE(JIT)
 
-#include "Executable.h"
 #include "JIT.h"
 #include "JITInlines.h"
 #include "JSInterfaceJIT.h"
@@ -215,5 +213,3 @@ namespace JSC {
 }
 
 #endif // ENABLE(JIT)
-
-#endif // SpecializedThunkJIT_h

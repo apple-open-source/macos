@@ -38,6 +38,7 @@
 
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
+#include <Security/SecureObjectSync/SOSBackupInformation.h>
 
 #include <utilities/SecCFWrappers.h>
 
@@ -53,6 +54,58 @@ static bool dumpBackupInfo(CFErrorRef *error) {
     return *error != NULL;
 }
 
+static bool longListing(CFErrorRef *error) {
+    CFDataRef rkbgder = NULL;
+    CFDictionaryRef bskbders = NULL;
+    
+    CFDictionaryRef backupInfo = SOSCCCopyBackupInformation(error);
+    SOSRecoveryKeyBagRef rkbg = NULL;
+    CFNumberRef status = CFDictionaryGetValue(backupInfo, kSOSBkpInfoStatus);
+    int infoStatus;
+    CFNumberGetValue(status, kCFNumberIntType, &infoStatus);
+    
+    switch(infoStatus) {
+        case noError:
+            rkbgder = CFDictionaryGetValue(backupInfo, kSOSBkpInfoRKBG);
+            bskbders = CFDictionaryGetValue(backupInfo, kSOSBkpInfoBSKB);
+            break;
+        case noTxnorAcct:
+            break;
+        case noAlloc:
+            break;
+        case noTrustedPubKey:
+            break;
+        case noBSKBs:
+            rkbgder = CFDictionaryGetValue(backupInfo, kSOSBkpInfoRKBG);
+            break;
+        default:
+            break;
+    }
+    
+    if(rkbgder) {
+        rkbg = SOSRecoveryKeyBagCreateFromData(kCFAllocatorDefault, rkbgder, NULL);
+        printmsg(CFSTR("Recovery Keybag: %@\n"), rkbg);
+    }
+    
+    if(bskbders) {
+        CFDataRef rkPub = NULL;
+        if(rkbg) rkPub = SOSRecoveryKeyBagGetKeyData(rkbg, NULL);
+        CFDictionaryForEach(bskbders, ^(const void *key, const void *value) {
+            CFDataRef bskbder = asData(value, NULL);
+            SOSBackupSliceKeyBagRef bskb = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, bskbder, NULL);
+            if(bskb) {
+                bool reckeyPresent = (rkPub && SOSBKSBPrefixedKeyIsInKeyBag(bskb, bskbRkbgPrefix, rkPub));
+                printmsg(CFSTR("BackupSliceKeybag %@: Recovery Key %s; %@\n"), key, (reckeyPresent) ? "Present": "Absent ", bskb);
+                CFReleaseNull(bskb);
+            }
+        });
+    }
+    CFReleaseNull(backupInfo);
+    CFReleaseNull(rkbg);
+    return *error != NULL;
+}
+
+
 
 int
 syncbackup(int argc, char * const *argv)
@@ -62,17 +115,21 @@ syncbackup(int argc, char * const *argv)
      "    -i     info (current status)"
      
      */
-    setOutputTo(NULL, NULL);
+    SOSLogSetOutputTo(NULL, NULL);
     
     int ch, result = 0;
     CFErrorRef error = NULL;
     bool hadError = false;
     
-    while ((ch = getopt(argc, argv, "i")) != -1)
+    while ((ch = getopt(argc, argv, "il")) != -1)
         switch  (ch) {
                 
             case 'i':
                 hadError = dumpBackupInfo(&error);
+                break;
+                
+            case 'l':
+                hadError = longListing(&error);
                 break;
                 
             case '?':

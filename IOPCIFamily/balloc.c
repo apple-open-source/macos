@@ -22,7 +22,8 @@
 
 typedef uint32_t vtd_baddr_t;
 
-void vtd_blog(vtd_space_t * bf)
+static void
+vtd_blog(vtd_space_t * bf)
 {
 	uint32_t idx;
 	vtd_table_entry_t entry;

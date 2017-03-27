@@ -81,7 +81,7 @@ static inline bool isSoftBankEmoji(UChar32 codepoint)
     return codepoint >= 0xE001 && codepoint <= 0xE537;
 }
 
-inline auto WidthIterator::shouldApplyFontTransforms(const GlyphBuffer* glyphBuffer, int lastGlyphCount, UChar32 previousCharacter) const -> TransformsType
+inline auto WidthIterator::shouldApplyFontTransforms(const GlyphBuffer* glyphBuffer, unsigned lastGlyphCount, UChar32 previousCharacter) const -> TransformsType
 {
     if (glyphBuffer && glyphBuffer->size() == (lastGlyphCount + 1) && isSoftBankEmoji(previousCharacter))
         return TransformsType::Forced;
@@ -90,14 +90,14 @@ inline auto WidthIterator::shouldApplyFontTransforms(const GlyphBuffer* glyphBuf
     return TransformsType::NotForced;
 }
 
-inline float WidthIterator::applyFontTransforms(GlyphBuffer* glyphBuffer, bool ltr, int& lastGlyphCount, const Font* font, UChar32 previousCharacter, bool force, CharactersTreatedAsSpace& charactersTreatedAsSpace)
+inline float WidthIterator::applyFontTransforms(GlyphBuffer* glyphBuffer, bool ltr, unsigned& lastGlyphCount, const Font* font, UChar32 previousCharacter, bool force, CharactersTreatedAsSpace& charactersTreatedAsSpace)
 {
     ASSERT_UNUSED(previousCharacter, shouldApplyFontTransforms(glyphBuffer, lastGlyphCount, previousCharacter) != WidthIterator::TransformsType::None);
 
     if (!glyphBuffer)
         return 0;
 
-    int glyphBufferSize = glyphBuffer->size();
+    unsigned glyphBufferSize = glyphBuffer->size();
     if (!force && glyphBufferSize <= lastGlyphCount + 1) {
         lastGlyphCount = glyphBufferSize;
         return 0;
@@ -105,9 +105,10 @@ inline float WidthIterator::applyFontTransforms(GlyphBuffer* glyphBuffer, bool l
 
     GlyphBufferAdvance* advances = glyphBuffer->advances(0);
     float widthDifference = 0;
-    for (int i = lastGlyphCount; i < glyphBufferSize; ++i)
+    for (unsigned i = lastGlyphCount; i < glyphBufferSize; ++i)
         widthDifference -= advances[i].width();
 
+    ASSERT(lastGlyphCount <= glyphBufferSize);
     if (!ltr)
         glyphBuffer->reverse(lastGlyphCount, glyphBufferSize - lastGlyphCount);
 
@@ -125,7 +126,7 @@ inline float WidthIterator::applyFontTransforms(GlyphBuffer* glyphBuffer, bool l
     }
     charactersTreatedAsSpace.clear();
 
-    for (int i = lastGlyphCount; i < glyphBufferSize; ++i)
+    for (unsigned i = lastGlyphCount; i < glyphBufferSize; ++i)
         widthDifference += advances[i].width();
 
     lastGlyphCount = glyphBufferSize;
@@ -161,6 +162,13 @@ static inline std::pair<bool, bool> expansionLocation(bool ideograph, bool treat
     return std::make_pair(expandLeft, expandRight);
 }
 
+static bool characterMustDrawSomething(UChar32 character)
+{
+    // u_hasBinaryProperty(character, UCHAR_EMOJI) would be better to use, but many OSes which
+    // WebKit runs on only have ICU version 55.1 or earlier. UCHAR_EMOJI was added in ICU 57.
+    return character >= 0x1F900 && character <= 0x1F9FF;
+}
+
 template <typename TextIterator>
 inline unsigned WidthIterator::advanceInternal(TextIterator& textIterator, GlyphBuffer* glyphBuffer)
 {
@@ -181,7 +189,7 @@ inline unsigned WidthIterator::advanceInternal(TextIterator& textIterator, Glyph
 
     const Font& primaryFont = m_font->primaryFont();
     const Font* lastFontData = &primaryFont;
-    int lastGlyphCount = glyphBuffer ? glyphBuffer->size() : 0;
+    unsigned lastGlyphCount = glyphBuffer ? glyphBuffer->size() : 0;
 
     UChar32 character = 0;
     UChar32 previousCharacter = 0;
@@ -191,14 +199,14 @@ inline unsigned WidthIterator::advanceInternal(TextIterator& textIterator, Glyph
     // We are iterating in string order, not glyph order. Compare this to ComplexTextController::adjustGlyphsAndAdvances()
     while (textIterator.consume(character, clusterLength)) {
         unsigned advanceLength = clusterLength;
-        int currentCharacter = textIterator.currentCharacter();
+        int currentCharacter = textIterator.currentIndex();
         const GlyphData& glyphData = m_font->glyphDataForCharacter(character, rtl);
         Glyph glyph = glyphData.glyph;
-        if (!glyph) {
+        if (!glyph && !characterMustDrawSomething(character)) {
             textIterator.advance(advanceLength);
             continue;
         }
-        const Font* font = glyphData.font;
+        const Font* font = glyphData.font ? glyphData.font : &m_font->primaryFont();
         ASSERT(font);
 
         // Now that we have a glyph and font data, get its width.
@@ -349,21 +357,21 @@ inline unsigned WidthIterator::advanceInternal(TextIterator& textIterator, Glyph
             glyphBuffer->shrink(lastGlyphCount);
     }
 
-    unsigned consumedCharacters = textIterator.currentCharacter() - m_currentCharacter;
-    m_currentCharacter = textIterator.currentCharacter();
+    unsigned consumedCharacters = textIterator.currentIndex() - m_currentCharacter;
+    m_currentCharacter = textIterator.currentIndex();
     m_runWidthSoFar += widthSinceLastRounding;
     m_finalRoundingWidth = lastRoundingWidth;
     return consumedCharacters;
 }
 
-unsigned WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
+unsigned WidthIterator::advance(unsigned offset, GlyphBuffer* glyphBuffer)
 {
-    int length = m_run.length();
+    unsigned length = m_run.length();
 
     if (offset > length)
         offset = length;
 
-    if (m_currentCharacter >= static_cast<unsigned>(offset))
+    if (m_currentCharacter >= offset)
         return 0;
 
     if (m_run.is8Bit()) {
@@ -377,10 +385,10 @@ unsigned WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
 
 bool WidthIterator::advanceOneCharacter(float& width, GlyphBuffer& glyphBuffer)
 {
-    int oldSize = glyphBuffer.size();
+    unsigned oldSize = glyphBuffer.size();
     advance(m_currentCharacter + 1, &glyphBuffer);
     float w = 0;
-    for (int i = oldSize; i < glyphBuffer.size(); ++i)
+    for (unsigned i = oldSize; i < glyphBuffer.size(); ++i)
         w += glyphBuffer.advanceAt(i).width();
     width = w;
     return glyphBuffer.size() > oldSize;

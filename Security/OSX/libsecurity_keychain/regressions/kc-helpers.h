@@ -77,7 +77,7 @@ static void deleteTestFiles() {
     deleteKeychainFiles(keychainFile);
 }
 
-static SecKeychainRef getPopulatedTestKeychain() {
+static SecKeychainRef CF_RETURNS_RETAINED getPopulatedTestKeychain() {
     deleteKeychainFiles(keychainFile);
 
     writeFile(keychainFile, test_keychain, sizeof(test_keychain));
@@ -88,6 +88,16 @@ static SecKeychainRef getPopulatedTestKeychain() {
     return kc;
 }
 #define getPopulatedTestKeychainTests 2
+
+static SecKeychainRef CF_RETURNS_RETAINED getEmptyTestKeychain() {
+    deleteKeychainFiles(keychainFile);
+
+    SecKeychainRef kc = NULL;
+    ok_status(SecKeychainCreate(keychainFile, (UInt32) strlen(test_keychain_password), test_keychain_password, false, NULL, &kc), "%s: getPopulatedTestKeychain: SecKeychainCreate", testName);
+    return kc;
+}
+#define getEmptyTestKeychainTests 1
+
 
 static void addToSearchList(SecKeychainRef keychain) {
     CFArrayRef searchList = NULL;
@@ -102,7 +112,7 @@ static void addToSearchList(SecKeychainRef keychain) {
 
 /* Checks to be sure there are N elements in this search, and returns the first
  * if it exists. */
-static SecKeychainItemRef checkN(char* testName, const CFDictionaryRef query, uint32_t n) {
+static SecKeychainItemRef checkNCopyFirst(char* testName, const CFDictionaryRef CF_CONSUMED query, uint32_t n) {
     CFArrayRef results = NULL;
     if(n > 0) {
         ok_status(SecItemCopyMatching(query, (CFTypeRef*) &results), "%s: SecItemCopyMatching", testName);
@@ -127,9 +137,18 @@ static SecKeychainItemRef checkN(char* testName, const CFDictionaryRef query, ui
         pass("make test numbers match");
     }
 
+    CFRetainSafe(item);
+    CFReleaseNull(results);
+
     CFRelease(query);
     return item;
 }
+
+static void checkN(char* testName, const CFDictionaryRef CF_CONSUMED query, uint32_t n) {
+    SecKeychainItemRef item = checkNCopyFirst(testName, query, n);
+    CFReleaseSafe(item);
+}
+
 #define checkNTests 3
 
 
@@ -195,7 +214,9 @@ static void changePasswordContents(SecKeychainItemRef item, CFStringRef newPassw
     CFDictionarySetValue(query, kSecUseItemList, itemList);
 
     CFMutableDictionaryRef attrs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(attrs, kSecValueData, CFDataCreate(NULL, (const UInt8*) CFStringGetCStringPtr(newPassword, kCFStringEncodingUTF8), CFStringGetLength(newPassword)));
+    CFDataRef data = CFDataCreate(NULL, (const UInt8*) CFStringGetCStringPtr(newPassword, kCFStringEncodingUTF8), CFStringGetLength(newPassword));
+    CFDictionarySetValue(attrs, kSecValueData, data);
+    CFReleaseNull(data);
 
     ok_status(SecItemUpdate(query, attrs), "%s: SecItemUpdate", testName);
 }

@@ -26,8 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef AnimationController_h
-#define AnimationController_h
+#pragma once
 
 #include "AnimationBase.h"
 #include "CSSPropertyNames.h"
@@ -92,6 +91,8 @@ public:
     void scrollWasUpdated();
 #endif
 
+    bool hasAnimations() const;
+
 private:
     const std::unique_ptr<AnimationControllerPrivate> m_data;
 };
@@ -115,5 +116,3 @@ public:
 };
 
 } // namespace WebCore
-
-#endif // AnimationController_h

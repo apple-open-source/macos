@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2012, 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #include "LLIntCommon.h"
 #include "LLIntData.h"
+#include "SigillCrashAnalyzer.h"
 #include <algorithm>
 #include <limits>
 #include <math.h>
@@ -38,6 +39,7 @@
 #include <wtf/Compiler.h>
 #include <wtf/DataLog.h>
 #include <wtf/NumberOfCores.h>
+#include <wtf/SplitTest.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/text/StringBuilder.h>
@@ -55,15 +57,19 @@
 
 namespace JSC {
 
-static bool allowRestrictedOptions()
-{
+namespace {
 #ifdef NDEBUG
-    return false;
+bool restrictedOptionsEnabled = false;
 #else
-    return true;
+bool restrictedOptionsEnabled = true;
 #endif
 }
 
+void Options::enableRestrictedOptions(bool enableOrNot)
+{
+    restrictedOptionsEnabled = enableOrNot;
+}
+    
 static bool parse(const char* string, bool& value)
 {
     if (!strcasecmp(string, "true") || !strcasecmp(string, "yes") || !strcmp(string, "1")) {
@@ -128,12 +134,20 @@ static bool parse(const char* string, GCLogging::Level& value)
 bool Options::isAvailable(Options::ID id, Options::Availability availability)
 {
     if (availability == Availability::Restricted)
-        return allowRestrictedOptions();
+        return restrictedOptionsEnabled;
     ASSERT(availability == Availability::Configurable);
     
     UNUSED_PARAM(id);
 #if ENABLE(LLINT_STATS)
     if (id == reportLLIntStatsID || id == llintStatsFileID)
+        return true;
+#endif
+#if !defined(NDEBUG)
+    if (id == maxSingleAllocationSizeID)
+        return true;
+#endif
+#if OS(DARWIN)
+    if (id == useSigillCrashAnalyzerID)
         return true;
 #endif
     return false;
@@ -298,6 +312,27 @@ static void scaleJITPolicy()
     }
 }
 
+static void overrideDefaults()
+{
+    if (WTF::numberOfProcessorCores() < 4) {
+        Options::maximumMutatorUtilization() = 0.6;
+        Options::concurrentGCMaxHeadroom() = 1.4;
+        Options::concurrentGCPeriodMS() = 10;
+    } else
+        Options::useStochasticMutatorScheduler() = true;
+
+    if (Options::useConcurrentGCSplitTesting()) {
+        if (Options::useConcurrentGC()) {
+            // Run an A/B split test on concurrent GC: if it was going to be on,
+            // turn it off with some probability. Do this deterministically per
+            // unique user identifier so that crashes don't skew statistics, and
+            // do it in a manner which can be reconstructed from a crash trace.
+            std::optional<bool> enableExperiment = SplitTest::singleton().enableBooleanExperiment();
+            Options::useConcurrentGC() = enableExperiment.value_or(true);
+        }
+    }
+}
+
 static void recomputeDependentOptions()
 {
 #if !defined(NDEBUG)
@@ -308,11 +343,12 @@ static void recomputeDependentOptions()
     Options::useJIT() = false;
     Options::useDFGJIT() = false;
     Options::useFTLJIT() = false;
+    Options::useDOMJIT() = false;
 #endif
 #if !ENABLE(YARR_JIT)
     Options::useRegExpJIT() = false;
 #endif
-#if !ENABLE(CONCURRENT_JIT)
+#if !ENABLE(CONCURRENT_JS)
     Options::useConcurrentJIT() = false;
 #endif
 #if !ENABLE(DFG_JIT)
@@ -321,6 +357,10 @@ static void recomputeDependentOptions()
 #endif
 #if !ENABLE(FTL_JIT)
     Options::useFTLJIT() = false;
+#endif
+    
+#if !CPU(X86_64) && !CPU(ARM64)
+    Options::useConcurrentGC() = false;
 #endif
     
 #if OS(WINDOWS) && CPU(X86) 
@@ -348,9 +388,13 @@ static void recomputeDependentOptions()
         || Options::reportBaselineCompileTimes()
         || Options::reportDFGCompileTimes()
         || Options::reportFTLCompileTimes()
+        || Options::reportDFGPhaseTimes()
         || Options::verboseCFA()
         || Options::verboseFTLFailure())
         Options::alwaysComputeHash() = true;
+    
+    if (!Options::useConcurrentGC())
+        Options::collectContinuously() = false;
 
     if (Option(Options::jitPolicyScaleID).isOverridden())
         scaleJITPolicy();
@@ -370,13 +414,16 @@ static void recomputeDependentOptions()
         Options::useOSREntryToDFG() = false;
         Options::useOSREntryToFTL() = false;
     }
-
+    
 #if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000
     // Override globally for now. Longer term we'll just make the default
     // be to have this option enabled, and have platforms that don't support
     // it just silently use a single mapping.
     Options::useSeparatedWXHeap() = true;
 #endif
+
+    if (Options::alwaysUseShadowChicken())
+        Options::maximumInliningDepth() = 1;
 
     // Compute the maximum value of the reoptimization retry counter. This is simply
     // the largest value at which we don't overflow the execute counter, when using it
@@ -389,11 +436,18 @@ static void recomputeDependentOptions()
 
     ASSERT((static_cast<int64_t>(Options::thresholdForOptimizeAfterLongWarmUp()) << Options::reoptimizationRetryCounterMax()) > 0);
     ASSERT((static_cast<int64_t>(Options::thresholdForOptimizeAfterLongWarmUp()) << Options::reoptimizationRetryCounterMax()) <= static_cast<int64_t>(std::numeric_limits<int32_t>::max()));
-    ASSERT(Options::deferGCProbability() >= 0.0 && Options::deferGCProbability() <= 1.0);
 
 #if ENABLE(LLINT_STATS)
     LLInt::Data::loadStats();
 #endif
+#if !defined(NDEBUG)
+    if (Options::maxSingleAllocationSize())
+        fastSetMaxSingleAllocationSize(Options::maxSingleAllocationSize());
+    else
+        fastSetMaxSingleAllocationSize(std::numeric_limits<size_t>::max());
+#endif
+    if (Options::useSigillCrashAnalyzer())
+        enableSigillCrashAnalyzer();
 }
 
 void Options::initialize()
@@ -409,6 +463,8 @@ void Options::initialize()
             name_##Default() = defaultValue_;
             JSC_OPTIONS(FOR_EACH_OPTION)
 #undef FOR_EACH_OPTION
+
+            overrideDefaults();
                 
             // Allow environment vars to override options if applicable.
             // The evn var should be the name of the option prefixed with
@@ -730,13 +786,13 @@ void Options::dumpOption(StringBuilder& builder, DumpLevel level, Options::ID id
     option.dump(builder);
 
     if (wasOverridden && (dumpDefaultsOption == DumpDefaults)) {
-        builder.append(" (default: ");
+        builder.appendLiteral(" (default: ");
         option.defaultOption().dump(builder);
-        builder.append(")");
+        builder.appendLiteral(")");
     }
 
     if (needsDescription) {
-        builder.append("   ... ");
+        builder.appendLiteral("   ... ");
         builder.append(option.description());
     }
 

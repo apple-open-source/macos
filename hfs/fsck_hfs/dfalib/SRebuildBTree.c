@@ -27,12 +27,12 @@
 	
 	Written by:	Jerry Cottingham
 
-	Copyright:	© 1986, 1990, 1992-2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1986, 1990, 1992-2002 by Apple Computer, Inc., all rights reserved.
 
 */
 
 #define SHOW_ELAPSED_TIMES  0
-#define DEBUG_REBUILD  1
+#define DEBUG_REBUILD  0
 
 extern void MyIndirectLog(const char *);
 

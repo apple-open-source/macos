@@ -33,14 +33,6 @@ extern "C" {
 #endif
 
 /*
- * Implementation-specific functionality.
- */
-#if 1
-#undef USE_CDSA_CRYPTO				/* use corecrypto, instead of CDSA */
-#undef USE_SSLCERTIFICATE			/* use CF-based certs, not structs */
-#endif
-
-/*
  * Work around the Netscape Server Key Exchange bug. When this is
  * true, only do server key exchange if both of the following are
  * true:

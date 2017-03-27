@@ -45,7 +45,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--with-iconv=$(SDKUSRDIR) \
 			--with-config-file-path=/etc \
 			--with-libxml-dir=$(SDKUSRDIR) \
-			--with-openssl=yes \
+			--with-openssl=$(SDKUSRDIR)/local/libressl \
 			--with-kerberos=$(SDKUSRDIR) \
 			--with-zlib=$(SDKUSRDIR) \
 			--enable-bcmath \

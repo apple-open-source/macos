@@ -615,6 +615,32 @@
 			<key>IOProviderClass</key>
 			<string>IOHIDInterface</string>
 		</dict>
+		<key>HID BiometircEvent Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>DeviceUsagePairs</key>
+			<array>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>17</integer>
+					<key>DeviceUsagePage</key>
+					<integer>32</integer>
+				</dict>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>18</integer>
+					<key>DeviceUsagePage</key>
+					<integer>32</integer>
+				</dict>
+			</array>
+			<key>HIDDefaultBehavior</key>
+			<string></string>
+			<key>IOClass</key>
+			<string>IOHIDEventDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>

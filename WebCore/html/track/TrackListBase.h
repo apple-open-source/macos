@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef TrackListBase_h
-#define TrackListBase_h
+#pragma once
 
 #if ENABLE(VIDEO_TRACK)
 
@@ -32,7 +31,6 @@
 #include "EventTarget.h"
 #include "GenericEventQueue.h"
 #include "Timer.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
@@ -88,5 +86,4 @@ private:
 
 } // namespace WebCore
 
-#endif
-#endif
+#endif // ENABLE(VIDEO_TRACK)

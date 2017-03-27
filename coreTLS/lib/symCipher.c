@@ -163,29 +163,29 @@ int CCSymmEncryptDecrypt(
                          size_t len,
                          SymCipherContext cipherCtx)
 {
-    if(cipherCtx == NULL || cipherCtx->cbc == NULL) {
+    if (cipherCtx == NULL || cipherCtx->cbc == NULL) {
         sslErrorLog("CCSymmEncryptDecrypt: NULL cipherCtx\n");
         return errSSLRecordInternal;
     }
 
     ASSERT((len%cipherCtx->cbc->block_size)==0);
 
-    if(len%cipherCtx->cbc->block_size) {
+    if (len%cipherCtx->cbc->block_size) {
         sslErrorLog("CCSymmEncryptDecrypt: Invalid size\n");
         return errSSLRecordInternal;
     }
 
     unsigned long nblocks = len/cipherCtx->cbc->block_size;
 
-    cccbc_update(cipherCtx->cbc, CTX_KEY(cipherCtx), CTX_IV(cipherCtx), nblocks, src, dest);
-    return 0;
+    return cccbc_update(cipherCtx->cbc, CTX_KEY(cipherCtx), CTX_IV(cipherCtx), nblocks, src, dest);
 }
 
 static
 int CCSymmFinish(
                  SymCipherContext cipherCtx)
 {
-	if(cipherCtx) {
+	if (cipherCtx) {
+        cc_clear(CTX_SIZE(cipherCtx->cbc), cipherCtx);
         sslFree(cipherCtx);
 	}
 	return 0;

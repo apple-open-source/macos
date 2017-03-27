@@ -25,6 +25,7 @@
 #ifndef COMMON_BASE_XX_H
 #define COMMON_BASE_XX_H
 
+#include <Availability.h>
 #if !defined(COMMON_NUMERICS_H)
 #include <CommonNumerics/CommonNumerics.h>
 #endif

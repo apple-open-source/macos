@@ -35,12 +35,13 @@
 #ifndef _SECURITY_SECCMSBASE_H_
 #define _SECURITY_SECCMSBASE_H_  1
 
+#include <Security/SecBase.h>
 #include <Security/SecKey.h>
 #include <Security/SecAsn1Types.h>
 
-#if !USE_CDSA_CRYPTO
+#if !SEC_OS_OSX_INCLUDES
 typedef CFTypeRef SecKeychainRef;
-#endif
+#endif // ! SEC_OS_OSX_INCLUDES
 
 #if defined(__cplusplus)
 extern "C" {

@@ -24,11 +24,14 @@
 #ifndef CommonNumerics_crc_h
 #define CommonNumerics_crc_h
 
+
+#if defined (_WIN32)
+#define __unused
+#endif
+
 #include <stdint.h>
 #include <stddef.h>
-#include <dispatch/dispatch.h>
-#include <dispatch/queue.h>
-
+#include "../lib/ccDispatch.h"
 
 #define MASK08 0x00000000000000ffLL
 #define MASK16 0x000000000000ffffLL
@@ -102,7 +105,7 @@ typedef struct crcInfo_t {
 } crcInfo, *crcInfoPtr;
 
 
-int gen_std_crc_table(crcInfoPtr crc);
+void gen_std_crc_table(void *c);
 void dump_crc_table(crcInfoPtr crc);
 uint64_t crc_normal_init(crcInfoPtr crc);
 uint64_t crc_normal_update(crcInfoPtr crc, uint8_t *p, size_t len, uint64_t current);
@@ -124,29 +127,29 @@ static inline uint64_t descmaskfunc(crcDescriptorPtr descriptor) {
     return 0;
 }
 
-const crcDescriptor crc8;
-const crcDescriptor crc8_icode;
-const crcDescriptor crc8_itu;
-const crcDescriptor crc8_rohc;
-const crcDescriptor crc8_wcdma;
-const crcDescriptor crc16;
-const crcDescriptor crc16_ccitt_true;
-const crcDescriptor crc16_ccitt_false;
-const crcDescriptor crc16_usb;
-const crcDescriptor crc16_xmodem;
-const crcDescriptor crc16_dect_r;
-const crcDescriptor crc16_dect_x;
-const crcDescriptor crc16_icode;
-const crcDescriptor crc16_verifone;
-const crcDescriptor crc16_a;
-const crcDescriptor crc16_b;
-const crcDescriptor crc32;
-const crcDescriptor crc32_castagnoli;
-const crcDescriptor crc32_bzip2;
-const crcDescriptor crc32_mpeg_2;
-const crcDescriptor crc32_posix;
-const crcDescriptor crc32_xfer;
-const crcDescriptor adler32;
-const crcDescriptor crc64_ecma_182;
+extern const crcDescriptor crc8;
+extern const crcDescriptor crc8_icode;
+extern const crcDescriptor crc8_itu;
+extern const crcDescriptor crc8_rohc;
+extern const crcDescriptor crc8_wcdma;
+extern const crcDescriptor crc16;
+extern const crcDescriptor crc16_ccitt_true;
+extern const crcDescriptor crc16_ccitt_false;
+extern const crcDescriptor crc16_usb;
+extern const crcDescriptor crc16_xmodem;
+extern const crcDescriptor crc16_dect_r;
+extern const crcDescriptor crc16_dect_x;
+extern const crcDescriptor crc16_icode;
+extern const crcDescriptor crc16_verifone;
+extern const crcDescriptor crc16_a;
+extern const crcDescriptor crc16_b;
+extern const crcDescriptor crc32;
+extern const crcDescriptor crc32_castagnoli;
+extern const crcDescriptor crc32_bzip2;
+extern const crcDescriptor crc32_mpeg_2;
+extern const crcDescriptor crc32_posix;
+extern const crcDescriptor crc32_xfer;
+extern const crcDescriptor adler32;
+extern const crcDescriptor crc64_ecma_182;
 
 #endif

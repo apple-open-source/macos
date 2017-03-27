@@ -21,11 +21,9 @@
  *
  */
 
-#ifndef ContainerNode_h
-#define ContainerNode_h
+#pragma once
 
 #include "CollectionType.h"
-#include "ExceptionCodePlaceholder.h"
 #include "Node.h"
 
 namespace WebCore {
@@ -41,6 +39,7 @@ public:
     Node* firstChild() const { return m_firstChild; }
     static ptrdiff_t firstChildMemoryOffset() { return OBJECT_OFFSETOF(ContainerNode, m_firstChild); }
     Node* lastChild() const { return m_lastChild; }
+    static ptrdiff_t lastChildMemoryOffset() { return OBJECT_OFFSETOF(ContainerNode, m_lastChild); }
     bool hasChildNodes() const { return m_firstChild; }
     bool hasOneChild() const { return m_firstChild && !m_firstChild->nextSibling(); }
 
@@ -50,10 +49,10 @@ public:
     WEBCORE_EXPORT unsigned countChildNodes() const;
     WEBCORE_EXPORT Node* traverseToChildAt(unsigned) const;
 
-    bool insertBefore(Node& newChild, Node* refChild, ExceptionCode& = ASSERT_NO_EXCEPTION);
-    bool replaceChild(Node& newChild, Node& oldChild, ExceptionCode& = ASSERT_NO_EXCEPTION);
-    WEBCORE_EXPORT bool removeChild(Node& child, ExceptionCode& = ASSERT_NO_EXCEPTION);
-    WEBCORE_EXPORT bool appendChild(Node& newChild, ExceptionCode& = ASSERT_NO_EXCEPTION);
+    ExceptionOr<void> insertBefore(Node& newChild, Node* refChild);
+    ExceptionOr<void> replaceChild(Node& newChild, Node& oldChild);
+    WEBCORE_EXPORT ExceptionOr<void> removeChild(Node& child);
+    WEBCORE_EXPORT ExceptionOr<void> appendChild(Node& newChild);
 
     // These methods are only used during parsing.
     // They don't send DOM mutation events or handle reparenting.
@@ -67,13 +66,32 @@ public:
 
     void cloneChildNodes(ContainerNode& clone);
 
-    enum ChildChangeType { ElementInserted, ElementRemoved, TextInserted, TextRemoved, TextChanged, AllChildrenRemoved, NonContentsChildChanged };
+    enum ChildChangeType { ElementInserted, ElementRemoved, TextInserted, TextRemoved, TextChanged, AllChildrenRemoved, NonContentsChildRemoved, NonContentsChildInserted, AllChildrenReplaced };
     enum ChildChangeSource { ChildChangeSourceParser, ChildChangeSourceAPI };
     struct ChildChange {
         ChildChangeType type;
         Element* previousSiblingElement;
         Element* nextSiblingElement;
         ChildChangeSource source;
+
+        bool isInsertion() const
+        {
+            switch (type) {
+            case ElementInserted:
+            case TextInserted:
+            case NonContentsChildInserted:
+            case AllChildrenReplaced:
+                return true;
+            case ElementRemoved:
+            case TextRemoved:
+            case TextChanged:
+            case AllChildrenRemoved:
+            case NonContentsChildRemoved:
+                return false;
+            }
+            ASSERT_NOT_REACHED();
+            return false;
+        }
     };
     virtual void childrenChanged(const ChildChange&);
 
@@ -85,27 +103,24 @@ public:
     // This gives the area within which events may get handled by a hander registered on this node.
     virtual LayoutRect absoluteEventHandlerBounds(bool& /* includesFixedPositionElements */) { return LayoutRect(); }
 
-    Element* querySelector(const String& selectors, ExceptionCode&);
-    RefPtr<NodeList> querySelectorAll(const String& selectors, ExceptionCode&);
+    WEBCORE_EXPORT ExceptionOr<Element*> querySelector(const String& selectors);
+    WEBCORE_EXPORT ExceptionOr<Ref<NodeList>> querySelectorAll(const String& selectors);
 
-    Ref<HTMLCollection> getElementsByTagName(const AtomicString&);
-    RefPtr<NodeList> getElementsByTagNameForObjC(const AtomicString&);
-    Ref<HTMLCollection> getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName);
-    RefPtr<NodeList> getElementsByTagNameNSForObjC(const AtomicString& namespaceURI, const AtomicString& localName);
-    Ref<NodeList> getElementsByName(const String& elementName);
-    Ref<HTMLCollection> getElementsByClassName(const AtomicString& classNames);
-    Ref<NodeList> getElementsByClassNameForObjC(const AtomicString& classNames);
+    WEBCORE_EXPORT Ref<HTMLCollection> getElementsByTagName(const AtomicString&);
+    WEBCORE_EXPORT Ref<HTMLCollection> getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName);
+    WEBCORE_EXPORT Ref<NodeList> getElementsByName(const String& elementName);
+    WEBCORE_EXPORT Ref<HTMLCollection> getElementsByClassName(const AtomicString& classNames);
     Ref<RadioNodeList> radioNodeList(const AtomicString&);
 
     // From the ParentNode interface - https://dom.spec.whatwg.org/#interface-parentnode
-    Ref<HTMLCollection> children();
-    Element* firstElementChild() const;
-    Element* lastElementChild() const;
-    unsigned childElementCount() const;
-    void append(Vector<NodeOrString>&&, ExceptionCode&);
-    void prepend(Vector<NodeOrString>&&, ExceptionCode&);
+    WEBCORE_EXPORT Ref<HTMLCollection> children();
+    WEBCORE_EXPORT Element* firstElementChild() const;
+    WEBCORE_EXPORT Element* lastElementChild() const;
+    WEBCORE_EXPORT unsigned childElementCount() const;
+    ExceptionOr<void> append(Vector<NodeOrString>&&);
+    ExceptionOr<void> prepend(Vector<NodeOrString>&&);
 
-    bool ensurePreInsertionValidity(Node& newChild, Node* refChild, ExceptionCode&);
+    ExceptionOr<void> ensurePreInsertionValidity(Node& newChild, Node* refChild);
 
 protected:
     explicit ContainerNode(Document&, ConstructionType = CreateContainer);
@@ -120,6 +135,7 @@ protected:
 
 private:
     void removeBetween(Node* previousChild, Node* nextChild, Node& oldChild);
+    ExceptionOr<void> appendChildWithoutPreInsertionValidityCheck(Node&);
     void insertBeforeCommon(Node& nextChild, Node& oldChild);
     void appendChildCommon(Node&);
 
@@ -256,5 +272,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ContainerNode)
     static bool isType(const WebCore::Node& node) { return node.isContainerNode(); }
 SPECIALIZE_TYPE_TRAITS_END()
-
-#endif // ContainerNode_h

@@ -145,6 +145,8 @@ Find a certificate item.
 Find an identity (certificate + private key).
 .It Nm delete-certificate
 Delete a certificate from a keychain.
+.It Nm delete-identity
+Delete a certificate and its private key from a keychain.
 .It Nm set-identity-preference
 Set the preferred identity to use for a service.
 .It Nm get-identity-preference
@@ -183,6 +185,12 @@ Execute tool with privileges.
 Run
 .Pa /usr/bin/leaks
 on this process.
+.It Nm smartcards
+Enable, disable or list disabled smartcard tokens.
+.It Nm list-smartcards
+Display available smartcards.
+.It Nm export-smartcard
+Export items from a smartcard.
 .It Nm error
 Display a descriptive message for the given error code(s).
 .El
@@ -940,6 +948,30 @@ The certificate to be deleted must be uniquely specified either by a
 string found in its common name, or by its SHA-1 hash.
 .El
 .It
+.Nm delete-identity
+.Op Fl h
+.Op Fl c Ar name
+.Op Fl Z Ar hash
+.Op Fl t
+.Op Ar keychain...
+.Bl -item -offset -indent
+Delete a certificate and its private key from a keychain.  If no
+.Ar keychain Ns
+\& arguments are provided, the default search list is used.
+.It
+.Bl -tag -compact -width -indent-indent
+.It Fl c Ar name
+Specify certificate to delete by its common name
+.It Fl Z Ar hash
+Specify certificate to delete by its SHA-1 hash
+.It Fl t
+Also delete user trust settings for this identity certificate
+.El
+.It
+The identity to be deleted must be uniquely specified either by a
+string found in its common name, or by its SHA-1 hash.
+.El
+.It
 .Nm set-identity-preference
 .Op Fl h
 .Op Fl n
@@ -1256,7 +1288,6 @@ Install (or re-install) the Module Directory Services (MDS) database. This is a 
 .Op Fl k Ar keychain
 .Op Fl i Ar settingsFileIn
 .Op Fl o Ar settingsFileOut
-.Op Fl D
 certFile
 .Bl -item -offset -indent
 Add certificate (in DER or PEM format) from  
@@ -1287,8 +1318,6 @@ Specify keychain to which cert is added.
 Input trust settings file; default is user domain.
 .It Fl o Ar settingsFileOut
 Output trust settings file; default is user domain.
-.It Fl D
-Add default setting instead of per-cert setting. No certFile is specified when using this option
 .El
 .It
 .Sy Key usage codes:
@@ -1310,7 +1339,6 @@ Add default setting instead of per-cert setting. No certFile is specified when u
 .It
 .Nm remove-trusted-cert
 .Op Fl d
-.Op Fl D
 certFile
 .Bl -item -offset -indent
 Remove certificate (in DER or PEM format) in  
@@ -1321,8 +1349,6 @@ Options:
 .Bl -tag -compact -width -indent-indent
 .It Fl d
 Remove from admin cert store; default is user. 
-.It Fl D
-Remove Default Root Cert setting instead of an actual cert setting. No certFile is specified when using this option. 
 .El
 .\"marker.
 .El
@@ -1562,6 +1588,37 @@ Disable smartcard token.
 .It security smartcards token -l
 .It security smartcards token -d com.apple.CryptoTokenKit.pivtoken
 .It security smartcards token -e com.apple.CryptoTokenKit.pivtoken
+.El
+.El
+.It
+.Nm list-smartcards
+.Bl -item -offset -indent
+Display
+.Ar id Ns
+s of available smartcards.
+.El
+.It
+.Nm export-smartcard
+.Ar token
+.Op Fl i Ar id
+.Op Fl t Ar certs Ns | Ns Ar privKeys Ns | Ns Ar identities Ns | Ns Ar all
+.Bl -item -offset -indent
+Export items from a smartcard. If
+.Ar id
+isn't provided, items from all smartcards will be exported.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl i Ar id
+Export items from token specified by token
+.Ar id Ns
+, available
+.Ar id Ns
+s can be listed by list-smartcards command.
+.It Fl t Ar certs Ns | Ns Ar privKeys Ns | Ns Ar identities Ns | Ns Ar all
+Export items of the specified type (Default:
+.Ar all Ns
+)
 .El
 .El
 .It

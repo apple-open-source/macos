@@ -31,6 +31,7 @@
 #include <netinet/in.h>
 #include <network/sa_compare.h>
 #include <network/nat64.h>
+#include <network/path_evaluation.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -1156,9 +1157,129 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int nu
 	return _gai_sort_list(out_list, flags);
 }
 
+static si_list_t *
+_gai_nat64_second_pass(si_list_t *out, si_mod_t *si, const char *serv, uint32_t family, uint32_t socktype,
+					   uint32_t proto, uint32_t flags, const char *interface)
+{
+	if (out == NULL || out->count == 0)
+	{
+		return NULL;
+	}
+
+	/* validate AI_NUMERICHOST */
+	if ((flags & AI_NUMERICHOST) != 0)
+	{
+		return NULL;
+	}
+
+	/* validate family */
+	if ((AF_UNSPEC != family) && (AF_INET6 != family))
+	{
+		return NULL;
+	}
+
+	/* skip if we already have an IPv6 address (unless it is v4-mapped) */
+	for (uint32_t i = 0; i < out->count; i++)
+	{
+		si_addrinfo_t *a = (si_addrinfo_t *)((uintptr_t)out->entry[i] + sizeof(si_item_t));
+		if (a->ai_family == AF_INET6)
+		{
+			struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)a->ai_addr.x;
+			if (!IN6_IS_ADDR_V4MAPPED(&s6->sin6_addr))
+			{
+				return NULL;
+			}
+		}
+	}
+
+	si_list_t *out_list = NULL;
+	const uint32_t flags2 = flags & (~(AI_V4MAPPED | AI_V4MAPPED_CFG));
+
+	for (uint32_t i = 0; i < out->count; i++)
+	{
+		si_addrinfo_t *a = (si_addrinfo_t *)((uintptr_t)out->entry[i] + sizeof(si_item_t));
+		struct in_addr *addr4 = NULL;
+		if (a->ai_family == AF_INET)
+		{
+			addr4 = &((struct sockaddr_in *)a->ai_addr.x)->sin_addr;
+		}
+		else if (a->ai_family == AF_INET6)
+		{
+			struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)a->ai_addr.x;
+			addr4 = (struct in_addr *)&(s6->sin6_addr.__u6_addr.__u6_addr32[3]);
+		}
+		else
+		{
+			continue;
+		}
+
+		/* validate that IPv4 address is eligible for NAT64 synthesis */
+#if defined(NW_NAT64_API_VERSION) && NW_NAT64_API_VERSION >= 2
+		if (!nw_nat64_can_v4_address_be_synthesized(addr4))
+		{
+			continue;
+		}
+#endif // NW_NAT64_API_VERSION
+
+		char v4_str[INET_ADDRSTRLEN] = {0};
+		if (NULL == inet_ntop(AF_INET, addr4, v4_str, sizeof(v4_str)))
+		{
+			continue;
+		}
+
+		/* skip if we have a path (route) to this address as it might go through a VPN */
+		nw_endpoint_t endpoint = nw_endpoint_create_address((struct sockaddr *)a->ai_addr.x);
+		if (endpoint == NULL)
+		{
+			continue;
+		}
+		nw_path_evaluator_t evaluator = nw_path_create_evaluator_for_endpoint(endpoint, NULL);
+		network_release(endpoint);
+		if (evaluator == NULL)
+		{
+			continue;
+		}
+		nw_path_t path = nw_path_evaluator_copy_path(evaluator);
+		network_release(evaluator);
+		if (path == NULL)
+		{
+			continue;
+		}
+		const nw_path_status_t status = nw_path_get_status(path);
+		network_release(path);
+		if (status != nw_path_status_unsatisfied)
+		{
+			continue;
+		}
+
+		uint32_t err = SI_STATUS_NO_ERROR;
+		si_list_t *temp_list = si_addrinfo(si, v4_str, serv, AF_INET6, socktype, proto, flags2, interface, &err);
+		if (NULL == temp_list)
+		{
+			continue;
+		}
+		if (err != SI_STATUS_NO_ERROR)
+		{
+			si_list_release(temp_list);
+			continue;
+		}
+		if (NULL != out_list)
+		{
+			out_list = si_list_concat(out_list, temp_list);
+			si_list_release(temp_list);
+		}
+		else
+		{
+			out_list = temp_list;
+		}
+	}
+	return out_list;
+}
+
 si_list_t *
 si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
+	const uint32_t family_ori = family, flags_ori = flags;
 	int numerichost, numericserv = 0;
 	int scope = 0;
 	const void *nodeptr = NULL, *servptr = NULL;
@@ -1360,6 +1481,16 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	{
 		/* or let the current module handle the host lookups intelligently */
 		out = si->vtable->sim_addrinfo(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
+
+		/* run a second NAT64 pass in case a hostname was resolved over VPN to an IPv4 address
+		 and it needs to be synthesized in order to be used on IPv6-only cellular */
+		si_list_t *nat64_list2 = _gai_nat64_second_pass(out, si, serv, family_ori, socktype,
+														proto, flags_ori, interface);
+		if (nat64_list2 != NULL)
+		{
+			out = si_list_concat(out, nat64_list2);
+		}
+
 		return _gai_sort_list(out, flags);
 	}
 

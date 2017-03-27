@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MemoryObjectStore_h
-#define MemoryObjectStore_h
+#pragma once
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -41,12 +40,14 @@ namespace WebCore {
 
 class IDBCursorInfo;
 class IDBError;
+class IDBGetAllResult;
 class IDBKeyData;
 class IDBValue;
 
 struct IDBKeyRangeData;
 
 namespace IndexedDB {
+enum class GetAllType;
 enum class IndexRecordType;
 }
 
@@ -84,8 +85,11 @@ public:
 
     ThreadSafeDataBuffer valueForKey(const IDBKeyData&) const;
     ThreadSafeDataBuffer valueForKeyRange(const IDBKeyRangeData&) const;
+    IDBKeyData lowestKeyWithRecordInRange(const IDBKeyRangeData&) const;
     IDBGetResult indexValueForKeyRange(uint64_t indexIdentifier, IndexedDB::IndexRecordType, const IDBKeyRangeData&) const;
     uint64_t countForKeyRange(uint64_t indexIdentifier, const IDBKeyRangeData&) const;
+
+    void getAllRecords(const IDBKeyRangeData&, std::optional<uint32_t> count, IndexedDB::GetAllType, IDBGetAllResult&) const;
 
     const IDBObjectStoreInfo& info() const { return m_info; }
 
@@ -97,10 +101,12 @@ public:
 
     void maybeRestoreDeletedIndex(Ref<MemoryIndex>&&);
 
+    void rename(const String& newName) { m_info.rename(newName); }
+    void renameIndex(MemoryIndex&, const String& newName);
+
 private:
     MemoryObjectStore(const IDBObjectStoreInfo&);
 
-    IDBKeyData lowestKeyWithRecordInRange(const IDBKeyRangeData&) const;
     std::set<IDBKeyData>::iterator lowestIteratorInRange(const IDBKeyRangeData&, bool reverse) const;
 
     IDBError populateIndexWithExistingRecords(MemoryIndex&);
@@ -129,4 +135,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(INDEXED_DATABASE)
-#endif // MemoryObjectStore_h

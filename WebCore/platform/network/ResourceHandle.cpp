@@ -88,10 +88,8 @@ ResourceHandle::ResourceHandle(NetworkingContext* context, const ResourceRequest
 
 RefPtr<ResourceHandle> ResourceHandle::create(NetworkingContext* context, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
 {
-    BuiltinResourceHandleConstructorMap::iterator protocolMapItem = builtinResourceHandleConstructorMap().find(request.url().protocol());
-
-    if (protocolMapItem != builtinResourceHandleConstructorMap().end())
-        return protocolMapItem->value(request, client);
+    if (auto constructor = builtinResourceHandleConstructorMap().get(request.url().protocol().toStringWithoutCopying()))
+        return constructor(request, client);
 
     auto newHandle = adoptRef(*new ResourceHandle(context, request, client, defersLoading, shouldContentSniff));
 
@@ -134,10 +132,8 @@ void ResourceHandle::failureTimerFired()
 
 void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials storedCredentials, ResourceError& error, ResourceResponse& response, Vector<char>& data)
 {
-    BuiltinResourceHandleSynchronousLoaderMap::iterator protocolMapItem = builtinResourceHandleSynchronousLoaderMap().find(request.url().protocol());
-
-    if (protocolMapItem != builtinResourceHandleSynchronousLoaderMap().end()) {
-        protocolMapItem->value(context, request, storedCredentials, error, response, data);
+    if (auto constructor = builtinResourceHandleSynchronousLoaderMap().get(request.url().protocol().toStringWithoutCopying())) {
+        constructor(context, request, storedCredentials, error, response, data);
         return;
     }
 
@@ -154,7 +150,27 @@ void ResourceHandle::clearClient()
     d->m_client = nullptr;
 }
 
-#if !PLATFORM(COCOA) && !USE(CFNETWORK) && !USE(SOUP)
+void ResourceHandle::didReceiveResponse(ResourceResponse&& response)
+{
+    if (response.isHTTP09()) {
+        auto url = response.url();
+        std::optional<uint16_t> port = url.port();
+        if (port && !isDefaultPortForProtocol(port.value(), url.protocol())) {
+            cancel();
+            String message = "Cancelled load from '" + url.stringCenterEllipsizedToLength() + "' because it is using HTTP/0.9.";
+            d->m_client->didFail(this, { String(), 0, url, message });
+            return;
+        }
+    }
+    if (d->m_usesAsyncCallbacks)
+        d->m_client->didReceiveResponseAsync(this, WTFMove(response));
+    else {
+        d->m_client->didReceiveResponse(this, WTFMove(response));
+        platformContinueSynchronousDidReceiveResponse();
+    }
+}
+
+#if !PLATFORM(COCOA) && !USE(CFURLCONNECTION) && !USE(SOUP)
 // ResourceHandle never uses async client calls on these platforms yet.
 void ResourceHandle::continueWillSendRequest(ResourceRequest&&)
 {
@@ -172,6 +188,13 @@ void ResourceHandle::continueCanAuthenticateAgainstProtectionSpace(bool)
     notImplemented();
 }
 #endif
+#endif
+
+#if !USE(SOUP)
+void ResourceHandle::platformContinueSynchronousDidReceiveResponse()
+{
+    // Do nothing.
+}
 #endif
 
 ResourceRequest& ResourceHandle::firstRequest()

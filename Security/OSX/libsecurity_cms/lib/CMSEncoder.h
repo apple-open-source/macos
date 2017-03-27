@@ -243,7 +243,7 @@ OSStatus CMSEncoderCopySupportingCerts(
  * Standard signed attributes, optionally specified in 
  * CMSEncoderAddSignedAttributes().
  */
-typedef CF_ENUM(uint32_t, CMSSignedAttributes) {
+typedef CF_OPTIONS(uint32_t, CMSSignedAttributes) {
 	kCMSAttrNone						= 0x0000,
     /* 
      * S/MIME Capabilities - identifies supported signature, encryption, and

@@ -28,10 +28,6 @@
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 
-#if USE(QUICK_LOOK)
-#include "QuickLook.h"
-#endif
-
 namespace WebCore {
 
 static URLSchemesMap& localURLSchemes()
@@ -63,9 +59,6 @@ static URLSchemesMap& secureSchemes()
         secureSchemes.get().add("about");
         secureSchemes.get().add("data");
         secureSchemes.get().add("wss");
-#if USE(QUICK_LOOK)
-        secureSchemes.get().add(QLPreviewProtocol());
-#endif
 #if PLATFORM(GTK)
         secureSchemes.get().add("resource");
 #endif
@@ -363,5 +356,15 @@ bool SchemeRegistry::shouldPartitionCacheForURLScheme(const String& scheme)
     return cachePartitioningSchemes().contains(scheme);
 }
 #endif
+
+bool SchemeRegistry::isUserExtensionScheme(const String& scheme)
+{
+    UNUSED_PARAM(scheme);
+#if PLATFORM(MAC)
+    if (scheme == "safari-extension")
+        return true;
+#endif
+    return false;
+}
 
 } // namespace WebCore

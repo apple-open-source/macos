@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,7 +30,6 @@
 __BEGIN_DECLS
 
 bool SecIsInternalRelease(void);
-bool SecIsProductionFused(void);
 
 __END_DECLS
 

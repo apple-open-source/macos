@@ -16,6 +16,11 @@
 	<dict>
 		<key>com.apple.notifyd.matching</key>
 		<dict>
+			<key>kPublicKeyNotAvailable</key>
+			<dict>
+				<key>Notification</key>
+				<string>com.apple.security.publickeynotavailable</string>
+			</dict>
 			<key>tick</key>
 			<dict>
 				<key>Notification</key>

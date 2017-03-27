@@ -73,7 +73,8 @@ struct krb5_crypto_data {
 #define F_PSEUDO	16	/* not a real protocol type */
 #define F_SPECIAL	32	/* backwards */
 #define F_DISABLED	64	/* enctype/checksum disabled */
-#define F_WEAK	       128	/* enctype is considered weak */
+#define F_WEAK	       128	/* enctype is weak */
+#define F_WARNING      256	/* enctype is considered weak, warn user for now */
 
 struct salt_type {
     krb5_salttype type;

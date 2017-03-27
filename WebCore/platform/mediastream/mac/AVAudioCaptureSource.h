@@ -49,13 +49,13 @@ public:
         virtual void process(CMFormatDescriptionRef, CMSampleBufferRef) = 0;
     };
 
-    static RefPtr<AVMediaCaptureSource> create(AVCaptureDevice*, const AtomicString&, PassRefPtr<MediaConstraints>);
+    static RefPtr<AVMediaCaptureSource> create(AVCaptureDevice*, const AtomicString&, const MediaConstraints*, String&);
 
     void addObserver(Observer*);
     void removeObserver(Observer*);
 
 private:
-    AVAudioCaptureSource(AVCaptureDevice*, const AtomicString&, PassRefPtr<MediaConstraints>);
+    AVAudioCaptureSource(AVCaptureDevice*, const AtomicString&);
     virtual ~AVAudioCaptureSource();
     
     void initializeCapabilities(RealtimeMediaSourceCapabilities&) override;
@@ -67,6 +67,7 @@ private:
     void shutdownCaptureSession() override;
     void updateSettings(RealtimeMediaSourceSettings&) override;
     AudioSourceProvider* audioSourceProvider() override;
+    RefPtr<AVMediaSourcePreview> createPreview() final;
 
     RetainPtr<AVCaptureConnection> m_audioConnection;
 

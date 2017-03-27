@@ -49,6 +49,7 @@
 #include "Screen.h"
 #include "Settings.h"
 #include "StyleResolver.h"
+#include "Theme.h"
 #include <wtf/HashMap.h>
 
 #if ENABLE(3D_TRANSFORMS)
@@ -61,6 +62,15 @@ enum MediaFeaturePrefix { MinPrefix, MaxPrefix, NoPrefix };
 
 typedef bool (*MediaQueryFunction)(CSSValue*, const CSSToLengthConversionData&, Frame&, MediaFeaturePrefix);
 typedef HashMap<AtomicStringImpl*, MediaQueryFunction> MediaQueryFunctionMap;
+
+static bool isAccessibilitySettingsDependent(const AtomicString& mediaFeature)
+{
+    return mediaFeature == MediaFeatureNames::invertedColors
+        || mediaFeature == MediaFeatureNames::maxMonochrome
+        || mediaFeature == MediaFeatureNames::minMonochrome
+        || mediaFeature == MediaFeatureNames::monochrome
+        || mediaFeature == MediaFeatureNames::prefersReducedMotion;
+}
 
 static bool isViewportDependent(const AtomicString& mediaFeature)
 {
@@ -87,7 +97,7 @@ MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, bool m
 {
 }
 
-MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, Document& document, const RenderStyle* style)
+MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, const Document& document, const RenderStyle* style)
     : m_mediaType(acceptedMediaType)
     , m_frame(document.frame())
     , m_style(style)
@@ -119,9 +129,9 @@ bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, StyleResolver*
 {
     auto& queries = querySet.queryVector();
     if (!queries.size())
-        return true; // empty query list evaluates to true
+        return true; // Empty query list evaluates to true.
 
-    // iterate over queries, stop if any of them eval to true (OR semantics)
+    // Iterate over queries, stop if any of them eval to true (OR semantics).
     bool result = false;
     for (size_t i = 0; i < queries.size() && !result; ++i) {
         auto& query = queries[i];
@@ -131,18 +141,19 @@ bool MediaQueryEvaluator::evaluate(const MediaQuerySet& querySet, StyleResolver*
 
         if (mediaTypeMatch(query.mediaType())) {
             auto& expressions = query.expressions();
-            // iterate through expressions, stop if any of them eval to false (AND semantics)
+            // Iterate through expressions, stop if any of them eval to false (AND semantics).
             size_t j = 0;
             for (; j < expressions.size(); ++j) {
                 bool expressionResult = evaluate(expressions[j]);
                 if (styleResolver && isViewportDependent(expressions[j].mediaFeature()))
                     styleResolver->addViewportDependentMediaQueryResult(expressions[j], expressionResult);
+                if (styleResolver && isAccessibilitySettingsDependent(expressions[j].mediaFeature()))
+                    styleResolver->addAccessibilitySettingsDependentMediaQueryResult(expressions[j], expressionResult);
                 if (!expressionResult)
                     break;
             }
 
-            // assume true if we are at the end of the list,
-            // otherwise assume false
+            // Assume true if we are at the end of the list, otherwise assume false.
             result = applyRestrictor(query.restrictor(), expressions.size() == j);
         } else
             result = applyRestrictor(query.restrictor(), false);
@@ -203,11 +214,11 @@ static bool compareAspectRatioValue(CSSValue* value, int width, int height, Medi
     return compareValue(width * aspectRatio.denominatorValue(), height * aspectRatio.numeratorValue(), op);
 }
 
-static Optional<double> doubleValue(CSSValue* value)
+static std::optional<double> doubleValue(CSSValue* value)
 {
     if (!is<CSSPrimitiveValue>(value) || !downcast<CSSPrimitiveValue>(*value).isNumber())
-        return Nullopt;
-    return downcast<CSSPrimitiveValue>(*value).getDoubleValue(CSSPrimitiveValue::CSS_NUMBER);
+        return std::nullopt;
+    return downcast<CSSPrimitiveValue>(*value).doubleValue(CSSPrimitiveValue::CSS_NUMBER);
 }
 
 static bool zeroEvaluate(CSSValue* value, MediaFeaturePrefix op)
@@ -244,8 +255,8 @@ static bool colorGamutEvaluate(CSSValue* value, const CSSToLengthConversionData&
     if (!value)
         return true;
 
-    switch (downcast<CSSPrimitiveValue>(*value).getValueID()) {
-    case CSSValueSrgb:
+    switch (downcast<CSSPrimitiveValue>(*value).valueID()) {
+    case CSSValueSRGB:
         return true;
     case CSSValueP3:
         // FIXME: For the moment we just assume any "extended color" display is at least as good as P3.
@@ -254,24 +265,41 @@ static bool colorGamutEvaluate(CSSValue* value, const CSSToLengthConversionData&
         // FIXME: At some point we should start detecting displays that support more colors.
         return false;
     default:
-        ASSERT_NOT_REACHED();
-        return true;
+        return false; // Any unknown value should not be considered a match.
     }
 }
 
 static bool monochromeEvaluate(CSSValue* value, const CSSToLengthConversionData& conversionData, Frame& frame, MediaFeaturePrefix op)
 {
-    if (!screenIsMonochrome(frame.mainFrame().view()))
+    bool isMonochrome;
+
+    if (frame.settings().forcedDisplayIsMonochromeAccessibilityValue() == Settings::ForcedAccessibilityValue::On)
+        isMonochrome = true;
+    else if (frame.settings().forcedDisplayIsMonochromeAccessibilityValue() == Settings::ForcedAccessibilityValue::Off)
+        isMonochrome = false;
+    else
+        isMonochrome = screenIsMonochrome(frame.mainFrame().view());
+
+    if (!isMonochrome)
         return zeroEvaluate(value, op);
     return colorEvaluate(value, conversionData, frame, op);
 }
 
-static bool invertedColorsEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame&, MediaFeaturePrefix)
+static bool invertedColorsEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
 {
-    bool isInverted = screenHasInvertedColors();
+    bool isInverted;
+
+    if (frame.settings().forcedColorsAreInvertedAccessibilityValue() == Settings::ForcedAccessibilityValue::On)
+        isInverted = true;
+    else if (frame.settings().forcedColorsAreInvertedAccessibilityValue() == Settings::ForcedAccessibilityValue::Off)
+        isInverted = false;
+    else
+        isInverted = screenHasInvertedColors();
+
     if (!value)
         return isInverted;
-    return downcast<CSSPrimitiveValue>(*value).getValueID() == (isInverted ? CSSValueInverted : CSSValueNone);
+
+    return downcast<CSSPrimitiveValue>(*value).valueID() == (isInverted ? CSSValueInverted : CSSValueNone);
 }
 
 static bool orientationEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
@@ -288,7 +316,7 @@ static bool orientationEvaluate(CSSValue* value, const CSSToLengthConversionData
         return height >= 0 && width >= 0;
     }
 
-    auto keyword = downcast<CSSPrimitiveValue>(*value).getValueID();
+    auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
     if (width > height) // Square viewport is portrait.
         return keyword == CSSValueLandscape;
     return keyword == CSSValuePortrait;
@@ -349,7 +377,7 @@ static bool evaluateResolution(CSSValue* value, Frame& frame, MediaFeaturePrefix
         return false;
 
     auto& resolution = downcast<CSSPrimitiveValue>(*value);
-    return compareValue(deviceScaleFactor, resolution.isNumber() ? resolution.getFloatValue() : resolution.getFloatValue(CSSPrimitiveValue::CSS_DPPX), op);
+    return compareValue(deviceScaleFactor, resolution.isNumber() ? resolution.floatValue() : resolution.floatValue(CSSPrimitiveValue::CSS_DPPX), op);
 }
 
 static bool devicePixelRatioEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix op)
@@ -382,7 +410,7 @@ static bool computeLength(CSSValue* value, bool strict, const CSSToLengthConvers
     auto& primitiveValue = downcast<CSSPrimitiveValue>(*value);
 
     if (primitiveValue.isNumber()) {
-        result = primitiveValue.getIntValue();
+        result = primitiveValue.intValue();
         return !strict || !result;
     }
 
@@ -587,7 +615,7 @@ static bool viewModeEvaluate(CSSValue* value, const CSSToLengthConversionData&, 
     if (!value)
         return true;
 
-    auto keyword = downcast<CSSPrimitiveValue>(*value).getValueID();
+    auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
 
     switch (frame.page()->viewMode()) {
     case Page::ViewModeWindowed:
@@ -624,7 +652,7 @@ static bool hoverEvaluate(CSSValue* value, const CSSToLengthConversionData&, Fra
 #endif
     }
 
-    auto keyword = downcast<CSSPrimitiveValue>(*value).getValueID();
+    auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
 #if ENABLE(TOUCH_EVENTS)
     return keyword == CSSValueNone;
 #else
@@ -642,7 +670,7 @@ static bool pointerEvaluate(CSSValue* value, const CSSToLengthConversionData&, F
     if (!is<CSSPrimitiveValue>(value))
         return true;
 
-    auto keyword = downcast<CSSPrimitiveValue>(*value).getValueID();
+    auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
 #if ENABLE(TOUCH_EVENTS)
     return keyword == CSSValueCoarse;
 #else
@@ -653,6 +681,25 @@ static bool pointerEvaluate(CSSValue* value, const CSSToLengthConversionData&, F
 static bool anyPointerEvaluate(CSSValue* value, const CSSToLengthConversionData& cssToLengthConversionData, Frame& frame, MediaFeaturePrefix prefix)
 {
     return pointerEvaluate(value, cssToLengthConversionData, frame, prefix);
+}
+
+static bool prefersReducedMotionEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
+{
+    bool userPrefersReducedMotion = false;
+
+    if (frame.settings().forcedPrefersReducedMotionAccessibilityValue() == Settings::ForcedAccessibilityValue::On)
+        userPrefersReducedMotion = true;
+    else if (frame.settings().forcedPrefersReducedMotionAccessibilityValue() == Settings::ForcedAccessibilityValue::Off)
+        userPrefersReducedMotion = false;
+#if PLATFORM(IOS) || USE(NEW_THEME)
+    else
+        userPrefersReducedMotion = platformTheme()->userPrefersReducedMotion();
+#endif
+
+    if (!value)
+        return userPrefersReducedMotion;
+
+    return downcast<CSSPrimitiveValue>(*value).valueID() == (userPrefersReducedMotion ? CSSValueReduce : CSSValueNoPreference);
 }
 
 // Use this function instead of calling add directly to avoid inlining.

@@ -101,7 +101,7 @@ Server &Session::server() const
 //
 Session &Session::find(pid_t id, bool create)
 {
-	if (id == callerSecuritySession)
+	if (id == (pid_t)callerSecuritySession)
 		return Server::session();
 	StLock<Mutex> _(mSessionLock);
 	SessionMap::iterator it = mSessions.find(id);

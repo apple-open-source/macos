@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef RenderListItem_h
-#define RenderListItem_h
+#pragma once
 
 #include "RenderBlockFlow.h"
 #include "RenderPtr.h"
@@ -66,7 +65,6 @@ private:
     void insertedIntoTree() override;
     void willBeRemovedFromTree() override;
 
-    bool isEmpty() const override;
     void paint(PaintInfo&, const LayoutPoint&) override;
 
     void layout() override;
@@ -97,5 +95,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderListItem, isListItem())
-
-#endif // RenderListItem_h

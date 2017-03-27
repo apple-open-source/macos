@@ -90,6 +90,11 @@ static bool SOSAccountBackupSliceKeyBagNeedsFix(SOSAccountRef account, SOSBackup
         CFReleaseNull(myBK);
         CFReleaseNull(meInBagBK);
     }
+    
+    CFDataRef rkbg = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, account, NULL);
+    if(rkbg) needsFix |= !SOSBKSBPrefixedKeyIsInKeyBag(bskb, bskbRkbgPrefix, rkbg);
+    else needsFix |= SOSBSKBHasRecoveryKey(bskb); // if we don't have a recovery key - the bskb shouldn't
+    CFReleaseNull(rkbg);
 
     return needsFix;
 }
@@ -220,6 +225,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
     bool iWasInOldRing = peerID && SOSRingHasPeerID(oldRing, peerID);
     bool iAmInNewRing = peerID && SOSRingHasPeerID(newRing, peerID);
     bool ringIsBackup = SOSRingGetType(newRing) == kSOSRingBackup;
+    bool ringIsRecovery = SOSRingGetType(newRing) == kSOSRingRecovery;
 
     if (ringIsBackup && peerActive) {
         if (ringAction == accept || ringAction == countersign) {
@@ -249,6 +255,11 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             // Fall through to normal modify handling.
         }
     }
+    
+    if (ringIsRecovery && peerActive && (ringAction == modify)) {
+        SOSAccountSetRing(account, newRing, ringName, error);
+    }
+
 
     if (ringAction == modify) {
         ringAction = ignore;

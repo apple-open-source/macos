@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef HTMLObjectElement_h
-#define HTMLObjectElement_h
+#pragma once
 
 #include "FormAssociatedElement.h"
 #include "HTMLPlugInImageElement.h"
@@ -47,6 +46,8 @@ public:
     // Implementation of constraint validation API.
     // Note that the object elements are always barred from constraint validation.
     static bool checkValidity() { return true; }
+    static bool reportValidity() { return true; }
+
     void setCustomValidity(const String&) final { }
     String validationMessage() const final { return String(); }
 
@@ -66,7 +67,7 @@ private:
     void finishedInsertingSubtree() final;
     void removedFrom(ContainerNode&) final;
 
-    void didMoveToNewDocument(Document* oldDocument) final;
+    void didMoveToNewDocument(Document& oldDocument) final;
 
     void childrenChanged(const ChildChange&) final;
 
@@ -77,7 +78,7 @@ private:
 
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
-    void updateWidget(PluginCreationOption) final;
+    void updateWidget(CreatePlugins) final;
     void updateDocNamedItem();
 
     // FIXME: This function should not deal with url or serviceType
@@ -107,6 +108,4 @@ private:
     bool m_useFallbackContent : 1;
 };
 
-}
-
-#endif
+} // namespace WebCore

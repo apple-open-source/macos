@@ -713,6 +713,15 @@ proc/tst.exitkilled.ksh
 proc/tst.signal.ksh
 # proc/tst.sigwait.d						/* tst.sigwait.c needs porting */
 # proc/tst.startexit.ksh					/* RADAR 4487725 Missing proc:::start !?! */
+processcontrol/tst.exec.ksh
+processcontrol/tst.postinit.ksh
+processcontrol/tst.preinit.ksh
+processcontrol/tst.run.ksh
+processcontrol/tst.run_module.ksh
+processcontrol/tst.run_module_glob.ksh
+processcontrol/tst.target_none.ksh
+processcontrol/tst.target_run.ksh
+processcontrol/tst.wait_initializers.ksh
 profile-n/err.D_PDESC_ZERO.profile.d
 profile-n/err.D_PDESC_ZEROonens.d
 profile-n/err.D_PDESC_ZEROonensec.d
@@ -934,6 +943,13 @@ struct/tst.clauselocal.d
 struct/tst.StructAssoc.d
 struct/tst.StructDataTypes.d
 struct/tst.StructInside.d
+sugar/tst.else.d
+sugar/tst.if.d
+sugar/tst.if2.d
+sugar/tst.if_before_after.d
+sugar/tst.if_nested.d
+sugar/tst.if_trailing_semicolon.d
+sugar/tst.if_trailing_semicolon2.d
 syscall/tst.openret.ksh
 tick-n/err.D_PDESC_ZERO.tick.d
 tick-n/err.D_PDESC_ZEROonens.d
@@ -1059,25 +1075,9 @@ union/err.D_PROTO_ARG.DupUnionAssoc.d
 union/tst.UnionAssoc.d
 union/tst.UnionDataTypes.d
 union/tst.UnionInside.d
-# usdt/argmap.d									/* DEFERRED: Await Darwin usdt provider. */
-# usdt/args.d
-# usdt/tst.andpid.ksh
-# usdt/tst.argmap.d
-# usdt/tst.args.d
-# usdt/tst.dlclose1.ksh
-# usdt/tst.dlclose2.ksh
-# usdt/tst.enabled.ksh
-# usdt/tst.entryreturn.ksh
-# usdt/tst.fork.ksh
-# usdt/tst.header.ksh
-# usdt/tst.linkpriv.ksh
-# usdt/tst.linkunpriv.ksh
-# usdt/tst.multiple.ksh
-# usdt/tst.onlyenabled.ksh
-# usdt/tst.reeval.ksh
-# usdt/tst.static.ksh
-# usdt/tst.static2.ksh
-# usdt/tst.user.ksh
+usdt_apple/tst.basic.d
+usdt_apple/tst.fork_star.ksh
+usdt_apple/tst.star.d
 ustack/tst.depth.ksh
 ustack/tst.spin.ksh
 vars/tst.gid.d

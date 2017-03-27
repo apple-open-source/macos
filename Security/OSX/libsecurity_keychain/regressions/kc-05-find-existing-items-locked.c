@@ -37,59 +37,60 @@ static void tests()
     SecKeychainItemRef item = NULL;
 
     // Perform keychain upgrade so future calls will check integrity, then lock keychain
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
+    item = checkNCopyFirst(testName, query, 1);
+    CFReleaseNull(item);
 
     ok_status(SecKeychainLock(kc), "%s: SecKeychainLock", testName);
 
     // Find passwords
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service"), CFSTR("test_service"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL); // keychain is locked; AuthFailed is what securityd throws if UI access is not allowed
     CFReleaseNull(item);
     checkPrompts(0, "after reading a password in locked keychain without UI"); // this should be 1, but is 0 due to how denying UI access works in Credentials
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassInternetPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL);
     CFReleaseNull(item);
     checkPrompts(0, "trying to read password in locked keychain without UI");
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service"), CFSTR("test_service"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service"), CFSTR("test_service"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL); // keychain is locked
     CFReleaseNull(item);
     checkPrompts(0, "after reading a password in locked keychain without UI");
 
-    query = makeQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
-    item = checkN(testName, query, 1);
+    query = createQueryCustomItemDictionaryWithService(kc, kSecClassGenericPassword, CFSTR("test_service_restrictive_acl"), CFSTR("test_service_restrictive_acl"));
+    item = checkNCopyFirst(testName, query, 1);
     readPasswordContentsWithResult(item, errSecAuthFailed, NULL); // we don't expect to be able to read this
     CFReleaseNull(item);
     checkPrompts(0, "trying to read password in locked keychain without UI");
 
     // Find symmetric keys
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
-    item = checkN(testName, query, 2);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric);
+    item = checkNCopyFirst(testName, query, 2);
     CFReleaseNull(item);
 
     // Find asymmetric keys
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
-    item = checkN(testName, query, 2);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPublic);
+    item = checkNCopyFirst(testName, query, 2);
     CFReleaseNull(item);
 
-    query = makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
-    item = checkN(testName, query, 2);
+    query = createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate);
+    item = checkNCopyFirst(testName, query, 2);
     CFReleaseNull(item);
 
     // Find certificates
     query = makeBaseQueryDictionary(kc, kSecClassCertificate);
-    item = checkN(testName, query, 3);
+    item = checkNCopyFirst(testName, query, 3);
     CFReleaseNull(item);
 
     // ensure we can pull data from a certificate
     query = makeBaseQueryDictionary(kc, kSecClassCertificate);
     CFDictionarySetValue(query, kSecMatchSubjectWholeString, CFSTR("test_codesigning"));
-    item = checkN(testName, query, 1);
+    item = checkNCopyFirst(testName, query, 1);
     const unsigned char expectedSHA1[] = { 0x94, 0xdf, 0x22, 0x4a, 0x4d, 0x49, 0x33, 0x27, 0x9e, 0xc5, 0x7e, 0x91, 0x95, 0xcc, 0xbd, 0x51, 0x3d, 0x59, 0xae, 0x34 };
     CFDataRef expectedSHAData = CFDataCreateWithBytesNoCopy(NULL, expectedSHA1, sizeof(expectedSHA1), kCFAllocatorNull);
     eq_cf(SecCertificateGetSHA1Digest((SecCertificateRef) item), expectedSHAData, "%s: expected SHA1 of certificate does not match", testName);

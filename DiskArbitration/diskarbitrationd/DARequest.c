@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -351,7 +351,7 @@ static Boolean __DARequestEject( DARequestRef request )
      * Commence the eject.
      */
 
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
+    if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         CFRetain( request );
 
@@ -702,7 +702,7 @@ static Boolean __DARequestMount( DARequestRef request )
      * Commence the mount.
      */
 
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
+    if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         CFTypeRef path;
 
@@ -865,7 +865,7 @@ static Boolean __DARequestProbe( DARequestRef request )
         }
     }
 ///w:stop
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
+    if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         DAReturn status;
 
@@ -1003,7 +1003,7 @@ static Boolean __DARequestRename( DARequestRef request )
      * Commence the rename.
      */
 
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
+    if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         DAReturn status;
 
@@ -1318,7 +1318,7 @@ static Boolean __DARequestUnmount( DARequestRef request )
      * Commence the unmount.
      */
 
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
+    if ( DAUnitGetStateRecursively( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         DADiskUnmountOptions options;
 

@@ -112,7 +112,7 @@
 #ifndef HEADER_BN_LCL_H
 #define HEADER_BN_LCL_H
 
-#include <openssl/bn.h>
+#include <openssl/bn_legacy.h>
 
 #ifdef  __cplusplus
 extern "C" {

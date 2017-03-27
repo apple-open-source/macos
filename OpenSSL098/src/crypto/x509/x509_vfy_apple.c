@@ -70,7 +70,7 @@ X509_verify_cert(X509_STORE_CTX *ctx)
 		/* Verify chain depth */
 		certLastIndex = sk_X509_num(ctx->untrusted);
 		if (certLastIndex > ctx->param->depth) {
-			TEALogInfo("Pruning certificate chain to %" PRIu64, certLastIndex);
+			TEALogDebug("Pruning certificate chain to %" PRIu64, certLastIndex);
 			certLastIndex = ctx->param->depth;
 		}
 

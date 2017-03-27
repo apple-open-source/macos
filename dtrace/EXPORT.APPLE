@@ -1,0 +1,12 @@
+#!/bin/bash -ex
+cd "$(dirname "$0")"
+# copy cwd to SRCROOT like installsrc
+echo Exporting to ${SRCROOT:=/tmp/"$(basename "$(pwd)")"}
+rsync -amv -FF --delete-excluded . "${SRCROOT}"
+cd "${SRCROOT}"
+grep -rl --null '_OPEN_SOURCE_' . | xargs -0I % unifdef -t -D_OPEN_SOURCE_ \
+-D__OPEN_SOURCE__ -D__OPEN_SOURCE_ -D_OPEN_SOURCE__ -o "%" "%" || true
+rsync -a --delete . "${ORIG:="$(pwd).orig"}"/
+grep -rl --null '__OPEN_SOURCE__' . | xargs -0I % awk '/#ifndef __OPEN_SOURCE__
+'!s {print > "%"}; /#endif (\/\/ )?__OPEN_SOURCE__$/{s=0}' "${ORIG}/%"
+rm -rf "${ORIG}"

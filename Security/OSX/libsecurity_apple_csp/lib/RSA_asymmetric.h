@@ -28,7 +28,7 @@
 #include <AppleCSPContext.h>
 #include <AppleCSPSession.h>
 #include <BlockCryptor.h>
-#include <openssl/rsa.h>
+#include <openssl/rsa_legacy.h>
 
 #define RSA_ASYM_PADDING_DEFAULT		RSA_PKCS1_PADDING
 

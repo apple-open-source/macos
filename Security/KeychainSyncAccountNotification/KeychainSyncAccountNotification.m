@@ -4,7 +4,6 @@
 //
 
 #import "KeychainSyncAccountNotification.h"
-#import <Accounts/ACLogging.h>
 #import <Accounts/Accounts.h>
 #import <Accounts/Accounts_Private.h>
 #if TARGET_OS_IPHONE
@@ -15,7 +14,9 @@
 #import <AccountsDaemon/ACDAccountStore.h>
 #import <AccountsDaemon/ACDClientAuthorizationManager.h>
 #import <AccountsDaemon/ACDClientAuthorization.h>
-#import <Security/SOSCloudCircle.h>
+#import <Security/SecureObjectSync/SOSCloudCircle.h>
+
+#import "utilities/debugging.h"
 
 @implementation KeychainSyncAccountNotification
 
@@ -38,17 +39,17 @@
                 
                 CFErrorRef removalError = NULL;
                 
-                ACLogDebug(@"Performing SOS circle credential removal for account %@: %@", oldAccount.identifier, oldAccount.username);
+                secinfo("accounts", "Performing SOS circle credential removal for account %@: %@", oldAccount.identifier, oldAccount.username);
                 
                 if (!SOSCCLoggedOutOfAccount(&removalError)) {
-                    ACLogError(@"Account %@ could not leave the SOS circle: %@", oldAccount.identifier, removalError);
+                    secerror("Account %@ could not leave the SOS circle: %@", oldAccount.identifier, removalError);
                 }
             } else {
-                ACLogDebug(@"NOT performing SOS circle credential removal for secondary account %@: %@", account.identifier, account.username);
+                secinfo("accounts", "NOT performing SOS circle credential removal for secondary account %@: %@", account.identifier, account.username);
             }
         }
         else{
-            ACLogDebug(@"Already logged out of account");
+            secinfo("accounts", "Already logged out of account");
             
         }
     }
@@ -62,15 +63,15 @@
 
             if ([self accountIsPrimary:oldAccount]) {
                 CFErrorRef removalError = NULL;
-                ACLogDebug(@"Performing SOS circle credential removal for account %@: %@", oldAccount.identifier, oldAccount.username);
+                secinfo("accounts", "Performing SOS circle credential removal for account %@: %@", oldAccount.identifier, oldAccount.username);
                 if (!SOSCCLoggedOutOfAccount(&removalError)) {
-                    ACLogError(@"Account %@ could not leave the SOS circle: %@", oldAccount.identifier, removalError);
+                    secerror("Account %@ could not leave the SOS circle: %@", oldAccount.identifier, removalError);
                 }
             } else {
-                ACLogDebug(@"NOT performing SOS circle credential removal for secondary account %@: %@", account.identifier, account.username);
+                secinfo("accounts", "NOT performing SOS circle credential removal for secondary account %@: %@", account.identifier, account.username);
             }
         }
-        ACLogDebug(@"Already logged out of account");
+        secinfo("accounts", "Already logged out of account");
     }
 }
 

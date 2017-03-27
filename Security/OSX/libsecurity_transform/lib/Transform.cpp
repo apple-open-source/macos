@@ -585,7 +585,6 @@ CFTypeRef Transform::GetMetaAttribute(SecTransformStringOrAttributeRef key, SecT
 			return ta->name;
 		default:
 			return CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "Can't get unknown meta attribute #%d from %@", type, key);
-			break;
 	}
 	
 	return NULL;
@@ -1128,7 +1127,7 @@ void Transform::Debug(const char *cfmt, ...) {
 			static dispatch_once_t once;
 			static CFWriteStreamRef StdErrWriteStream;
 			dispatch_once(&once, ^{
-				auto GCC_BUG_WORKAROUND CFURLRef GCC_BUG_WORKAROUND p = CFURLCreateWithFileSystemPath(NULL, CFSTR("/dev/stderr"), kCFURLPOSIXPathStyle, FALSE);
+				CFURLRef p = CFURLCreateWithFileSystemPath(NULL, CFSTR("/dev/stderr"), kCFURLPOSIXPathStyle, FALSE);
 				StdErrWriteStream = CFWriteStreamCreateWithFile(NULL, p);
 				CFWriteStreamOpen(StdErrWriteStream);
 				CFRelease(p);

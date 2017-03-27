@@ -25,7 +25,6 @@
 #include <Security/SecureObjectSync/SOSDigestVector.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
-#include <utilities/comparison.h>
 #include <dispatch/dispatch.h>
 #include <stdlib.h>
 

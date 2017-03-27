@@ -468,6 +468,24 @@ bool SecPolicyCheckCertSubjectOrganizationalUnit(SecCertificateRef cert, CFTypeR
     return match;
 }
 
+bool SecPolicyCheckCertSubjectCountry(SecCertificateRef cert, CFTypeRef pvcValue) {
+    CFStringRef country = pvcValue;
+    bool match = true;
+    if (!isString(country)) {
+        /* @@@ We can't return an error here and making the evaluation fail
+         won't help much either. */
+        return false;
+    }
+    CFArrayRef certCountry = SecCertificateCopyCountry(cert);
+    if (!certCountry || CFArrayGetCount(certCountry) != 1 ||
+        !CFEqual(country, CFArrayGetValueAtIndex(certCountry, 0))) {
+        /* Subject Country mismatch. */
+        match = false;
+    }
+    CFReleaseSafe(certCountry);
+    return match;
+}
+
 bool SecPolicyCheckCertEAPTrustedServerNames(SecCertificateRef cert, CFTypeRef pvcValue) {
     CFArrayRef trustedServerNames = pvcValue;
     /* No names specified means we accept any name. */

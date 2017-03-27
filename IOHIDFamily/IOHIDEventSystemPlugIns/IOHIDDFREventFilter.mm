@@ -91,6 +91,7 @@ _bioInProgress(false),
 _cancel(false),
 _lastDFREventTime(0),
 _lastKeyboardEventTime(0),
+_cancelledEventCount(0),
 _keyboardCancelThresholdMS(kKeyboardCancelThresholdMS),
 _dfrTouchCancelThresholdMS(kDFRTouchCancelThresholdMS),
 _bioCancelThresholdMS(kBioCancelThresholdMS),
@@ -326,6 +327,7 @@ IOHIDEventRef IOHIDDFREventFilter::filter(IOHIDServiceRef sender, IOHIDEventRef 
             
             HIDLogDebug("Event cancelled due to %s. touch: %d flags = %x", _bioInProgress ? "touch ID" : "active keys", _cancelledTouchInProgress,  (unsigned int)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldDigitizerEventMask));
             
+            _cancelledEventCount++;
             CFRelease(event);
             event = NULL;
         } else if (_cancelledTouchInProgress) {
@@ -589,6 +591,7 @@ void IOHIDDFREventFilter::serialize(CFMutableDictionaryRef dict) const {
     serializer.SetValueForKey(CFSTR("Touch in Progress"), CFNumberRefWrap(_cancelledTouchInProgress));
     serializer.SetValueForKey(CFSTR("Biometry in Progress"), CFNumberRefWrap(_bioInProgress));
     serializer.SetValueForKey(CFSTR("Cancellation in Progress"), CFNumberRefWrap(_cancel));
+    serializer.SetValueForKey(CFSTR("Cancelled Event Count"), CFNumberRefWrap(_cancelledEventCount));
     serializer.SetValueForKey(CFSTR("Keyboard Cancel Threshold (ms)"), CFNumberRefWrap(_keyboardCancelThresholdMS));
     serializer.SetValueForKey(CFSTR("DFR Touch Cancel Threshold (ms)"), CFNumberRefWrap(_dfrTouchCancelThresholdMS));
     serializer.SetValueForKey(CFSTR("Biometric Cancel Threshold (ms)"), CFNumberRefWrap(_bioCancelThresholdMS));

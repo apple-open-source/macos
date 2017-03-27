@@ -553,9 +553,9 @@ heim_sema_signal(heim_sema_t sema)
     dispatch_semaphore_signal((dispatch_semaphore_t)sema);
 }
 
-void
+long
 heim_sema_wait(heim_sema_t sema, time_t t)
 {
-    dispatch_semaphore_wait((dispatch_semaphore_t)sema, 
+    return dispatch_semaphore_wait((dispatch_semaphore_t)sema,
 			    dispatch_time(DISPATCH_TIME_NOW, ((long long)t) * NSEC_PER_SEC));
 }

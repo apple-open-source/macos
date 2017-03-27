@@ -46,6 +46,8 @@
 #include <utilities/SecBuffer.h>
 
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecCFError.h>
+
 #include <Security/SecureObjectSync/SOSCirclePriv.h>
 
 //#include "ckdUtilities.h"
@@ -666,8 +668,10 @@ static void SOSCircleDestroy(CFTypeRef aObj) {
     CFReleaseNull(c->signatures);
 }
 
-static CFMutableStringRef defaultDescription(CFTypeRef aObj){
+static CFMutableStringRef defaultDescriptionCreate(CFTypeRef aObj){
     SOSCircleRef c = (SOSCircleRef) aObj;
+    CFStringRef initPeerSep = CFSTR("\n");
+    CFStringRef peerSep = CFSTR("\n");
 
     CFMutableStringRef description = CFStringCreateMutable(kCFAllocatorDefault, 0);
 
@@ -675,7 +679,7 @@ static CFMutableStringRef defaultDescription(CFTypeRef aObj){
         CFStringAppendFormat(description, NULL, CFSTR("<SOSCircle@%p: '%@' %@ P:["), c, c->name, genDescription);
     });
 
-    __block CFStringRef separator = CFSTR("");
+    __block CFStringRef separator = initPeerSep;
     SOSCircleForEachActivePeer(c, ^(SOSPeerInfoRef peer) {
         CFStringRef sig = NULL;
         if (SOSCircleVerifyPeerSigned(c, peer, NULL)) {
@@ -688,39 +692,39 @@ static CFMutableStringRef defaultDescription(CFTypeRef aObj){
         }
         
         CFStringAppendFormat(description, NULL, CFSTR("%@%@ %@"), separator, peer, sig);
-        separator = CFSTR(",");
+        separator = peerSep;
     });
     
     //applicants
     CFStringAppend(description, CFSTR("], A:["));
-    separator = CFSTR("");
+    separator = initPeerSep;
     if(CFSetGetCount(c->applicants) == 0 )
         CFStringAppendFormat(description, NULL, CFSTR("-"));
     else{
         
         SOSCircleForEachApplicant(c, ^(SOSPeerInfoRef peer) {
             CFStringAppendFormat(description, NULL, CFSTR("%@%@"), separator, peer);
-            separator = CFSTR(",");
+            separator = peerSep;
         });
     }
     
     //rejected
     CFStringAppend(description, CFSTR("], R:["));
-    separator = CFSTR("");
+    separator = initPeerSep;
     if(CFSetGetCount(c->rejected_applicants) == 0)
         CFStringAppendFormat(description, NULL, CFSTR("-"));
     else{
         CFSetForEach(c->rejected_applicants, ^(const void *value) {
             SOSPeerInfoRef peer = (SOSPeerInfoRef) value;
             CFStringAppendFormat(description, NULL, CFSTR("%@%@"), separator, peer);
-            separator = CFSTR(",");
+            separator = peerSep;
         });
     }
     CFStringAppend(description, CFSTR("]>"));
     return description;
     
 }
-static CFMutableStringRef descriptionWithFormatOptions(CFTypeRef aObj, CFDictionaryRef formatOptions){
+static CFMutableStringRef descriptionCreateWithFormatOptions(CFTypeRef aObj, CFDictionaryRef formatOptions){
     SOSCircleRef c = (SOSCircleRef) aObj;
 
     CFMutableStringRef description = CFStringCreateMutable(kCFAllocatorDefault, 0);
@@ -774,7 +778,7 @@ static CFMutableStringRef descriptionWithFormatOptions(CFTypeRef aObj, CFDiction
 
     else{
         CFReleaseNull(description);
-        description = defaultDescription(aObj);
+        description = defaultDescriptionCreate(aObj);
     }
     
     return description;
@@ -788,10 +792,10 @@ static CFStringRef SOSCircleCopyFormatDescription(CFTypeRef aObj, CFDictionaryRe
     CFMutableStringRef description = NULL;
     
     if(formatOptions != NULL){
-        description = descriptionWithFormatOptions(aObj, formatOptions);
+        description = descriptionCreateWithFormatOptions(aObj, formatOptions);
     }
     else{
-        description = defaultDescription(aObj);
+        description = defaultDescriptionCreate(aObj);
     }
     return description;
 }
@@ -922,58 +926,6 @@ CFMutableArrayRef SOSCircleCopyRejectedApplicants(SOSCircleRef circle, CFAllocat
     return CFSetCopyValuesCFArray(circle->rejected_applicants);
 }
 
-bool SOSCircleHasPeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
-    SOSCircleAssertStable(circle);
-    __block bool found = false;
-    SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
-        if(peerid && peer && CFEqualSafe(peerid, SOSPeerInfoGetPeerID(peer))) found = true;
-    });
-    return found;
-}
-
-SOSPeerInfoRef SOSCircleCopyPeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
-    SOSCircleAssertStable(circle);
-    __block SOSPeerInfoRef found = NULL;
-    SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
-        if(peerid && peer && CFEqualSafe(peerid, SOSPeerInfoGetPeerID(peer))) found = peer;
-    });
-    return found ? SOSPeerInfoCreateCopy(kCFAllocatorDefault, found, NULL) : NULL;
-}
-
-bool SOSCircleHasPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
-    if(!peerInfo) return false;
-    return SOSCircleHasPeerWithID(circle, SOSPeerInfoGetPeerID(peerInfo), error);
-}
-
-bool SOSCircleHasActivePeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
-    SOSCircleAssertStable(circle);
-    __block bool found = false;
-    SOSCircleForEachActivePeer(circle, ^(SOSPeerInfoRef peer) {
-        if(peerid && peer && CFEqualSafe(peerid, SOSPeerInfoGetPeerID(peer))) found = true;
-    });
-    return found;
-}
-
-bool SOSCircleHasActivePeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
-    if(!peerInfo) return false;
-    return SOSCircleHasActivePeerWithID(circle, SOSPeerInfoGetPeerID(peerInfo), error);
-}
-
-bool SOSCircleHasActiveValidPeerWithID(SOSCircleRef circle, CFStringRef peerid, SecKeyRef user_public_key, CFErrorRef *error) {
-    SOSCircleAssertStable(circle);
-    __block bool found = false;
-    SOSCircleForEachActivePeer(circle, ^(SOSPeerInfoRef peer) {
-        if(peerid && peer && CFEqualSafe(peerid, SOSPeerInfoGetPeerID(peer)) && SOSPeerInfoApplicationVerify(peer, user_public_key, NULL)) found = true;
-    });
-    return found;
-}
-
-bool SOSCircleHasActiveValidPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, SecKeyRef user_public_key, CFErrorRef *error) {
-    if(!peerInfo) return false;
-    return SOSCircleHasActiveValidPeerWithID(circle, SOSPeerInfoGetPeerID(peerInfo), user_public_key, error);
-}
-
-
 bool SOSCircleResetToEmpty(SOSCircleRef circle, CFErrorRef *error) {
     CFSetRemoveAllValues(circle->applicants);
     CFSetRemoveAllValues(circle->rejected_applicants);
@@ -990,6 +942,7 @@ bool SOSCircleResetToEmptyWithSameGeneration(SOSCircleRef circle, CFErrorRef *er
     SOSGenCountRef gen = SOSGenerationCopy(SOSCircleGetGeneration(circle));
     SOSCircleResetToEmpty(circle, error);
     SOSCircleSetGeneration(circle, gen);
+    CFReleaseNull(gen);
     return true;
 }
 
@@ -1104,6 +1057,53 @@ bool SOSCircleRemovePeers(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPe
 
 exit:
     return success;
+}
+
+
+bool SOSCircleRemovePeersByID(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFSetRef peersToRemove, CFErrorRef *error) {
+    
+    bool success = false;
+    
+    __block bool removed_all = true;
+    CFSetForEach(peersToRemove, ^(const void *value) {
+        CFStringRef peerID = asString(value, NULL);
+        if(peerID) {
+            SOSPeerInfoRef peerInfo = SOSCircleCopyPeerInfo(circle, peerID, NULL);
+            if (peerInfo) {
+                removed_all &= SOSCircleRemovePeerInternal(circle, requestor, peerInfo, error);
+                CFReleaseNull(peerInfo);
+            }
+        }
+    });
+    
+    require_quiet(removed_all, exit);
+    
+    require_quiet(SOSCircleGenerationSign(circle, user_privkey, requestor, error), exit);
+    
+    success = true;
+    
+exit:
+    return success;
+}
+
+static bool SOSCircleRemovePeerUnsigned(SOSCircleRef circle, SOSPeerInfoRef peer_to_remove) {
+    bool retval = false;
+    if (SOSCircleHasPeer(circle, peer_to_remove, NULL)) {
+        CFSetRemoveValue(circle->peers, peer_to_remove);
+        retval = true;
+    }
+    return retval;
+}
+
+bool SOSCircleRemovePeersByIDUnsigned(SOSCircleRef circle, CFSetRef peersToRemove) {
+    __block bool removed_all = true;
+    CFSetForEach(peersToRemove, ^(const void *value) {
+        CFStringRef peerID = asString(value, NULL);
+        SOSPeerInfoRef peerInfo = SOSCircleCopyPeerInfo(circle, peerID, NULL);
+        removed_all &= SOSCircleRemovePeerUnsigned(circle, peerInfo);
+        CFReleaseNull(peerInfo);
+    });
+    return removed_all;
 }
 
 bool SOSCircleRemovePeer(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, SOSPeerInfoRef peer_to_remove, CFErrorRef *error) {
@@ -1222,6 +1222,10 @@ bool SOSCirclePeerSigUpdate(SOSCircleRef circle, SecKeyRef userPrivKey, SOSFullP
     return result;
 }
 
+//
+// Peer iteration and membership
+//
+
 static inline void SOSCircleForEachPeerMatching(SOSCircleRef circle,
                                                 void (^action)(SOSPeerInfoRef peer),
                                                 bool (^condition)(SOSPeerInfoRef peer)) {
@@ -1247,6 +1251,13 @@ void SOSCircleForEachRetiredPeer(SOSCircleRef circle, void (^action)(SOSPeerInfo
         return SOSPeerInfoIsRetirementTicket(peer);
     });
 }
+
+void SOSCircleForEachiCloudIdentityPeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer)) {
+    SOSCircleForEachPeerMatching(circle, action, ^bool(SOSPeerInfoRef peer) {
+        return SOSPeerInfoIsCloudIdentity(peer);
+    });
+}
+
 
 void SOSCircleForEachActivePeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer)) {
     SOSCircleForEachPeerMatching(circle, action, ^bool(SOSPeerInfoRef peer) {
@@ -1275,6 +1286,54 @@ void SOSCircleForEachApplicant(SOSCircleRef circle, void (^action)(SOSPeerInfoRe
 }
 
 
+bool SOSCircleHasPeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
+    SOSCircleAssertStable(circle);
+
+    SOSPeerInfoRef found = asSOSPeerInfo(CFSetGetValue(circle->peers, peerid));
+    return found && !isHiddenPeer(found);
+}
+
+SOSPeerInfoRef SOSCircleCopyPeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
+    SOSCircleAssertStable(circle);
+
+    SOSPeerInfoRef found = asSOSPeerInfo(CFSetGetValue(circle->peers, peerid));
+    return found ? SOSPeerInfoCreateCopy(kCFAllocatorDefault, found, NULL) : NULL;
+}
+
+bool SOSCircleHasPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
+    if(!peerInfo) return false;
+    return SOSCircleHasPeerWithID(circle, SOSPeerInfoGetPeerID(peerInfo), error);
+}
+
+bool SOSCircleHasActivePeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
+    SOSCircleAssertStable(circle);
+    SOSPeerInfoRef found = asSOSPeerInfo(CFSetGetValue(circle->peers, peerid));
+    return found;
+}
+
+bool SOSCircleHasActivePeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
+    if(!peerInfo) return false;
+    return SOSCircleHasActivePeerWithID(circle, SOSPeerInfoGetPeerID(peerInfo), error);
+}
+
+bool SOSCircleHasActiveValidPeerWithID(SOSCircleRef circle, CFStringRef peerid, SecKeyRef user_public_key, CFErrorRef *error) {
+    SOSCircleAssertStable(circle);
+    SOSPeerInfoRef found = asSOSPeerInfo(CFSetGetValue(circle->peers, peerid));
+    return found && SOSPeerInfoApplicationVerify(found, user_public_key, NULL);
+}
+
+bool SOSCircleHasValidSyncingPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, SecKeyRef user_public_key, CFErrorRef *error) {
+    SOSCircleAssertStable(circle);
+    SOSPeerInfoRef found = asSOSPeerInfo(CFSetGetValue(circle->peers, peerInfo));
+    return found && !isHiddenPeer(found) && SOSPeerInfoApplicationVerify(found, user_public_key, NULL);
+}
+
+bool SOSCircleHasActiveValidPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, SecKeyRef user_public_key, CFErrorRef *error) {
+    if(!peerInfo) return false;
+    return SOSCircleHasActiveValidPeerWithID(circle, SOSPeerInfoGetPeerID(peerInfo), user_public_key, error);
+}
+
+
 CFMutableSetRef SOSCircleCopyPeers(SOSCircleRef circle, CFAllocatorRef allocator) {
     SOSCircleAssertStable(circle);
     
@@ -1283,7 +1342,7 @@ CFMutableSetRef SOSCircleCopyPeers(SOSCircleRef circle, CFAllocatorRef allocator
     SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
         CFSetAddValue(result, peer);
     });
-    
+
     return result;
 }
 
@@ -1376,6 +1435,14 @@ bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenC
 
  */
 
+static inline void logPeerInfo(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID, SOSPeerInfoRef peer) {
+    char sigchr = 'v';
+    if (SOSCircleVerifyPeerSigned(circle, peer, NULL)) {
+        sigchr = 'V';
+    }
+    SOSPeerInfoLogState(category, peer, pubKey, myPID, sigchr);
+}
+
 void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID) {
     if(!circle) return;
     CFStringRef genString = SOSGenerationCountCopyDescription(SOSCircleGetGeneration(circle));
@@ -1389,11 +1456,13 @@ void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CF
     else{
         secnotice(category, "Peers In Circle:");
         SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
-            char sigchr = 'v';
-            if (SOSCircleVerifyPeerSigned(circle, peer, NULL)) {
-                sigchr = 'V';
-            }
-            SOSPeerInfoLogState(category, peer, pubKey, myPID, sigchr);
+            logPeerInfo(category, circle, pubKey, myPID, peer);
+        });
+        SOSCircleForEachRetiredPeer(circle, ^(SOSPeerInfoRef peer) {
+            logPeerInfo(category, circle, pubKey, myPID, peer);
+        });
+        SOSCircleForEachiCloudIdentityPeer(circle, ^(SOSPeerInfoRef peer) {
+            logPeerInfo(category, circle, pubKey, myPID, peer);
         });
     }
 
@@ -1420,3 +1489,4 @@ void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CF
     }
     CFReleaseNull(genString);
 }
+

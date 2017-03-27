@@ -29,11 +29,11 @@
 #if ENABLE(B3_JIT)
 
 #include "B3BasicBlock.h"
-#include "B3IndexSet.h"
 #include "B3InsertionSetInlines.h"
 #include "B3PhaseScope.h"
 #include "B3UseCounts.h"
 #include "B3ValueInlines.h"
+#include <wtf/IndexSet.h>
 
 namespace JSC { namespace B3 {
 
@@ -231,7 +231,9 @@ private:
             return insertionSet.insert<ConstFloatValue>(valueIndex, value->origin(), static_cast<float>(value->asDouble()));
 
         if (value->opcode() == Phi) {
-            convertPhi(value);
+            ASSERT(value->type() == Double || value->type() == Float);
+            if (value->type() == Double)
+                convertPhi(value);
             return value;
         }
         RELEASE_ASSERT_NOT_REACHED();
@@ -241,6 +243,7 @@ private:
     void convertPhi(Value* phi)
     {
         ASSERT(phi->opcode() == Phi);
+        ASSERT(phi->type() == Double);
         phi->setType(Float);
         m_convertedPhis.add(phi);
     }
@@ -302,6 +305,7 @@ private:
                 case Abs:
                 case Ceil:
                 case Floor:
+                case Neg:
                 case Sqrt: {
                     Value* child = value->child(0);
                     if (canBeTransformedToFloat(child)) {

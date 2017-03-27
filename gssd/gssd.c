@@ -2104,6 +2104,7 @@ do_acquire_cred_v1(uint32_t *minor, char *principal, gssd_mechtype mech, gss_nam
 		 */
 		if (name_type == GSS_KRB5_NT_PRINCIPAL_NAME) {
 			name_type = GSS_C_NT_USER_NAME;
+			(void) gss_release_name(&mstat, &clnt_gss_name);
 			goto retry;
 		}
 	}
@@ -2684,8 +2685,16 @@ svc_mach_gss_init_sec_context_v3(
 						      clnt_princ, clnt_princCnt,
 						      mech, (gss_cred_id_t *) cred_handle);
 		}
-		if (*major_stat != GSS_S_COMPLETE)
+		if (*major_stat != GSS_S_COMPLETE) {
+			/* 
+			 * Release the names here. Note name_index is currently MAX_SVC_NAME
+			 * and we may have more than one name to free at this point.
+			 */
+			for (i = 0; i < gnames; i++)
+				(void)gss_release_name(&mstat, &svc_gss_name[i]);
 			goto done;
+		}
+
 		/*
 		 * if the service supplies an array of kerberos etypes then limit the 
 		 * etypes for kerberos to that set. Only NFS uses this currently.

@@ -222,7 +222,7 @@
 
 #define APPLE_CERT_POLICY_MOBILE_STORE	APPLE_CERT_POLICIES, 12
 
-#define APPLE_CERT_POLICY_TEST_MOBILE_STORE APPLE_CERT_POLICY_MOBILE_STORE, 1
+#define APPLE_CERT_POLICY_MOBILE_STORE_PRODQA APPLE_CERT_POLICY_MOBILE_STORE, 1
 
 /*
  * Basis of Apple-specific Signing extensions
@@ -275,10 +275,10 @@
 /* 1.2.840.113635.100.6.1.24 */
 #define APPLE_TVOS_APP_SIGNING_PROD_OID                    APPLE_CERT_EXTENSION_CODESIGNING, 24
 
-/* Apple TVOS Application Signing leaf, test */
+/* Apple TVOS Application Signing leaf, QA */
 /* 1.2.840.113635.100.6.1.24.1 */
 
-#define APPLE_TVOS_APP_SIGNING_TEST_OID                    APPLE_CERT_EXTENSION_CODESIGNING, 24, 1
+#define APPLE_TVOS_APP_SIGNING_PRODQA_OID                    APPLE_CERT_EXTENSION_CODESIGNING, 24, 1
 
 #define APPLE_ESCROW_ARC APPLE_CERT_EXT, 23
 
@@ -288,11 +288,11 @@
 
 #define APPLE_SERVER_AUTHENTICATION                             APPLE_CERT_EXT, 27
 #define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION              APPLE_SERVER_AUTHENTICATION, 1
-#define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_PPQ_TEST     APPLE_SERVER_AUTHENTICATION, 3, 1
+#define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_PPQ_PRODQA   APPLE_SERVER_AUTHENTICATION, 3, 1
 #define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_PPQ_PROD     APPLE_SERVER_AUTHENTICATION, 3, 2
-#define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_IDS_TEST     APPLE_SERVER_AUTHENTICATION, 4, 1
+#define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_IDS_PRODQA   APPLE_SERVER_AUTHENTICATION, 4, 1
 #define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_IDS_PROD     APPLE_SERVER_AUTHENTICATION, 4, 2
-#define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_APN_TEST     APPLE_SERVER_AUTHENTICATION, 5, 1
+#define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_APN_PRODQA   APPLE_SERVER_AUTHENTICATION, 5, 1
 #define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_APN_PROD     APPLE_SERVER_AUTHENTICATION, 5, 2
 
 #define APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_GS           APPLE_SERVER_AUTHENTICATION, 2
@@ -304,12 +304,12 @@
 
 /* UPP fraud detection (Provisioning Profile Query) CMS signing */
 
-#define APPLE_CERT_EXT_APPLE_PPQ_SIGNING_TEST  APPLE_CERT_EXT, 38, 1
-#define APPLE_CERT_EXT_APPLE_PPQ_SIGNING_PROD  APPLE_CERT_EXT, 38, 2
+#define APPLE_CERT_EXT_APPLE_PPQ_SIGNING_PRODQA APPLE_CERT_EXT, 38, 1
+#define APPLE_CERT_EXT_APPLE_PPQ_SIGNING_PROD   APPLE_CERT_EXT, 38, 2
 
 /* AppleTVOS Application Signing */
 #define APPLE_ATV_APP_SIGNING_OID           APPLE_CERT_EXTENSION_CODESIGNING, 24
-#define APPLE_ATV_APP_SIGNING_OID_TEST      APPLE_ATV_APP_SIGNING_OID, 1
+#define APPLE_ATV_APP_SIGNING_OID_PRODQA      APPLE_ATV_APP_SIGNING_OID, 1
 
 /* Apple Pay Issuer Encryption */
 #define APPLE_CERT_EXT_CRYPTO_SERVICES_EXT_ENCRYPTION   APPLE_CERT_EXT, 39
@@ -322,24 +322,24 @@
 #define APPLE_CERT_EXT_APPLE_ATV_VPN_PROFILE_SIGNING    APPLE_CERT_EXT, 43
 
 /* AST2 Diagnostics Server Authentication
- *   Test Marker OID 1.2.840.113635.100.6.27.8.1
+ *   QA Marker OID   1.2.840.113635.100.6.27.8.1
  *   Prod Marker OID 1.2.840.113635.100.6.27.8.2
  */
-#define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 8, 1
+#define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PRODQA  APPLE_SERVER_AUTHENTICATION, 8, 1
 #define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 8, 2
 
 /* Escrow Proxy Server Authentication
- *   Test Marker OID 1.2.840.113635.100.6.27.7.1
+ *   QA Marker OID   1.2.840.113635.100.6.27.7.1
  *   Prod Marker OID 1.2.840.113635.100.6.27.7.2
  */
-#define APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 7, 1
+#define APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_PRODQA  APPLE_SERVER_AUTHENTICATION, 7, 1
 #define APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 7, 2
 
 /* FMiP Server Authentication
- *   Test Marker OID 1.2.840.113635.100.6.27.6.1
+ *   QA Marker OID   1.2.840.113635.100.6.27.6.1
  *   Prod Marker OID 1.2.840.113635.100.6.27.6.2
  */
-#define APPLE_CERT_EXT_FMIP_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 6, 1
+#define APPLE_CERT_EXT_FMIP_SERVER_AUTH_PRODQA  APPLE_SERVER_AUTHENTICATION, 6, 1
 #define APPLE_CERT_EXT_FMIP_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 6, 2
 
 /* HomeKit Server Authentication
@@ -350,11 +350,18 @@
 #define APPLE_CERT_EXT_HOME_KIT_SERVER_AUTH     APPLE_SERVER_AUTHENTICATION, 9
 
 /* MMCS Server Authentication
- * Test Marker OID 1.2.840.113635.100.6.27.11.1
+ * QA Marker OID   1.2.840.113635.100.6.27.11.1
  * Prod Marker OID 1.2.840.113635.100.6.27.11.2
  */
-#define APPLE_CERT_EXT_MMCS_SERVER_AUTH_TEST         APPLE_SERVER_AUTHENTICATION, 11, 1
+#define APPLE_CERT_EXT_MMCS_SERVER_AUTH_PRODQA       APPLE_SERVER_AUTHENTICATION, 11, 1
 #define APPLE_CERT_EXT_MMCS_SERVER_AUTH_PROD         APPLE_SERVER_AUTHENTICATION, 11, 2
+
+/* iCloud Setup Authentication
+ * QA Marker OID   1.2.840.113635.100.6.27.15.1
+ * Prod Marker OID 1.2.840.113635.100.6.27.15.2
+ */
+#define APPLE_CERT_EXT_ICLOUD_SETUP_SERVER_AUTH_PRODQA  APPLE_SERVER_AUTHENTICATION, 15, 1
+#define APPLE_CERT_EXT_ICLOUD_SETUP_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 15, 2
 
 /*
  * Netscape OIDs.
@@ -560,7 +567,7 @@ __unused static const DERByte
     _oidAppleApplicationSigning[]   = { APPLE_APP_SIGNING_OID },
     _oidAppleInstallerPackagingSigningExternal[]       = { APPLE_INSTALLER_PACKAGE_SIGNING_EXTERNAL_OID },
     _oidAppleTVOSApplicationSigningProd[]              = { APPLE_TVOS_APP_SIGNING_PROD_OID },
-    _oidAppleTVOSApplicationSigningTest[]              = { APPLE_TVOS_APP_SIGNING_TEST_OID },
+    _oidAppleTVOSApplicationSigningProdQA[]            = { APPLE_TVOS_APP_SIGNING_PRODQA_OID },
     _oidAppleExtendedKeyUsageCodeSigning[] = { APPLE_EKU_CODE_SIGNING },
     _oidAppleExtendedKeyUsageCodeSigningDev[] = { APPLE_EKU_CODE_SIGNING, 1 },
     _oidAppleExtendedKeyUsageAppleID[] = { APPLE_EKU_APPLE_ID },
@@ -571,8 +578,8 @@ __unused static const DERByte
     _oidAppleIntmMarkerAppleID[] = { APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID },
     _oidAppleIntmMarkerAppleID2[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_2 },
     _oidApplePushServiceClient[]   =   { APPLE_CERT_EXT_APPLE_PUSH_MARKER, 2 },
-    _oidApplePolicyMobileStore[]  = { APPLE_CERT_POLICY_MOBILE_STORE },
-    _oidApplePolicyTestMobileStore[] = { APPLE_CERT_POLICY_TEST_MOBILE_STORE },
+    _oidApplePolicyMobileStore[]       = { APPLE_CERT_POLICY_MOBILE_STORE },
+    _oidApplePolicyMobileStoreProdQA[] = { APPLE_CERT_POLICY_MOBILE_STORE_PRODQA },
     _oidApplePolicyEscrowService[] = { APPLE_ESCROW_POLICY_OID },
     _oidAppleCertExtensionAppleIDRecordValidationSigning[] = { APPLE_CERT_EXT_APPLE_ID_VALIDATION_RECORD_SIGNING },
     _oidAppleCertExtOSXProvisioningProfileSigning[] = { APPLE_CERT_EXT_OSX_PROVISIONING_PROFILE_SIGNING },
@@ -580,32 +587,34 @@ __unused static const DERByte
     _oidAppleIntmMarkerAppleSystemIntgG3[] =  {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_SYSTEM_INTEGRATION_G3},
     _oidAppleCertExtAppleSMPEncryption[] = {APPLE_CERT_EXT_APPLE_SMP_ENCRYPTION},
     _oidAppleCertExtAppleServerAuthentication[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION},
-    _oidAppleCertExtAppleServerAuthenticationPPQTest[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_PPQ_TEST},
-    _oidAppleCertExtAppleServerAuthenticationPPQProd[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_PPQ_PROD},
-    _oidAppleCertExtAppleServerAuthenticationIDSTest[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_IDS_TEST},
-    _oidAppleCertExtAppleServerAuthenticationIDSProd[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_IDS_PROD},
-    _oidAppleCertExtAppleServerAuthenticationAPNTest[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_APN_TEST},
-    _oidAppleCertExtAppleServerAuthenticationAPNProd[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_APN_PROD},
+    _oidAppleCertExtAppleServerAuthenticationPPQProdQA[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_PPQ_PRODQA},
+    _oidAppleCertExtAppleServerAuthenticationPPQProd[]   = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_PPQ_PROD},
+    _oidAppleCertExtAppleServerAuthenticationIDSProdQA[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_IDS_PRODQA},
+    _oidAppleCertExtAppleServerAuthenticationIDSProd[]   = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_IDS_PROD},
+    _oidAppleCertExtAppleServerAuthenticationAPNProdQA[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_APN_PRODQA},
+    _oidAppleCertExtAppleServerAuthenticationAPNProd[]   = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_APN_PROD},
     _oidAppleCertExtAppleServerAuthenticationGS[] = {APPLE_CERT_EXT_APPLE_SERVER_AUTHENTICATION_GS},
     _oidAppleIntmMarkerAppleServerAuthentication[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLE_SERVER_AUTHENTICATION},
-    _oidAppleCertExtApplePPQSigningTest[] = {APPLE_CERT_EXT_APPLE_PPQ_SIGNING_TEST},
-    _oidAppleCertExtApplePPQSigningProd[] = {APPLE_CERT_EXT_APPLE_PPQ_SIGNING_PROD},
+    _oidAppleCertExtApplePPQSigningProdQA[] = {APPLE_CERT_EXT_APPLE_PPQ_SIGNING_PRODQA},
+    _oidAppleCertExtApplePPQSigningProd[]   = {APPLE_CERT_EXT_APPLE_PPQ_SIGNING_PROD},
     _oidGoogleEmbeddedSignedCertificateTimestamp[] = {GOOGLE_EMBEDDED_SCT_OID},
     _oidGoogleOCSPSignedCertificateTimestamp[] = {GOOGLE_OCSP_SCT_OID},
-    _oidAppleCertExtATVAppSigningTest[] = {APPLE_ATV_APP_SIGNING_OID_TEST},
-    _oidAppleCertExtATVAppSigningProd[] = {APPLE_ATV_APP_SIGNING_OID},
+    _oidAppleCertExtATVAppSigningProdQA[] = {APPLE_ATV_APP_SIGNING_OID_PRODQA},
+    _oidAppleCertExtATVAppSigningProd[]   = {APPLE_ATV_APP_SIGNING_OID},
     _oidAppleCertExtATVVPNProfileSigning[] = {APPLE_CERT_EXT_APPLE_ATV_VPN_PROFILE_SIGNING},
     _oidAppleCertExtCryptoServicesExtEncryption[] = {APPLE_CERT_EXT_CRYPTO_SERVICES_EXT_ENCRYPTION},
-    _oidAppleCertExtAST2DiagnosticsServerAuthTest[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST},
-    _oidAppleCertExtAST2DiagnosticsServerAuthProd[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD},
-    _oidAppleCertExtEscrowProxyServerAuthTest[] = {APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_TEST},
-    _oidAppleCertExtEscrowProxyServerAuthProd[] = {APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_PROD},
-    _oidAppleCertExtFMiPServerAuthTest[] = {APPLE_CERT_EXT_FMIP_SERVER_AUTH_TEST},
-    _oidAppleCertExtFMiPServerAuthProd[] = {APPLE_CERT_EXT_FMIP_SERVER_AUTH_PROD},
+    _oidAppleCertExtAST2DiagnosticsServerAuthProdQA[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PRODQA},
+    _oidAppleCertExtAST2DiagnosticsServerAuthProd[]   = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD},
+    _oidAppleCertExtEscrowProxyServerAuthProdQA[] = {APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_PRODQA},
+    _oidAppleCertExtEscrowProxyServerAuthProd[]   = {APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_PROD},
+    _oidAppleCertExtFMiPServerAuthProdQA[] = {APPLE_CERT_EXT_FMIP_SERVER_AUTH_PRODQA},
+    _oidAppleCertExtFMiPServerAuthProd[]   = {APPLE_CERT_EXT_FMIP_SERVER_AUTH_PROD},
     _oidAppleCertExtHomeKitServerAuth[] = {APPLE_CERT_EXT_HOME_KIT_SERVER_AUTH},
     _oidAppleIntmMarkerAppleHomeKitServerCA[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLE_HOME_KIT_SERVER_AUTH},
-    _oidAppleCertExtMMCSServerAuthTest[] = {APPLE_CERT_EXT_MMCS_SERVER_AUTH_TEST},
-    _oidAppleCertExtMMCSServerAuthProd[] = {APPLE_CERT_EXT_MMCS_SERVER_AUTH_PROD};
+    _oidAppleCertExtMMCSServerAuthProdQA[] = {APPLE_CERT_EXT_MMCS_SERVER_AUTH_PRODQA},
+    _oidAppleCertExtMMCSServerAuthProd[] = {APPLE_CERT_EXT_MMCS_SERVER_AUTH_PROD},
+    _oidAppleCertExtiCloudSetupServerAuthProdQA[] = {APPLE_CERT_EXT_ICLOUD_SETUP_SERVER_AUTH_PRODQA},
+    _oidAppleCertExtiCloudSetupServerAuthProd[]   = {APPLE_CERT_EXT_ICLOUD_SETUP_SERVER_AUTH_PROD};
 
 __unused const DERItem
     oidSubjectKeyIdentifier         = { (DERByte *)_oidSubjectKeyIdentifier,
@@ -710,10 +719,10 @@ __unused const DERItem
                                          sizeof(_oidAppleApplicationSigning) },
     oidAppleInstallerPackagingSigningExternal          = { (DERByte *)_oidAppleInstallerPackagingSigningExternal,
                                                             sizeof(_oidAppleInstallerPackagingSigningExternal) },
-    oidAppleTVOSApplicationSigningProd  = { (DERByte *)_oidAppleTVOSApplicationSigningProd,
+    oidAppleTVOSApplicationSigningProd   = { (DERByte *)_oidAppleTVOSApplicationSigningProd,
                                             sizeof(_oidAppleTVOSApplicationSigningProd) },
-    oidAppleTVOSApplicationSigningTest  = { (DERByte *)_oidAppleTVOSApplicationSigningTest,
-                                            sizeof(_oidAppleTVOSApplicationSigningTest) },
+    oidAppleTVOSApplicationSigningProdQA = { (DERByte *)_oidAppleTVOSApplicationSigningProdQA,
+                                            sizeof(_oidAppleTVOSApplicationSigningProdQA) },
     oidAppleExtendedKeyUsageCodeSigning = { (DERByte *)_oidAppleExtendedKeyUsageCodeSigning,
                                             sizeof(_oidAppleExtendedKeyUsageCodeSigning) },
     oidAppleExtendedKeyUsageCodeSigningDev = { (DERByte *)_oidAppleExtendedKeyUsageCodeSigningDev,
@@ -738,8 +747,8 @@ __unused const DERItem
                                         sizeof(_oidAppleIntmMarkerAppleID2) },
     oidApplePolicyMobileStore       = { (DERByte *)_oidApplePolicyMobileStore,
                                         sizeof(_oidApplePolicyMobileStore)},
-    oidApplePolicyTestMobileStore   = { (DERByte *)_oidApplePolicyTestMobileStore,
-                                        sizeof(_oidApplePolicyTestMobileStore)},
+    oidApplePolicyMobileStoreProdQA = { (DERByte *)_oidApplePolicyMobileStoreProdQA,
+                                        sizeof(_oidApplePolicyMobileStoreProdQA)},
     oidApplePolicyEscrowService     = { (DERByte *)_oidApplePolicyEscrowService,
                                         sizeof(_oidApplePolicyEscrowService)},
     oidAppleCertExtensionAppleIDRecordValidationSigning = { (DERByte *)_oidAppleCertExtensionAppleIDRecordValidationSigning,
@@ -755,70 +764,76 @@ __unused const DERItem
     oidAppleCertExtAppleServerAuthentication
                                       = { (DERByte *)_oidAppleCertExtAppleServerAuthentication,
                                         sizeof(_oidAppleCertExtAppleServerAuthentication) },
-    oidAppleCertExtAppleServerAuthenticationIDSTest
-                                      = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationIDSTest,
-                                        sizeof(_oidAppleCertExtAppleServerAuthenticationIDSTest) },
+    oidAppleCertExtAppleServerAuthenticationIDSProdQA
+                                      = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationIDSProdQA,
+                                        sizeof(_oidAppleCertExtAppleServerAuthenticationIDSProdQA) },
     oidAppleCertExtAppleServerAuthenticationIDSProd
                                       = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationIDSProd,
                                         sizeof(_oidAppleCertExtAppleServerAuthenticationIDSProd) },
-    oidAppleCertExtAppleServerAuthenticationAPNTest
-                                      = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationAPNTest,
-                                        sizeof(_oidAppleCertExtAppleServerAuthenticationAPNTest) },
+    oidAppleCertExtAppleServerAuthenticationAPNProdQA
+                                      = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationAPNProdQA,
+                                        sizeof(_oidAppleCertExtAppleServerAuthenticationAPNProdQA) },
     oidAppleCertExtAppleServerAuthenticationAPNProd
                                       = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationAPNProd,
                                         sizeof(_oidAppleCertExtAppleServerAuthenticationAPNProd) },
     oidAppleCertExtAppleServerAuthenticationGS
                                       = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationGS,
                                           sizeof(_oidAppleCertExtAppleServerAuthenticationGS) },
-    oidAppleCertExtAppleServerAuthenticationPPQTest
-                                        = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationPPQTest,
-                                            sizeof(_oidAppleCertExtAppleServerAuthenticationPPQTest) },
+    oidAppleCertExtAppleServerAuthenticationPPQProdQA
+                                        = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationPPQProdQA,
+                                            sizeof(_oidAppleCertExtAppleServerAuthenticationPPQProdQA) },
     oidAppleCertExtAppleServerAuthenticationPPQProd
                                         = { (DERByte *)_oidAppleCertExtAppleServerAuthenticationPPQProd,
                                             sizeof(_oidAppleCertExtAppleServerAuthenticationPPQProd) },
     oidAppleIntmMarkerAppleServerAuthentication
                                       = { (DERByte *)_oidAppleIntmMarkerAppleServerAuthentication,
                                         sizeof(_oidAppleIntmMarkerAppleServerAuthentication) },
-    oidAppleCertExtApplePPQSigningProd = { (DERByte *)_oidAppleCertExtApplePPQSigningProd,
-                                        sizeof(_oidAppleCertExtApplePPQSigningProd)},
-    oidAppleCertExtApplePPQSigningTest = { (DERByte *)_oidAppleCertExtApplePPQSigningTest,
-                                        sizeof(_oidAppleCertExtApplePPQSigningTest)},
+    oidAppleCertExtApplePPQSigningProd   = { (DERByte *)_oidAppleCertExtApplePPQSigningProd,
+                                         sizeof(_oidAppleCertExtApplePPQSigningProd)},
+    oidAppleCertExtApplePPQSigningProdQA = { (DERByte *)_oidAppleCertExtApplePPQSigningProdQA,
+                                         sizeof(_oidAppleCertExtApplePPQSigningProdQA)},
     oidGoogleEmbeddedSignedCertificateTimestamp
                                       = { (DERByte *)_oidGoogleEmbeddedSignedCertificateTimestamp,
                                         sizeof(_oidGoogleEmbeddedSignedCertificateTimestamp) },
     oidGoogleOCSPSignedCertificateTimestamp
                                       = { (DERByte *)_oidGoogleOCSPSignedCertificateTimestamp,
                                         sizeof(_oidGoogleOCSPSignedCertificateTimestamp) },
-    oidAppleCertExtATVAppSigningProd = { (DERByte *)_oidAppleCertExtATVAppSigningProd,
+    oidAppleCertExtATVAppSigningProd   = { (DERByte *)_oidAppleCertExtATVAppSigningProd,
                                         sizeof(_oidAppleCertExtATVAppSigningProd)},
-    oidAppleCertExtATVAppSigningTest = { (DERByte *)_oidAppleCertExtATVAppSigningTest,
-                                        sizeof(_oidAppleCertExtATVAppSigningTest)},
+    oidAppleCertExtATVAppSigningProdQA = { (DERByte *)_oidAppleCertExtATVAppSigningProdQA,
+                                        sizeof(_oidAppleCertExtATVAppSigningProdQA)},
     oidAppleCertExtATVVPNProfileSigning = { (DERByte *) _oidAppleCertExtATVVPNProfileSigning,
                                         sizeof(_oidAppleCertExtATVVPNProfileSigning)},
     oidAppleCertExtCryptoServicesExtEncryption  = { (DERByte *)_oidAppleCertExtCryptoServicesExtEncryption,
                                         sizeof(_oidAppleCertExtCryptoServicesExtEncryption)},
-    oidAppleCertExtAST2DiagnosticsServerAuthTest = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthTest,
-                                        sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthTest)},
+    oidAppleCertExtAST2DiagnosticsServerAuthProdQA = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthProdQA,
+                                        sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthProdQA)},
     oidAppleCertExtAST2DiagnosticsServerAuthProd = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthProd,
                                         sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthProd)},
-    oidAppleCertExtEscrowProxyServerAuthTest = { (DERByte *)_oidAppleCertExtEscrowProxyServerAuthTest,
-                                        sizeof(_oidAppleCertExtEscrowProxyServerAuthTest)},
+    oidAppleCertExtEscrowProxyServerAuthProdQA = { (DERByte *)_oidAppleCertExtEscrowProxyServerAuthProdQA,
+                                        sizeof(_oidAppleCertExtEscrowProxyServerAuthProdQA)},
     oidAppleCertExtEscrowProxyServerAuthProd = { (DERByte *)_oidAppleCertExtEscrowProxyServerAuthProd,
                                         sizeof(_oidAppleCertExtEscrowProxyServerAuthProd)},
-    oidAppleCertExtFMiPServerAuthTest = { (DERByte *)_oidAppleCertExtFMiPServerAuthTest,
-                                        sizeof(_oidAppleCertExtFMiPServerAuthTest)},
-    oidAppleCertExtFMiPServerAuthProd = { (DERByte *)_oidAppleCertExtFMiPServerAuthProd,
+    oidAppleCertExtFMiPServerAuthProdQA = { (DERByte *)_oidAppleCertExtFMiPServerAuthProdQA,
+                                        sizeof(_oidAppleCertExtFMiPServerAuthProdQA)},
+    oidAppleCertExtFMiPServerAuthProd   = { (DERByte *)_oidAppleCertExtFMiPServerAuthProd,
                                         sizeof(_oidAppleCertExtFMiPServerAuthProd)},
     oidAppleCertExtHomeKitServerAuth = { (DERByte *)_oidAppleCertExtHomeKitServerAuth,
                                         sizeof(_oidAppleCertExtHomeKitServerAuth)},
     oidAppleIntmMarkerAppleHomeKitServerCA = { (DERByte *)_oidAppleIntmMarkerAppleHomeKitServerCA,
                                         sizeof(_oidAppleIntmMarkerAppleHomeKitServerCA) },
-    oidAppleCertExtAppleServerAuthenticationMMCSTest
-                                        = { (DERByte *)_oidAppleCertExtMMCSServerAuthTest,
-                                        sizeof(_oidAppleCertExtMMCSServerAuthTest) },
+    oidAppleCertExtAppleServerAuthenticationMMCSProdQA
+                                        = { (DERByte *)_oidAppleCertExtMMCSServerAuthProdQA,
+                                        sizeof(_oidAppleCertExtMMCSServerAuthProdQA) },
     oidAppleCertExtAppleServerAuthenticationMMCSProd
                                         = { (DERByte *)_oidAppleCertExtMMCSServerAuthProd,
-                                        sizeof(_oidAppleCertExtMMCSServerAuthProd) };
+                                        sizeof(_oidAppleCertExtMMCSServerAuthProd) },
+    oidAppleCertExtAppleServerAuthenticationiCloudSetupProdQA
+                                        = { (DERByte *)_oidAppleCertExtiCloudSetupServerAuthProdQA,
+                                        sizeof(_oidAppleCertExtiCloudSetupServerAuthProdQA) },
+    oidAppleCertExtAppleServerAuthenticationiCloudSetupProd
+                                        = { (DERByte *)_oidAppleCertExtiCloudSetupServerAuthProd,
+                                        sizeof(_oidAppleCertExtiCloudSetupServerAuthProd) };
 
 
 

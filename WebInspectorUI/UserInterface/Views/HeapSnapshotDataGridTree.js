@@ -39,7 +39,8 @@ WebInspector.HeapSnapshotDataGridTree = class HeapSnapshotDataGridTree extends W
 
         this._visible = false;
         this._popover = null;
-        this._popoverNode = null;
+        this._popoverGridNode = null;
+        this._popoverTargetElement = null;
 
         this.populateTopLevel();
     }
@@ -50,9 +51,27 @@ WebInspector.HeapSnapshotDataGridTree = class HeapSnapshotDataGridTree extends W
     {
         let multiplier = sortOrder === WebInspector.DataGrid.SortOrder.Ascending ? 1 : -1;
         let numberCompare = (columnIdentifier, a, b) => multiplier * (a.data[columnIdentifier] - b.data[columnIdentifier]);
-        let localeCompare = (columnIdentifier, a, b) => multiplier * (a.data[columnIdentifier].localeCompare(b.data[columnIdentifier]));
+        let nameCompare = (a, b) => {
+            // Sort by property name if available. Property names before no property name.
+            if (a.propertyName || b.propertyName) {
+                if (a.propertyName && !b.propertyName)
+                    return multiplier * -1;
+                if (!a.propertyName && b.propertyName)
+                    return multiplier * 1;
+                let propertyNameCompare = a.propertyName.localeCompare(b.propertyName);
+                console.assert(propertyNameCompare !== 0, "Property names should be unique, we shouldn't have equal property names.");
+                return multiplier * propertyNameCompare;
+            }
 
-        let comparator;
+            // Sort by class name and object id if no property name.
+            let classNameCompare = a.data.className.localeCompare(b.data.className);
+            if (classNameCompare)
+                return multiplier * classNameCompare;
+            if (a.data.id || b.data.id)
+                return multiplier * (a.data.id - b.data.id);
+            return 0;
+        };
+
         switch (columnIdentifier) {
         case "retainedSize":
             return numberCompare.bind(this, "retainedSize");
@@ -61,7 +80,7 @@ WebInspector.HeapSnapshotDataGridTree = class HeapSnapshotDataGridTree extends W
         case "count":
             return numberCompare.bind(this, "count");
         case "className":
-            return localeCompare.bind(this, "className");
+            return nameCompare;
         }
     }
 
@@ -69,27 +88,23 @@ WebInspector.HeapSnapshotDataGridTree = class HeapSnapshotDataGridTree extends W
 
     get heapSnapshot() { return this._heapSnapshot; }
 
-    get visible()
-    {
-        return this._visible;
-    }
+    get visible() { return this._visible; }
+    get popoverGridNode() { return this._popoverGridNode; }
+    set popoverGridNode(x) { this._popoverGridNode = x; }
+    get popoverTargetElement() { return this._popoverTargetElement; }
+    set popoverTargetElement(x) { this._popoverTargetElement = x; }
 
     get popover()
     {
-        if (!this._popover)
+        if (!this._popover) {
             this._popover = new WebInspector.Popover(this);
+            this._popover.windowResizeHandler = () => {
+                let bounds = WebInspector.Rect.rectFromClientRect(this._popoverTargetElement.getBoundingClientRect());
+                this._popover.present(bounds.pad(2), [WebInspector.RectEdge.MAX_Y, WebInspector.RectEdge.MIN_Y, WebInspector.RectEdge.MAX_X]);
+            };
+        }
 
         return this._popover;
-    }
-
-    get popoverNode()
-    {
-        return this._popoverNode;
-    }
-
-    set popoverNode(x)
-    {
-        this._popoverNode = x;
     }
 
     get children()
@@ -151,7 +166,8 @@ WebInspector.HeapSnapshotDataGridTree = class HeapSnapshotDataGridTree extends W
 
     willDismissPopover(popover)
     {
-        this._popoverNode = null;
+        this._popoverGridNode = null;
+        this._popoverTargetElement = null;
     }
 
     // Protected
@@ -212,7 +228,7 @@ WebInspector.HeapSnapshotInstancesDataGridTree = class HeapSnapshotInstancesData
             this.appendChild(new WebInspector.HeapSnapshotClassDataGridNode({className, size, retainedSize, count: liveCount}, this));
         }
 
-        this.didPopulate()
+        this.didPopulate();
     }
 
     removeCollectedNodes(collectedNodes)

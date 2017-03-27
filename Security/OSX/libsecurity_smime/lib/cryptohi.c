@@ -42,10 +42,7 @@
 #include <Security/cssmapi.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/cssmapple.h>
-
-#if !USE_CDSA_CRYPTO
 #include <Security/SecItem.h>
-#endif
 
 #ifdef	NDEBUG
 #define CSSM_PERROR(f, r)
@@ -172,7 +169,7 @@ SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag)
 static void SEC_PrintCFError(CFErrorRef CF_RELEASES_ARGUMENT error) {
     if (error) {
     CFStringRef errorDesc = CFErrorCopyDescription(error);
-    fprintf(stderr, "SecKey API returned: %ld, %s", CFErrorGetCode(error),
+    dprintf("SecKey API returned: %ld, %s", CFErrorGetCode(error),
             errorDesc ? CFStringGetCStringPtr(errorDesc, kCFStringEncodingUTF8) : "");
     CFRelease(error);
     if (errorDesc) { CFRelease(errorDesc); }
@@ -337,7 +334,7 @@ static SECStatus SGN_SignAll(uint8_t *buf, size_t len,
     /* we no longer support signing with MD5 */
     if (keyAlg == kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5 ||
         keyAlg == kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5) {
-        fprintf(stderr, "CMS signature failed: MD5 algorithm is disallowed for generating signatures.");
+        dprintf("CMS signature failed: MD5 algorithm is disallowed for generating signatures.");
         rv = SEC_ERROR_INVALID_ALGORITHM;
         goto out;
     }

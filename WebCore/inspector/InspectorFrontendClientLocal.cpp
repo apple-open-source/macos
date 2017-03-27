@@ -51,7 +51,6 @@
 #include "Timer.h"
 #include "UserGestureIndicator.h"
 #include "WindowFeatures.h"
-#include <bindings/ScriptValue.h>
 #include <inspector/InspectorBackendDispatchers.h>
 #include <wtf/Deque.h>
 #include <wtf/text/CString.h>
@@ -160,7 +159,7 @@ void InspectorFrontendClientLocal::frontendLoaded()
 {
     // Call setDockingUnavailable before bringToFront. If we display the inspector window via bringToFront first it causes
     // the call to canAttachWindow to return the wrong result on Windows.
-    // Calling bringToFront first causes the visibleHeight of the inspected page to always return 0 immediately after. 
+    // Calling bringToFront first causes the visibleHeight of the inspected page to always return 0 immediately after.
     // Thus if we call canAttachWindow first we can avoid this problem. This change does not cause any regressions on Mac.
     setDockingUnavailable(!canAttachWindow());
     bringToFront();

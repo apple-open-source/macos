@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0800"
+   LastUpgradeVersion = "0810"
    version = "2.0">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -16,7 +16,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0C0BDB2E175685B000BC1A7E"
                BuildableName = "secdtests"
-               BlueprintName = "secdtests"
+               BlueprintName = "secdtests_ios"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -34,7 +34,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0C0BDB2E175685B000BC1A7E"
             BuildableName = "secdtests"
-            BlueprintName = "secdtests"
+            BlueprintName = "secdtests_ios"
             ReferencedContainer = "container:Security.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -58,7 +58,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0C0BDB2E175685B000BC1A7E"
             BuildableName = "secdtests"
-            BlueprintName = "secdtests"
+            BlueprintName = "secdtests_ios"
             ReferencedContainer = "container:Security.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -268,6 +268,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "secd_202_recoverykey"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-v"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -304,7 +308,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0C0BDB2E175685B000BC1A7E"
             BuildableName = "secdtests"
-            BlueprintName = "secdtests"
+            BlueprintName = "secdtests_ios"
             ReferencedContainer = "container:Security.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

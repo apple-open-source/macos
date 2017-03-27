@@ -43,12 +43,14 @@ class FrameLoaderClient;
 class InspectorClient;
 class PaymentCoordinatorClient;
 class PlugInClient;
+class PluginInfoProvider;
 class ProgressTrackerClient;
 class SocketProvider;
 class StorageNamespaceProvider;
 class UserContentProvider;
 class ValidationMessageClient;
 class VisitedLinkStore;
+class WebGLStateTracker;
 
 #if ENABLE(CONTEXT_MENUS)
 class ContextMenuClient;
@@ -76,12 +78,14 @@ public:
     PlugInClient* plugInClient { nullptr };
     ProgressTrackerClient* progressTrackerClient { nullptr };
     RefPtr<BackForwardClient> backForwardClient;
-    ValidationMessageClient* validationMessageClient { nullptr };
+    std::unique_ptr<ValidationMessageClient> validationMessageClient;
     FrameLoaderClient* loaderClientForMainFrame { nullptr };
-    std::unique_ptr<DiagnosticLoggingClient> diagnosticLoggingClient { nullptr };
+    std::unique_ptr<DiagnosticLoggingClient> diagnosticLoggingClient;
+    std::unique_ptr<WebGLStateTracker> webGLStateTracker;
 
     RefPtr<ApplicationCacheStorage> applicationCacheStorage;
     RefPtr<DatabaseProvider> databaseProvider;
+    RefPtr<PluginInfoProvider> pluginInfoProvider;
     RefPtr<StorageNamespaceProvider> storageNamespaceProvider;
     RefPtr<UserContentProvider> userContentProvider;
     RefPtr<VisitedLinkStore> visitedLinkStore;

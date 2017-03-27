@@ -25,7 +25,7 @@
 
 #include "createFVMaster.h"
 
-#include "readline.h"
+#include "readline_cssm.h"
 #include "security_tool.h"
 
 #include <pwd.h>

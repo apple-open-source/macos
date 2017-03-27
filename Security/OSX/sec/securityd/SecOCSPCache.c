@@ -41,6 +41,9 @@
 #include "utilities/SecFileLocations.h"
 #include "utilities/iOSforOSX.h"
 
+/* Note that lastUsed is actually time of insert because we don't
+   refresh lastUsed on each SELECT. */
+
 #define expireSQL  CFSTR("DELETE FROM responses WHERE expires<?")
 #define insertResponseSQL  CFSTR("INSERT INTO responses " \
     "(ocspResponse,responderURI,expires,lastUsed) VALUES (?,?,?,?)")
@@ -50,10 +53,9 @@
 #define selectHashAlgorithmSQL  CFSTR("SELECT DISTINCT hashAlgorithm " \
     "FROM ocsp WHERE serialNum=?")
 #define selectResponseSQL  CFSTR("SELECT ocspResponse,responseId FROM " \
-    "responses WHERE responseId=(SELECT responseId FROM ocsp WHERE " \
+    "responses WHERE lastUsed>? AND responseId=(SELECT responseId FROM ocsp WHERE " \
     "issuerNameHash=? AND issuerPubKeyHash=? AND serialNum=? AND hashAlgorithm=?)" \
     " ORDER BY expires DESC")
-
 
 #define kSecOCSPCacheFileName CFSTR("ocspcache.sqlite3")
 
@@ -288,7 +290,7 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
 }
 
 static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
-    SecOCSPRequestRef request, CFURLRef responderURI) {
+    SecOCSPRequestRef request, CFURLRef responderURI, CFAbsoluteTime minInsertTime) {
     const DERItem *publicKey;
     CFDataRef issuer = NULL;
     CFDataRef serial = NULL;
@@ -322,13 +324,14 @@ static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
                 if (issuerNameHash && issuerPubKeyHash && ok) ok &= SecDbWithSQL(dbconn, selectResponseSQL, &localError, ^bool(sqlite3_stmt *selectResponse) {
                     /* Now we have the serial, algorithm, issuerNameHash and
                      issuerPubKeyHash so let's lookup the db entry. */
-                    if (ok) ok = SecDbBindBlob(selectResponse, 1, CFDataGetBytePtr(issuerNameHash),
+                    if (ok) ok = SecDbBindDouble(selectResponse, 1, minInsertTime, &localError);
+                    if (ok) ok = SecDbBindBlob(selectResponse, 2, CFDataGetBytePtr(issuerNameHash),
                                                CFDataGetLength(issuerNameHash), SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(selectResponse, 2, CFDataGetBytePtr(issuerPubKeyHash),
+                    if (ok) ok = SecDbBindBlob(selectResponse, 3, CFDataGetBytePtr(issuerPubKeyHash),
                                                CFDataGetLength(issuerPubKeyHash), SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(selectResponse, 3, CFDataGetBytePtr(serial),
+                    if (ok) ok = SecDbBindBlob(selectResponse, 4, CFDataGetBytePtr(serial),
                                                CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
-                    if (ok) ok = SecDbBindBlob(selectResponse, 4, algorithm.Data,
+                    if (ok) ok = SecDbBindBlob(selectResponse, 5, algorithm.Data,
                                                algorithm.Length, SQLITE_TRANSIENT, &localError);
                     if (ok) ok &= SecDbStep(dbconn, selectResponse, &localError, ^(bool *stopResponse) {
                         /* Found an entry! */
@@ -351,12 +354,6 @@ static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
                             }
                             CFRelease(resp);
                         }
-#if 0
-                        if (response) {
-                            //sqlite3_int64 responseId = sqlite3_column_int64(this->selectResponse, 1);
-                            /* @@@ Update the lastUsed field in the db. */
-                        }
-#endif
                     });
                     return ok;
                 });
@@ -400,7 +397,16 @@ SecOCSPResponseRef SecOCSPCacheCopyMatching(SecOCSPRequestRef request,
     CFURLRef localResponderURI /* may be NULL */) {
     __block SecOCSPResponseRef response = NULL;
     SecOCSPCacheWith(^(SecOCSPCacheRef cache) {
-        response = _SecOCSPCacheCopyMatching(cache, request, localResponderURI);
+        response = _SecOCSPCacheCopyMatching(cache, request, localResponderURI, 0.0);
+    });
+    return response;
+}
+
+SecOCSPResponseRef SecOCSPCacheCopyMatchingWithMinInsertTime(SecOCSPRequestRef request,
+    CFURLRef localResponderURI, CFAbsoluteTime minInsertTime) {
+    __block SecOCSPResponseRef response = NULL;
+    SecOCSPCacheWith(^(SecOCSPCacheRef cache) {
+        response = _SecOCSPCacheCopyMatching(cache, request, localResponderURI, minInsertTime);
     });
     return response;
 }

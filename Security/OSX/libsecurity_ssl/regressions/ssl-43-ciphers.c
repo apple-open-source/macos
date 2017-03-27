@@ -315,7 +315,7 @@ static int SocketConnect(const char *hostName, int port)
     struct in_addr      host;
 	int					sock;
     int                 err;
-    struct hostent      *ent;
+    struct hostent      *ent = NULL;
 
     if (hostName[0] >= '0' && hostName[0] <= '9')
     {

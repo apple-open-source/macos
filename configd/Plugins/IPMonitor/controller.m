@@ -241,19 +241,15 @@ typedef struct resolverList {
 
 - (NSData *)dataForProxyArray:(CFArrayRef)proxy_array_for_data
 {
-	NSData *data = [NSPropertyListSerialization dataWithPropertyList:(__bridge id _Nonnull)(proxy_array_for_data)
-								  format:NSPropertyListBinaryFormat_v1_0
-								 options:0
-								   error:nil];
-
-	return data;
+	CFDataRef data = NULL;
+	(void)_SCSerialize(proxy_array_for_data, &data, NULL, NULL);
+	return (__bridge_transfer NSData *)data;
 }
 
 - (NSData *)dataForProxyDictionary:(CFDictionaryRef)domain_proxy
 {
 	NSData	*	data = nil;
 	CFMutableDictionaryRef domain_proxy_dict;
-	CFArrayRef	domain_proxy_array;
 
 	if (domain_proxy == NULL) {
 		SC_log(LOG_NOTICE, "Invalid domain proxy dict");
@@ -263,11 +259,8 @@ typedef struct resolverList {
 	domain_proxy_dict = CFDictionaryCreateMutableCopy(NULL, 0, domain_proxy);
 	CFDictionaryRemoveValue(domain_proxy_dict, kSCPropNetProxiesSupplementalMatchDomain);
 
-	domain_proxy_array = CFArrayCreate(NULL, (const void **)&domain_proxy_dict, 1, &kCFTypeArrayCallBacks);
+	data = (__bridge_transfer NSData *)(SCNetworkProxiesCreateProxyAgentData(domain_proxy_dict));
 	CFRelease(domain_proxy_dict);
-
-	data = [self dataForProxyArray:domain_proxy_array];
-	CFRelease(domain_proxy_array);
 
 	return data;
 }

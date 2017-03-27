@@ -53,8 +53,9 @@ class FdMover : public Socket {
 private:
 	class Element : public cmsghdr {
 	public:
-		void *operator new (size_t base, size_t more);
-		void operator delete (void *addr, size_t size);
+		void *operator new (size_t base, ssize_t more);
+		void operator delete (void *addr, ssize_t size);
+        void operator delete (void *addr, size_t size);
 		
 		Element() { }
 		Element(int level, int type);

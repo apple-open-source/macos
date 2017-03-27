@@ -528,6 +528,7 @@ pt{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"uólofe"}
+        wuu{"xangainês"}
         xal{"kalmyk"}
         xh{"xosa"}
         xog{"lusoga"}

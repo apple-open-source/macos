@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,21 +53,23 @@ static JSValue namedItems(ExecState& state, JSHTMLAllCollection* collection, Pro
 // HTMLAllCollections are strange objects, they support both get and call.
 static EncodedJSValue JSC_HOST_CALL callHTMLAllCollection(ExecState* exec)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     if (exec->argumentCount() < 1)
         return JSValue::encode(jsUndefined());
 
     // Do not use thisObj here. It can be the JSHTMLDocument, in the document.forms(i) case.
-    JSHTMLAllCollection* jsCollection = jsCast<JSHTMLAllCollection*>(exec->callee());
+    JSHTMLAllCollection* jsCollection = jsCast<JSHTMLAllCollection*>(exec->jsCallee());
     HTMLAllCollection& collection = jsCollection->wrapped();
 
     // Also, do we need the TypeError test here ?
 
     if (exec->argumentCount() == 1) {
         // Support for document.all(<index>) etc.
-        String string = exec->argument(0).toString(exec)->value(exec);
-        if (exec->hadException())
-            return JSValue::encode(jsUndefined());
-        if (Optional<uint32_t> index = parseIndex(*string.impl()))
+        String string = exec->argument(0).toWTFString(exec);
+        RETURN_IF_EXCEPTION(scope, encodedJSValue());
+        if (std::optional<uint32_t> index = parseIndex(*string.impl()))
             return JSValue::encode(toJS(exec, jsCollection->globalObject(), collection.item(index.value())));
 
         // Support for document.images('<name>') etc.
@@ -75,10 +77,9 @@ static EncodedJSValue JSC_HOST_CALL callHTMLAllCollection(ExecState* exec)
     }
 
     // The second arg, if set, is the index of the item we want
-    String string = exec->argument(0).toString(exec)->value(exec);
-    if (exec->hadException())
-        return JSValue::encode(jsUndefined());
-    if (Optional<uint32_t> index = parseIndex(*exec->argument(1).toWTFString(exec).impl())) {
+    String string = exec->argument(0).toWTFString(exec);
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
+    if (std::optional<uint32_t> index = parseIndex(*exec->argument(1).toWTFString(exec).impl())) {
         if (auto* item = collection.namedItemWithIndex(string, index.value()))
             return JSValue::encode(toJS(exec, jsCollection->globalObject(), *item));
     }
@@ -104,14 +105,21 @@ bool JSHTMLAllCollection::nameGetter(ExecState* state, PropertyName propertyName
 
 JSValue JSHTMLAllCollection::item(ExecState& state)
 {
-    if (Optional<uint32_t> index = parseIndex(*state.argument(0).toString(&state)->value(&state).impl()))
+    VM& vm = state.vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    if (UNLIKELY(state.argumentCount() < 1))
+        return throwException(&state, scope, createNotEnoughArgumentsError(&state));
+
+    String argument = state.uncheckedArgument(0).toWTFString(&state);
+    if (std::optional<uint32_t> index = parseIndex(*argument.impl()))
         return toJS(&state, globalObject(), wrapped().item(index.value()));
-    return namedItems(state, this, Identifier::fromString(&state, state.argument(0).toString(&state)->value(&state)));
+    return namedItems(state, this, Identifier::fromString(&state, argument));
 }
 
 JSValue JSHTMLAllCollection::namedItem(ExecState& state)
 {
-    JSValue value = namedItems(state, this, Identifier::fromString(&state, state.argument(0).toString(&state)->value(&state)));
+    JSValue value = namedItems(state, this, Identifier::fromString(&state, state.argument(0).toWTFString(&state)));
     return value.isUndefined() ? jsNull() : value;
 }
 

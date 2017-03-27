@@ -87,9 +87,13 @@ struct __SecPolicy {
 	@constant kSecPolicyCheckRevocationOCSP Use OCSP to perform revocation check.
 	@constant kSecPolicyCheckRevocationCRL Use CRL to perform revocation check.
 	@constant kSecPolicyCheckRevocationAny Use any available method (OCSP or CRL) to perform revocation check.
+	@constant kSecPolicyCheckRevocationOnline Force an "online" OCSP check.
 	@constant kSecPolicyCheckNoNetworkAccess @@@.
     @constant kSecPolicyCheckBlackListedLeaf @@@.
     @constant kSecPolicyCheckUsageConstraints @@@.
+    @constant kSecPolicyCheckSystemTrustedWeakHash Check whether the leaf or intermediates are using a weak hash in chains that end with a system-trusted anchor.
+    @constant kSecPolicyCheckIntermediateOrganization Fails if any (non-leaf and non-root) certificates in the chain do not have a matching Organization string.
+    @constant kSecPolicyCheckIntermediateCountry Fails if any (non-leaf and non-root) certificates in the chain do not have a matching Country string.
 */
 extern const CFStringRef kSecPolicyCheckBasicConstraints;
 extern const CFStringRef kSecPolicyCheckCriticalExtensions;
@@ -129,21 +133,30 @@ extern const CFStringRef kSecPolicyCheckRevocationResponseRequired;
 extern const CFStringRef kSecPolicyCheckRevocationOCSP;
 extern const CFStringRef kSecPolicyCheckRevocationCRL;
 extern const CFStringRef kSecPolicyCheckRevocationAny;
+extern const CFStringRef kSecPolicyCheckRevocationOnline;
 extern const CFStringRef kSecPolicyCheckNoNetworkAccess;
 extern const CFStringRef kSecPolicyCheckBlackListedLeaf;
 extern const CFStringRef kSecPolicyCheckBlackListedKey;
 extern const CFStringRef kSecPolicyCheckGrayListedLeaf;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOid;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOidWithoutValueCheck;
+extern const CFStringRef kSecPolicyCheckLeafMarkersProdAndQA;
 extern const CFStringRef kSecPolicyCheckIntermediateMarkerOid;
 extern const CFStringRef kSecPolicyCheckIntermediateSPKISHA256;
 extern const CFStringRef kSecPolicyCheckIntermediateEKU;
 extern const CFStringRef kSecPolicyCheckGrayListedKey;
 extern const CFStringRef kSecPolicyCheckCertificateTransparency;
 extern const CFStringRef kSecPolicyCheckUsageConstraints;
+extern const CFStringRef kSecPolicyCheckSystemTrustedWeakHash;
+extern const CFStringRef kSecPolicyCheckIntermediateOrganization;
+extern const CFStringRef kSecPolicyCheckIntermediateCountry;
 
 /*  Special option for checking Apple Anchors */
 extern const CFStringRef kSecPolicyAppleAnchorIncludeTestRoots;
+
+/* Special option for checking Prod and QA Markers */
+extern const CFStringRef kSecPolicyLeafMarkerProd;
+extern const CFStringRef kSecPolicyLeafMarkerQA;
 
 SecPolicyRef SecPolicyCreate(CFStringRef oid, CFStringRef name, CFDictionaryRef options);
 
@@ -173,6 +186,7 @@ bool SecPolicyCheckCertEAPTrustedServerNames(SecCertificateRef cert, CFTypeRef p
 bool SecPolicyCheckCertLeafMarkerOid(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertLeafMarkerOidWithoutValueCheck(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertSignatureHashAlgorithms(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSubjectCountry(SecCertificateRef cert, CFTypeRef pvcValue);
 
 
 /*

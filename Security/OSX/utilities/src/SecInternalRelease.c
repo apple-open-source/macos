@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -21,46 +21,25 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "SecInternalReleasePriv.h"
-
-
 #include <dispatch/dispatch.h>
 #include <AssertMacros.h>
 #include <strings.h>
+#include <Security/SecuritydXPC.h>
+#include <ipc/securityd_client.h>
 
-#if TARGET_OS_EMBEDDED
-#include <MobileGestalt.h>
-#else
-#include <System/sys/csr.h>
-#endif
+#include "SecInternalReleasePriv.h"
 
+static bool void_to_error(enum SecXPCOperation op, CFErrorRef *error) {
+    __block bool ret = false;
+    securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
+        return (ret = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, error));
+    });
+    return ret;
+}
 
-bool
-SecIsInternalRelease(void)
-{
+bool SecIsInternalRelease(void) {
     static bool isInternal = false;
 
     return isInternal;
-}
-
-bool SecIsProductionFused(void) {
-    static bool isProduction = true;
-#if TARGET_OS_EMBEDDED
-    static dispatch_once_t once = 0;
-
-    dispatch_once(&once, ^{
-        CFBooleanRef productionFused = MGCopyAnswer(kMGQSigningFuse, NULL);
-        if (productionFused) {
-            if (CFEqual(productionFused, kCFBooleanFalse)) {
-                isProduction = false;
-            }
-            CFRelease(productionFused);
-        }
-    });
-#else
-    /* Consider all Macs dev-fused. */
-    return false;
-#endif
-    return isProduction;
 }
 

@@ -527,6 +527,7 @@ es{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wolof"}
+        wuu{"shanghainés"}
         xal{"kalmyk"}
         xh{"xhosa"}
         xog{"soga"}

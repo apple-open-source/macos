@@ -34,6 +34,7 @@
 #include <WebCore/PlatformCALayer.h>
 #include <WebCore/WebPlaybackSessionInterface.h>
 #include <WebCore/WebPlaybackSessionModelMediaElement.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -41,7 +42,7 @@
 namespace IPC {
 class Attachment;
 class Connection;
-class MessageDecoder;
+class Decoder;
 class MessageReceiver;
 }
 
@@ -97,7 +98,7 @@ public:
     static Ref<WebPlaybackSessionManager> create(WebPage&);
     virtual ~WebPlaybackSessionManager();
 
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) final;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
     void setUpPlaybackControlsManager(WebCore::HTMLMediaElement&);
     void clearPlaybackControlsManager();
@@ -151,7 +152,7 @@ protected:
     HashMap<WebCore::HTMLMediaElement*, uint64_t> m_mediaElements;
     HashMap<uint64_t, ModelInterfaceTuple> m_contextMap;
     uint64_t m_controlsManagerContextId { 0 };
-    HashMap<uint64_t, int> m_clientCounts;
+    HashCountedSet<uint64_t> m_clientCounts;
 };
 
 } // namespace WebKit

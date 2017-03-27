@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSSegmentedFontFace_h
-#define CSSSegmentedFontFace_h
+#pragma once
 
 #include "CSSFontFace.h"
 #include "FontCache.h"
@@ -54,17 +53,15 @@ public:
     Vector<Ref<CSSFontFace>, 1>& constituentFaces() { return m_fontFaces; }
 
     // CSSFontFace::Client needs to be able to be held in a RefPtr.
-    void ref() override { RefCounted<CSSSegmentedFontFace>::ref(); }
-    void deref() override { RefCounted<CSSSegmentedFontFace>::deref(); }
+    void ref() final { RefCounted<CSSSegmentedFontFace>::ref(); }
+    void deref() final { RefCounted<CSSSegmentedFontFace>::deref(); }
 
 private:
     CSSSegmentedFontFace();
-    void fontLoaded(CSSFontFace&) override;
+    void fontLoaded(CSSFontFace&) final;
 
     HashMap<FontDescriptionKey, FontRanges, FontDescriptionKeyHash, WTF::SimpleClassHashTraits<FontDescriptionKey>> m_cache;
     Vector<Ref<CSSFontFace>, 1> m_fontFaces;
 };
 
 } // namespace WebCore
-
-#endif // CSSSegmentedFontFace_h

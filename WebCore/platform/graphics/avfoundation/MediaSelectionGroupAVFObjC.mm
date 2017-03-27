@@ -34,8 +34,6 @@
 #import <AVFoundation/AVMediaSelectionGroup.h>
 #import <AVFoundation/AVPlayerItem.h>
 #import <objc/runtime.h>
-#import <wtf/HashMap.h>
-#import <wtf/HashSet.h>
 #import <wtf/text/WTFString.h>
 
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
@@ -125,9 +123,10 @@ void MediaSelectionGroupAVFObjC::updateOptions(const Vector<String>& characteris
 
         m_options.remove(removedAVOption);
     }
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     AVMediaSelectionOption* selectedOption = [m_playerItem selectedMediaOptionInMediaSelectionGroup:m_mediaSelectionGroup.get()];
-
+#pragma clang diagnostic pop
     for (AVMediaSelectionOption* addedAVOption in addedAVOptions.get()) {
         auto addedOption = MediaSelectionOptionAVFObjC::create(*this, addedAVOption);
         if (addedAVOption == selectedOption)

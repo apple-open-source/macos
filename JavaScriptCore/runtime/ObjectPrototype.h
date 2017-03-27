@@ -18,8 +18,7 @@
  *
  */
 
-#ifndef ObjectPrototype_h
-#define ObjectPrototype_h
+#pragma once
 
 #include "JSObject.h"
 
@@ -28,6 +27,7 @@ namespace JSC {
 class ObjectPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
+    static const unsigned StructureFlags = Base::StructureFlags | IsImmutablePrototypeExoticObject;
 
     static ObjectPrototype* create(VM&, JSGlobalObject*, Structure*);
 
@@ -48,5 +48,3 @@ private:
 JS_EXPORT_PRIVATE EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*);
 
 } // namespace JSC
-
-#endif // ObjectPrototype_h

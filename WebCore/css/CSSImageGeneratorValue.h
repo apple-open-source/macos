@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSImageGeneratorValue_h
-#define CSSImageGeneratorValue_h
+#pragma once
 
 #include "CSSValue.h"
 #include "FloatSize.h"
@@ -54,7 +53,7 @@ public:
     bool isFixedSize() const;
     FloatSize fixedSize(const RenderElement*);
 
-    bool isPending();
+    bool isPending() const;
     bool knownToBeOpaque(const RenderElement*) const;
 
     void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&);
@@ -68,7 +67,7 @@ protected:
 
     // Helper functions for Crossfade and Filter.
     static CachedImage* cachedImageForCSSValue(CSSValue&, CachedResourceLoader&, const ResourceLoaderOptions&);
-    static bool subimageIsPending(CSSValue&);
+    static bool subimageIsPending(const CSSValue&);
 
 private:
     class CachedGeneratedImage {
@@ -97,5 +96,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSImageGeneratorValue, isImageGeneratorValue())
-
-#endif // CSSImageGeneratorValue_h

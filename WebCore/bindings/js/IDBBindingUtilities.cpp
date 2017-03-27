@@ -37,12 +37,15 @@
 #include "IDBValue.h"
 #include "IndexKey.h"
 #include "JSDOMBinding.h"
+#include "JSDOMConvert.h"
 #include "JSDOMStringList.h"
 #include "Logging.h"
+#include "MessagePort.h"
 #include "ScriptExecutionContext.h"
 #include "SerializedScriptValue.h"
 #include "SharedBuffer.h"
 #include "ThreadSafeDataBuffer.h"
+#include <runtime/ArrayBuffer.h>
 #include <runtime/DateInstance.h>
 #include <runtime/ObjectConstructor.h>
 
@@ -53,7 +56,7 @@ namespace WebCore {
 static bool get(ExecState& exec, JSValue object, const String& keyPathElement, JSValue& result)
 {
     if (object.isString() && keyPathElement == "length") {
-        result = jsNumber(object.toString(&exec)->length());
+        result = jsNumber(asString(object)->length());
         return true;
     }
     if (!object.isObject())
@@ -90,22 +93,40 @@ JSValue toJS(ExecState& state, JSGlobalObject& globalObject, IDBKey* key)
 
     VM& vm = state.vm();
     Locker<JSLock> locker(vm.apiLock());
+    auto scope = DECLARE_THROW_SCOPE(vm);
 
     switch (key->type()) {
     case KeyType::Array: {
         auto& inArray = key->array();
         unsigned size = inArray.size();
         auto outArray = constructEmptyArray(&state, 0, &globalObject, size);
-        if (UNLIKELY(vm.exception()))
-            return jsUndefined();
-        for (size_t i = 0; i < size; ++i)
+        RETURN_IF_EXCEPTION(scope, JSValue());
+        for (size_t i = 0; i < size; ++i) {
             outArray->putDirectIndex(&state, i, toJS(state, globalObject, inArray.at(i).get()));
+            RETURN_IF_EXCEPTION(scope, JSValue());
+        }
         return outArray;
+    }
+    case KeyType::Binary: {
+        auto* data = key->binary().data();
+        if (!data) {
+            ASSERT_NOT_REACHED();
+            return jsNull();
+        }
+
+        auto arrayBuffer = ArrayBuffer::create(data->data(), data->size());
+        Structure* structure = globalObject.arrayBufferStructure(arrayBuffer->sharingMode());
+        if (!structure)
+            return jsNull();
+
+        return JSArrayBuffer::create(state.vm(), structure, WTFMove(arrayBuffer));
     }
     case KeyType::String:
         return jsStringWithCache(&state, key->string());
     case KeyType::Date:
-        return jsDateOrNull(&state, key->date());
+        // FIXME: This should probably be toJS<IDLDate>(...) as per:
+        // http://w3c.github.io/IndexedDB/#request-convert-a-key-to-a-value
+        return toJS<IDLNullable<IDLDate>>(state, key->date());
     case KeyType::Number:
         return jsNumber(key->number());
     case KeyType::Min:
@@ -127,7 +148,7 @@ static RefPtr<IDBKey> createIDBKeyFromValue(ExecState& exec, JSValue value, Vect
         return IDBKey::createNumber(value.toNumber(&exec));
 
     if (value.isString())
-        return IDBKey::createString(value.toString(&exec)->value(&exec));
+        return IDBKey::createString(asString(value)->value(&exec));
 
     if (value.inherits(DateInstance::info()) && !std::isnan(valueToDate(&exec, value)))
         return IDBKey::createDate(valueToDate(&exec, value));
@@ -159,6 +180,12 @@ static RefPtr<IDBKey> createIDBKeyFromValue(ExecState& exec, JSValue value, Vect
             stack.removeLast();
             return IDBKey::createArray(subkeys);
         }
+
+        if (auto* arrayBuffer = jsDynamicCast<JSArrayBuffer*>(value))
+            return IDBKey::createBinary(*arrayBuffer);
+
+        if (auto* arrayBufferView = jsDynamicCast<JSArrayBufferView*>(value))
+            return IDBKey::createBinary(*arrayBufferView);
     }
     return nullptr;
 }
@@ -170,16 +197,6 @@ static Ref<IDBKey> createIDBKeyFromValue(ExecState& exec, JSValue value)
     if (key)
         return *key;
     return IDBKey::createInvalid();
-}
-
-IDBKeyPath idbKeyPathFromValue(ExecState& exec, JSValue keyPathValue)
-{
-    IDBKeyPath keyPath;
-    if (isJSArray(keyPathValue))
-        keyPath = IDBKeyPath(toNativeArray<String>(exec, keyPathValue));
-    else
-        keyPath = IDBKeyPath(keyPathValue.toWTFString(&exec));
-    return keyPath;
 }
 
 static JSValue getNthValueOnKeyPath(ExecState& exec, JSValue rootValue, const Vector<String>& keyPathElements, size_t index)
@@ -248,11 +265,11 @@ bool injectIDBKeyIntoScriptValue(ExecState& exec, const IDBKeyData& keyData, JSV
 {
     LOG(IndexedDB, "injectIDBKeyIntoScriptValue");
 
-    ASSERT(keyPath.type() == IDBKeyPath::Type::String);
+    ASSERT(WTF::holds_alternative<String>(keyPath));
 
     Vector<String> keyPathElements;
     IDBKeyPathParseError error;
-    IDBParseKeyPath(keyPath.string(), keyPathElements, error);
+    IDBParseKeyPath(WTF::get<String>(keyPath), keyPathElements, error);
     ASSERT(error == IDBKeyPathParseError::None);
 
     if (keyPathElements.isEmpty())
@@ -275,10 +292,8 @@ bool injectIDBKeyIntoScriptValue(ExecState& exec, const IDBKeyData& keyData, JSV
 
 RefPtr<IDBKey> maybeCreateIDBKeyFromScriptValueAndKeyPath(ExecState& exec, const JSValue& value, const IDBKeyPath& keyPath)
 {
-    ASSERT(!keyPath.isNull());
-
-    if (keyPath.type() == IDBKeyPath::Type::Array) {
-        const Vector<String>& array = keyPath.array();
+    if (WTF::holds_alternative<Vector<String>>(keyPath)) {
+        auto& array = WTF::get<Vector<String>>(keyPath);
         Vector<RefPtr<IDBKey>> result;
         result.reserveInitialCapacity(array.size());
         for (auto& string : array) {
@@ -290,18 +305,17 @@ RefPtr<IDBKey> maybeCreateIDBKeyFromScriptValueAndKeyPath(ExecState& exec, const
         return IDBKey::createArray(WTFMove(result));
     }
 
-    ASSERT(keyPath.type() == IDBKeyPath::Type::String);
-    return internalCreateIDBKeyFromScriptValueAndKeyPath(exec, value, keyPath.string());
+    return internalCreateIDBKeyFromScriptValueAndKeyPath(exec, value, WTF::get<String>(keyPath));
 }
 
 bool canInjectIDBKeyIntoScriptValue(ExecState& exec, const JSValue& scriptValue, const IDBKeyPath& keyPath)
 {
     LOG(StorageAPI, "canInjectIDBKeyIntoScriptValue");
 
-    ASSERT(keyPath.type() == IDBKeyPath::Type::String);
+    ASSERT(WTF::holds_alternative<String>(keyPath));
     Vector<String> keyPathElements;
     IDBKeyPathParseError error;
-    IDBParseKeyPath(keyPath.string(), keyPathElements, error);
+    IDBParseKeyPath(WTF::get<String>(keyPath), keyPathElements, error);
     ASSERT(error == IDBKeyPathParseError::None);
 
     if (!keyPathElements.size())
@@ -310,7 +324,7 @@ bool canInjectIDBKeyIntoScriptValue(ExecState& exec, const JSValue& scriptValue,
     return canInjectNthValueOnKeyPath(exec, scriptValue, keyPathElements, keyPathElements.size() - 1);
 }
 
-JSValue deserializeIDBValueToJSValue(ExecState& exec, const IDBValue& value)
+static JSValue deserializeIDBValueToJSValue(ExecState& state, JSC::JSGlobalObject& globalObject, const IDBValue& value)
 {
     // FIXME: I think it's peculiar to use undefined to mean "null data" and null to mean "empty data".
     // But I am not changing this at the moment because at least some callers are specifically checking isUndefined.
@@ -324,11 +338,23 @@ JSValue deserializeIDBValueToJSValue(ExecState& exec, const IDBValue& value)
 
     auto serializedValue = SerializedScriptValue::createFromWireBytes(Vector<uint8_t>(data));
 
-    exec.vm().apiLock().lock();
-    JSValue result = serializedValue->deserialize(&exec, exec.lexicalGlobalObject(), 0, NonThrowing, value.blobURLs(), value.blobFilePaths());
-    exec.vm().apiLock().unlock();
+    state.vm().apiLock().lock();
+    Vector<RefPtr<MessagePort>> messagePorts;
+    JSValue result = serializedValue->deserialize(state, &globalObject, messagePorts, value.blobURLs(), value.blobFilePaths(), SerializationErrorMode::NonThrowing);
+    state.vm().apiLock().unlock();
 
     return result;
+}
+
+JSValue deserializeIDBValueToJSValue(ExecState& state, const IDBValue& value)
+{
+    return deserializeIDBValueToJSValue(state, *state.lexicalGlobalObject(), value);
+}
+
+JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, const IDBValue& value)
+{
+    ASSERT(state);
+    return deserializeIDBValueToJSValue(*state, *globalObject, value);
 }
 
 Ref<IDBKey> scriptValueToIDBKey(ExecState& exec, const JSValue& scriptValue)
@@ -342,37 +368,40 @@ JSC::JSValue idbKeyDataToScriptValue(JSC::ExecState& exec, const IDBKeyData& key
     return toJS(exec, *exec.lexicalGlobalObject(), key.get());
 }
 
+JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, const IDBKeyData& keyData)
+{
+    ASSERT(state);
+    ASSERT(globalObject);
+
+    return toJS(*state, *globalObject, keyData.maybeCreateIDBKey().get());
+}
+
 static Vector<IDBKeyData> createKeyPathArray(ExecState& exec, JSValue value, const IDBIndexInfo& info)
 {
-    Vector<IDBKeyData> keys;
-
-    switch (info.keyPath().type()) {
-    case IDBKeyPath::Type::Array:
-        for (auto& entry : info.keyPath().array()) {
-            auto key = internalCreateIDBKeyFromScriptValueAndKeyPath(exec, value, entry);
-            if (!key)
-                return { };
-            keys.append(key.get());
-        }
-        break;
-    case IDBKeyPath::Type::String: {
-        auto idbKey = internalCreateIDBKeyFromScriptValueAndKeyPath(exec, value, info.keyPath().string());
+    auto visitor = WTF::makeVisitor([&](const String& string) -> Vector<IDBKeyData> {
+        auto idbKey = internalCreateIDBKeyFromScriptValueAndKeyPath(exec, value, string);
         if (!idbKey)
             return { };
 
+        Vector<IDBKeyData> keys;
         if (info.multiEntry() && idbKey->type() == IndexedDB::Array) {
             for (auto& key : idbKey->array())
                 keys.append(key.get());
         } else
             keys.append(idbKey.get());
+        return keys;
+    }, [&](const Vector<String>& vector) -> Vector<IDBKeyData> {
+        Vector<IDBKeyData> keys;
+        for (auto& entry : vector) {
+            auto key = internalCreateIDBKeyFromScriptValueAndKeyPath(exec, value, entry);
+            if (!key)
+                return { };
+            keys.append(key.get());
+        }
+        return keys;
+    });
 
-        break;
-    }
-    case IDBKeyPath::Type::Null:
-        RELEASE_ASSERT_NOT_REACHED();
-    }
-
-    return keys;
+    return WTF::visit(visitor, info.keyPath());
 }
 
 void generateIndexKeyForValue(ExecState& exec, const IDBIndexInfo& info, JSValue value, IndexKey& outKey)
@@ -385,22 +414,17 @@ void generateIndexKeyForValue(ExecState& exec, const IDBIndexInfo& info, JSValue
     outKey = IndexKey(WTFMove(keyDatas));
 }
 
-JSValue toJS(ExecState& state, JSDOMGlobalObject& globalObject, const IDBKeyPath& value)
+JSValue toJS(ExecState& state, JSDOMGlobalObject& globalObject, const std::optional<IDBKeyPath>& keyPath)
 {
-    switch (value.type()) {
-    case IDBKeyPath::Type::Null:
+    if (!keyPath)
         return jsNull();
-    case IDBKeyPath::Type::String:
-        return jsStringWithCache(&state, value.string());
-    case IDBKeyPath::Type::Array:
-        auto keyPaths = DOMStringList::create();
-        for (auto& path : value.array())
-            keyPaths->append(path);
-        return toJS(&state, &globalObject, keyPaths);
-    }
 
-    ASSERT_NOT_REACHED();
-    return jsNull();
+    auto visitor = WTF::makeVisitor([&](const String& string) -> JSValue {
+        return toJS<IDLDOMString>(state, globalObject, string);
+    }, [&](const Vector<String>& vector) -> JSValue {
+        return toJS<IDLSequence<IDLDOMString>>(state, globalObject, vector);
+    });
+    return WTF::visit(visitor, keyPath.value());
 }
 
 } // namespace WebCore

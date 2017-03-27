@@ -377,3 +377,22 @@ void SOSAccountCancelSyncChecking(SOSAccountRef account) {
     }
 }
 
+bool SOSAccountCheckForAlwaysOnViews(SOSAccountRef account) {
+    bool changed = false;
+    SOSPeerInfoRef myPI = SOSAccountGetMyPeerInfo(account);
+    require_quiet(myPI, done);
+    require_quiet(SOSAccountIsInCircle(account, NULL), done);
+    require_quiet(SOSAccountHasCompletedInitialSync(account), done);
+    CFMutableSetRef viewsToEnsure = SOSViewCopyViewSet(kViewSetAlwaysOn);
+    // Previous version PeerInfo if we were syncing legacy keychain, ensure we include those legacy views.
+    if(!SOSPeerInfoVersionIsCurrent(myPI)) {
+        CFSetRef V0toAdd = SOSViewCopyViewSet(kViewSetV0);
+        CFSetUnion(viewsToEnsure, V0toAdd);
+        CFReleaseNull(V0toAdd);
+    }
+    changed = SOSAccountUpdateFullPeerInfo(account, viewsToEnsure, SOSViewsGetV0ViewSet()); // We don't permit V0 view proper, only sub-views
+    CFReleaseNull(viewsToEnsure);
+done:
+    return changed;
+}
+

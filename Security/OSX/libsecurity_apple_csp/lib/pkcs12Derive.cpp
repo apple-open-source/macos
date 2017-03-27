@@ -21,8 +21,8 @@
  */
 
 #include <Security/cssmapple.h>
-#include <openssl/bn.h>
-#include <pbkdDigest.h>
+#include <openssl/bn_legacy.h>
+#include "pbkdDigest.h"
 
 #include "pkcs12Derive.h"
 #include "AppleCSPUtils.h"

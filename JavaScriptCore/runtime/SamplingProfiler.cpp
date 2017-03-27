@@ -30,26 +30,25 @@
 
 #include "CallFrame.h"
 #include "CodeBlock.h"
-#include "Debugger.h"
-#include "Executable.h"
-#include "HeapInlines.h"
+#include "CodeBlockSet.h"
 #include "HeapIterationScope.h"
+#include "HeapUtil.h"
 #include "InlineCallFrame.h"
 #include "Interpreter.h"
-#include "JSCJSValueInlines.h"
+#include "JSCInlines.h"
 #include "JSFunction.h"
 #include "LLIntPCRanges.h"
 #include "MarkedBlock.h"
 #include "MarkedBlockSet.h"
+#include "MarkedSpaceInlines.h"
+#include "NativeExecutable.h"
 #include "PCToCodeOriginMap.h"
 #include "SlotVisitor.h"
-#include "SlotVisitorInlines.h"
-#include "StructureInlines.h"
 #include "VM.h"
-#include "VMEntryScope.h"
 #include <wtf/HashSet.h>
 #include <wtf/RandomNumber.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace JSC {
 
@@ -358,7 +357,6 @@ void SamplingProfiler::processUnverifiedStackTraces()
     RELEASE_ASSERT(m_lock.isLocked());
 
     TinyBloomFilter filter = m_vm.heap.objectSpace().blocks().filter();
-    MarkedBlockSet& markedBlockSet = m_vm.heap.objectSpace().blocks();
 
     for (UnprocessedStackTrace& unprocessedStackTrace : m_unprocessedStackTraces) {
         m_stackTraces.append(StackTrace());
@@ -392,7 +390,7 @@ void SamplingProfiler::processUnverifiedStackTraces()
             JSValue callee = JSValue::decode(encodedCallee);
             StackFrame& stackFrame = stackTrace.frames.last();
             bool alreadyHasExecutable = !!stackFrame.executable;
-            if (!Heap::isValueGCObject(filter, markedBlockSet, callee)) {
+            if (!HeapUtil::isValueGCObject(m_vm.heap, filter, callee)) {
                 if (!alreadyHasExecutable)
                     stackFrame.frameType = FrameType::Unknown;
                 return;
@@ -437,7 +435,7 @@ void SamplingProfiler::processUnverifiedStackTraces()
                 return;
             }
 
-            RELEASE_ASSERT(Heap::isPointerGCObject(filter, markedBlockSet, executable));
+            RELEASE_ASSERT(HeapUtil::isPointerGCObjectJSCell(m_vm.heap, filter, executable));
             stackFrame.frameType = FrameType::Executable;
             stackFrame.executable = executable;
             m_liveCellPointers.add(executable);
@@ -473,7 +471,7 @@ void SamplingProfiler::processUnverifiedStackTraces()
                     storeCalleeIntoTopFrame(unprocessedStackTrace.frames[0].unverifiedCallee);
                     startIndex = 1;
                 }
-            } else if (Optional<CodeOrigin> codeOrigin = topCodeBlock->findPC(unprocessedStackTrace.topPC)) {
+            } else if (std::optional<CodeOrigin> codeOrigin = topCodeBlock->findPC(unprocessedStackTrace.topPC)) {
                 codeOrigin->walkUpInlineStack([&] (const CodeOrigin& codeOrigin) {
                     appendCodeBlock(codeOrigin.inlineCallFrame ? codeOrigin.inlineCallFrame->baselineCodeBlock.get() : topCodeBlock, codeOrigin.bytecodeIndex);
                 });
@@ -521,7 +519,7 @@ void SamplingProfiler::visit(SlotVisitor& slotVisitor)
 {
     RELEASE_ASSERT(m_lock.isLocked());
     for (JSCell* cell : m_liveCellPointers)
-        slotVisitor.appendUnbarrieredReadOnlyPointer(cell);
+        slotVisitor.appendUnbarriered(cell);
 }
 
 void SamplingProfiler::shutdown()
@@ -590,11 +588,14 @@ String SamplingProfiler::StackFrame::nameFromCallee(VM& vm)
     if (!callee)
         return String();
 
+    auto scope = DECLARE_CATCH_SCOPE(vm);
     ExecState* exec = callee->globalObject()->globalExec();
     auto getPropertyIfPureOperation = [&] (const Identifier& ident) -> String {
         PropertySlot slot(callee, PropertySlot::InternalMethodType::VMInquiry);
         PropertyName propertyName(ident);
-        if (callee->getPropertySlot(exec, propertyName, slot)) {
+        bool hasProperty = callee->getPropertySlot(exec, propertyName, slot);
+        ASSERT_UNUSED(scope, !scope.exception());
+        if (hasProperty) {
             if (slot.isValue()) {
                 JSValue nameValue = slot.getValue(exec, propertyName);
                 if (isJSString(nameValue))
@@ -732,6 +733,7 @@ Vector<SamplingProfiler::StackTrace> SamplingProfiler::releaseStackTraces(const 
 
 String SamplingProfiler::stackTracesAsJSON()
 {
+    DeferGC deferGC(m_vm.heap);
     LockHolder locker(m_lock);
 
     {

@@ -115,6 +115,10 @@
 /* Define to 1 if you have the <nghttp2/nghttp2.h> header file. */
 #undef HAVE_NGHTTP2_NGHTTP2_H
 
+/* Define to 1 if you have the
+   `nghttp2_session_callbacks_set_on_invalid_header_callback' function. */
+#undef HAVE_NGHTTP2_SESSION_CALLBACKS_SET_ON_INVALID_HEADER_CALLBACK
+
 /* Define to 1 if you have the `nghttp2_session_change_stream_priority'
    function. */
 #undef HAVE_NGHTTP2_SESSION_CHANGE_STREAM_PRIORITY

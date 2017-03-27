@@ -154,7 +154,7 @@ SecPolicyRef Download::GetPolicy ()
 void Download::ParseTicket (CFDataRef ticket)
 {
 	// make a propertylist from the ticket
-	CFDictionaryRef mDict = (CFDictionaryRef) _SecureDownloadParseTicketXML (ticket);
+	CFRef<CFDictionaryRef> mDict = (CFDictionaryRef) _SecureDownloadParseTicketXML (ticket);
 	CheckCFThingForNULL (mDict);
 	CFRetain (mDict);
 	

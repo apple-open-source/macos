@@ -11,5 +11,6 @@ SECURITY_COMMAND(
                  "[options]\n"
                  "Keychain Sync Test\n"
                  "    -p|--enabled-peer-views <view-name-list>\n"
+                 "    -m|--message-pending-state\n"
                  "\n",
                  "Keychain Syncing test commands." )

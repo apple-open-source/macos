@@ -42,7 +42,7 @@ const uint8_t* der_decode_string(CFAllocatorRef allocator, CFOptionFlags mutabil
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_UTF8_STRING, &payload_size, der, der_end);
 
-    if (NULL == payload || (der_end - payload) < payload_size){
+    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size){
         SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown string encoding"), NULL, error);
         return NULL;
     }

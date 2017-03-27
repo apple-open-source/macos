@@ -21,7 +21,6 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/pwr_mgt/IOPM.h>
-#include <time.h>
 #include "IOHIDNXEventTranslatorServiceFilter.h"
 #include "IOHIDDebug.h"
 #include "IOHIDNXEventTranslatorSessionFilter.h"
@@ -30,7 +29,7 @@
 #include <IOKit/IOMessage.h>
 #include <sstream>
 #include <iomanip>
-#include <ctime>
+#include <sys/time.h>
 
 
 enum {
@@ -43,7 +42,6 @@ enum {
 
 extern "C" void * IOHIDNXEventTranslatorSessionFilterFactory(CFAllocatorRef allocator, CFUUIDRef typeUUID);
 
-static void ModifierApplierFunction(const void *key __unused, const void *value, void *context);
 static boolean_t IsCompanionService(IOHIDServiceRef s1, IOHIDServiceRef s2);
 
 
@@ -52,6 +50,13 @@ enum {
   kPMDisplayDim        = 1,
   kPMDisplayOn         = 2
 };
+
+static const int64_t one_mil = 1000*1000;
+
+#define to_ns(ticks) ((ticks * tb_info.numer) / (tb_info.denom))
+#define to_ms(ticks) (to_ns(ticks)/one_mil)
+
+static mach_timebase_info_data_t tb_info;
 
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilterFactory
@@ -116,10 +121,15 @@ _wranglerNotifier (MACH_PORT_NULL),
 _displayState (kPMDisplayOn),
 _displaySleepAbortThreshold (kIOHIDDisplaySleepAbortThresholdMS),
 _displayWakeAbortThreshold (kIOHIDDisplayWakeAbortThresholdMS),
-_displayStateChangeTime (clock::now() - time_point(std::chrono::hours(1))),
+_powerStateChangeTime (0),
+_displayStateChangeTime (0),
 _maxDisplayTickleDuration (0)
 {
     CFPlugInAddInstanceForFactory( factoryID );
+    
+    if (tb_info.denom == 0) {
+        mach_timebase_info(&tb_info);
+    }
 }
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::IOHIDNXEventTranslatorSessionFilter
@@ -216,7 +226,7 @@ void IOHIDNXEventTranslatorSessionFilter::close(void * self, IOHIDSessionRef ses
     static_cast<IOHIDNXEventTranslatorSessionFilter *>(self)->close(session, options);
 }
 
-void IOHIDNXEventTranslatorSessionFilter::close(IOHIDSessionRef session __used, IOOptionBits options __used)
+void IOHIDNXEventTranslatorSessionFilter::close(IOHIDSessionRef session __unused, IOOptionBits options __unused)
 {
     if (_powerConnect) {
         IOServiceClose(_powerConnect);
@@ -501,10 +511,18 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::filter(IOHIDServiceRef sender
 // IOHIDNXEventTranslatorSessionFilter::resetStickyKeys
 //------------------------------------------------------------------------------
 boolean_t IOHIDNXEventTranslatorSessionFilter::resetStickyKeys(IOHIDEventRef event) {
+    // Ignore digitizer events; the associated pointer event
+    // will have the correct button state.
+    if (IOHIDEventConformsTo(event, kIOHIDEventTypeDigitizer)) {
+        return false;
+    }
+    
     if (IOHIDEventConformsTo(event, kIOHIDEventTypeButton)) {
-        IOHIDEventRef buttonEvent = IOHIDEventGetEvent(event, kIOHIDEventTypeButton);
-        if (IOHIDEventGetIntegerValue(buttonEvent, kIOHIDEventFieldButtonState)) {
-            return true;
+        if (_translator) {
+            // Reset when all buttons are up
+            if (!IOHIDPointerEventTranslatorGetGlobalButtonState(_translator)) {
+                return true;
+            }
         }
     }
     
@@ -683,7 +701,7 @@ void IOHIDNXEventTranslatorSessionFilter::displayNotificationCallback (io_servic
     }
   
     if (_displayState != currentDisplayState) {
-      _displayStateChangeTime = clock::now();
+      _displayStateChangeTime = mach_continuous_time();
       HIDLogDebug ("displayNotificationCallback : displayState change 0x%x -> 0x%x", _displayState, currentDisplayState);
       _displayState = currentDisplayState;
     }
@@ -701,11 +719,8 @@ IOPMAssertionID IOHIDNXEventTranslatorSessionFilter::_AssertionID = 0;
 IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServiceRef sender, IOHIDEventRef  event) {
     
     __block IOHIDEventPolicyValue policy = IOHIDEventGetPolicy(event, kIOHIDEventPowerPolicy);
-    IOHIDEventRef result = event;
-  
-    time_point current = clock::now();
-  
-    uint64_t   deltaMS = duration_cast_ms(current - _displayStateChangeTime).count();
+    IOHIDEventRef   result  = event;
+    uint64_t        deltaMS = to_ms(mach_continuous_time()) - to_ms(_displayStateChangeTime);
     
     HIDLogDebug ("displayStateFilter: policy:%llu, display state:0x%x, duration since last state change:%lldms\n", policy, _displayState, deltaMS);
     
@@ -727,13 +742,10 @@ IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::displayStateFilter (IOHIDServ
         IOHIDEventType eventType = IOHIDEventGetType(event);
       
         if (policy == kIOHIDEventPowerPolicyWakeSystem) {
-          
-            time_point prev = clock::now();
-          
+            uint64_t prev = mach_continuous_time();
             displayTickle();
-          
-            uint64_t tempDuration = duration_cast_us(clock::now() - prev).count();
-          
+            uint64_t tempDuration = to_ns(mach_continuous_time()) - to_ns(prev);
+            
             if (tempDuration > _maxDisplayTickleDuration) {
                 _maxDisplayTickleDuration = tempDuration;
             }
@@ -787,7 +799,8 @@ boolean_t IOHIDNXEventTranslatorSessionFilter::shouldCancelEvent (IOHIDEventRef 
 // IOHIDNXEventTranslatorSessionFilter::updateDisplayLog
 //------------------------------------------------------------------------------
 void IOHIDNXEventTranslatorSessionFilter::updateDisplayLog (IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType) {
-    LogEntry entry = { clock::now(), serviceID, policy, eventType };
+    LogEntry entry = { {0, 0}, serviceID, policy, eventType };
+    gettimeofday(&entry.time, NULL);
   
     if (_displayLog.size() == LOG_MAX_ENTRIES) {
         _displayLog.pop();
@@ -838,7 +851,7 @@ void IOHIDNXEventTranslatorSessionFilter::powerNotificationCallback (io_service_
     case    kIOMessageSystemWillSleep:
         IOAllowPowerChange (_powerConnect, (long)messageArgument);
     default:
-        _powerStateChangeTime = clock::now();
+        _powerStateChangeTime = mach_continuous_time();
         _powerState = messageType;
         break;
     }
@@ -849,9 +862,8 @@ void IOHIDNXEventTranslatorSessionFilter::powerNotificationCallback (io_service_
 // IOHIDNXEventTranslatorSessionFilter::powerStateFilter
 //------------------------------------------------------------------------------
 IOHIDEventRef IOHIDNXEventTranslatorSessionFilter::powerStateFilter (IOHIDEventRef  event) {
+    uint64_t   deltaMS = to_ms(mach_continuous_time()) - to_ms(_powerStateChangeTime);
     
-    time_point current = clock::now();
-    uint64_t   deltaMS = duration_cast_ms(current - _powerStateChangeTime ).count();
     if (_powerState == kIOMessageSystemWillPowerOn && deltaMS < _powerOnThreshold  && shouldCancelEvent (event)) {
         ++_powerOnThresholdEventCount;
         HIDLogDebug ("powerStateFilter : Cancel event (type:%d  power state:0x%x changed %lldms ago (threshold:%dms)\n",
@@ -873,9 +885,9 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
     CFMutableDictionaryRefWrap serializer (dict);
     serializer.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDNXEventTranslatorSessionFilter"));
     serializer.SetValueForKey(CFSTR("CanceledEventCount"), CFNumberRefWrap(_powerOnThresholdEventCount));
-    serializer.SetValueForKey(CFSTR("DisplayPowerStateChangeTime"), timePointToTimeString(_displayStateChangeTime));
+    serializer.SetValueForKey(CFSTR("DisplayPowerStateChangeTime"), CFNumberRefWrap(to_ms(mach_continuous_time()) - to_ms(_displayStateChangeTime)));
     serializer.SetValueForKey(CFSTR("DisplayPowerState"), CFNumberRefWrap(_displayState));
-    serializer.SetValueForKey(CFSTR("SystemPowerStateChangeTime"), timePointToTimeString(_powerStateChangeTime));
+    serializer.SetValueForKey(CFSTR("SystemPowerStateChangeTime"), CFNumberRefWrap(to_ms(mach_continuous_time()) - to_ms(_powerStateChangeTime)));
     serializer.SetValueForKey(CFSTR("SystemPowerState"), CFNumberRefWrap(_powerState));
     serializer.SetValueForKey(CFSTR("DisplayWrangelServiceObject"), CFNumberRefWrap(_wrangler));
     serializer.SetValueForKey(CFSTR("MaxDisplayTickleDuration"), CFNumberRefWrap(_maxDisplayTickleDuration));
@@ -911,7 +923,11 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
         LogEntry entry = tmpLog.front();
         tmpLog.pop();
         
-        log.SetValueForKey(CFSTR("Time"), timePointToTimeString(entry.time));
+        CFStringRef time = timePointToTimeString(&entry.time);
+        if (time) {
+            log.SetValueForKey(CFSTR("Time"), time);
+            CFRelease(time);
+        }
         log.SetValueForKey(CFSTR("ServiceID"), CFNumberRefWrap(entry.serviceID));
         log.SetValueForKey(CFSTR("Policy"), CFNumberRefWrap(entry.policy));
         log.SetValueForKey(CFSTR("EventType"), CFNumberRefWrap(entry.eventType));
@@ -924,14 +940,22 @@ void IOHIDNXEventTranslatorSessionFilter::serialize (CFMutableDictionaryRef dict
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::timePointToTimeString
 //------------------------------------------------------------------------------
-std::string IOHIDNXEventTranslatorSessionFilter::timePointToTimeString (time_point pt) {
-    auto point  = std::chrono::system_clock::now() - duration_cast_us(clock::now() - pt);
-    auto point_in_s = std::chrono::time_point_cast<std::chrono::seconds> (point);
-    auto time = std::chrono::system_clock::to_time_t(point);
-    std::stringstream ss;
-
-    ss << std::put_time(std::localtime(&time), "%Y-%m-%d %X") << "."<< duration_cast_us(point - point_in_s).count();
-    return ss.str();
+CFStringRef IOHIDNXEventTranslatorSessionFilter::timePointToTimeString (struct timeval *tv) {
+    struct tm tmd;
+    struct tm *local_time;
+    char time_str[32] = { 0, };
+    
+    local_time = localtime_r(&tv->tv_sec, &tmd);
+    if (local_time == NULL) {
+        local_time = gmtime_r(&tv->tv_sec, &tmd);
+    }
+    
+    if (local_time) {
+        strftime(time_str, sizeof(time_str), "%F %H:%M:%S", local_time);
+    }
+    
+    CFStringRef time = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s.%06d"), time_str, tv->tv_usec);
+    return time;
 }
 
 //------------------------------------------------------------------------------

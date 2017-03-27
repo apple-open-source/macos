@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSFontFaceSource_h
-#define CSSFontFaceSource_h
+#pragma once
 
 #include "CachedFontClient.h"
 #include "CachedResourceHandle.h"
@@ -38,10 +37,12 @@ class CSSFontSelector;
 class Font;
 struct FontCustomPlatformData;
 class FontDescription;
-class FontFeatureSettings;
 struct FontVariantSettings;
 class SVGFontFaceElement;
 class SharedBuffer;
+
+template <typename T> class FontTaggedSettings;
+typedef FontTaggedSettings<int> FontFeatureSettings;
 
 class CSSFontFaceSource final : public CachedFontClient {
     WTF_MAKE_FAST_ALLOCATED;
@@ -92,6 +93,4 @@ private:
     Status m_status { Status::Pending };
 };
 
-}
-
-#endif
+} // namespace WebCore

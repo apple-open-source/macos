@@ -24,8 +24,8 @@
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyNames.h"
 #include "Document.h"
+#include "Element.h"
 #include "RenderStyle.h"
-#include "SVGPaint.h"
 
 namespace WebCore {
 
@@ -80,37 +80,49 @@ static RefPtr<CSSPrimitiveValue> glyphOrientationToCSSPrimitiveValue(EGlyphOrien
     }
 }
 
-static RefPtr<CSSValue> strokeDashArrayToCSSValueList(const Vector<SVGLength>& dashes)
+static RefPtr<CSSValue> strokeDashArrayToCSSValueList(const Vector<SVGLengthValue>& dashes)
 {
     if (dashes.isEmpty())
         return CSSPrimitiveValue::createIdentifier(CSSValueNone);
 
-    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-    const Vector<SVGLength>::const_iterator end = dashes.end();
-    for (Vector<SVGLength>::const_iterator it = dashes.begin(); it != end; ++it)
-        list->append(SVGLength::toCSSPrimitiveValue(*it));
+    auto list = CSSValueList::createCommaSeparated();
+    for (auto& length : dashes)
+        list->append(SVGLengthValue::toCSSPrimitiveValue(length));
 
-    return list;
+    return WTFMove(list);
 }
 
-RefPtr<SVGPaint> ComputedStyleExtractor::adjustSVGPaintForCurrentColor(RefPtr<SVGPaint>&& paint, const RenderStyle* style) const
+RefPtr<CSSValue> ComputedStyleExtractor::adjustSVGPaintForCurrentColor(SVGPaintType paintType, const String& url, const Color& color, const Color& currentColor) const
 {
-    if (paint->paintType() == SVGPaint::SVG_PAINTTYPE_CURRENTCOLOR || paint->paintType() == SVGPaint::SVG_PAINTTYPE_URI_CURRENTCOLOR)
-        paint->setColor(style->color());
-    return WTFMove(paint);
+    if (paintType >= SVG_PAINTTYPE_URI_NONE) {
+        RefPtr<CSSValueList> values = CSSValueList::createSpaceSeparated();
+        values->append(CSSPrimitiveValue::create(url, CSSPrimitiveValue::UnitType::CSS_URI));
+        if (paintType == SVG_PAINTTYPE_URI_NONE)
+            values->append(CSSPrimitiveValue::createIdentifier(CSSValueNone));
+        else if (paintType == SVG_PAINTTYPE_URI_CURRENTCOLOR)
+            values->append(CSSPrimitiveValue::create(currentColor));
+        else if (paintType == SVG_PAINTTYPE_URI_RGBCOLOR)
+            values->append(CSSPrimitiveValue::create(color));
+        return values;
+    }
+    if (paintType == SVG_PAINTTYPE_NONE)
+        return CSSPrimitiveValue::createIdentifier(CSSValueNone);
+    if (paintType == SVG_PAINTTYPE_CURRENTCOLOR)
+        return CSSPrimitiveValue::create(currentColor);
+    
+    return CSSPrimitiveValue::create(color);
 }
 
-RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID propertyID, EUpdateLayout updateLayout) const
+RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID propertyID, EUpdateLayout updateLayout)
 {
-    Node* node = m_node.get();
-    if (!node)
+    if (!m_element)
         return nullptr;
 
     // Make sure our layout is up to date before we allow a query on these attributes.
     if (updateLayout)
-        node->document().updateLayout();
+        m_element->document().updateLayout();
 
-    auto* style = node->computedStyle();
+    auto* style = m_element->computedStyle();
     if (!style)
         return nullptr;
 
@@ -149,8 +161,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID property
             return CSSPrimitiveValue::create(svgStyle.dominantBaseline());
         case CSSPropertyTextAnchor:
             return CSSPrimitiveValue::create(svgStyle.textAnchor());
-        case CSSPropertyWritingMode:
-            return CSSPrimitiveValue::create(svgStyle.writingMode());
         case CSSPropertyClipPath:
             if (!svgStyle.clipperResource().isEmpty())
                 return CSSPrimitiveValue::create(svgStyle.clipperResource(), CSSPrimitiveValue::CSS_URI);
@@ -166,9 +176,9 @@ RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID property
         case CSSPropertyStopColor:
             return currentColorOrValidColor(style, svgStyle.stopColor());
         case CSSPropertyFill:
-            return adjustSVGPaintForCurrentColor(SVGPaint::create(svgStyle.fillPaintType(), svgStyle.fillPaintUri(), svgStyle.fillPaintColor()), style);
+            return adjustSVGPaintForCurrentColor(svgStyle.fillPaintType(), svgStyle.fillPaintUri(), svgStyle.fillPaintColor(), style->color());
         case CSSPropertyKerning:
-            return SVGLength::toCSSPrimitiveValue(svgStyle.kerning());
+            return SVGLengthValue::toCSSPrimitiveValue(svgStyle.kerning());
         case CSSPropertyMarkerEnd:
             if (!svgStyle.markerEndResource().isEmpty())
                 return CSSPrimitiveValue::create(svgStyle.markerEndResource(), CSSPrimitiveValue::CSS_URI);
@@ -182,7 +192,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID property
                 return CSSPrimitiveValue::create(svgStyle.markerStartResource(), CSSPrimitiveValue::CSS_URI);
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyStroke:
-            return adjustSVGPaintForCurrentColor(SVGPaint::create(svgStyle.strokePaintType(), svgStyle.strokePaintUri(), svgStyle.strokePaintColor()), style);
+            return adjustSVGPaintForCurrentColor(svgStyle.strokePaintType(), svgStyle.strokePaintUri(), svgStyle.strokePaintColor(), style->color());
         case CSSPropertyStrokeDasharray:
             return strokeDashArrayToCSSValueList(svgStyle.strokeDashArray());
         case CSSPropertyBaselineShift: {
@@ -194,7 +204,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::svgPropertyValue(CSSPropertyID property
                 case BS_SUB:
                     return CSSPrimitiveValue::createIdentifier(CSSValueSub);
                 case BS_LENGTH:
-                    return SVGLength::toCSSPrimitiveValue(svgStyle.baselineShiftValue());
+                    return SVGLengthValue::toCSSPrimitiveValue(svgStyle.baselineShiftValue());
             }
             ASSERT_NOT_REACHED();
             return nullptr;

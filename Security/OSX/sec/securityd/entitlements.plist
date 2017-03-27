@@ -18,5 +18,13 @@
 	<true/>
 	<key>com.apple.private.applecredentialmanager.allow</key>
 	<true/>
+	<key>com.apple.private.MobileGestalt.AllowedProtectedKeys</key>
+	<array>
+		<string>SerialNumber</string>
+	</array>
+	<key>seatbelt-profiles</key>
+	<array>
+		<string>securityd</string>
+	</array>
 </dict>
 </plist>

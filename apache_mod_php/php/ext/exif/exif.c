@@ -1303,7 +1303,7 @@ static size_t exif_convert_any_to_int(void *value, int format, int motorola_inte
 			if (s_den == 0) {
 				return 0;
 			} else {
-				return php_ifd_get32s(value, motorola_intel) / s_den;
+				return (size_t)((double)php_ifd_get32s(value, motorola_intel) / s_den);
 			}
 
 		case TAG_FMT_SSHORT:    return php_ifd_get16u(value, motorola_intel);
@@ -2855,7 +2855,7 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 	}
 
 	if (components < 0) {
-		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Process tag(x%04X=%s): Illegal components(%ld)", tag, exif_get_tagname(tag, tagname, -12, tag_table TSRMLS_CC), components);
+		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Process tag(x%04X=%s): Illegal components(%d)", tag, exif_get_tagname(tag, tagname, -12, tag_table TSRMLS_CC), components);
 		return FALSE;
 	}
 
@@ -4210,7 +4210,7 @@ PHP_FUNCTION(exif_imagetype)
 	php_stream * stream;
  	int itype = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &imagefile, &imagefile_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "p", &imagefile, &imagefile_len) == FAILURE) {
 		return;
 	}
 

@@ -26,16 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FetchLoaderClient_h
-#define FetchLoaderClient_h
+#pragma once
 
 #if ENABLE(FETCH_API)
 
 #include <wtf/Forward.h>
-
-namespace JSC {
-class ArrayBuffer;
-}
 
 namespace WebCore {
 
@@ -47,8 +42,6 @@ public:
 
     virtual void didReceiveResponse(const ResourceResponse&) { }
 
-    virtual void didFinishLoadingAsText(String&&) { }
-    virtual void didFinishLoadingAsArrayBuffer(RefPtr<JSC::ArrayBuffer>&&) { }
     virtual void didReceiveData(const char*, size_t) { }
 
     virtual void didSucceed() = 0;
@@ -58,5 +51,3 @@ public:
 } // namespace WebCore
 
 #endif // ENABLE(FETCH_API)
-
-#endif // FetchLoaderClient_h

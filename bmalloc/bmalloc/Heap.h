@@ -29,6 +29,7 @@
 #include "AsyncTask.h"
 #include "BumpRange.h"
 #include "Environment.h"
+#include "LargeMap.h"
 #include "LineMetadata.h"
 #include "List.h"
 #include "Map.h"
@@ -38,7 +39,6 @@
 #include "SmallPage.h"
 #include "VMHeap.h"
 #include "Vector.h"
-#include "XLargeMap.h"
 #include <array>
 #include <mutex>
 
@@ -67,6 +67,11 @@ public:
 
     void scavenge(std::unique_lock<StaticMutex>&, std::chrono::milliseconds sleepDuration);
 
+#if BOS(DARWIN)
+    qos_class_t takeRequestedScavengerThreadQOSClass() { return std::exchange(m_requestedScavengerThreadQOSClass, QOS_CLASS_UNSPECIFIED); }
+    void setScavengerThreadQOSClass(qos_class_t overrideClass) { m_requestedScavengerThreadQOSClass = overrideClass; }
+#endif
+
 private:
     struct LargeObjectHash {
         static unsigned hash(void* key)
@@ -94,7 +99,7 @@ private:
     void mergeLargeLeft(EndTag*&, BeginTag*&, Range&, bool& inVMHeap);
     void mergeLargeRight(EndTag*&, BeginTag*&, Range&, bool& inVMHeap);
 
-    XLargeRange splitAndAllocate(XLargeRange&, size_t alignment, size_t);
+    LargeRange splitAndAllocate(LargeRange&, size_t alignment, size_t);
 
     void concurrentScavenge();
     void scavengeSmallPages(std::unique_lock<StaticMutex>&, std::chrono::milliseconds);
@@ -108,7 +113,7 @@ private:
     std::array<List<SmallPage>, pageClassCount> m_smallPages;
 
     Map<void*, size_t, LargeObjectHash> m_largeAllocated;
-    XLargeMap m_largeFree;
+    LargeMap m_largeFree;
 
     Map<Chunk*, ObjectType, ChunkHash> m_objectTypes;
 
@@ -118,6 +123,10 @@ private:
     Environment m_environment;
 
     VMHeap m_vmHeap;
+
+#if BOS(DARWIN)
+    qos_class_t m_requestedScavengerThreadQOSClass { QOS_CLASS_UNSPECIFIED };
+#endif
 };
 
 inline void Heap::allocateSmallBumpRanges(

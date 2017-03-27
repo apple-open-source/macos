@@ -54,7 +54,7 @@ public:
     }
     WEBCORE_EXPORT virtual ~WebVideoFullscreenModelVideoElement();
     WEBCORE_EXPORT void setVideoElement(HTMLVideoElement*);
-    WEBCORE_EXPORT HTMLVideoElement* videoElement() const { return m_videoElement.get(); }
+    HTMLVideoElement* videoElement() const { return m_videoElement.get(); }
     WEBCORE_EXPORT void setVideoFullscreenLayer(PlatformLayer*, std::function<void()> completionHandler = [] { });
     WEBCORE_EXPORT void waitForPreparedForInlineThen(std::function<void()> completionHandler = [] { });
     
@@ -64,7 +64,7 @@ public:
 
     WEBCORE_EXPORT void addClient(WebVideoFullscreenModelClient&) override;
     WEBCORE_EXPORT void removeClient(WebVideoFullscreenModelClient&) override;
-    WEBCORE_EXPORT void requestFullscreenMode(HTMLMediaElementEnums::VideoFullscreenMode) override;
+    WEBCORE_EXPORT void requestFullscreenMode(HTMLMediaElementEnums::VideoFullscreenMode, bool finishedWithMedia = false) override;
     WEBCORE_EXPORT void setVideoLayerFrame(FloatRect) override;
     WEBCORE_EXPORT void setVideoLayerGravity(VideoGravity) override;
     WEBCORE_EXPORT void fullscreenModeChanged(HTMLMediaElementEnums::VideoFullscreenMode) override;

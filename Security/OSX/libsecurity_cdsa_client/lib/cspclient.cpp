@@ -53,8 +53,7 @@ void CSPImpl::freeKey(CssmKey &key, const AccessCredentials *cred, bool permanen
 //
 // Manage generic context objects
 //
-Context::Context(const CSP &csp, CSSM_ALGORITHMS alg) 
-: ObjectImpl(csp), mAlgorithm(alg), mStaged(false), mCred(NULL)
+Context::Context(const CSP &csp, CSSM_ALGORITHMS alg) : ObjectImpl(csp), mAlgorithm(alg), mHandle(NULL), mStaged(false), mCred(NULL)
 {
 }
 

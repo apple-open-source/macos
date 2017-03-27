@@ -383,10 +383,12 @@ typedef uint32_t IOHIDStandardType;
  @abstract Describes different types of scaling that can be performed on element values.
  @constant kIOHIDValueScaleTypeCalibrated Type for value that is scaled with respect to the calibration properties.
  @constant kIOHIDValueScaleTypePhysical Type for value that is scaled with respect to the physical min and physical max of the element.
+ @constant kIOHIDValueScaleTypeExponent Type for value that is scaled with respect to the element's unit exponent.
  */
 enum {
     kIOHIDValueScaleTypeCalibrated,
-    kIOHIDValueScaleTypePhysical
+    kIOHIDValueScaleTypePhysical,
+    kIOHIDValueScaleTypeExponent
 };
 typedef uint32_t IOHIDValueScaleType;
 
@@ -464,6 +466,13 @@ typedef uint32_t IOHIDValueOptions;
 
 #define kKeyboardUsageMapKey        "KeyboardUsageMap"
 
+/*!
+ @defined kIOHIDDeviceOpenedByEventSystemKey
+ @abstract Property set when correcponding event service object opened by HID event system
+ @discussion boolean value
+ 
+ */
+#define  kIOHIDDeviceOpenedByEventSystemKey "DeviceOpenedByEventSystem"
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDKEYS_H_ */

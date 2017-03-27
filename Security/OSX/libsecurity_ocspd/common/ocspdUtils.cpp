@@ -217,7 +217,7 @@ CFAbsoluteTime genTimeToCFAbsTime(
 		}
 	} while(toGo != 0);
 
-	if(str[strLen - 1] == 'Z') {
+	if(strLen >= 1 && str[strLen - 1] == 'Z') {
 		isGMT = true;
 		strLen--;
 	}
@@ -267,6 +267,8 @@ void cfAbsTimeToGgenTime(
 	/* time zone = GMT */
 	CFTimeZoneRef tz = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0.0);
 	CFGregorianDate greg = CFAbsoluteTimeGetGregorianDate(absTime, tz);
+    CFRelease(tz);
+
 	int seconds = (int)greg.second;
 	sprintf(genTime, "%04d%02d%02d%02d%02d%02dZ",
 				(int)greg.year, greg.month, greg.day, greg.hour,

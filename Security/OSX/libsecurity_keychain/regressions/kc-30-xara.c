@@ -127,10 +127,10 @@ static void testAttackItem(CSSM_DL_DB_HANDLE dldbHandle) {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 0);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 0);
 
     makeItemWithIntegrity(name, kc, kSecClassGenericPassword, CFSTR("265438ea6807b509c9c6962df3f5033fd1af118f76c5f550e3ed90cb0d3ffce4"));
-    SecKeychainItemRef item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     CFReleaseNull(item);
     CFReleaseNull(kc);
 
@@ -138,7 +138,7 @@ static void testAttackItem(CSSM_DL_DB_HANDLE dldbHandle) {
     modifyAttributeInKeychain(name, dldbHandle, keychainDbFile, CSSM_DL_DB_RECORD_GENERIC_PASSWORD, "PrintName", modification, strlen(modification));
 
     kc = openKeychain(name);
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     readPasswordContentsWithResult(item, errSecInvalidItemRef, NULL);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
@@ -151,10 +151,10 @@ static void testAttackKey(CSSM_DL_DB_HANDLE dldbHandle) {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
 
     makeKeyWithIntegrity(name, kc, CFSTR("44f10f6bb508d47f8905859efc06eaee500304bc4da408b1f4d2a58c6502147b"));
-    SecKeychainItemRef item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
 
     checkKeyUse((SecKeyRef) item, errSecSuccess);
 
@@ -165,7 +165,7 @@ static void testAttackKey(CSSM_DL_DB_HANDLE dldbHandle) {
     modifyAttributeInKeychain(name, dldbHandle, keychainDbFile, CSSM_DL_DB_RECORD_SYMMETRIC_KEY, "Label", modification, strlen(modification));
 
     kc = openKeychain(name);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     checkKeyUse((SecKeyRef) item, errSecInvalidItemRef);
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -179,11 +179,10 @@ static void testAddAfterCorruptItem(CSSM_DL_DB_HANDLE dldbHandle) {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 0);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 0);
 
     makeCustomItemWithIntegrity(name, kc, kSecClassGenericPassword, CFSTR("test_label"), CFSTR("265438ea6807b509c9c6962df3f5033fd1af118f76c5f550e3ed90cb0d3ffce4"));
-    SecKeychainItemRef item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
-    CFReleaseNull(item);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
     makeDuplicateItem(name, kc, kSecClassGenericPassword);
     CFReleaseNull(kc);
@@ -192,12 +191,12 @@ static void testAddAfterCorruptItem(CSSM_DL_DB_HANDLE dldbHandle) {
     modifyAttributeInKeychain(name, dldbHandle, keychainDbFile, CSSM_DL_DB_RECORD_GENERIC_PASSWORD, "PrintName", modification, strlen(modification));
 
     kc = openKeychain(name);
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     deleteItem(item);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 0);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 0);
 
     makeCustomItemWithIntegrity(name, kc, kSecClassGenericPassword, CFSTR("evil_application"), CFSTR("d2aa97b30a1f96f9e61fcade2b00d9f4284976a83a5b68392251ee5ec827f8cc"));
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("evil_application"));
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -211,14 +210,14 @@ static void testAddAfterCorruptKey(CSSM_DL_DB_HANDLE dldbHandle) {
     secnotice("integrity", "************************************* %s", name);
 
     SecKeychainRef kc = newKeychain(name);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
 
     // Make a symmetric key
     makeCustomKeyWithIntegrity(name, kc, CFSTR("test_key"), CFSTR("44f10f6bb508d47f8905859efc06eaee500304bc4da408b1f4d2a58c6502147b"));
 
-    SecKeychainItemRef item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     makeCustomDuplicateKey(name, kc, CFSTR("test_key"));
     CFReleaseNull(item);
 
@@ -226,8 +225,8 @@ static void testAddAfterCorruptKey(CSSM_DL_DB_HANDLE dldbHandle) {
     SecKeyRef pub;
     SecKeyRef priv;
     makeCustomKeyPair(name, kc, CFSTR("test_key_pair"), &pub, &priv);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     CFReleaseNull(pub);
     CFReleaseNull(priv);
 
@@ -240,26 +239,26 @@ static void testAddAfterCorruptKey(CSSM_DL_DB_HANDLE dldbHandle) {
 
     kc = openKeychain(name);
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     deleteItem(item);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     deleteItem(item);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     deleteItem(item);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
 
     makeCustomKeyWithIntegrity(name, kc, CFSTR("evil_application"), CFSTR("ca6d90a0b053113e43bbb67f64030230c96537f77601f66bdf821d8684431dfc"));
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
 
     makeCustomDuplicateKey(name, kc, CFSTR("evil_application"));
 
     makeCustomKeyPair(name, kc, CFSTR("evil_application"), &pub, &priv);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     // We cannot create a duplicate key pair, so don't try.
 
@@ -308,7 +307,7 @@ static void testKeychainUpgrade() {
     for(int i = 0; i < 200; i++) {
         CFTypeRef result = NULL;
         CFStringRef cflabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("item%d"), i);
-        CFMutableDictionaryRef query = makeAddCustomItemDictionaryWithService(kc, kSecClassInternetPassword, cflabel, cflabel, CFSTR("no service"));
+        CFMutableDictionaryRef query = createAddCustomItemDictionaryWithService(kc, kSecClassInternetPassword, cflabel, cflabel, CFSTR("no service"));
         SecItemAdd(query, &result); // don't particuluarly care if this fails...
         CFReleaseNull(query);
         CFReleaseNull(cflabel);
@@ -340,7 +339,7 @@ static void testKeychainUpgrade() {
         secerror("beginning 1\n");
         SecKeychainRef blockKc;
         SecKeychainOpen(keychainName, &blockKc);
-        SecKeychainItemRef item = checkN(blockName, makeQueryItemDictionary(blockKc, kSecClassGenericPassword), 1);
+        SecKeychainItemRef item = checkNCopyFirst(blockName, createQueryItemDictionary(blockKc, kSecClassGenericPassword), 1);
         checkIntegrityHash(blockName, item, CFSTR("39c56eadd3e3b496b6099e5f3d5ff88eaee9ca2e3a50c1be8319807a72e451e5"));
         checkPartitionIDs(blockName, item, 0);
         CFReleaseSafe(blockKc);
@@ -353,7 +352,7 @@ static void testKeychainUpgrade() {
         secerror("beginning 2\n");
         SecKeychainRef blockKc;
         SecKeychainOpen(keychainName, &blockKc);
-        SecKeychainItemRef item = checkN(blockName, makeQueryItemDictionaryWithService(blockKc, kSecClassInternetPassword, CFSTR("test_service")), 1);
+        SecKeychainItemRef item = checkNCopyFirst(blockName, createQueryItemDictionaryWithService(blockKc, kSecClassInternetPassword, CFSTR("test_service")), 1);
         checkIntegrityHash(blockName, item, CFSTR("4f1b64e3c156968916e72d8ff3f1a8eb78b32abe0b2b43f0578eb07c722aaf03"));
         checkPartitionIDs(blockName, item, 0);
         CFReleaseSafe(blockKc);
@@ -366,7 +365,7 @@ static void testKeychainUpgrade() {
         secerror("beginning 3\n");
         SecKeychainRef blockKc;
         SecKeychainOpen(keychainName, &blockKc);
-        SecKeychainItemRef item = checkN(blockName, makeQueryKeyDictionary(blockKc, kSecAttrKeyClassSymmetric), 1);
+        SecKeychainItemRef item = checkNCopyFirst(blockName, createQueryKeyDictionary(blockKc, kSecAttrKeyClassSymmetric), 1);
         checkIntegrityHash(blockName, (SecKeychainItemRef) item, CFSTR("44f10f6bb508d47f8905859efc06eaee500304bc4da408b1f4d2a58c6502147b"));
         checkPartitionIDs(blockName, (SecKeychainItemRef) item, 0);
         CFReleaseSafe(blockKc);
@@ -379,7 +378,7 @@ static void testKeychainUpgrade() {
         secerror("beginning 4\n");
         SecKeychainRef blockKc;
         SecKeychainOpen(keychainName, &blockKc);
-        SecKeychainItemRef item = checkN(blockName, makeQueryKeyDictionary(blockKc, kSecAttrKeyClassPublic), 1);
+        SecKeychainItemRef item = checkNCopyFirst(blockName, createQueryKeyDictionary(blockKc, kSecAttrKeyClassPublic), 1);
         checkIntegrityHash(blockName, (SecKeychainItemRef) item, CFSTR("42d29fd5e9935edffcf6d0261eabddb00782ec775caa93716119e8e553ab5578"));
         checkPartitionIDs(blockName, (SecKeychainItemRef) item, 0);
         CFReleaseSafe(blockKc);
@@ -392,7 +391,7 @@ static void testKeychainUpgrade() {
         secerror("beginning 5\n");
         SecKeychainRef blockKc;
         SecKeychainOpen(keychainName, &blockKc);
-        SecKeychainItemRef item = checkN(blockName, makeQueryKeyDictionary(blockKc, kSecAttrKeyClassPrivate), 1);
+        SecKeychainItemRef item = checkNCopyFirst(blockName, createQueryKeyDictionary(blockKc, kSecAttrKeyClassPrivate), 1);
         checkIntegrityHash(blockName, (SecKeychainItemRef) item, CFSTR("bdf219cdbc2dc6c4521cf39d1beda2e3491ef0330ba59eb41229dd909632f48d"));
         checkPartitionIDs(blockName, (SecKeychainItemRef) item, 0);
         CFReleaseSafe(blockKc);
@@ -419,25 +418,25 @@ static void testKeychainUpgrade() {
     CFReleaseNull(kc);
     kc = openCustomKeychain(name, keychainName, "password");
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     checkIntegrityHash(name, item, CFSTR("39c56eadd3e3b496b6099e5f3d5ff88eaee9ca2e3a50c1be8319807a72e451e5"));
     checkPartitionIDs(name, item, 0);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     checkIntegrityHash(name, item, CFSTR("4f1b64e3c156968916e72d8ff3f1a8eb78b32abe0b2b43f0578eb07c722aaf03"));
     checkPartitionIDs(name, item, 0);
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("44f10f6bb508d47f8905859efc06eaee500304bc4da408b1f4d2a58c6502147b"));
     checkPartitionIDs(name, (SecKeychainItemRef) item, 0);
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("42d29fd5e9935edffcf6d0261eabddb00782ec775caa93716119e8e553ab5578"));
     checkPartitionIDs(name, (SecKeychainItemRef) item, 0);
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("bdf219cdbc2dc6c4521cf39d1beda2e3491ef0330ba59eb41229dd909632f48d"));
     checkPartitionIDs(name, (SecKeychainItemRef) item, 0);
 
@@ -480,8 +479,9 @@ static void testKeychainCreateOver() {
     // Check that we upgrade on SecKeychainOpen
     SecKeychainRef kc = openCustomKeychain(name, keychainName, "password");
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     checkIntegrityHash(name, item, CFSTR("39c56eadd3e3b496b6099e5f3d5ff88eaee9ca2e3a50c1be8319807a72e451e5"));
+    CFReleaseNull(item);
 
     ok_status(SecKeychainDelete(kc));
     CFReleaseNull(kc);
@@ -495,11 +495,11 @@ static void testKeychainCreateOver() {
     ok_status(SecKeychainCreate(keychainFile, (UInt32) strlen("password"), "password", false, NULL, &kc), "%s: SecKeychainCreate", name);
 
     // Directly after creating a keychain, there shouldn't be any items (even though an old keychain exists underneath)
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 0);
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 0);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 0);
+    checkN(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 0);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 0);
 
     // Check the keychain's version and path
     ok_status(SecKeychainGetKeychainVersion(kc, &version), "%s: SecKeychainGetKeychainVersion", name);
@@ -546,21 +546,21 @@ static void testKeychainDowngrade() {
 
     SecKeychainItemRef item;
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     checkIntegrityHash(name, item, CFSTR("6ba8d9f77ddba54d9373b11ae5c8f7b55a5e81da27e05e86723eeceb0a9a8e0c"));
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     checkIntegrityHash(name, item, CFSTR("630a9fe4f0191db8a99d6e8455e7114f628ce8f0f9eb3559efa572a98877a2b2"));
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("44f10f6bb508d47f8905859efc06eaee500304bc4da408b1f4d2a58c6502147b"));
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("d27ee2be4920d5b6f47f6b19696d09c9a6c1a5d80c6f148f778db27b4ba99d9a"));
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
     checkIntegrityHash(name, (SecKeychainItemRef) item, CFSTR("4b3f7bd7f9e48dc71006ce670990aed9dba6d5089b84d4113121bab41d0a3228"));
 
 
@@ -569,14 +569,14 @@ static void testKeychainDowngrade() {
     ok_status(SecKeychainGetKeychainVersion(kc, &version), "%s: SecKeychainGetKeychainVersion", name);
     is(version, version_MacOS_10_0, "%s: version of downgraded keychain is incorrect", name);
 
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
-    checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    checkN(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
 
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
-    checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    checkN(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -620,7 +620,7 @@ static void testKeychainWrongFile256() {
     SecKeychainItemRef item;
 
     // Iterate over the keychain to trigger upgrade
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
 
     // We should have created keychainFile, check for it
@@ -636,15 +636,15 @@ static void testKeychainWrongFile256() {
     ok_status(SecKeychainGetPath(kc, &len, path), "%s: SecKeychainGetPath", name);
     eq_stringn(path, len, keychainDbFile, strlen(keychainDbFile), "%s: paths do not match", name);
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -683,7 +683,7 @@ static void testKeychainWrongFile512() {
     SecKeychainItemRef item;
 
     // Iterate over the keychain to trigger upgrade
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
 
     // We should have move the keychain to keychainDbFile, check for it
@@ -699,15 +699,15 @@ static void testKeychainWrongFile512() {
     ok_status(SecKeychainGetPath(kc, &len, path), "%s: SecKeychainGetPath", name);
     eq_stringn(path, len, keychainDbFile, strlen(keychainDbFile), "%s: paths do not match", name);
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     makeCustomDuplicateItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -815,17 +815,17 @@ static void testUidAccess() {
     SecAccessRef access = makeUidAccess(getuid());
 
     SecKeychainRef kc = newKeychain(name);
-    CFMutableDictionaryRef query = makeAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
+    CFMutableDictionaryRef query = createAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
     CFDictionarySetValue(query, kSecAttrAccess, access);
 
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
 
-    SecKeychainItemRef item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
     ok_status(SecKeychainItemSetAccess(item, access), "%s: SecKeychainItemSetAccess", name);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
     // Check to make sure the ACL stays
     access = NULL;
@@ -919,14 +919,14 @@ static void testMultipleUidAccess() {
     SecAccessRef access = makeMultipleUidAccess(uids, 5);
 
     SecKeychainRef kc = newKeychain(name);
-    CFMutableDictionaryRef query = makeAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
+    CFMutableDictionaryRef query = createAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
     CFDictionarySetValue(query, kSecAttrAccess, access);
 
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
 
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -941,19 +941,20 @@ static void testRootUidAccess() {
     SecAccessRef access = SecAccessCreateWithOwnerAndACL(getuid(), 0, (kSecUseOnlyUID | kSecHonorRoot), NULL, NULL);
 
     SecKeychainRef kc = newKeychain(name);
-    CFMutableDictionaryRef query = makeAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
+    CFMutableDictionaryRef query = createAddItemDictionary(kc, kSecClassGenericPassword, CFSTR("test label"));
     CFDictionarySetValue(query, kSecAttrAccess, access);
 
     CFTypeRef result = NULL;
     ok_status(SecItemAdd(query, &result), "%s: SecItemAdd", name);
     ok(result != NULL, "%s: SecItemAdd returned a result", name);
 
-    query = makeQueryItemDictionary(kc, kSecClassGenericPassword);
+    query = createQueryItemDictionary(kc, kSecClassGenericPassword);
 
-    SecKeychainItemRef item = checkN(name, query, 1);
+    SecKeychainItemRef item = checkNCopyFirst(name, query, 1);
 
     ok_status(SecKeychainItemSetAccess(item, access), "%s: SecKeychainItemSetAccess", name);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    CFReleaseNull(access);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -973,8 +974,8 @@ static void testBadACL() {
     SecKeychainRef kc = openCustomKeychain(name, keychainName, "password");
 
     // Check that these exist in this keychain...
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    checkN(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFRelease(kc);
@@ -994,24 +995,24 @@ static void testBadACL() {
     kc = openCustomKeychain(name, keychainName, "password");
 
     // These items exist in this keychain, but their ACL is corrupted. We should be able to find them, but not fetch data.
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     readPasswordContentsWithResult(item, errSecInvalidItemRef, NULL); // we don't expect to be able to read this
     deleteItem(item);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 0);
+    checkN(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 0);
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     readPasswordContentsWithResult(item, errSecInvalidItemRef, NULL); // we don't expect to be able to read this
     deleteItem(item);
-    checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 0);
+    checkN(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 0);
 
     // These should work
     makeItem(name, kc, kSecClassGenericPassword, CFSTR("test_generic"));
     makeItem(name, kc, kSecClassInternetPassword, CFSTR("test_internet"));
 
     // And now the items should exist
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
     readPasswordContents(item, CFSTR("data"));
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
     readPasswordContents(item, CFSTR("data"));
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
@@ -1035,12 +1036,12 @@ static void testIterateLockedKeychain() {
 
     ok_status(SecKeychainLock(kc), "%s: SecKeychainLock", name);
 
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassGenericPassword), 1);
-    item = checkN(name, makeQueryItemDictionary(kc, kSecClassInternetPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassGenericPassword), 1);
+    item = checkNCopyFirst(name, createQueryItemDictionary(kc, kSecClassInternetPassword), 1);
 
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
-    item = checkN(name, makeQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassSymmetric), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPublic), 1);
+    item = checkNCopyFirst(name, createQueryKeyDictionary(kc, kSecAttrKeyClassPrivate), 1);
 
     ok_status(SecKeychainDelete(kc), "%s: SecKeychainDelete", name);
     CFReleaseNull(kc);
@@ -1145,7 +1146,7 @@ static void tests(void)
     //makeOldKeychainBlob();
 }
 
-#pragma clang pop
+#pragma clang diagnostic pop
 #else
 
 #define kTestCount (0)

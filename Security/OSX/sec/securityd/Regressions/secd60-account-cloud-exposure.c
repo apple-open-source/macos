@@ -212,13 +212,7 @@ static void tests(void)
     CFReleaseNull(carole_account);
     CFReleaseNull(cfpassword);
     
-    SOSUnregisterAllTransportMessages();
-    SOSUnregisterAllTransportCircles();
-    SOSUnregisterAllTransportKeyParameters();
-    CFArrayRemoveAllValues(key_transports);
-    CFArrayRemoveAllValues(circle_transports);
-    CFArrayRemoveAllValues(message_transports);
-    
+    SOSTestCleanup();
 }
 
 int secd_60_account_cloud_exposure(int argc, char *const *argv)

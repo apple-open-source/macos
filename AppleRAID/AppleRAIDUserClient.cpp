@@ -50,8 +50,22 @@ AppleRAIDUserClient::start(IOService * provider)
         
     ucController = OSDynamicCast(AppleRAID, provider);
     if (!ucController) return false;
+
+    ucController->retain();
         
     return true;
+}
+
+
+void
+AppleRAIDUserClient::stop(IOService * provider)
+{
+    IOLogUC("AppleRAIDUserClient::stop()\n");
+
+    if (ucController) ucController->release();
+    ucController = NULL;
+
+    super::stop(provider);
 }
 
 
@@ -63,7 +77,6 @@ AppleRAIDUserClient::clientClose(void)
     closeController();
     
     ucClient = NULL;
-    ucController = NULL;
 
     terminate();
     

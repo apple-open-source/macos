@@ -9,8 +9,9 @@
 #include "libxml.h"
 #ifdef LIBXML_SCHEMAS_ENABLED
 
-#include <libxml/xmlversion.h>
 #include <libxml/parser.h>
+#include <libxml/xmlreader.h>
+#include <libxml/xmlversion.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -48,9 +49,12 @@
 #ifdef LIBXML_DEBUG_ENABLED
 static int debug = 0;
 #endif
-static int noout = 0;
 #ifdef HAVE_MMAP
 static int memory = 0;
+#endif
+static int noout = 0;
+#ifdef LIBXML_READER_ENABLED
+static int stream = 0;
 #endif
 
 
@@ -58,27 +62,33 @@ int main(int argc, char **argv) {
     int i;
     int files = 0;
     xmlSchemaPtr schema = NULL;
+    const char *schemaPath = NULL;
 
     for (i = 1; i < argc ; i++) {
 #ifdef LIBXML_DEBUG_ENABLED
 	if ((!strcmp(argv[i], "-debug")) || (!strcmp(argv[i], "--debug")))
 	    debug++;
-	else
 #endif
 #ifdef HAVE_MMAP
-	if ((!strcmp(argv[i], "-memory")) || (!strcmp(argv[i], "--memory"))) {
+	else if ((!strcmp(argv[i], "-memory")) || (!strcmp(argv[i], "--memory")))
 	    memory++;
-        } else
 #endif
-	if ((!strcmp(argv[i], "-noout")) || (!strcmp(argv[i], "--noout"))) {
+	else if ((!strcmp(argv[i], "-noout")) || (!strcmp(argv[i], "--noout")))
 	    noout++;
-        }
+#ifdef LIBXML_READER_ENABLED
+	else if ((!strcmp(argv[i], "-stream")) || (!strcmp(argv[i], "--stream")))
+	    stream++;
+#endif
     }
     xmlLineNumbersDefault(1);
     for (i = 1; i < argc ; i++) {
 	if (argv[i][0] != '-') {
 	    if (schema == NULL) {
 		xmlSchemaParserCtxtPtr ctxt;
+
+                schemaPath = argv[i];
+
+                xmlGetWarningsDefaultValue = 1;
 
 #ifdef HAVE_MMAP
 		if (memory) {
@@ -120,8 +130,63 @@ int main(int argc, char **argv) {
 		    xmlSchemaDump(stdout, schema);
 #endif
 #endif /* LIBXML_OUTPUT_ENABLED */
+                xmlGetWarningsDefaultValue = 0;
+
 		if (schema == NULL)
 		    goto failed_schemas;
+#ifdef LIBXML_READER_ENABLED
+            } else if (stream) {
+                xmlTextReaderPtr reader = NULL;
+                int ret = 0;
+#ifdef HAVE_MMAP
+                int fd = -1;
+                struct stat info;
+                const char *base = NULL;
+
+                if (memory) {
+                    if (stat(argv[i], &info) < 0)
+                        break;
+                    if ((fd = open(argv[i], O_RDONLY)) < 0)
+                        break;
+                    base = mmap(NULL, info.st_size, PROT_READ, MAP_SHARED, fd, 0);
+                    if (base == (void *)MAP_FAILED) {
+                        close(fd);
+                        break;
+                    }
+
+                    reader = xmlReaderForMemory(base, info.st_size, argv[i], NULL, 0);
+                } else
+#endif
+                {
+                    reader = xmlReaderForFile(argv[i], NULL, 0);
+                }
+
+                ret = xmlTextReaderSchemaValidate(reader, schemaPath);
+                if (ret < 0)
+                    break;
+
+                do {
+                    ret = xmlTextReaderRead(reader);
+                } while (ret == 1);
+
+                ret = xmlTextReaderIsValid(reader);
+                if (ret == 1) {
+                    fprintf(stdout, "%s validates\n", argv[i]);
+                } else if (ret == 0) {
+                    fprintf(stdout, "%s fails to validate\n", argv[i]);
+                } else {
+                    fprintf(stdout, "%s validation generated an internal error\n",
+                           argv[i]);
+                }
+
+                xmlFreeTextReader(reader);
+#ifdef HAVE_MMAP
+                if (memory) {
+                    munmap((char *) base, info.st_size);
+                    close(fd);
+                }
+#endif
+#endif
 	    } else {
 		xmlDocPtr doc;
 
@@ -140,11 +205,11 @@ int main(int argc, char **argv) {
 			    stderr);
 		    ret = xmlSchemaValidateDoc(ctxt, doc);
 		    if (ret == 0) {
-			printf("%s validates\n", argv[i]);
+			fprintf(stdout, "%s validates\n", argv[i]);
 		    } else if (ret > 0) {
-			printf("%s fails to validate\n", argv[i]);
+			fprintf(stdout, "%s fails to validate\n", argv[i]);
 		    } else {
-			printf("%s validation generated an internal error\n",
+			fprintf(stdout, "%s validation generated an internal error\n",
 			       argv[i]);
 		    }
 		    xmlSchemaFreeValidCtxt(ctxt);
@@ -163,9 +228,12 @@ int main(int argc, char **argv) {
 #ifdef LIBXML_DEBUG_ENABLED
 	printf("\t--debug : dump a debug tree of the in-memory document\n");
 #endif
-	printf("\t--noout : do not print the result\n");
 #ifdef HAVE_MMAP
 	printf("\t--memory : test the schemas in memory parsing\n");
+#endif
+	printf("\t--noout : do not print the result\n");
+#ifdef LIBXML_READER_ENABLED
+	printf("\t--stream : use the streaming interface to process very large files\n");
 #endif
     }
 failed_schemas:

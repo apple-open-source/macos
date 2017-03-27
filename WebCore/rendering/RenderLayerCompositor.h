@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef RenderLayerCompositor_h
-#define RenderLayerCompositor_h
+#pragma once
 
 #include "ChromeClient.h"
 #include "GraphicsLayerClient.h"
@@ -312,7 +311,7 @@ public:
     void didPaintBacking(RenderLayerBacking*);
 
     void setRootExtendedBackgroundColor(const Color&);
-    Color rootExtendedBackgroundColor() const { return m_rootExtendedBackgroundColor; }
+    const Color& rootExtendedBackgroundColor() const { return m_rootExtendedBackgroundColor; }
 
 #if ENABLE(CSS_SCROLL_SNAP)
     void updateScrollSnapPropertiesWithFrameView(const FrameView&);
@@ -351,7 +350,6 @@ private:
     bool updateBacking(RenderLayer&, CompositingChangeRepaint shouldRepaint, BackingRequired = BackingRequired::Unknown);
 
     void clearBackingForLayerIncludingDescendants(RenderLayer&);
-    void setIsInWindowForLayerIncludingDescendants(RenderLayer&, bool isInWindow);
 
     // Repaint this and its child layers.
     void recursiveRepaintLayer(RenderLayer&);
@@ -570,5 +568,3 @@ private:
 void paintScrollbar(Scrollbar*, GraphicsContext&, const IntRect& clip);
 
 } // namespace WebCore
-
-#endif // RenderLayerCompositor_h

@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2014 - 2016 Apple Inc. All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #include <Security/Security.h>
 #include <Security/SecBreadcrumb.h>
@@ -11,6 +33,8 @@
 
 #include <CommonCrypto/CommonRandomSPI.h>
 
+#import "SecCFAllocator.h"
+
 #define CFReleaseNull(CF) ({ __typeof__(CF) *const _pcf = &(CF), _cf = *_pcf; (_cf ? (*_pcf) = ((__typeof__(CF))0), (CFRelease(_cf), ((__typeof__(CF))0)) : _cf); })
 
 static const int kKeySize = CCAES_KEY_SIZE_128;
@@ -20,8 +44,8 @@ static const CFIndex tagLen = 16;
 static const CFIndex ivLen = 16;
 static const uint8_t BCversion1 = 1;
 static const uint8_t BCversion2 = 2;
-static const size_t paddingSize = 256;
-static const size_t maxSize = 1024;
+static const ssize_t paddingSize = 256;
+static const ssize_t maxSize = 1024;
 
 Boolean
 SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
@@ -41,7 +65,7 @@ SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
     if (outError)
         *outError = NULL;
     
-    key = CFDataCreateMutable(NULL, 0);
+    key = CFDataCreateMutable(SecCFAllocatorZeroize(), 0);
     if (key == NULL)
         return false;
     
@@ -62,7 +86,7 @@ SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
      * Create data for password
      */
     
-    pw = CFStringCreateExternalRepresentation(NULL, inPassword, kCFStringEncodingUTF8, 0);
+    pw = CFStringCreateExternalRepresentation(SecCFAllocatorZeroize(), inPassword, kCFStringEncodingUTF8, 0);
     if (pw == NULL) {
         CFReleaseNull(key);
         return false;
@@ -178,7 +202,7 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
         return false;
     }
     
-    gcmkey = CFDataCreateMutableCopy(NULL, 0, inEncryptedKey);
+    gcmkey = CFDataCreateMutableCopy(SecCFAllocatorZeroize(), 0, inEncryptedKey);
     if (gcmkey == NULL) {
         return false;
     }
@@ -188,7 +212,7 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
         return false;
     }
 
-    oldpw = CFDataCreateMutable(NULL, outLength);
+    oldpw = CFDataCreateMutable(SecCFAllocatorZeroize(), outLength);
     if (oldpw == NULL) {
         CFReleaseNull(gcmkey);
         return false;
@@ -199,7 +223,7 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
      * Create data for password
      */
     
-    pw = CFStringCreateExternalRepresentation(NULL, inPassword, kCFStringEncodingUTF8, 0);
+    pw = CFStringCreateExternalRepresentation(SecCFAllocatorZeroize(), inPassword, kCFStringEncodingUTF8, 0);
     if (pw == NULL) {
         CFReleaseNull(oldpw);
         CFReleaseNull(gcmkey);
@@ -246,6 +270,7 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
                               outLength, CFDataGetBytePtr(inBreadcrumb) + 1, CFDataGetMutableBytePtr(oldpw), tagLen, tag);
         if (memcmp(tag, CFDataGetBytePtr(inBreadcrumb) + 1 + outLength, tagLen) != 0) {
             CFReleaseNull(oldpw);
+            CFReleaseNull(gcmkey);
             return false;
         }
 
@@ -261,6 +286,7 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
                              tagLen, tag);
         if (res) {
             CFReleaseNull(oldpw);
+            CFReleaseNull(gcmkey);
             return false;
         }
     }
@@ -270,14 +296,14 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
 
     memcpy(&size, CFDataGetMutableBytePtr(oldpw), sizeof(size));
     size = ntohl(size);
-    if (size > outLength - 4) {
+    if ((ssize_t) size > outLength - 4) {
         CFReleaseNull(oldpw);
         return false;
     }
     memmove(CFDataGetMutableBytePtr(oldpw), CFDataGetMutableBytePtr(oldpw) + 4, size);
     CFDataSetLength(oldpw, size);
     
-    *outPassword = CFStringCreateFromExternalRepresentation(NULL, oldpw, kCFStringEncodingUTF8);
+    *outPassword = CFStringCreateFromExternalRepresentation(SecCFAllocatorZeroize(), oldpw, kCFStringEncodingUTF8);
     CFReleaseNull(oldpw);
 
     return true;
@@ -300,18 +326,18 @@ SecBreadcrumbCreateNewEncryptedKey(CFStringRef oldPassword,
         return NULL;
     }
 
-    newEncryptedKey = CFDataCreateMutableCopy(NULL, 0, encryptedKey);
+    newEncryptedKey = CFDataCreateMutableCopy(SecCFAllocatorZeroize(), 0, encryptedKey);
     if (newEncryptedKey == NULL) {
         return NULL;
     }
     
-    oldpw = CFStringCreateExternalRepresentation(NULL, oldPassword, kCFStringEncodingUTF8, 0);
+    oldpw = CFStringCreateExternalRepresentation(SecCFAllocatorZeroize(), oldPassword, kCFStringEncodingUTF8, 0);
     if (oldpw == NULL) {
         CFReleaseNull(newEncryptedKey);
         return false;
     }
 
-    newpw = CFStringCreateExternalRepresentation(NULL, newPassword, kCFStringEncodingUTF8, 0);
+    newpw = CFStringCreateExternalRepresentation(SecCFAllocatorZeroize(), newPassword, kCFStringEncodingUTF8, 0);
     if (newpw == NULL) {
         CFReleaseNull(newEncryptedKey);
         CFReleaseNull(oldpw);

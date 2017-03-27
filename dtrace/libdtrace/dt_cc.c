@@ -21,7 +21,7 @@
 
 /*
  * Portions copyright (c) 2011, Joyent, Inc. All rights reserved.
- * Portions copyright (c) 2011, Delphix. All rights reserved.
+ * Portions copyright (c) 2011, 2016 Delphix. All rights reserved.
  */
 
 /*
@@ -1881,13 +1881,22 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 		err = 0;
 	}
 
-	if (err == EDT_NOPROBE && !(yypcb->pcb_cflags & DTRACE_C_ZDEFS)) {
-		xyerror(D_PDESC_ZERO, "probe description %s:%s:%s:%s does not "
-		    "match any probes\n", pdp->dtpd_provider, pdp->dtpd_mod,
-		    pdp->dtpd_func, pdp->dtpd_name);
-	}
+	if (!(yypcb->pcb_cflags & DTRACE_C_ZDEFS)) {
+		if (err == EDT_NOPROBE) {
+			xyerror(D_PDESC_ZERO, "probe description %s:%s:%s:%s does not "
+			    "match any probes\n", pdp->dtpd_provider, pdp->dtpd_mod,
+			    pdp->dtpd_func, pdp->dtpd_name);
+		}
+		else if (err == EDT_PROBE_RESTRICTED) {
+			xyerror(D_PDESC_ZERO, "probe description %s:%s:%s:%s does not "
+			    "match any probes. %s\n", pdp->dtpd_provider, pdp->dtpd_mod,
+			    pdp->dtpd_func, pdp->dtpd_name, dtrace_errmsg(dtp, err));
 
-	if (err != EDT_NOPROBE && err != EDT_UNSTABLE && err != 0)
+		}
+	}
+	
+
+	if (err != EDT_NOPROBE && err != EDT_PROBE_RESTRICTED && err != EDT_UNSTABLE && err != 0)
 		xyerror(D_PDESC_INVAL, "%s\n", dtrace_errmsg(dtp, err));
 
 	dt_dprintf("set context to %s:%s:%s:%s [%u] prp=%p attr=%s argc=%d\n",
@@ -2567,6 +2576,28 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	}
 
 	/*
+	 * Perform sugar transformations (for "if" / "else") and replace the
+	 * existing clause chain with the new one.
+	 */
+	if (context == DT_CTX_DPROG) {
+		dt_node_t *dnp, *next_dnp;
+		dt_node_t *new_list = NULL;
+
+		for (dnp = yypcb->pcb_root->dn_list;
+			 dnp != NULL; dnp = next_dnp) {
+			/* remove this node from the list */
+			next_dnp = dnp->dn_list;
+			dnp->dn_list = NULL;
+
+			if (dnp->dn_kind == DT_NODE_CLAUSE)
+				dnp = dt_compile_sugar(dtp, dnp);
+			/* append node to the new list */
+			new_list = dt_node_link(new_list, dnp);
+		}
+		yypcb->pcb_root->dn_list = new_list;
+	}
+
+	/*
 	 * If we have successfully created a parse tree for a D program, loop
 	 * over the clauses and actions and instantiate the corresponding
 	 * libdtrace program.  If we are parsing a D expression, then we
@@ -2586,7 +2617,9 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 		for (; dnp != NULL; dnp = dnp->dn_list) {
 			switch (dnp->dn_kind) {
 			case DT_NODE_CLAUSE:
-				dt_compile_clause(dtp, dnp);
+					if (DT_TREEDUMP_PASS(dtp, 4))
+						dt_printd(dnp, stderr, 0);
+					dt_compile_clause(dtp, dnp);
 				break;
 			case DT_NODE_XLATOR:
 				if (dtp->dt_xlatemode == DT_XL_DYNAMIC)

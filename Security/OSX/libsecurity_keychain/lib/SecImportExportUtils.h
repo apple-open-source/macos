@@ -26,9 +26,9 @@
 #ifndef	_SECURITY_SEC_IMPORT_EXPORT_UTILS_H_
 #define _SECURITY_SEC_IMPORT_EXPORT_UTILS_H_
 
-#include "SecImportExport.h"
+#include <Security/SecImportExport.h>
 #include "SecKeychainPriv.h"
-#include "SecBasePriv.h"
+#include <Security/SecBasePriv.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/errors.h>
 
@@ -82,7 +82,7 @@ bool impExpImportParseFileExten(
 	SecExternalItemType	*itemType);		// RETURNED
 
 /* do a [NSString stringByDeletingPathExtension] equivalent */
-CFStringRef impExpImportDeleteExtension(
+CFStringRef CF_RETURNS_RETAINED impExpImportDeleteExtension(
 	CFStringRef			fileStr);
 
 /*

@@ -129,8 +129,9 @@ sec_xdr_array(XDR *xdrs, uint8_t **addrp, u_int *sizep, u_int maxsize, u_int els
 				return (FALSE);
 			if (!target)
 				target = &obj[0];
-            if (!sizeof_alloc)
+            if (!sizeof_alloc && addrp != NULL) {
 				*addrp = target;
+            }
             break;
 
         case XDR_FREE:
@@ -155,7 +156,7 @@ sec_xdr_array(XDR *xdrs, uint8_t **addrp, u_int *sizep, u_int maxsize, u_int els
     /*
      * the array may need freeing
      */
-    if (xdrs->x_op == XDR_FREE) {
+    if (xdrs->x_op == XDR_FREE && addrp != NULL) {
         sec_mem_free(xdrs, *addrp, nodesize);
         *addrp = NULL;
     }

@@ -1315,7 +1315,7 @@ kern_return_t ucsp_server_postNotification(UCSP_ARGS, uint32 domain, uint32 even
 	DATA_IN(data), uint32 sequence)
 {
 	BEGIN_IPC(postNotification)
-		Listener::notify(domain, event, sequence, DATA(data));
+		Listener::notify(domain, event, sequence, DATA(data), auditToken);
 	END_IPC(CSSM)
 }
 

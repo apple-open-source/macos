@@ -36,15 +36,17 @@
 #include "MemoryPressureHandler.h"
 #include "WebKitFontFamilyNames.h"
 #include <wtf/HashMap.h>
-#include <wtf/ListHashSet.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/TemporaryChange.h>
 #include <wtf/text/AtomicStringHash.h>
 #include <wtf/text/StringHash.h>
 
 #if ENABLE(OPENTYPE_VERTICAL)
 #include "OpenTypeVerticalData.h"
+#endif
+
+#if USE(DIRECT2D)
+#include <dwrite.h>
 #endif
 
 #if PLATFORM(IOS)
@@ -400,7 +402,7 @@ void FontCache::purgeInactiveFontData(unsigned purgeCount)
     keysToRemove.reserveInitialCapacity(fontPlatformDataCache().size());
     for (auto& entry : fontPlatformDataCache()) {
         if (entry.value && !cachedFonts().contains(*entry.value))
-            keysToRemove.append(entry.key);
+            keysToRemove.uncheckedAppend(entry.key);
     }
     for (auto& key : keysToRemove)
         fontPlatformDataCache().remove(key);

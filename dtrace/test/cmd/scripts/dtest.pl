@@ -323,7 +323,7 @@ foreach $file (@files) {
 
 	eval {
 		local $SIG{ALRM} = sub { die "alarm clock restart" };
-		alarm(45);
+		alarm(240);
 		if (waitpid($pid, 0) == -1) {
 			alarm(0);
 			die "waitpid returned -1";

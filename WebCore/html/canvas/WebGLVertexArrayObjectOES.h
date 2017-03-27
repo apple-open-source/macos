@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef WebGLVertexArrayObjectOES_h
-#define WebGLVertexArrayObjectOES_h
+#pragma once
 
 #include "WebGLBuffer.h"
 #include "WebGLContextObject.h"
@@ -34,13 +33,11 @@ namespace WebCore {
 
 class WebGLVertexArrayObjectOES final : public WebGLVertexArrayObjectBase {
 public:
-    static Ref<WebGLVertexArrayObjectOES> create(WebGLRenderingContextBase*, VAOType);
+    static Ref<WebGLVertexArrayObjectOES> create(WebGLRenderingContextBase&, VAOType);
     virtual ~WebGLVertexArrayObjectOES();
 private:
-    WebGLVertexArrayObjectOES(WebGLRenderingContextBase*, VAOType);
+    WebGLVertexArrayObjectOES(WebGLRenderingContextBase&, VAOType);
     void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
 };
 
 } // namespace WebCore
-
-#endif // WebGLVertexArrayObjectOES_h

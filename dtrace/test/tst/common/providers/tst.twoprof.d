@@ -39,6 +39,7 @@
 
 #pragma D option quiet
 #pragma D option statusrate=50ms
+#pragma D option nolibs
 
 BEGIN
 {

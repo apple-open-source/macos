@@ -66,9 +66,9 @@
  * ====================================================================
  */
 
-#include <openssl/bn.h>
-#include <openssl/err.h>
-#include <openssl/rsa.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/opensslerr.h>
+#include <openssl/rsa_legacy.h>
 
 
 int RSA_check_key(RSA *key)

@@ -494,11 +494,13 @@ enum {
  @constant kIOHIDBiometricEventTypeHumanProximity
  @constant kIOHIDBiometricEventTypeHumanTouch
  @constant kIOHIDBiometricEventTypeHumanForce
+ @constant kIOHIDBiometricEventTypeHumanPresence
  */
 enum {
     kIOHIDBiometricEventTypeHumanProximity = 0,
     kIOHIDBiometricEventTypeHumanTouch,
-    kIOHIDBiometricEventTypeHumanForce
+    kIOHIDBiometricEventTypeHumanForce,
+    kIOHIDBiometricEventTypeHumanPresence
 };
 
 typedef uint32_t IOHIDBiometricEventType;

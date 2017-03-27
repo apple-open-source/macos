@@ -22,7 +22,7 @@
 #ifndef	_DH_UTILS_H_
 #define _DH_UTILS_H_
 
-#include <openssl/dh.h>
+#include <openssl/dh_legacy.h>
 #include <AppleCSPSession.h>
 #include <security_cdsa_utilities/context.h>
 

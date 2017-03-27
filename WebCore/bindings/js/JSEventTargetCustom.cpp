@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2016 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,7 +60,7 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, EventTarget& targ
     if (value.inherits(JS##interfaceName::info()))                      \
         return &jsCast<JS##interfaceName*>(asObject(value))->wrapped();
 
-EventTarget* JSEventTarget::toWrapped(ExecState&, JSValue value)
+EventTarget* JSEventTarget::toWrapped(JSValue value)
 {
     TRY_TO_UNWRAP_WITH_INTERFACE(DOMWindowShell)
     TRY_TO_UNWRAP_WITH_INTERFACE(DOMWindow)
@@ -73,13 +73,18 @@ EventTarget* JSEventTarget::toWrapped(ExecState&, JSValue value)
 
 std::unique_ptr<JSEventTargetWrapper> jsEventTargetCast(JSValue thisValue)
 {
-    if (auto* target = jsDynamicCast<JSEventTarget*>(thisValue))
+    if (auto* target = jsDynamicDowncast<JSEventTarget*>(thisValue))
         return std::make_unique<JSEventTargetWrapper>(target->wrapped(), *target);
     if (auto* window = toJSDOMWindow(thisValue))
         return std::make_unique<JSEventTargetWrapper>(window->wrapped(), *window);
     if (auto* scope = toJSWorkerGlobalScope(thisValue))
         return std::make_unique<JSEventTargetWrapper>(scope->wrapped(), *scope);
     return nullptr;
+}
+
+void JSEventTarget::visitAdditionalChildren(SlotVisitor& visitor)
+{
+    wrapped().visitJSEventListeners(visitor);
 }
 
 } // namespace WebCore

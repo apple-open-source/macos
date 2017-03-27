@@ -27,16 +27,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorDOMAgent_h
-#define InspectorDOMAgent_h
+#pragma once
 
 #include "EventTarget.h"
 #include "InspectorWebAgentBase.h"
-#include "Timer.h"
 #include <inspector/InspectorBackendDispatchers.h>
 #include <inspector/InspectorFrontendDispatchers.h>
 #include <inspector/InspectorValues.h>
-#include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
@@ -55,20 +52,18 @@ class JSValue;
 namespace WebCore {
     
 class AccessibilityObject;
-class ContainerNode;
 class CharacterData;
 class DOMEditor;
 class Document;
 class Element;
 class Event;
+class Exception;
 class FloatQuad;
 class Frame;
 class InspectorHistory;
 class InspectorOverlay;
 class InspectorPageAgent;
 class HitTestResult;
-class HTMLElement;
-class NameNodeMap;
 class Node;
 class PseudoElement;
 class RevalidateStyleAttributeTask;
@@ -80,10 +75,10 @@ typedef String ErrorString;
 typedef int BackendNodeId;
 
 struct EventListenerInfo {
-    EventListenerInfo(Node* node, const AtomicString& eventType, const EventListenerVector& eventListenerVector)
+    EventListenerInfo(Node* node, const AtomicString& eventType, EventListenerVector&& eventListenerVector)
         : node(node)
         , eventType(eventType)
-        , eventListenerVector(eventListenerVector)
+        , eventListenerVector(WTFMove(eventListenerVector))
     {
     }
 
@@ -108,7 +103,8 @@ public:
     InspectorDOMAgent(WebAgentContext&, InspectorPageAgent*, InspectorOverlay*);
     virtual ~InspectorDOMAgent();
 
-    static String toErrorString(const ExceptionCode&);
+    static String toErrorString(ExceptionCode);
+    static String toErrorString(Exception&&);
 
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
@@ -157,7 +153,7 @@ public:
     void getEventListeners(Node*, Vector<EventListenerInfo>& listenersArray, bool includeAncestors);
 
 
-    // InspectorInstrumentation callbacks.
+    // InspectorInstrumentation
     void didInsertDOMNode(Node&);
     void didRemoveDOMNode(Node&);
     void willModifyDOMAttr(Element&, const AtomicString& oldValue, const AtomicString& newValue);
@@ -167,9 +163,10 @@ public:
     void didInvalidateStyleAttr(Node&);
     void didPushShadowRoot(Element& host, ShadowRoot&);
     void willPopShadowRoot(Element& host, ShadowRoot&);
+    void didChangeCustomElementState(Element&);
     bool handleTouchEvent(Node&);
     void didCommitLoad(Document*);
-    void frameDocumentUpdated(Frame*);
+    void frameDocumentUpdated(Frame&);
     void pseudoElementCreated(PseudoElement&);
     void pseudoElementDestroyed(PseudoElement&);
 
@@ -216,6 +213,7 @@ public:
     InspectorPageAgent* pageAgent() { return m_pageAgent; }
 
 private:
+    void highlightMousedOverNode();
     void setSearchingForNode(ErrorString&, bool enabled, const Inspector::InspectorObject* highlightConfig);
     std::unique_ptr<HighlightConfig> highlightConfigFromInspectorObject(ErrorString&, const Inspector::InspectorObject* highlightInspectorObject);
 
@@ -271,14 +269,13 @@ private:
     SearchResults m_searchResults;
     std::unique_ptr<RevalidateStyleAttributeTask> m_revalidateStyleAttrTask;
     RefPtr<Node> m_nodeToFocus;
-    bool m_searchingForNode { false };
+    RefPtr<Node> m_mousedOverNode;
     std::unique_ptr<HighlightConfig> m_inspectModeHighlightConfig;
     std::unique_ptr<InspectorHistory> m_history;
     std::unique_ptr<DOMEditor> m_domEditor;
+    bool m_searchingForNode { false };
     bool m_suppressAttributeModifiedEvent { false };
     bool m_documentRequested { false };
 };
 
 } // namespace WebCore
-
-#endif // !defined(InspectorDOMAgent_h)

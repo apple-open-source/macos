@@ -987,13 +987,17 @@ nano_free(nanozone_t *nanozone, void *ptr)
 static void
 nano_forked_free(nanozone_t *nanozone, void *ptr)
 {
-	nano_blk_addr_t p; // happily, the compiler holds this in a register
-
 	if (!ptr) {
 		return; // Protect against malloc_zone_free() passing NULL.
 	}
-	p.addr = (uint64_t)ptr; // place ptr on the dissecting table
-	if (nanozone->our_signature == p.fields.nano_signature) {
+
+	// <rdar://problem/26481467> exhausting a slot may result in a pointer with
+	// the nanozone prefix being given to nano_free via malloc_zone_free. Calling
+	// vet_and_size here, instead of in _nano_free_check_scribble means we can
+	// early-out into the helper_zone if it turns out nano does not own this ptr.
+	size_t sz = _nano_vet_and_size_of_live(nanozone, ptr);
+
+	if (sz) {
 		/* NOTHING. Drop it on the floor as nanozone metadata could be fouled by fork. */
 		return;
 	} else {
@@ -1035,49 +1039,42 @@ nano_size(nanozone_t *nanozone, const void *ptr)
 static void *
 nano_realloc(nanozone_t *nanozone, void *ptr, size_t new_size)
 {
-	nano_blk_addr_t p; // happily, the compiler holds this in a register
-
-	p.addr = (uint64_t)ptr; // place ptr on the dissecting table
-
-	if (NULL == ptr) { // could occur through malloc_zone_realloc() path
+	// could occur through malloc_zone_realloc() path
+	if (!ptr) {
 		// If ptr is a null pointer, realloc() shall be equivalent to malloc() for the specified size.
 		return nano_malloc(nanozone, new_size);
-	} else if (nanozone->our_signature == p.fields.nano_signature) { // Our signature?
-		if (new_size <= NANO_MAX_SIZE) {							 // nano to nano?
+	}
+
+	size_t old_size = _nano_vet_and_size_of_live(nanozone, ptr);
+	if (!old_size) {
+		// not-nano pointer, hand down to helper zone
+		malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);
+		return zone->realloc(zone, ptr, new_size);
+	} else {
+		if (new_size <= NANO_MAX_SIZE) {
+			// nano to nano?
 			void *q = _nano_realloc(nanozone, ptr, new_size);
 			if (q) {
 				return q;
-			} else { // nano exhausted
-					 /* FALLTHROUGH to helper zone copying case */
+			} else { 
+				// nano exhausted
+				/* FALLTHROUGH to helper zone copying case */
 			}
 		}
 
-		// nano to larger-than-nano (or FALLTHROUGH from just above)
-		size_t old_size = _nano_vet_and_size_of_live(nanozone, ptr);
-
-		if (!old_size) {
-			nanozone_error(nanozone, 1, "pointer being reallocated was not allocated", ptr, NULL);
-			return NULL;
-		} else {
-			malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);
-			void *new_ptr = zone->malloc(zone, new_size);
-
-			if (new_ptr) {
-				size_t valid_size = MIN(old_size, new_size);
-				memcpy(new_ptr, ptr, valid_size);
-				_nano_free_check_scribble(nanozone, ptr, (nanozone->debug_flags & MALLOC_DO_SCRIBBLE));
-				return new_ptr;
-			} else {
-				/* Original ptr is left intact */
-				return NULL;
-			}
-			/* NOTREACHED */
-		}
-	} else {
-		// other-than-nano (not necessarily larger! possibly NULL!) to whatever
 		malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);
+		void *new_ptr = zone->malloc(zone, new_size);
 
-		return zone->realloc(zone, ptr, new_size);
+		if (new_ptr) {
+			size_t valid_size = MIN(old_size, new_size);
+			memcpy(new_ptr, ptr, valid_size);
+			_nano_free_check_scribble(nanozone, ptr, (nanozone->debug_flags & MALLOC_DO_SCRIBBLE));
+			return new_ptr;
+		} else {
+			/* Original ptr is left intact */
+			return NULL;
+		}
+		/* NOTREACHED */
 	}
 	/* NOTREACHED */
 }
@@ -1085,14 +1082,18 @@ nano_realloc(nanozone_t *nanozone, void *ptr, size_t new_size)
 static void *
 nano_forked_realloc(nanozone_t *nanozone, void *ptr, size_t new_size)
 {
-	nano_blk_addr_t p; // happily, the compiler holds this in a register
-
-	p.addr = (uint64_t)ptr; // place ptr on the dissecting table
-
-	if (NULL == ptr) { // could occur through malloc_zone_realloc() path
+	// could occur through malloc_zone_realloc() path
+	if (!ptr) {
 		// If ptr is a null pointer, realloc() shall be equivalent to malloc() for the specified size.
 		return nano_forked_malloc(nanozone, new_size);
-	} else if (nanozone->our_signature == p.fields.nano_signature) { // Our signature?
+	}
+
+	size_t old_size = _nano_vet_and_size_of_live(nanozone, ptr);
+	if (!old_size) {
+		// not-nano pointer, hand down to helper zone
+		malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);
+		return zone->realloc(zone, ptr, new_size);
+	} else {
 		if (0 == new_size) {
 			// If size is 0 and ptr is not a null pointer, the object pointed to is freed.
 			// However as nanozone metadata could be fouled by fork, we'll intentionally leak it.
@@ -1102,31 +1103,19 @@ nano_forked_realloc(nanozone_t *nanozone, void *ptr, size_t new_size)
 			return nano_forked_malloc(nanozone, 1);
 		}
 
-		size_t old_size = _nano_vet_and_size_of_live(nanozone, ptr);
-
-		if (!old_size) {
-			nanozone_error(nanozone, 1, "pointer being reallocated was not allocated", ptr, NULL);
-			return NULL;
-		} else {
-			malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);
-			void *new_ptr = zone->malloc(zone, new_size);
-
-			if (new_ptr) {
-				size_t valid_size = MIN(old_size, new_size);
-				memcpy(new_ptr, ptr, valid_size);
-				/* Original pointer is intentionally leaked as nanozone metadata could be fouled by fork. */
-				return new_ptr;
-			} else {
-				/* Original ptr is left intact */
-				return NULL;
-			}
-			/* NOTREACHED */
-		}
-	} else {
-		// other-than-nano (not necessarily larger! possibly NULL!) to whatever
 		malloc_zone_t *zone = (malloc_zone_t *)(nanozone->helper_zone);
+		void *new_ptr = zone->malloc(zone, new_size);
 
-		return zone->realloc(zone, ptr, new_size);
+		if (new_ptr) {
+			size_t valid_size = MIN(old_size, new_size);
+			memcpy(new_ptr, ptr, valid_size);
+			/* Original pointer is intentionally leaked as nanozone metadata could be fouled by fork. */
+			return new_ptr;
+		} else {
+			/* Original ptr is left intact */
+			return NULL;
+		}
+		/* NOTREACHED */
 	}
 	/* NOTREACHED */
 }

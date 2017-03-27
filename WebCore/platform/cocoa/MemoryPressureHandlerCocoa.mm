@@ -26,15 +26,12 @@
 #import "config.h"
 #import "MemoryPressureHandler.h"
 
-#import "GCController.h"
-#import "IOSurfacePool.h"
-#import "LayerPool.h"
 #import "Logging.h"
-#import "ResourceUsageThread.h"
 #import <mach/mach.h>
 #import <mach/task_info.h>
 #import <malloc/malloc.h>
 #import <notify.h>
+#import <wtf/CurrentTime.h>
 
 #if PLATFORM(IOS)
 #import "SystemMemory.h"
@@ -44,45 +41,14 @@
 #define ENABLE_FMW_FOOTPRINT_COMPARISON 0
 
 extern "C" void cache_simulate_memory_warning_event(uint64_t);
-extern "C" void _sqlite3_purgeEligiblePagerCacheMemory(void);
 
 namespace WebCore {
 
-void MemoryPressureHandler::platformInitialize()
-{
-    int dummy;
-    notify_register_dispatch("com.apple.WebKit.fullGC", &dummy, dispatch_get_main_queue(), ^(int) {
-        GCController::singleton().garbageCollectNow();
-    });
-    notify_register_dispatch("com.apple.WebKit.deleteAllCode", &dummy, dispatch_get_main_queue(), ^(int) {
-        GCController::singleton().deleteAllCode();
-        GCController::singleton().garbageCollectNow();
-    });
-}
-
 void MemoryPressureHandler::platformReleaseMemory(Critical critical)
 {
-    {
-        ReliefLogger log("Purging SQLite caches");
-        _sqlite3_purgeEligiblePagerCacheMemory();
-    }
-
-    {
-        ReliefLogger log("Drain LayerPools");
-        for (auto& pool : LayerPool::allLayerPools())
-            pool->drain();
-    }
-#if USE(IOSURFACE)
-    {
-        ReliefLogger log("Drain IOSurfacePool");
-        IOSurfacePool::sharedPool().discardAllSurfaces();
-    }
-#endif
-
-    if (critical == Critical::Yes && (!isUnderMemoryPressure() || m_isSimulatedMemoryPressure)) {
+    if (critical == Critical::Yes && (!isUnderMemoryPressure() || m_isSimulatingMemoryPressure)) {
         // libcache listens to OS memory notifications, but for process suspension
         // or memory pressure simulation, we need to prod it manually:
-        ReliefLogger log("Purging libcache caches");
         cache_simulate_memory_warning_event(DISPATCH_MEMORYPRESSURE_CRITICAL);
     }
 }
@@ -139,19 +105,12 @@ void MemoryPressureHandler::install()
 
     // Allow simulation of memory pressure with "notifyutil -p org.WebKit.lowMemory"
     notify_register_dispatch("org.WebKit.lowMemory", &_notifyToken, dispatch_get_main_queue(), ^(int) {
-        m_isSimulatedMemoryPressure = true;
-
 #if ENABLE(FMW_FOOTPRINT_COMPARISON)
         auto footprintBefore = pagesPerVMTag();
 #endif
-
-        bool wasUnderMemoryPressure = m_underMemoryPressure;
-        m_underMemoryPressure = true;
-
-        MemoryPressureHandler::singleton().respondToMemoryPressure(Critical::Yes, Synchronous::Yes);
+        beginSimulatedMemoryPressure();
 
         WTF::releaseFastMallocFreeMemory();
-
         malloc_zone_pressure_relief(nullptr, 0);
 
 #if ENABLE(FMW_FOOTPRINT_COMPARISON)
@@ -159,10 +118,8 @@ void MemoryPressureHandler::install()
         logFootprintComparison(footprintBefore, footprintAfter);
 #endif
 
-        // Since this is a simulation, unset the "under memory pressure" flag on next runloop.
         dispatch_async(dispatch_get_main_queue(), ^{
-            MemoryPressureHandler::singleton().setUnderMemoryPressure(wasUnderMemoryPressure);
-            m_isSimulatedMemoryPressure = false;
+            endSimulatedMemoryPressure();
         });
     });
 
@@ -220,7 +177,7 @@ void MemoryPressureHandler::respondToMemoryPressure(Critical critical, Synchrono
     double startTime = monotonicallyIncreasingTime();
 #endif
 
-    m_lowMemoryHandler(critical, synchronous);
+    releaseMemory(critical, synchronous);
 
 #if !PLATFORM(IOS)
     unsigned holdOffTime = (monotonicallyIncreasingTime() - startTime) * s_holdOffMultiplier;
@@ -228,20 +185,15 @@ void MemoryPressureHandler::respondToMemoryPressure(Critical critical, Synchrono
 #endif
 }
 
-size_t MemoryPressureHandler::ReliefLogger::platformMemoryUsage()
+std::optional<MemoryPressureHandler::ReliefLogger::MemoryUsage> MemoryPressureHandler::ReliefLogger::platformMemoryUsage()
 {
-    // Flush free memory back to the OS before every measurement.
-    // Note that this code only runs when detailed pressure relief logging is enabled.
-    WTF::releaseFastMallocFreeMemory();
-    malloc_zone_pressure_relief(nullptr, 0);
-
     task_vm_info_data_t vmInfo;
     mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
     kern_return_t err = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t) &vmInfo, &count);
     if (err != KERN_SUCCESS)
-        return static_cast<size_t>(-1);
+        return std::nullopt;
 
-    return static_cast<size_t>(vmInfo.internal);
+    return MemoryUsage {static_cast<size_t>(vmInfo.internal), static_cast<size_t>(vmInfo.phys_footprint)};
 }
 
 #if PLATFORM(IOS)

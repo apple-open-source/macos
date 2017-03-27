@@ -46,7 +46,7 @@ static const char* GetNotificationName ()
 	const char* name = getenv (SECURITYSERVER_BOOTSTRAP_ENV);
 	if (name == NULL)
 	{
-		name = SECURITY_MESSAGES_NAME;
+		name = SharedMemoryCommon::kDefaultSecurityMessagesName;
 	}
 	
 	return name;
@@ -66,8 +66,9 @@ public:
 
 
 
-SharedMemoryClientMaker::SharedMemoryClientMaker () : mClient (GetNotificationName (), kSharedMemoryPoolSize)
+SharedMemoryClientMaker::SharedMemoryClientMaker () : mClient (GetNotificationName (), kSharedMemoryPoolSize, SharedMemoryCommon::fixUID(getuid()))
 {
+    secdebug("MDSPRIVACY","[%03d] SharedMemoryClientMaker uid: %d, euid: %d, name: %s", mClient.getUID(), getuid(), geteuid(), GetNotificationName ());
 }
 
 
@@ -86,12 +87,18 @@ ModuleNexus<SharedMemoryClientMaker> gMemoryClient;
 //
 // Note that once we start notifications, we want receive them forever. Don't have a cancel option.
 //
-static void InitializeNotifications () {
+static bool InitializeNotifications () {
+    bool initializationComplete = false;
     static dispatch_queue_t notification_queue = EventListener::getNotificationQueue();
 
+    secdebug("MDSPRIVACY","EventListener Init: uid: %d, euid: %d, name: %s", getuid(), geteuid(), GetNotificationName ());
     // Initialize the memory client
     gMemoryClient();
 
+    if (gMemoryClient().Client()->uninitialized()) {
+        secdebug("MDSPRIVACY","[%03d] FATAL: InitializeNotifications EventListener uninitialized; process will never get keychain notifications", getuid());
+        return initializationComplete;
+    }
     int out_token;
 
     notify_handler_t receive = ^(int token){
@@ -110,6 +117,7 @@ static void InitializeNotifications () {
                     result = gMemoryClient().Client()->ReadMessage(buffer, length, ur);
                     if (!result)
                     {
+                        secdebug("MDSPRIVACY","[%03d] notify_handler ReadMessage ur: %d", getuid(), ur);
                         delete [] buffer;
                         return;
                     }
@@ -127,6 +135,8 @@ static void InitializeNotifications () {
                     SecurityServer::NotificationEvent event = (SecurityServer::NotificationEvent) OSSwapBigToHostInt32 (*ptr++);
                     CssmData data ((u_int8_t*) ptr, buffer + length - (u_int8_t*) ptr);
 
+                    string descrip = SharedMemoryCommon::notificationDescription(domain, event);
+                    secdebug("MDSPRIVACY","[%03d] notify_handler: %s", getuid(), descrip.c_str());
                     EventListenerList::iterator it = eventList.begin ();
                     while (it != eventList.end ())
                     {
@@ -142,7 +152,7 @@ static void InitializeNotifications () {
                         catch (CssmError &e)
                         {
                             // If we throw, libnotify will abort the process. Log these...
-                            secerror("Caught CssmError while processing notification: %d %s", e.error, cssmErrorString(e.error));
+                            secerror("caught CssmError while processing notification: %d %s", e.error, cssmErrorString(e.error));
                         }
                     }
                 }
@@ -161,43 +171,45 @@ static void InitializeNotifications () {
             secerror("caught MacOSError during notification: %d %s", (int) mose.osStatus(), mose.what());
         }
         catch (...) {
-            secerror("cauth unknknown error during notification");
+            secerror("caught unknown error during notification");
         }
     };
 
     uint32_t status = notify_register_dispatch(GetNotificationName(), &out_token, notification_queue, receive);
-    if(status) {
+    if (status) {
         secerror("notify_register_dispatch failed: %d", status);
         syslog(LOG_ERR, "notify_register_dispatch failed: %d", status);
+    } else {
+        initializationComplete = true;
     }
+    return initializationComplete;
 }
 
 
 EventListener::EventListener (NotificationDomain domain, NotificationMask eventMask)
-	: mDomain (domain), mMask (eventMask)
+	: mInitialized(false), mDomain (domain), mMask (eventMask)
 {
 	// make sure that notifications are turned on.
-	InitializeNotifications ();
+	mInitialized = InitializeNotifications();
 }
 
 //
 // StopNotification() is needed on destruction; everyone else cleans up after themselves.
 //
-EventListener::~EventListener ()
-{
-	StLock<Mutex> lock (gNotificationLock ());
-	
-	// find the listener in the list and remove it
-	EventListenerList::iterator it = std::find (gEventListeners ().begin (),
-												gEventListeners ().end (),
-												this);
-	if (it != gEventListeners ().end ())
-	{
-		gEventListeners ().erase (it);
-	}
+EventListener::~EventListener () {
+    if (initialized()) {
+        StLock<Mutex> lock (gNotificationLock ());
+
+        // find the listener in the list and remove it
+        EventListenerList::iterator it = std::find (gEventListeners ().begin (),
+                                                    gEventListeners ().end (),
+                                                    this);
+        if (it != gEventListeners ().end ())
+        {
+            gEventListeners ().erase (it);
+        }
+    }
 }
-
-
 
 // get rid of the pure virtual
 void EventListener::consume(NotificationDomain, NotificationEvent, const Security::CssmData&)
@@ -206,10 +218,11 @@ void EventListener::consume(NotificationDomain, NotificationEvent, const Securit
 
 
 
-void EventListener::FinishedInitialization(EventListener *eventListener)
-{
-	StLock<Mutex> lock (gNotificationLock ());
-	gEventListeners().push_back (eventListener);
+void EventListener::FinishedInitialization(EventListener *eventListener) {
+    if (eventListener->initialized()) {
+        StLock<Mutex> lock (gNotificationLock ());
+        gEventListeners().push_back (eventListener);
+    }
 }
 
 dispatch_once_t EventListener::queueOnceToken = 0;

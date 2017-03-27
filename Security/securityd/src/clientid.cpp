@@ -269,7 +269,7 @@ OSStatus ClientIdentification::checkValidity(SecCSFlags flags,
 	return SecCodeCheckValidityWithErrors(currentGuest(), flags, requirement, NULL);
 }
 
-const bool ClientIdentification::checkAppleSigned() const
+bool ClientIdentification::checkAppleSigned() const
 {
 	// This is the clownfish supported way to check for a Mac App Store or B&I signed build
 	static CFStringRef const requirementString = CFSTR("(anchor apple) or (anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9])");

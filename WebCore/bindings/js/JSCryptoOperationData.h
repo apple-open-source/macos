@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JSCryptoOperationData_h
-#define JSCryptoOperationData_h
+#pragma once
 
 #if ENABLE(SUBTLE_CRYPTO)
 
@@ -37,9 +36,8 @@ namespace WebCore {
 
 typedef std::pair<const uint8_t*, size_t> CryptoOperationData;
 
-bool cryptoOperationDataFromJSValue(JSC::ExecState*, JSC::JSValue, CryptoOperationData&);
+bool cryptoOperationDataFromJSValue(JSC::ExecState&, JSC::JSValue, CryptoOperationData&);
 
 } // namespace WebCore
 
 #endif // ENABLE(SUBTLE_CRYPTO)
-#endif // JSCryptoOperationData_h

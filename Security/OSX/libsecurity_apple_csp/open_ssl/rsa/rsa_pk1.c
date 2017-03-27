@@ -76,8 +76,8 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
-#include <openssl/rsa.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/rsa_legacy.h>
 #include <openssl/rand.h>
 
 int RSA_padding_add_PKCS1_type_1(unsigned char *to, int tlen,

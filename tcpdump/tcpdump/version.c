@@ -1,1 +1,1 @@
-const char version[] = "4.7.3 -- Apple version 79";
+#include "tcpdump_version.h"

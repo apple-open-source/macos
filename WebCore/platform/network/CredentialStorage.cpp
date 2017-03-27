@@ -28,7 +28,6 @@
 
 #include "NetworkStorageSession.h"
 #include "URL.h"
-#include <wtf/NeverDestroyed.h>
 
 #if PLATFORM(IOS)
 #include "WebCoreThread.h"
@@ -43,10 +42,7 @@ CredentialStorage& CredentialStorage::defaultCredentialStorage()
 
 static String originStringFromURL(const URL& url)
 {
-    if (url.port())
-        return url.protocol() + "://" + url.host() + ':' + String::number(url.port()) + '/';
-
-    return url.protocol() + "://" + url.host() + '/';
+    return makeString(url.protocol(), "://", url.hostAndPort(), '/');
 }
 
 static String protectionSpaceMapKeyFromURL(const URL& url)

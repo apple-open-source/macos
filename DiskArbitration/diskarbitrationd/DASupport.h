@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,14 +78,16 @@ enum
 ///w:23678897:start
     _kDAUnitStateHasAPFS = 0x00000010,
 ///w:23678897:stop
-    kDAUnitStateCommandActive    = 0x00000001,
-    kDAUnitStateHasQuiesced      = 0x00000002,
-    kDAUnitStateStagedUnreadable = 0x00010000
+    kDAUnitStateCommandActive        = 0x00000001,
+    kDAUnitStateHasQuiesced          = 0x00000002,
+    kDAUnitStateHasQuiescedNoTimeout = 0x00000004,
+    kDAUnitStateStagedUnreadable     = 0x00010000
 };
 
 typedef UInt32 DAUnitState;
 
 extern Boolean DAUnitGetState( DADiskRef disk, DAUnitState state );
+extern Boolean DAUnitGetStateRecursively( DADiskRef disk, DAUnitState state );
 extern void    DAUnitSetState( DADiskRef disk, DAUnitState state, Boolean value );
 
 #ifdef __cplusplus

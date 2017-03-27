@@ -25,13 +25,12 @@
 #include "CachedImage.h"
 #include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
-#include "ColorSpace.h"
 #include "Document.h"
 #include "Image.h"
 #include "RenderObject.h"
 #include "RenderSVGResource.h"
 #include "SVGNames.h"
-#include "SVGPreserveAspectRatio.h"
+#include "SVGPreserveAspectRatioValue.h"
 #include "XLinkNames.h"
 
 namespace WebCore {
@@ -76,7 +75,7 @@ bool SVGFEImageElement::hasSingleSecurityOrigin() const
 void SVGFEImageElement::clearResourceReferences()
 {
     if (m_cachedImage) {
-        m_cachedImage->removeClient(this);
+        m_cachedImage->removeClient(*this);
         m_cachedImage = nullptr;
     }
 
@@ -86,14 +85,14 @@ void SVGFEImageElement::clearResourceReferences()
 void SVGFEImageElement::requestImageResource()
 {
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
-    options.setContentSecurityPolicyImposition(isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck);
+    options.contentSecurityPolicyImposition = isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
 
     CachedResourceRequest request(ResourceRequest(document().completeURL(href())), options);
     request.setInitiator(this);
-    m_cachedImage = document().cachedResourceLoader().requestImage(request);
+    m_cachedImage = document().cachedResourceLoader().requestImage(WTFMove(request));
 
     if (m_cachedImage)
-        m_cachedImage->addClient(this);
+        m_cachedImage->addClient(*this);
 }
 
 void SVGFEImageElement::buildPendingResource()
@@ -123,7 +122,7 @@ void SVGFEImageElement::buildPendingResource()
 void SVGFEImageElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == SVGNames::preserveAspectRatioAttr) {
-        SVGPreserveAspectRatio preserveAspectRatio;
+        SVGPreserveAspectRatioValue preserveAspectRatio;
         preserveAspectRatio.parse(value);
         setPreserveAspectRatioBaseValue(preserveAspectRatio);
         return;
@@ -169,7 +168,7 @@ void SVGFEImageElement::removedFrom(ContainerNode& rootParent)
         clearResourceReferences();
 }
 
-void SVGFEImageElement::notifyFinished(CachedResource*)
+void SVGFEImageElement::notifyFinished(CachedResource&)
 {
     if (!inDocument())
         return;

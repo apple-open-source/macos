@@ -22,8 +22,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef RenderTableSection_h
-#define RenderTableSection_h
+#pragma once
 
 #include "RenderTable.h"
 #include <wtf/Vector.h>
@@ -64,7 +63,7 @@ public:
 
     void addChild(RenderObject* child, RenderObject* beforeChild = 0) override;
 
-    Optional<int> firstLineBaseline() const override;
+    std::optional<int> firstLineBaseline() const override;
 
     void addCell(RenderTableCell*, RenderTableRow* row);
 
@@ -93,8 +92,8 @@ public:
 
     const BorderValue& borderAdjoiningTableStart() const;
     const BorderValue& borderAdjoiningTableEnd() const;
-    const BorderValue& borderAdjoiningStartCell(const RenderTableCell*) const;
-    const BorderValue& borderAdjoiningEndCell(const RenderTableCell*) const;
+    const BorderValue& borderAdjoiningStartCell(const RenderTableCell&) const;
+    const BorderValue& borderAdjoiningEndCell(const RenderTableCell&) const;
 
     const RenderTableCell* firstRowCellAdjoiningTableStart() const;
     const RenderTableCell* firstRowCellAdjoiningTableEnd() const;
@@ -143,8 +142,8 @@ public:
     // FIXME: We may want to introduce a structure holding the in-flux layout information.
     LayoutUnit distributeExtraLogicalHeightToRows(LayoutUnit extraLogicalHeight);
 
-    static RenderTableSection* createAnonymousWithParentRenderer(const RenderObject*);
-    RenderBox* createAnonymousBoxWithSameTypeAs(const RenderObject* parent) const override { return createAnonymousWithParentRenderer(parent); }
+    static std::unique_ptr<RenderTableSection> createAnonymousWithParentRenderer(const RenderTable&);
+    std::unique_ptr<RenderBox> createAnonymousBoxWithSameTypeAs(const RenderBox&) const override;
     
     void paint(PaintInfo&, const LayoutPoint&) override;
 
@@ -152,6 +151,8 @@ protected:
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
 private:
+    static std::unique_ptr<RenderTableSection> createTableSectionWithStyle(Document&, const RenderStyle&);
+
     enum ShouldIncludeAllIntersectingCells {
         IncludeAllIntersectingCells,
         DoNotIncludeAllIntersectingCells
@@ -242,14 +243,14 @@ private:
 
 inline const BorderValue& RenderTableSection::borderAdjoiningTableStart() const
 {
-    if (hasSameDirectionAs(table()))
+    if (isDirectionSame(this, table()))
         return style().borderStart();
     return style().borderEnd();
 }
 
 inline const BorderValue& RenderTableSection::borderAdjoiningTableEnd() const
 {
-    if (hasSameDirectionAs(table()))
+    if (isDirectionSame(this, table()))
         return style().borderEnd();
     return style().borderStart();
 }
@@ -331,8 +332,11 @@ inline CellSpan RenderTableSection::fullTableRowSpan() const
     return CellSpan(0, m_grid.size());
 }
 
+inline std::unique_ptr<RenderBox> RenderTableSection::createAnonymousBoxWithSameTypeAs(const RenderBox& renderer) const
+{
+    return RenderTableSection::createTableSectionWithStyle(renderer.document(), renderer.style());
+}
+
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderTableSection, isTableSection())
-
-#endif // RenderTableSection_h

@@ -75,9 +75,9 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
+#include <openssl/bn_legacy.h>
 #include <openssl/rand.h>
-#include <openssl/dh.h>
+#include <openssl/dh_legacy.h>
 
 static int generate_key(DH *dh);
 static int compute_key(unsigned char *key, BIGNUM *pub_key, DH *dh);

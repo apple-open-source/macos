@@ -33,6 +33,7 @@
 
 /* Forward declarations of SOS types. */
 typedef struct __OpaqueSOSAccount *SOSAccountRef;
+typedef struct __OpaqueSOSRecoveryKeyBag *SOSRecoveryKeyBagRef;
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -46,6 +47,7 @@ typedef struct __OpaqueSOSAccount *SOSAccountRef;
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
 #include <Security/SecureObjectSync/SOSRing.h>
 #include <Security/SecureObjectSync/SOSPeerInfoSecurityProperties.h>
+#include <Security/SecureObjectSync/SOSRecoveryKeyBag.h>
 
 #include <dispatch/dispatch.h>
 
@@ -78,12 +80,6 @@ CFTypeID SOSAccountGetTypeID(void);
 SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator, SOSDataSourceFactoryRef factory,
                                       CFErrorRef* error,
                                       const uint8_t** der_p, const uint8_t *der_end);
-
-SOSAccountRef SOSAccountCreateFromDER_V3(CFAllocatorRef allocator,
-                                         SOSDataSourceFactoryRef factory,
-                                         CFErrorRef* error,
-                                         const uint8_t** der_p, const uint8_t *der_end);
-
 SOSAccountRef SOSAccountCreateFromData(CFAllocatorRef allocator, CFDataRef circleData,
                                        SOSDataSourceFactoryRef factory,
                                        CFErrorRef* error);
@@ -96,10 +92,10 @@ CFDataRef SOSAccountCopyEncodedData(SOSAccountRef circle, CFAllocatorRef allocat
 //
 //MARK: IDS Device ID
 CFStringRef SOSAccountCopyDeviceID(SOSAccountRef account, CFErrorRef *error);
-bool SOSAccountSetMyDSID(SOSAccountRef account, CFStringRef IDS, CFErrorRef* errror);
+bool SOSAccountSetMyDSID(SOSAccountTransactionRef txn, CFStringRef IDS, CFErrorRef* errror);
 bool SOSAccountSendIDSTestMessage(SOSAccountRef account, CFStringRef message, CFErrorRef *error);
 bool SOSAccountStartPingTest(SOSAccountRef account, CFStringRef message, CFErrorRef *error);
-bool SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(SOSAccountRef account, CFErrorRef *error);
+bool SOSAccountRetrieveDeviceIDFromKeychainSyncingOverIDSProxy(SOSAccountRef account, CFErrorRef *error);
 
 //
 // MARK: Credential management
@@ -197,6 +193,12 @@ void SOSAccountAddSyncablePeerBlock(SOSAccountRef a,
 //
 bool SOSAccountUpdateGestalt(SOSAccountRef account, CFDictionaryRef new_gestalt);
 
+CFDictionaryRef SOSAccountCopyGestalt(SOSAccountRef account);
+
+CFDictionaryRef SOSAccountCopyV2Dictionary(SOSAccountRef account);
+
+bool SOSAccountUpdateV2Dictionary(SOSAccountRef account, CFDictionaryRef newV2Dict);
+
 bool SOSAccountUpdateFullPeerInfo(SOSAccountRef account, CFSetRef minimumViews, CFSetRef excludedViews);
 
 SOSViewResultCode SOSAccountUpdateView(SOSAccountRef account, CFStringRef viewname, SOSViewActionCode actionCode, CFErrorRef *error);
@@ -216,14 +218,27 @@ SOSSecurityPropertyResultCode SOSAccountSecurityPropertyStatus(SOSAccountRef acc
 
 bool SOSAccountHandleParametersChange(SOSAccountRef account, CFDataRef updates, CFErrorRef *error);
 
-bool SOSAccountSendIKSPSyncList(SOSAccountRef account, CFErrorRef *error);
-bool SOSAccountSyncWithAllKVSPeers(SOSAccountRef account, CFErrorRef *error);
+//
+// MARK: Requests for syncing later
+//
+bool SOSAccountRequestSyncWithAllPeers(SOSAccountTransactionRef txn, CFErrorRef *error);
 
-bool SOSAccountSyncWithKVSPeer(SOSAccountRef account, CFStringRef peerID, CFErrorRef *error);
+//
+// MARK: Outgoing/Sync functions
+//      
+
+bool SOSAccountSyncWithKVSPeerWithMessage(SOSAccountTransactionRef txn, CFStringRef peerid, CFDataRef message, CFErrorRef *error);
+bool SOSAccountClearPeerMessageKey(SOSAccountTransactionRef txn, CFStringRef peerID, CFErrorRef *error);
+
+CF_RETURNS_RETAINED CFSetRef SOSAccountProcessSyncWithPeers(SOSAccountTransactionRef txn, CFSetRef /* CFStringRef */ peers, CFSetRef /* CFStringRef */ backupPeers, CFErrorRef *error);
+
+bool SOSAccountSendIKSPSyncList(SOSAccountRef account, CFErrorRef *error);
 bool SOSAccountSyncWithKVSUsingIDSID(SOSAccountRef account, CFStringRef deviceID, CFErrorRef *error);
 
-bool SOSAccountSyncWithIDSPeer(SOSAccountRef account, CFStringRef peerID, CFErrorRef *error);
 
+//
+// MARK: Cleanup functions
+//
 bool SOSAccountCleanupAfterPeer(SOSAccountRef account, size_t seconds, SOSCircleRef circle,
                                 SOSPeerInfoRef cleanupPeer, CFErrorRef* error);
 
@@ -254,6 +269,22 @@ bool SOSAccountSetBSKBagForAllSlices(SOSAccountRef account, CFDataRef backupSlic
 SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccountRef account, CFStringRef viewName, CFErrorRef* error);
 
 bool SOSAccountIsLastBackupPeer(SOSAccountRef account, CFErrorRef *error);
+
+
+//
+// MARK: Recovery Public Key Functions
+//
+bool SOSAccountRegisterRecoveryPublicKey(SOSAccountTransactionRef txn, CFDataRef recovery_key, CFErrorRef *error);
+CFDataRef SOSAccountCopyRecoveryPublicKey(SOSAccountTransactionRef txn, CFErrorRef *error);
+bool SOSAccountClearRecoveryPublicKey(SOSAccountTransactionRef txn, CFDataRef recovery_key, CFErrorRef *error);
+bool SOSAccountSetRecoveryKey(SOSAccountRef account, CFDataRef pubData, CFErrorRef *error);
+bool SOSAccountRemoveRecoveryKey(SOSAccountRef account, CFErrorRef *error);
+SOSRecoveryKeyBagRef SOSAccountCopyRecoveryKeyBag(CFAllocatorRef allocator, SOSAccountRef account, CFErrorRef *error);
+CFDataRef SOSAccountCopyRecoveryPublic(CFAllocatorRef allocator, SOSAccountRef account, CFErrorRef *error);
+bool SOSAccountRecoveryKeyIsInBackupAndCurrentInView(SOSAccountRef account, CFStringRef viewname);
+bool SOSAccountSetRecoveryKeyBagEntry(CFAllocatorRef allocator, SOSAccountRef account, SOSRecoveryKeyBagRef rkbg, CFErrorRef *error);
+SOSRecoveryKeyBagRef SOSAccountCopyRecoveryKeyBagEntry(CFAllocatorRef allocator, SOSAccountRef account, CFErrorRef *error);
+void SOSAccountEnsureRecoveryRing(SOSAccountRef account);
 
 //
 // MARK: Private functions
@@ -315,6 +346,15 @@ void SOSAccountLogViewState(SOSAccountRef account);
 //
 
 CFBooleanRef SOSAccountPeersHaveViewsEnabled(SOSAccountRef account, CFArrayRef viewNames, CFErrorRef *error);
+
+void SOSAccountSetTestSerialNumber(SOSAccountRef account, CFStringRef serial);
+
+
+//
+// MARK: Syncing status functions
+//
+bool SOSAccountMessageFromPeerIsPending(SOSAccountTransactionRef txn, SOSPeerInfoRef peer, CFErrorRef *error);
+bool SOSAccountSendToPeerIsPending(SOSAccountTransactionRef txn, SOSPeerInfoRef peer, CFErrorRef *error);
 
 __END_DECLS
 

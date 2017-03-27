@@ -73,6 +73,5 @@ CSPDLPlugin::makeSession(CSSM_MODULE_HANDLE handle,
 								   mSSCSPDLSession);
         default:
             CssmError::throwMe(CSSMERR_CSSM_INVALID_SERVICE_MASK);
-            return 0;	// placebo
     }
 }

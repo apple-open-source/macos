@@ -127,8 +127,10 @@ void InspectorHeapAgent::didCreateFrontendAndBackend(FrontendRouter*, BackendDis
 
 void InspectorHeapAgent::willDestroyFrontendAndBackend(DisconnectReason)
 {
+    // Stop tracking without taking a snapshot.
+    m_tracking = false;
+
     ErrorString ignored;
-    stopTracking(ignored);
     disable(ignored);
 }
 
@@ -211,24 +213,24 @@ void InspectorHeapAgent::stopTracking(ErrorString& errorString)
     m_frontendDispatcher->trackingComplete(timestamp, snapshotData);
 }
 
-Optional<HeapSnapshotNode> InspectorHeapAgent::nodeForHeapObjectIdentifier(ErrorString& errorString, unsigned heapObjectIdentifier)
+std::optional<HeapSnapshotNode> InspectorHeapAgent::nodeForHeapObjectIdentifier(ErrorString& errorString, unsigned heapObjectIdentifier)
 {
     HeapProfiler* heapProfiler = m_environment.vm().heapProfiler();
     if (!heapProfiler) {
         errorString = ASCIILiteral("No heap snapshot");
-        return Nullopt;
+        return std::nullopt;
     }
 
     HeapSnapshot* snapshot = heapProfiler->mostRecentSnapshot();
     if (!snapshot) {
         errorString = ASCIILiteral("No heap snapshot");
-        return Nullopt;
+        return std::nullopt;
     }
 
-    const Optional<HeapSnapshotNode> optionalNode = snapshot->nodeForObjectIdentifier(heapObjectIdentifier);
+    const std::optional<HeapSnapshotNode> optionalNode = snapshot->nodeForObjectIdentifier(heapObjectIdentifier);
     if (!optionalNode) {
         errorString = ASCIILiteral("No object for identifier, it may have been collected");
-        return Nullopt;
+        return std::nullopt;
     }
 
     return optionalNode;
@@ -242,14 +244,14 @@ void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, 
     DeferGC deferGC(vm.heap);
 
     unsigned heapObjectIdentifier = static_cast<unsigned>(heapObjectId);
-    const Optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
+    const std::optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
     if (!optionalNode)
         return;
 
     // String preview.
     JSCell* cell = optionalNode->cell;
     if (cell->isString()) {
-        *resultString = cell->getString(nullptr);
+        *resultString = asString(cell)->tryGetValue();
         return;
     }
 
@@ -291,7 +293,7 @@ void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjec
     DeferGC deferGC(vm.heap);
 
     unsigned heapObjectIdentifier = static_cast<unsigned>(heapObjectId);
-    const Optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
+    const std::optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
     if (!optionalNode)
         return;
 
@@ -318,31 +320,37 @@ void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjec
     result = injectedScript.wrapObject(cell, objectGroup, true);
 }
 
-static Inspector::Protocol::Heap::GarbageCollection::Type protocolTypeForHeapOperation(HeapOperation operation)
+static Inspector::Protocol::Heap::GarbageCollection::Type protocolTypeForHeapOperation(CollectionScope scope)
 {
-    switch (operation) {
-    case FullCollection:
+    switch (scope) {
+    case CollectionScope::Full:
         return Inspector::Protocol::Heap::GarbageCollection::Type::Full;
-    case EdenCollection:
+    case CollectionScope::Eden:
         return Inspector::Protocol::Heap::GarbageCollection::Type::Partial;
-    default:
-        ASSERT_NOT_REACHED();
-        return Inspector::Protocol::Heap::GarbageCollection::Type::Full;
     }
+    ASSERT_NOT_REACHED();
+    return Inspector::Protocol::Heap::GarbageCollection::Type::Full;
 }
 
 void InspectorHeapAgent::willGarbageCollect()
 {
-    ASSERT(m_enabled);
-    ASSERT(std::isnan(m_gcStartTime));
+    if (!m_enabled)
+        return;
 
     m_gcStartTime = m_environment.executionStopwatch()->elapsedTime();
 }
 
-void InspectorHeapAgent::didGarbageCollect(HeapOperation operation)
+void InspectorHeapAgent::didGarbageCollect(CollectionScope scope)
 {
-    ASSERT(m_enabled);
-    ASSERT(!std::isnan(m_gcStartTime));
+    if (!m_enabled) {
+        m_gcStartTime = NAN;
+        return;
+    }
+
+    if (std::isnan(m_gcStartTime)) {
+        // We were not enabled when the GC began.
+        return;
+    }
 
     // FIXME: Include number of bytes freed by collection.
 
@@ -354,7 +362,7 @@ void InspectorHeapAgent::didGarbageCollect(HeapOperation operation)
     // VM as the inspected page.
 
     GarbageCollectionData data;
-    data.type = protocolTypeForHeapOperation(operation);
+    data.type = protocolTypeForHeapOperation(scope);
     data.startTime = m_gcStartTime;
     data.endTime = m_environment.executionStopwatch()->elapsedTime();
 

@@ -27,6 +27,8 @@
 #include "SOSPeerInfoCollections.h"
 #include "SOSTransport.h"
 
+#define kPublicKeyNotAvailable "com.apple.security.publickeynotavailable"
+
 //
 // MARK: User Credential management
 //
@@ -171,6 +173,7 @@ void SOSAccountSetUnTrustedUserPublicKey(SOSAccountRef account, SecKeyRef public
     }
     
     secnotice("keygen", "not trusting new public key: %@", account->user_public);
+    notify_post(kPublicKeyNotAvailable);
 }
 
 
@@ -247,9 +250,12 @@ bool SOSAccountHasPublicKey(SOSAccountRef account, CFErrorRef* error)
 }
 
 static void sosAccountSetTrustedCredentials(SOSAccountRef account, CFDataRef user_password, SecKeyRef user_private, bool public_was_trusted) {
-    if(!SOSAccountFullPeerInfoVerify(account, user_private, NULL))    (void) SOSAccountPeerSignatureUpdate(account, user_private, NULL);
+    if(!SOSAccountFullPeerInfoVerify(account, user_private, NULL))  {
+        (void) SOSAccountPeerSignatureUpdate(account, user_private, NULL);
+    }
     SOSAccountSetTrustedUserPublicKey(account, public_was_trusted, user_private);
     SOSAccountSetPrivateCredential(account, user_private, user_password);
+    SOSAccountCheckForAlwaysOnViews(account);
 }
 
 static SecKeyRef sosAccountCreateKeyIfPasswordIsCorrect(SOSAccountRef account, CFDataRef user_password, CFErrorRef *error) {
@@ -329,7 +335,16 @@ bool SOSAccountTryUserCredentials(SOSAccountRef account, CFStringRef user_accoun
 
 bool SOSAccountRetryUserCredentials(SOSAccountRef account) {
     CFDataRef cachedPassword = SOSAccountGetCachedPassword(account, NULL);
-    return (cachedPassword != NULL) && SOSAccountTryUserCredentials(account, NULL, cachedPassword, NULL);
+    if (cachedPassword == NULL)
+        return false;
+    /*
+     * SOSAccountTryUserCredentials reset the cached password internally,
+     * so we must have a retain of the password over SOSAccountTryUserCredentials().
+     */
+    CFRetain(cachedPassword);
+    bool res = SOSAccountTryUserCredentials(account, NULL, cachedPassword, NULL);
+    CFRelease(cachedPassword);
+    return res;
 }
 
 

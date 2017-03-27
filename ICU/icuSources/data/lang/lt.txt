@@ -615,7 +615,7 @@ lt{
         was{"vašo"}
         wbp{"valrpiri"}
         wo{"volofų"}
-        wuu{"kinų kalbos vu tarmė"}
+        wuu{"shanghainese"}
         xal{"kalmukų"}
         xh{"kosų"}
         xmf{"megrelų"}

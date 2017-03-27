@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,12 +81,9 @@ void JIT::compileSetupVarargsFrame(OpcodeID opcode, Instruction* instruction, Ca
 
     // Profile the argument count.
     load32(Address(regT1, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset), regT2);
-    load8(info->addressOfMaxNumArguments(), regT0);
+    load32(info->addressOfMaxNumArguments(), regT0);
     Jump notBiggest = branch32(Above, regT0, regT2);
-    Jump notSaturated = branch32(BelowOrEqual, regT2, TrustedImm32(255));
-    move(TrustedImm32(255), regT2);
-    notSaturated.link(this);
-    store8(regT2, info->addressOfMaxNumArguments());
+    store32(regT2, info->addressOfMaxNumArguments());
     notBiggest.link(this);
     
     // Initialize 'this'.
@@ -124,14 +121,7 @@ void JIT::compileCallEvalSlowCase(Instruction* instruction, Vector<SlowCaseEntry
     addPtr(TrustedImm32(registerOffset * sizeof(Register) + sizeof(CallerFrameAndPC)), callFrameRegister, stackPointerRegister);
 
     load64(Address(stackPointerRegister, sizeof(Register) * CallFrameSlot::callee - sizeof(CallerFrameAndPC)), regT0);
-    move(TrustedImmPtr(info), regT2);
-    Call call = emitNakedCall();
-    addLinkTask(
-        [=] (LinkBuffer& linkBuffer) {
-            MacroAssemblerCodeRef virtualThunk = virtualThunkFor(m_vm, *info);
-            info->setSlowStub(createJITStubRoutine(virtualThunk, *m_vm, nullptr, true));
-            linkBuffer.link(call, CodeLocationLabel(virtualThunk.code()));
-        });
+    emitDumbVirtualCall(info);
     addPtr(TrustedImm32(stackPointerOffsetFor(m_codeBlock) * sizeof(Register)), callFrameRegister, stackPointerRegister);
     checkStackPointerAlignment();
 
@@ -163,7 +153,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     COMPILE_ASSERT(OPCODE_LENGTH(op_call) == OPCODE_LENGTH(op_tail_call_varargs), call_and_tail_call_varargs_opcodes_must_be_same_length);
     COMPILE_ASSERT(OPCODE_LENGTH(op_call) == OPCODE_LENGTH(op_tail_call_forward_arguments), call_and_tail_call_forward_arguments_opcodes_must_be_same_length);
 
-    CallLinkInfo* info;
+    CallLinkInfo* info = nullptr;
     if (opcodeID != op_call_eval)
         info = m_codeBlock->addCallLinkInfo();
     if (opcodeID == op_call_varargs || opcodeID == op_construct_varargs || opcodeID == op_tail_call_varargs || opcodeID == op_tail_call_forward_arguments)
@@ -208,6 +198,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
 
     if (opcodeID == op_tail_call) {
         CallFrameShuffleData shuffleData;
+        shuffleData.numPassedArgs = instruction[3].u.operand;
         shuffleData.tagTypeNumber = GPRInfo::tagTypeNumberRegister;
         shuffleData.numLocals =
             instruction[4].u.operand - sizeof(CallerFrameAndPC) / sizeof(Register);

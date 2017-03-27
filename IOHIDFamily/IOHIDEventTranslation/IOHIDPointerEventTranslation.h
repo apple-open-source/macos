@@ -24,6 +24,7 @@ void IOHIDPointerEventTranslatorUnRegisterService (IOHIDPointerEventTranslatorRe
 CFArrayRef IOHIDPointerEventTranslatorCreateEventCollection (IOHIDPointerEventTranslatorRef translator, IOHIDEventRef event, CFTypeRef sender, uint32_t flags, uint32_t options);
   
 void IOHIDPointerEventTranslatorSetProperty (IOHIDPointerEventTranslatorRef translator, CFStringRef key, CFTypeRef property) ;
+uint32_t IOHIDPointerEventTranslatorGetGlobalButtonState (IOHIDPointerEventTranslatorRef translator);
 #ifdef __cplusplus
 }
 #endif

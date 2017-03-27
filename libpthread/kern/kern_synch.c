@@ -68,6 +68,7 @@
 #include <kern/zalloc.h>
 #include <kern/sched_prim.h>
 #include <kern/processor.h>
+#include <kern/block_hint.h>
 //#include <kern/mach_param.h>
 #include <mach/mach_vm.h>
 #include <mach/mach_param.h>
@@ -271,7 +272,7 @@ static int ksyn_findobj(user_addr_t uaddr, uint64_t *objectp, uint64_t *offsetp)
 
 static int _wait_result_to_errno(wait_result_t result);
 
-static int ksyn_wait(ksyn_wait_queue_t, int, uint32_t, int, uint64_t, thread_continue_t);
+static int ksyn_wait(ksyn_wait_queue_t, int, uint32_t, int, uint64_t, thread_continue_t, block_hint_t);
 static kern_return_t ksyn_signal(ksyn_wait_queue_t, int, ksyn_waitq_element_t, uint32_t);
 static void ksyn_freeallkwe(ksyn_queue_t kq);
 
@@ -745,7 +746,7 @@ _psynch_mutexwait(__unused proc_t p,
 	ksyn_mtx_update_owner_qos_override(kwq, tid, FALSE);
 	kwq->kw_owner = tid;
 
-	error = ksyn_wait(kwq, KSYN_QUEUE_WRITER, mgen, ins_flags, 0, psynch_mtxcontinue);
+	error = ksyn_wait(kwq, KSYN_QUEUE_WRITER, mgen, ins_flags, 0, psynch_mtxcontinue, kThreadWaitPThreadMutex);
 	// ksyn_wait drops wait queue lock
 out:
 	ksyn_wqrelease(kwq, 1, (KSYN_WQTYPE_INWAIT|KSYN_WQTYPE_MTX));
@@ -1170,7 +1171,7 @@ _psynch_cvwait(__unused proc_t p,
 			clock_absolutetime_interval_to_deadline(abstime, &abstime);
 		}
 		
-		error = ksyn_wait(ckwq, KSYN_QUEUE_WRITER, cgen, SEQFIT, abstime, psynch_cvcontinue);
+		error = ksyn_wait(ckwq, KSYN_QUEUE_WRITER, cgen, SEQFIT, abstime, psynch_cvcontinue, kThreadWaitPThreadCondVar);
 		// ksyn_wait drops wait queue lock
 	}
 	
@@ -1320,7 +1321,9 @@ __psynch_rw_lock(int type,
 		    _ksyn_handle_prepost(kwq, prepost_type, lockseq, retval)) {
 			ksyn_wqunlock(kwq);
 		} else {
-			error = ksyn_wait(kwq, kqi, lgenval, SEQFIT, 0, THREAD_CONTINUE_NULL);
+			block_hint_t block_hint = type == PTH_RW_TYPE_READ ?
+				kThreadWaitPThreadRWLockRead : kThreadWaitPThreadRWLockWrite;
+			error = ksyn_wait(kwq, kqi, lgenval, SEQFIT, 0, THREAD_CONTINUE_NULL, block_hint);
 			// ksyn_wait drops wait queue lock
 			if (error == 0) {
 				uthread_t uth = current_uthread();
@@ -1817,7 +1820,8 @@ ksyn_wait(ksyn_wait_queue_t kwq,
 	  uint32_t lockseq,
 	  int fit,
 	  uint64_t abstime,
-	  thread_continue_t continuation)
+	  thread_continue_t continuation,
+	  block_hint_t block_hint)
 {
 	int res;
 
@@ -1838,6 +1842,7 @@ ksyn_wait(ksyn_wait_queue_t kwq,
 		return res;
 	}
 	
+	thread_set_pending_block_hint(th, block_hint);
 	assert_wait_deadline_with_leeway(&kwe->kwe_psynchretval, THREAD_ABORTSAFE, TIMEOUT_URGENCY_USER_NORMAL, abstime, 0);
 	ksyn_wqunlock(kwq);
 	
@@ -2598,4 +2603,53 @@ psynch_zoneinit(void)
 {
 	kwq_zone = (zone_t)pthread_kern->zinit(sizeof(struct ksyn_wait_queue), 8192 * sizeof(struct ksyn_wait_queue), 4096, "ksyn_wait_queue");
 	kwe_zone = (zone_t)pthread_kern->zinit(sizeof(struct ksyn_waitq_element), 8192 * sizeof(struct ksyn_waitq_element), 4096, "ksyn_waitq_element");
+}
+
+void *
+_pthread_get_thread_kwq(thread_t thread)
+{
+	assert(thread);
+	struct uthread * uthread = pthread_kern->get_bsdthread_info(thread);
+	assert(uthread);
+	ksyn_waitq_element_t kwe = pthread_kern->uthread_get_uukwe(uthread);
+	assert(kwe);
+	ksyn_wait_queue_t kwq = kwe->kwe_kwqqueue;
+	return kwq;
+}
+
+/* This function is used by stackshot to determine why a thread is blocked, and report
+ * who owns the object that the thread is blocked on. It should *only* be called if the
+ * `block_hint' field in the relevant thread's struct is populated with something related
+ * to pthread sync objects.
+ */
+void
+_pthread_find_owner(thread_t thread, struct stackshot_thread_waitinfo * waitinfo)
+{
+	ksyn_wait_queue_t kwq = _pthread_get_thread_kwq(thread);
+	switch (waitinfo->wait_type) {
+		case kThreadWaitPThreadMutex:
+			assert((kwq->kw_type & KSYN_WQTYPE_MASK) == KSYN_WQTYPE_MTX);
+			waitinfo->owner   = kwq->kw_owner;
+			waitinfo->context = kwq->kw_addr;
+			break;
+		/* Owner of rwlock not stored in kernel space due to races. Punt
+		 * and hope that the userspace address is helpful enough. */
+		case kThreadWaitPThreadRWLockRead:
+		case kThreadWaitPThreadRWLockWrite:
+			assert((kwq->kw_type & KSYN_WQTYPE_MASK) == KSYN_WQTYPE_RWLOCK);
+			waitinfo->owner   = 0;
+			waitinfo->context = kwq->kw_addr;
+			break;
+		/* Condvars don't have owners, so just give the userspace address. */
+		case kThreadWaitPThreadCondVar:
+			assert((kwq->kw_type & KSYN_WQTYPE_MASK) == KSYN_WQTYPE_CVAR);
+			waitinfo->owner   = 0;
+			waitinfo->context = kwq->kw_addr;
+			break;
+		case kThreadWaitNone:
+		default:
+			waitinfo->owner = 0;
+			waitinfo->context = 0;
+			break;
+	}
 }

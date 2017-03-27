@@ -365,16 +365,11 @@ SecCmsContentInfoSetContentEncAlgID(SecCmsContentInfoRef cinfo,
 void
 SecCmsContentInfoSetBulkKey(SecCmsContentInfoRef cinfo, SecSymmetricKeyRef bulkkey)
 {
-#ifdef USE_CDSA_CRYPTO
-    const CSSM_KEY *cssmKey = NULL;
-#endif
     if (!bulkkey || !cinfo) return;
+    
     cinfo->bulkkey = bulkkey;
     CFRetain(cinfo->bulkkey);
-#ifdef USE_CDSA_CRYPTO
-    SecKeyGetCSSMKey(cinfo->bulkkey, &cssmKey);
-    cinfo->keysize = cssmKey ? cssmKey->KeyHeader.LogicalKeySizeInBits : 0;
-#else
+
     long long bulkKeySize = CFDataGetLength((CFDataRef)bulkkey) * 8;
     if (bulkKeySize < INT_MAX) {
         cinfo->keysize = (int)bulkKeySize;
@@ -383,7 +378,6 @@ SecCmsContentInfoSetBulkKey(SecCmsContentInfoRef cinfo, SecSymmetricKeyRef bulkk
         cinfo->bulkkey = NULL;
         cinfo->keysize = 0;
     }
-#endif
 }
 
 SecSymmetricKeyRef

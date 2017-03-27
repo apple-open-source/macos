@@ -382,7 +382,7 @@ itemClassFor(CSSM_DB_RECORDTYPE recordType)
     {
     case CSSM_DL_DB_RECORD_GENERIC_PASSWORD: return kSecGenericPasswordItemClass;
     case CSSM_DL_DB_RECORD_INTERNET_PASSWORD: return kSecInternetPasswordItemClass;
-    case CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD: return 'ashp';
+    case CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD: return (SecItemClass) 'ashp';
     default: return SecItemClass(recordType);
     }
 }

@@ -56,7 +56,7 @@ WebProcessCreationParameters::~WebProcessCreationParameters()
 {
 }
 
-void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
+void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 {
     encoder << injectedBundlePath;
     encoder << injectedBundlePathExtensionHandle;
@@ -104,7 +104,7 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << textCheckerState;
     encoder << fullKeyboardAccessEnabled;
     encoder << defaultRequestTimeoutInterval;
-#if PLATFORM(COCOA) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFURLCONNECTION)
     encoder << uiProcessBundleIdentifier;
 #endif
 #if PLATFORM(COCOA)
@@ -115,6 +115,7 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << uiProcessBundleResourcePathExtensionHandle;
     encoder << shouldEnableJIT;
     encoder << shouldEnableFTLJIT;
+    encoder << urlParserEnabled;
     encoder << !!bundleParameterData;
     if (bundleParameterData)
         encoder << bundleParameterData->dataReference();
@@ -145,9 +146,13 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
 #if OS(LINUX)
     encoder << memoryPressureMonitorHandle;
 #endif
+
+#if PLATFORM(WAYLAND)
+    encoder << waylandCompositorDisplayName;
+#endif
 }
 
-bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProcessCreationParameters& parameters)
+bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreationParameters& parameters)
 {
     if (!decoder.decode(parameters.injectedBundlePath))
         return false;
@@ -235,7 +240,7 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
         return false;
     if (!decoder.decode(parameters.defaultRequestTimeoutInterval))
         return false;
-#if PLATFORM(COCOA) || USE(CFNETWORK)
+#if PLATFORM(COCOA) || USE(CFURLCONNECTION)
     if (!decoder.decode(parameters.uiProcessBundleIdentifier))
         return false;
 #endif
@@ -254,6 +259,8 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
     if (!decoder.decode(parameters.shouldEnableJIT))
         return false;
     if (!decoder.decode(parameters.shouldEnableFTLJIT))
+        return false;
+    if (!decoder.decode(parameters.urlParserEnabled))
         return false;
 
     bool hasBundleParameterData;
@@ -302,6 +309,11 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
 
 #if OS(LINUX)
     if (!decoder.decode(parameters.memoryPressureMonitorHandle))
+        return false;
+#endif
+
+#if PLATFORM(WAYLAND)
+    if (!decoder.decode(parameters.waylandCompositorDisplayName))
         return false;
 #endif
 

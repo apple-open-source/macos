@@ -1,26 +1,11 @@
 /*
- * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
+ *  testmore.c
+ *  corecrypto
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ *  Created on 09/13/2012
  *
- * testmore.c
+ *  Copyright (c) 2012,2014,2015 Apple Inc. All rights reserved.
+ *
  */
 
 #include <fcntl.h>
@@ -29,15 +14,20 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
 #include <sys/time.h>
 #include <unistd.h>
-// #include <AvailabilityMacros.h>
+#endif
 
 #include "testmore.h"
 
 static int test_num = 0;
 static int test_fails = 0;
 static int test_cases = 0;
+static int test_todo = 0;
+static int test_warning = 0;
 static const char *test_plan_file;
 static int test_plan_line=0;
 
@@ -48,7 +38,7 @@ void test_skip(const char *reason, int how_many, int unless)
 {
     if (unless)
         return;
-
+    
     int done;
     for (done = 0; done < how_many; ++done)
         test_ok(1, NULL, "skip", reason, __FILE__, __LINE__, NULL);
@@ -65,16 +55,25 @@ void test_plan_skip_all(const char *reason)
 {
     if (test_num > test_cases)
     {
-	test_skip(reason, test_cases - test_num, 0);
-	exit(test_fails > 255 ? 255 : test_fails);
+        test_skip(reason, test_cases - test_num, 0);
+        exit(test_fails > 255 ? 255 : test_fails);
     }
+}
+
+static void test_plan_reset(void) {
+    test_fails = 0;
+    test_num = 0;
+    test_cases = 0;
+    test_plan_file = NULL;
+    test_plan_line = 0;
+    test_warning = 0;
 }
 
 static void test_plan_exit(void)
 {
     // int status = 0;
     fflush(stdout);
-
+    
     if (!test_num)
     {
         if (test_cases)
@@ -109,13 +108,9 @@ static void test_plan_exit(void)
             // status = test_fails;
         }
     }
-
-    fflush(stderr);
     
-    /* reset the test plan */
-    test_num = 0;
-    test_fails = 0;
-    test_cases = 0;
+    fflush(stderr);
+    test_plan_reset();
 }
 
 void test_plan_tests(int count, const char *file, unsigned line)
@@ -129,8 +124,8 @@ void test_plan_tests(int count, const char *file, unsigned line)
         exit(255);
     }
 #endif
-
-	if (test_cases)
+    
+    if (test_cases)
     {
         fprintf(stderr,
                 "%s:%u: error: You tried to plan twice!\n",
@@ -140,7 +135,7 @@ void test_plan_tests(int count, const char *file, unsigned line)
         exit(255);
     }
     else
-	{
+    {
         if (!count)
         {
             fprintf(stderr, "%s:%u: warning: You said to run 0 tests!  You've got to run "
@@ -148,173 +143,185 @@ void test_plan_tests(int count, const char *file, unsigned line)
             fflush(stderr);
             exit(255);
         }
-
+        
         test_plan_file=file;
         test_plan_line=line;
         
         test_cases = count;
-		fprintf(stderr, "%s:%u: note: 1..%d\n", file, line, test_cases);
-		fflush(stdout);
-	}
+        fprintf(stderr, "%s:%u: note: 1..%d\n", file, line, test_cases);
+        fflush(stdout);
+    }
 }
 
 int
-test_diag(const char *directive, const char * __unused reason,
-	__unused const char *file, unsigned __unused line, const char *fmt, ...)
+test_diag(const char *directive, __unused const char *reason,
+          __unused const char *file, __unused unsigned line, const char *fmt, ...)
 {
-	int is_todo = directive && !strcmp(directive, "TODO");
-	va_list args;
-
-	va_start(args, fmt);
-
-	if (is_todo)
-	{
-		fputs("# ", stdout);
-		if (fmt)
-			vprintf(fmt, args);
-		fputs("\n", stdout);
-		fflush(stdout);
-	}
-	else
-	{
-		fflush(stdout);
-		fputs("# ", stderr);
-		if (fmt)
-			vfprintf(stderr, fmt, args);
-		fputs("\n", stderr);
-		fflush(stderr);
-	}
-
-	va_end(args);
-
-	return 1;
+    int is_todo = directive && !strcmp(directive, "TODO");
+    va_list args;
+    
+    va_start(args, fmt);
+    
+    if (is_todo)
+    {
+        fputs("# ", stdout);
+        if (fmt)
+            vprintf(fmt, args);
+        fputs("\n", stdout);
+        fflush(stdout);
+    }
+    else
+    {
+        fflush(stdout);
+        fputs("# ", stderr);
+        if (fmt)
+            vfprintf(stderr, fmt, args);
+        fputs("\n", stderr);
+        fflush(stderr);
+    }
+    
+    va_end(args);
+    
+    return 1;
 }
 
 int
 test_ok(int passed, const char *description, const char *directive,
-	const char *reason, const char *file, unsigned line,
-	const char *fmt, ...)
+        const char *reason, const char *file, unsigned line,
+        const char *fmt, ...)
 {
-	int is_todo = !passed && directive && !strcmp(directive, "TODO");
-	int is_setup = directive && !is_todo && !strcmp(directive, "SETUP");
-
-	if (is_setup)
-	{
-		if (!passed)
-		{
-			fflush(stdout);
-			fprintf(stderr, "# SETUP not ok%s%s%s%s\n", 
-				   description ? " - " : "",
-				   description ? description : "",
-				   reason ? " - " : "",
-				   reason ? reason : "");
-		}
-	}
-	else
-	{
-		if (!test_cases)
-		{
-			atexit(test_plan_exit);
-			fprintf(stderr, "You tried to run a test without a plan!  "
-					"Gotta have a plan. at %s line %u\n", file, line);
-			fflush(stderr);
-			exit(255);
-		}
-
-		++test_num;
-        if (!passed && !is_todo) {
+    int is_todo = !passed && directive && !strcmp(directive, "TODO");
+    int is_warning = !passed && directive && !strcmp(directive, "WARNING");
+    int is_setup = directive && !is_todo && !strcmp(directive, "SETUP");
+    
+    if (is_setup)
+    {
+        if (!passed)
+        {
+            fflush(stdout);
+            fprintf(stderr, "# SETUP not ok%s%s%s%s\n",
+                    description ? " - " : "",
+                    description ? description : "",
+                    reason ? " - " : "",
+                    reason ? reason : "");
+        }
+    }
+    else
+    {
+        if (!test_cases)
+        {
+            atexit(test_plan_exit);
+            fprintf(stderr, "You tried to run a test without a plan!  "
+                    "Gotta have a plan. at %s line %u\n", file, line);
+            fflush(stderr);
+            exit(255);
+        }
+        
+        ++test_num;
+        if (!passed && !is_todo && !is_warning) {
             ++test_fails;
         }
-/* We dont need to print this unless we want to */
+        /* We dont need to print this unless we want to */
 #if 0
-		fprintf(stderr, "%s:%u: note: %sok %d%s%s%s%s%s%s\n", file, line, passed ? "" : "not ", test_num,
-			   description ? " - " : "",
-			   description ? description : "",
-			   directive ? " # " : "",
-			   directive ? directive : "",
-			   reason ? " " : "",
-			   reason ? reason : "");
+        fprintf(stderr, "%s:%u: note: %sok %d%s%s%s%s%s%s\n", file, line, passed ? "" : "not ", test_num,
+                description ? " - " : "",
+                description ? description : "",
+                directive ? " # " : "",
+                directive ? directive : "",
+                reason ? " " : "",
+                reason ? reason : "");
 #endif
- }
-
-    if (passed)
-		fflush(stdout);
-	else
-    {
-		va_list args;
-
-		va_start(args, fmt);
-
-		if (is_todo)
-		{
-/* Enable this to output TODO as warning */
-#if 0             
-			printf("%s:%d: warning: Failed (TODO) test\n", file, line);
-			if (fmt)
-				vprintf(fmt, args);
-#endif
-			fflush(stdout);
-		}
-        else
-		{
-			fflush(stdout);
-			fprintf(stderr, "%s:%d: error: Failed test [%s]\n", file, line, description);
-			if (fmt)
-				vfprintf(stderr, fmt, args);
-			fflush(stderr);
-		}
-
-		va_end(args);
     }
-
+    
+    if (passed)
+        fflush(stdout);
+    else
+    {
+        va_list args;
+        
+        va_start(args, fmt);
+        
+        if (is_todo)
+        {
+            /* Enable this to output TODO as warning */
+#if 0
+            printf("%s:%d: warning: Failed (TODO) test\n", file, line);
+            if (fmt)
+                vprintf(fmt, args);
+#endif
+            ++test_todo;
+            fflush(stdout);
+        }
+        else if (is_warning)
+        {
+            /* Enable this to output warning */
+            printf("%s:%d: warning: Failed test [%s]\n", file, line, description);
+            if (fmt)
+                vprintf(fmt, args);
+            ++test_warning;
+            fflush(stdout);
+        }
+        else
+        {
+            fflush(stdout);
+            if (description) {
+                fprintf(stderr, "%s:%d: error: Failed test [%s]\n", file, line, description);
+                if (fmt)
+                    vfprintf(stderr, fmt, args);
+            } else {
+                fprintf(stderr, "%s:%d: error: Failed test [", file, line);
+                vfprintf(stderr, fmt, args);
+                fprintf(stderr, "]\n");
+            }
+            fflush(stderr);
+        }
+        
+        va_end(args);
+    }
+    
     return passed;
-}
-
-
-const char *
-sec_errstr(int err)
-{
-#if 1
-	static int bufnum = 0;
-    static char buf[2][20];
-	bufnum = bufnum ? 0 : 1;
-    sprintf(buf[bufnum], "0x%X", err);
-    return buf[bufnum];
-#else /* !1 */
-    if (err >= errSecErrnoBase && err <= errSecErrnoLimit)
-        return strerror(err - 100000);
-
-#ifdef MAC_OS_X_VERSION_10_4
-    /* AvailabilityMacros.h would only define this if we are on a
-       Tiger or later machine. */
-    extern const char *cssmErrorString(long);
-    return cssmErrorString(err);
-#else /* !defined(MAC_OS_X_VERSION_10_4) */
-    extern const char *_ZN8Security15cssmErrorStringEl(long);
-    return _ZN8Security15cssmErrorStringEl(err);
-#endif /* MAC_OS_X_VERSION_10_4 */
-#endif /* !1 */
 }
 
 /* run one test, described by test, return info in test struct */
 int run_one_test(struct one_test_s *test, int argc, char * const *argv)
 {
-    struct timeval start, stop;
+    
+    test->executed=1;
     
     if(test->entry==NULL) {
         printf("%s:%d: error: wtf?\n", __FILE__, __LINE__);
         return -1;
     }
     
+#if defined(_WIN32)
+    SYSTEMTIME st, end;
+    
+    GetSystemTime(&st);
+    test->entry(argc, argv);
+    GetSystemTime(&end);
+    test->duration = (end.wMinute-st.wMinute)*60*1000 + (end.wSecond-st.wSecond)*1000 + (end.wMilliseconds-st.wMilliseconds);
+#else
+    struct timeval start, stop;
     gettimeofday(&start, NULL);
     test->entry(argc, argv);
     gettimeofday(&stop, NULL);
-
+    /* this may overflow... */
+    test->duration=(unsigned long long) (stop.tv_sec-start.tv_sec)*1000+(stop.tv_usec/1000)-(start.tv_usec/1000);
+#endif
+    
     test->failed_tests=test_fails;
+    test->actual_tests=test_num;
+    test->planned_tests=test_cases;
+    test->plan_file=test_plan_file;
+    test->plan_line=test_plan_line;
+    test->todo_tests=test_todo;
+    test->warning_tests=test_warning;
+    
+    
     test_plan_exit();
     
-    /* this may overflow... */
-    test->duration=(unsigned int) (stop.tv_sec-start.tv_sec)*1000+(stop.tv_usec/1000)-(start.tv_usec/1000);
-
     return test->failed_tests;
 };
+
+
+

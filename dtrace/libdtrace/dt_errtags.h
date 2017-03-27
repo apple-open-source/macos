@@ -257,7 +257,8 @@ typedef enum {
 	D_LLQUANT_FACTOREVEN,	/* llquantize() bad # steps/factor */
 	D_LLQUANT_FACTORSMALL,	/* llquantize() magnitude too small */
 	D_LLQUANT_MAGTOOBIG,	/* llquantize() high mag too large */
-    D_APPLE_BADPARAM        /* apple_*() bad parameter code */
+	D_APPLE_BADPARAM,        /* apple_*() bad parameter code */
+	D_PROC_NOT_FOUND	/* proc not found in $pid_processName macro */
 } dt_errtag_t;
 
 extern const char *dt_errtag(dt_errtag_t);

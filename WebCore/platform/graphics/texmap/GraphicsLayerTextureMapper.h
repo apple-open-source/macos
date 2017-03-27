@@ -83,8 +83,8 @@ public:
     void setDebugBorder(const Color&, float width) override;
     void setShowRepaintCounter(bool) override;
 
-    void flushCompositingState(const FloatRect&, bool) override;
-    void flushCompositingStateForThisLayerOnly(bool) override;
+    void flushCompositingState(const FloatRect&) override;
+    void flushCompositingStateForThisLayerOnly() override;
 
     void updateBackingStoreIncludingSubLayers();
 
@@ -116,6 +116,8 @@ private:
     void updateBackingStoreIfNeeded();
     void prepareBackingStoreIfNeeded();
     bool shouldHaveBackingStore() const;
+
+    bool filtersCanBeComposited(const FilterOperations&) const;
 
     // This set of flags help us defer which properties of the layer have been
     // modified by the compositor, so we can know what to look for in the next flush.

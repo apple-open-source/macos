@@ -30,14 +30,15 @@
 #if ENABLE(MATHML)
 
 #include "MathMLFractionElement.h"
-#include "MathMLInlineContainerElement.h"
 #include "RenderMathMLBlock.h"
 
 namespace WebCore {
 
+class MathMLFractionElement;
+
 class RenderMathMLFraction final : public RenderMathMLBlock {
 public:
-    RenderMathMLFraction(MathMLInlineContainerElement&, RenderStyle&&);
+    RenderMathMLFraction(MathMLFractionElement&, RenderStyle&&);
 
     float relativeLineThickness() const { return m_defaultLineThickness ? m_lineThickness / m_defaultLineThickness : LayoutUnit(0); }
 
@@ -47,7 +48,7 @@ private:
 
     void computePreferredLogicalWidths() final;
     void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0) final;
-    Optional<int> firstLineBaseline() const final;
+    std::optional<int> firstLineBaseline() const final;
     void paint(PaintInfo&, const LayoutPoint&) final;
     RenderMathMLOperator* unembellishedOperator() final;
 
@@ -58,24 +59,24 @@ private:
     RenderBox& numerator() const;
     RenderBox& denominator() const;
     LayoutUnit horizontalOffset(RenderBox&, MathMLFractionElement::FractionAlignment);
-    void updateLayoutParameters();
+    void updateLineThickness();
+    struct FractionParameters {
+        LayoutUnit numeratorGapMin;
+        LayoutUnit denominatorGapMin;
+        LayoutUnit numeratorMinShiftUp;
+        LayoutUnit denominatorMinShiftDown;
+    };
+    FractionParameters fractionParameters();
+    struct StackParameters {
+        LayoutUnit gapMin;
+        LayoutUnit topShiftUp;
+        LayoutUnit bottomShiftDown;
+    };
+    StackParameters stackParameters();
 
     LayoutUnit m_ascent;
     LayoutUnit m_defaultLineThickness { 1 };
     LayoutUnit m_lineThickness;
-    union {
-        LayoutUnit m_numeratorGapMin;
-        LayoutUnit m_gapMin;
-    };
-    LayoutUnit m_denominatorGapMin;
-    union {
-        LayoutUnit m_numeratorMinShiftUp;
-        LayoutUnit m_topShiftUp;
-    };
-    union {
-        LayoutUnit m_denominatorMinShiftDown;
-        LayoutUnit m_bottomShiftDown;
-    };
 };
 
 } // namespace WebCore

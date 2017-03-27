@@ -59,7 +59,6 @@ bool SOSTransportKeyParameterKVSHandleCloudParameterChange(SOSTransportKeyParame
 
 
 bool SOSTransportKeyParameterKVSAppendKeyInterests(SOSTransportKeyParameterKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef*error){
-    
     CFArrayAppendValue(alwaysKeys, kSOSKVSKeyParametersKey);
     
     return true;
@@ -71,10 +70,9 @@ static bool publishCloudParameters(SOSTransportKeyParameterRef transport, CFData
 }
 
 static bool SOSTransportKeyParameterKVSUpdateKVS(CFDictionaryRef changes, CFErrorRef *error){
-    CloudKeychainReplyBlock log_error = ^(CFDictionaryRef returnedValues __unused, CFErrorRef error) {
-        if (error) {
-            secerror("Error putting: %@", error);
-            CFReleaseSafe(error);
+    CloudKeychainReplyBlock log_error = ^(CFDictionaryRef returnedValues __unused, CFErrorRef block_error) {
+        if (block_error) {
+            secerror("Error putting: %@", block_error);
         }
     };
     

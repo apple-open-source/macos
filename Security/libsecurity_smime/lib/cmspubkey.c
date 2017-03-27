@@ -176,10 +176,6 @@ SecCmsUtilEncryptSymKeyMISSI(PLArenaPool *poolp, SecCertificateRef cert, SecSymm
     /* Clear keaParams, since cleanup code checks the lengths */
     (void) memset(&keaParams, 0, sizeof(keaParams));
 
-#if USE_CDSA_CRYPTO
-    SecCertificateGetAlgorithmID(cert,&algid);
-#endif
-
     certalgtag = SECOID_GetAlgorithmTag(algid);
     PORT_Assert(certalgtag == SEC_OID_MISSI_KEA_DSS_OLD ||
 		certalgtag == SEC_OID_MISSI_KEA_DSS ||

@@ -31,6 +31,7 @@
 #include <Security/SecBase.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
+#include <utilities/SecCFRelease.h>
 #include <libaks.h>
 #include <AssertMacros.h>
 
@@ -44,12 +45,12 @@ static void tests(void)
     const char *v_data2 = "test";
     CFDataRef pwdata = CFDataCreate(NULL, (UInt8 *)v_data, strlen(v_data));
     CFDataRef pwdata2 = CFDataCreate(NULL, (UInt8 *)v_data2, strlen(v_data2));
-    CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFTypeRef result = NULL;
     CFDictionaryAddValue(query, kSecClass, kSecClassInternetPassword);
     CFDictionaryAddValue(query, kSecAttrServer, CFSTR("members.spamcop.net"));
     CFDictionaryAddValue(query, kSecAttrAccount, CFSTR("smith"));
-    CFDictionaryAddValue(query, kSecAttrPort, eighty);
+    CFDictionaryAddValue(query, kSecAttrPort, eighty); CFReleaseNull(eighty);
     CFDictionaryAddValue(query, kSecAttrProtocol, kSecAttrProtocolHTTP);
     CFDictionaryAddValue(query, kSecAttrAuthenticationType, kSecAttrAuthenticationTypeDefault);
 
@@ -79,9 +80,10 @@ static void tests(void)
     is_status(SecItemCopyMatching(syncQuery, &result), errSecItemNotFound, "do not find the osx item with synchronizable");
     CFReleaseNull(result);
 
-    CFMutableDictionaryRef toUpdate = CFDictionaryCreateMutable(NULL, 1, NULL, NULL);
+    CFMutableDictionaryRef toUpdate = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     CFDictionaryAddValue(toUpdate, kSecValueData, pwdata2);
+    CFReleaseNull(pwdata2);
 
     ok_status(SecItemUpdate(query, toUpdate), "update the osx item");
     is_status(SecItemUpdate(noLegacyQuery, toUpdate), errSecItemNotFound, "do not update the osx item with noLegacy");
@@ -94,6 +96,7 @@ static void tests(void)
 
 
     CFDictionaryAddValue(noLegacyQuery, kSecValueData, pwdata);
+    CFReleaseNull(pwdata);
     ok_status(SecItemAdd(noLegacyQuery, &result), "add internet password in iOS keychain");
     CFDictionaryRemoveValue(noLegacyQuery, kSecValueData);
 
@@ -114,6 +117,11 @@ static void tests(void)
 
     ok_status(SecItemDelete(noLegacyQuery), "delete the item with noLegacy");
 
+    CFReleaseNull(toUpdate);
+    CFReleaseNull(query);
+    CFReleaseNull(noLegacyQuery);
+    CFReleaseNull(syncQuery);
+    CFReleaseNull(syncAnyQuery);
 }
 
 int si_34_one_true_keychain(int argc, char *const *argv)

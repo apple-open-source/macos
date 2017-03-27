@@ -23,11 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebsiteDataRecord_h
-#define WebsiteDataRecord_h
+#pragma once
 
 #include "WebsiteDataType.h"
+#include <WebCore/SecurityOriginData.h>
 #include <WebCore/SecurityOriginHash.h>
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Optional.h>
@@ -45,9 +46,9 @@ struct WebsiteDataRecord {
 #if ENABLE(NETSCAPE_PLUGIN_API)
     static String displayNameForPluginDataHostName(const String& hostName);
 #endif
-    static String displayNameForOrigin(const WebCore::SecurityOrigin&);
+    static String displayNameForOrigin(const WebCore::SecurityOriginData&);
 
-    void add(WebsiteDataType, RefPtr<WebCore::SecurityOrigin>&&);
+    void add(WebsiteDataType, const WebCore::SecurityOriginData&);
     void addCookieHostName(const String& hostName);
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void addPluginDataHostName(const String& hostName);
@@ -60,9 +61,9 @@ struct WebsiteDataRecord {
         uint64_t totalSize;
         HashMap<unsigned, uint64_t> typeSizes;
     };
-    Optional<Size> size;
+    std::optional<Size> size;
 
-    HashSet<RefPtr<WebCore::SecurityOrigin>> origins;
+    HashSet<WebCore::SecurityOriginData> origins;
     HashSet<String> cookieHostNames;
 #if ENABLE(NETSCAPE_PLUGIN_API)
     HashSet<String> pluginDataHostNames;
@@ -70,5 +71,3 @@ struct WebsiteDataRecord {
 };
 
 }
-
-#endif // WebsiteDataRecord_h

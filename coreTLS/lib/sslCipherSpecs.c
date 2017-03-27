@@ -32,7 +32,7 @@
 #include "sslMemory.h"
 #include "sslDebug.h"
 #include "sslUtils.h"
-#include <tls_handshake_priv.h>
+#include "tls_handshake_priv.h"
 
 #include <string.h>
 #include <assert.h>

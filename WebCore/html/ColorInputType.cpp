@@ -39,12 +39,12 @@
 #include "Chrome.h"
 #include "Color.h"
 #include "ElementChildIterator.h"
+#include "Event.h"
 #include "HTMLDataListElement.h"
 #include "HTMLDivElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLOptionElement.h"
 #include "InputTypeNames.h"
-#include "MouseEvent.h"
 #include "RenderObject.h"
 #include "RenderView.h"
 #include "ScopedEventQueue.h"
@@ -55,18 +55,30 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static bool isValidColorString(const String& value)
+static bool isValidSimpleColorString(const String& value)
 {
+    // See https://html.spec.whatwg.org/multipage/infrastructure.html#valid-simple-colour
+
     if (value.isEmpty())
         return false;
     if (value[0] != '#')
         return false;
-
-    // We don't accept #rgb and #aarrggbb formats.
     if (value.length() != 7)
         return false;
-    Color color(value);
-    return color.isValid() && !color.hasAlpha();
+    if (value.is8Bit()) {
+        const LChar* characters = value.characters8();
+        for (unsigned i = 1, length = value.length(); i < length; ++i) {
+            if (!isASCIIHexDigit(characters[i]))
+                return false;
+        }
+    } else {
+        const UChar* characters = value.characters16();
+        for (unsigned i = 1, length = value.length(); i < length; ++i) {
+            if (!isASCIIHexDigit(characters[i]))
+                return false;
+        }
+    }
+    return true;
 }
 
 ColorInputType::~ColorInputType()
@@ -96,7 +108,7 @@ String ColorInputType::fallbackValue() const
 
 String ColorInputType::sanitizeValue(const String& proposedValue) const
 {
-    if (!isValidColorString(proposedValue))
+    if (!isValidSimpleColorString(proposedValue))
         return fallbackValue();
 
     return proposedValue.convertToASCIILowercase();
@@ -116,8 +128,8 @@ void ColorInputType::createShadowSubtree()
     wrapperElement->setPseudo(AtomicString("-webkit-color-swatch-wrapper", AtomicString::ConstructFromLiteral));
     auto colorSwatch = HTMLDivElement::create(document);
     colorSwatch->setPseudo(AtomicString("-webkit-color-swatch", AtomicString::ConstructFromLiteral));
-    wrapperElement->appendChild(colorSwatch, ASSERT_NO_EXCEPTION);
-    element().userAgentShadowRoot()->appendChild(wrapperElement, ASSERT_NO_EXCEPTION);
+    wrapperElement->appendChild(colorSwatch);
+    element().userAgentShadowRoot()->appendChild(wrapperElement);
     
     updateColorSwatch();
 }
@@ -134,7 +146,7 @@ void ColorInputType::setValue(const String& value, bool valueChanged, TextFieldE
         m_chooser->setSelectedColor(valueAsColor());
 }
 
-void ColorInputType::handleDOMActivateEvent(Event* event)
+void ColorInputType::handleDOMActivateEvent(Event& event)
 {
     if (element().isDisabledOrReadOnly() || !element().renderer())
         return;
@@ -149,7 +161,7 @@ void ColorInputType::handleDOMActivateEvent(Event* event)
             m_chooser->reattachColorChooser(valueAsColor());
     }
 
-    event->setDefaultHandled();
+    event.setDefaultHandled();
 }
 
 void ColorInputType::detach()
@@ -164,7 +176,7 @@ bool ColorInputType::shouldRespectListAttribute()
 
 bool ColorInputType::typeMismatchFor(const String& value) const
 {
-    return !isValidColorString(value);
+    return !isValidSimpleColorString(value);
 }
 
 bool ColorInputType::shouldResetOnDocumentActivation()
@@ -246,7 +258,7 @@ Vector<Color> ColorInputType::suggestions() const
         suggestions.reserveInitialCapacity(length);
         for (unsigned i = 0; i != length; ++i) {
             auto value = downcast<HTMLOptionElement>(*options->item(i)).value();
-            if (isValidColorString(value))
+            if (isValidSimpleColorString(value))
                 suggestions.uncheckedAppend(Color(value));
         }
     }

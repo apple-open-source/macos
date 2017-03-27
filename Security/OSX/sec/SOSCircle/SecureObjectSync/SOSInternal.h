@@ -68,9 +68,9 @@ enum {
     kSOSErrorNoRing             = 1043,
 
     kSOSErrorNoiCloudPeer       = 1044,
+    kSOSErrorParam              = 1045,
 };
 
-extern CFStringRef kSOSErrorDomain;
 
 // Returns false unless errorCode is 0.
 bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef formatOptions, CFStringRef descriptionString, ...);
@@ -84,6 +84,15 @@ bool SOSCreateErrorWithFormat(CFIndex errorCode, CFErrorRef previousError, CFErr
 bool SOSCreateErrorWithFormatAndArguments(CFIndex errorCode, CFErrorRef previousError, CFErrorRef *newError,
                                           CFDictionaryRef formatOptions, CFStringRef formatString, va_list args)
                                 CF_FORMAT_FUNCTION(5,0);
+
+
+static inline bool SOSClearErrorIfTrue(bool condition, CFErrorRef *error) {
+    if(condition && error && *error) {
+        secdebug("errorBug", "Got Success and Error (dropping error): %@", *error);
+        CFReleaseNull(*error);
+    }
+    return true;
+}
 
 static inline bool isSOSErrorCoded(CFErrorRef error, CFIndex sosErrorCode) {
     return error && CFErrorGetCode(error) == sosErrorCode && CFEqualSafe(CFErrorGetDomain(error), kSOSErrorDomain);
@@ -114,6 +123,9 @@ OSStatus GeneratePermanentECPair(int keySize, SecKeyRef* public, SecKeyRef *full
 
 CFStringRef SOSItemsChangedCopyDescription(CFDictionaryRef changes, bool is_sender);
 
+CFStringRef SOSCopyIDOfDataBuffer(CFDataRef data, CFErrorRef *error);
+CFStringRef SOSCopyIDOfDataBufferWithLength(CFDataRef data, CFIndex len, CFErrorRef *error);
+
 CFStringRef SOSCopyIDOfKey(SecKeyRef key, CFErrorRef *error);
 CFStringRef SOSCopyIDOfKeyWithLength(SecKeyRef key, CFIndex len, CFErrorRef *error);
 
@@ -129,6 +141,15 @@ static inline bool accumulate_size(size_t *accumulator, size_t size) {
 CFDataRef SOSDateCreate(void);
 
 CFDataRef CFDataCreateWithDER(CFAllocatorRef allocator, CFIndex size, uint8_t*(^operation)(size_t size, uint8_t *buffer));
+
+extern const CFStringRef kSecIDSErrorDomain;
+extern const CFStringRef kIDSOperationType;
+extern const CFStringRef kIDSMessageToSendKey;
+extern const CFStringRef kIDSMessageUniqueID;
+extern const CFStringRef kIDSMessageRecipientPeerID;
+extern const CFStringRef kIDSMessageRecipientDeviceID;
+extern const CFStringRef kIDSMessageUsesAckModel;
+
 
 
 __END_DECLS

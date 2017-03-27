@@ -232,9 +232,9 @@ void findEndWordBoundary(StringView text, int position, int* end)
 int findNextWordFromIndex(StringView text, int position, bool forward)
 {   
 #if USE(APPKIT)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
     if (!text.length())
         return 0;
-    // FIXME: Remove when <rdar://problem/27380532> is fixed.
     if (!text.is8Bit() && !forward) {
         int chunkSize = 256;
         int decrement = chunkSize / 2;
@@ -257,6 +257,7 @@ int findNextWordFromIndex(StringView text, int position, bool forward)
         }
         return 0;
     }
+#endif
     NSAttributedString *attributedString = [[NSAttributedString alloc] initWithString:text.createNSStringWithoutCopying().get()];
     int result = [attributedString nextWordFromIndex:position forward:forward];
     [attributedString release];
@@ -266,18 +267,18 @@ int findNextWordFromIndex(StringView text, int position, bool forward)
     // for the contexts in which it is used on iPhone, and in the future will be
     // tuned to improve the iPhone-specific behavior for the keyboard and text editing.
     int pos = position;
-    TextBreakIterator* boundary = wordBreakIterator(text);
+    UBreakIterator* boundary = wordBreakIterator(text);
     if (boundary) {
         if (forward) {
             do {
-                pos = textBreakFollowing(boundary, pos);
+                pos = ubrk_following(boundary, pos);
                 if (pos == UBRK_DONE)
                     pos = text.length();
             } while (static_cast<unsigned>(pos) < text.length() && (pos == 0 || !isSkipCharacter(text[pos - 1])) && isSkipCharacter(text[pos]));
         }
         else {
             do {
-                pos = textBreakPreceding(boundary, pos);
+                pos = ubrk_preceding(boundary, pos);
                 if (pos == UBRK_DONE)
                     pos = 0;
             } while (pos > 0 && isSkipCharacter(text[pos]) && !isWhitespaceCharacter(text[pos - 1]));

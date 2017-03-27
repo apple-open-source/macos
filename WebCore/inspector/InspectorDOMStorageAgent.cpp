@@ -40,15 +40,14 @@
 #include "InspectorPageAgent.h"
 #include "InstrumentingAgents.h"
 #include "Page.h"
-#include "PageGroup.h"
 #include "SecurityOrigin.h"
+#include "SecurityOriginData.h"
 #include "Storage.h"
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
 #include "VoidCallback.h"
 #include <inspector/InspectorFrontendDispatchers.h>
 #include <inspector/InspectorValues.h>
-#include <wtf/Vector.h>
 
 using namespace Inspector;
 
@@ -159,7 +158,7 @@ RefPtr<Inspector::Protocol::DOMStorage::StorageId> InspectorDOMStorageAgent::sto
         .release();
 }
 
-void InspectorDOMStorageAgent::didDispatchDOMStorageEvent(const String& key, const String& oldValue, const String& newValue, StorageType storageType, SecurityOrigin* securityOrigin, Page*)
+void InspectorDOMStorageAgent::didDispatchDOMStorageEvent(const String& key, const String& oldValue, const String& newValue, StorageType storageType, SecurityOrigin* securityOrigin)
 {
     if (!m_enabled)
         return;
@@ -196,7 +195,7 @@ RefPtr<StorageArea> InspectorDOMStorageAgent::findStorageArea(ErrorString& error
     }
 
     if (!isLocalStorage)
-        return m_pageAgent->page().sessionStorage()->storageArea(targetFrame->document()->securityOrigin());
+        return m_pageAgent->page().sessionStorage()->storageArea(SecurityOriginData::fromSecurityOrigin(*targetFrame->document()->securityOrigin()));
     return m_pageAgent->page().storageNamespaceProvider().localStorageArea(*targetFrame->document());
 }
 

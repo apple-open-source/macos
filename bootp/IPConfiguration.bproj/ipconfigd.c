@@ -2849,6 +2849,8 @@ STATIC void
 dict_insert_additional_routes(CFMutableDictionaryRef dict, struct in_addr addr,
 			      IPv4ClasslessRouteRef list, int list_count)
 {
+    struct in_addr	linklocal_mask = { htonl(IN_CLASSB_NET) };
+    struct in_addr	linklocal_network = { htonl(IN_LINKLOCALNETNUM) };
     CFDictionaryRef	route_dict;
     CFMutableArrayRef	routes;
 
@@ -2860,6 +2862,14 @@ dict_insert_additional_routes(CFMutableDictionaryRef dict, struct in_addr addr,
     route_dict = route_dict_create(&addr, &G_ip_broadcast, NULL);
     CFArrayAppendValue(routes, route_dict);
     CFRelease(route_dict);
+
+    if (!in_subnet(linklocal_network, linklocal_mask, addr)) {
+	    /* add IPv4LL route */
+	    route_dict = route_dict_create(&linklocal_network,
+					   &linklocal_mask, NULL);
+	    CFArrayAppendValue(routes, route_dict);
+	    CFRelease(route_dict);
+    }
 
     /* add classless routes */
     if (list != NULL) {

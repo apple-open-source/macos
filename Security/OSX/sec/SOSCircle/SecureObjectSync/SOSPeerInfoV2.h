@@ -24,6 +24,7 @@ extern CFStringRef sSecurityPropertiesKey;      // Set of Security Properties
 extern CFStringRef kSOSHsaCrKeyDictionary;      // HSA Challenge-Response area
 extern CFStringRef sPreferIDS;                    // Whether or not a peer requires to speak over IDS or KVS
 extern CFStringRef sPreferIDSFragmentation;     // Whether or not a peer requires to speak over fragmented IDS or not
+extern CFStringRef sPreferIDSACKModel;          //If a peer prefers to use the ACK model and not ping
 
 extern CFStringRef sTransportType;              // Dictates the transport type
 extern CFStringRef sDeviceID;                   // The IDS device id
@@ -37,16 +38,19 @@ bool SOSPeerInfoExpandV2Data(SOSPeerInfoRef pi, CFErrorRef *error);
 void SOSPeerInfoV2DictionarySetValue(SOSPeerInfoRef peer, const void *key, const void *value);
 void SOSPeerInfoV2DictionaryRemoveValue(SOSPeerInfoRef peer, const void *key);
 
-const CFMutableDataRef SOSPeerInfoV2DictionaryCopyData(SOSPeerInfoRef pi, const void *key);
-const CFMutableSetRef SOSPeerInfoV2DictionaryCopySet(SOSPeerInfoRef pi, const void *key);
-const CFMutableStringRef SOSPeerInfoV2DictionaryCopyString(SOSPeerInfoRef pi, const void *key);
-const CFBooleanRef SOSPeerInfoV2DictionaryCopyBoolean(SOSPeerInfoRef pi, const void *key);
-const CFMutableDictionaryRef SOSPeerInfoV2DictionaryCopyDictionary(SOSPeerInfoRef pi, const void *key);
+CFMutableDataRef SOSPeerInfoV2DictionaryCopyData(SOSPeerInfoRef pi, const void *key);
+CFMutableSetRef SOSPeerInfoV2DictionaryCopySet(SOSPeerInfoRef pi, const void *key);
+CFMutableStringRef SOSPeerInfoV2DictionaryCopyString(SOSPeerInfoRef pi, const void *key);
+CFBooleanRef SOSPeerInfoV2DictionaryCopyBoolean(SOSPeerInfoRef pi, const void *key);
+CFMutableDictionaryRef SOSPeerInfoV2DictionaryCopyDictionary(SOSPeerInfoRef pi, const void *key);
+SOSPeerInfoRef SOSPeerInfoCopyWithV2DictionaryUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef newv2dict, SecKeyRef signingKey, CFErrorRef* error);
 
 bool SOSPeerInfoV2DictionaryHasSet(SOSPeerInfoRef pi, const void *key);
 bool SOSPeerInfoV2DictionaryHasData(SOSPeerInfoRef pi, const void *key);
 bool SOSPeerInfoV2DictionaryHasString(SOSPeerInfoRef pi, const void *key);
 bool SOSPeerInfoV2DictionaryHasBoolean(SOSPeerInfoRef pi, const void *key);
+
+bool SOSPeerInfoV2DictionaryHasStringValue(SOSPeerInfoRef pi, const void *key, CFStringRef value);
 
 bool SOSPeerInfoV2DictionaryHasSetContaining(SOSPeerInfoRef pi, const void *key, const void* value);
 void SOSPeerInfoV2DictionaryForEachSetValue(SOSPeerInfoRef pi, const void *key, void (^action)(const void* value));
@@ -55,6 +59,7 @@ void SOSPeerInfoV2DictionaryWithSet(SOSPeerInfoRef pi, const void *key, void(^op
 
 bool SOSPeerInfoSerialNumberIsSet(SOSPeerInfoRef pi);
 void SOSPeerInfoSetSerialNumber(SOSPeerInfoRef pi);
+void SOSPeerInfoSetTestSerialNumber(SOSPeerInfoRef pi, CFStringRef serialNumber);
 CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
 
 #endif /* defined(_sec_SOSPeerInfoV2_) */

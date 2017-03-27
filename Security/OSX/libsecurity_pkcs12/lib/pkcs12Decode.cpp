@@ -31,6 +31,7 @@
 #include "pkcs12Debug.h"
 #include "pkcs12Crypto.h"
 #include <security_cdsa_utilities/cssmerrors.h>
+#include <security_utilities/casts.h>
 #include <security_asn1/nssUtils.h>
 
 /* top-level PKCS12 PFX decoder */
@@ -42,7 +43,7 @@ void P12Coder::decode(
 
 	p12DecodeLog("decode");
 	memset(&pfx, 0, sizeof(pfx));
-	const CSSM_DATA rawBlob = {CFDataGetLength(cdpfx),
+	const CSSM_DATA rawBlob = {int_cast<CFIndex, CSSM_SIZE>(CFDataGetLength(cdpfx)),
 		(uint8 *)CFDataGetBytePtr(cdpfx)};
 		
 	if(localCdr.decodeItem(rawBlob, NSS_P12_DecodedPFXTemplate, &pfx)) {

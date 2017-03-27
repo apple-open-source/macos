@@ -16,7 +16,7 @@
  */
 
 
-#include <openssl/bn.h>
+#include <openssl/bn_legacy.h>
 #include <openssl/rand.h>
 
 static int rand(n)

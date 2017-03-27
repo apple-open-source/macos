@@ -615,7 +615,7 @@ fi{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wolof"}
-        wuu{"wu-kiina"}
+        wuu{"shanghainkiina"}
         xal{"kalmukki"}
         xh{"xhosa"}
         xmf{"mingreli"}

@@ -92,7 +92,6 @@ CSSM_HANDLE Directory::dlGetFirst(const CSSM_QUERY &query, CSSM_DB_RECORD_ATTRIB
 		return CSSM_INVALID_HANDLE;
 	default:
 		CssmError::throwMe(rc);
-		return CSSM_INVALID_HANDLE; // placebo
 	}
 }
 
@@ -109,7 +108,6 @@ bool Directory::dlGetNext(CSSM_HANDLE handle, CSSM_DB_RECORD_ATTRIBUTE_DATA &att
 		return false;
 	default:
 		CssmError::throwMe(rc);
-		return false;   // placebo
 	}
 }
 

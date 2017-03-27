@@ -28,8 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RenderRubyRun_h
-#define RenderRubyRun_h
+#pragma once
 
 #include "RenderBlockFlow.h"
 
@@ -48,7 +47,6 @@ public:
 
     bool hasRubyText() const;
     bool hasRubyBase() const;
-    bool isEmpty() const override;
     RenderRubyText* rubyText() const;
     RenderRubyBase* rubyBase() const;
     RenderRubyBase* rubyBaseSafe(); // creates the base if it doesn't already exist
@@ -93,5 +91,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderRubyRun, isRubyRun())
-
-#endif // RenderRubyRun_h

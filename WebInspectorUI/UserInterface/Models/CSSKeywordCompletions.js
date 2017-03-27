@@ -296,7 +296,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
         "hidden", "auto", "visible", "overlay", "scroll", "marquee", "-webkit-paged-x", "-webkit-paged-y"
     ],
     "margin-bottom-collapse": [
-        "collapse",  "separate", "discard"
+        "collapse", "separate", "discard"
     ],
     "-webkit-box-reflect": [
         "none", "left", "right", "above", "below"
@@ -608,7 +608,7 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     "clip-path": [
         "none", "url()", "circle()", "ellipse()", "inset()", "polygon()", "margin-box", "border-box", "padding-box", "content-box"
     ],
-    "-webkit-shape-outside": [
+    "shape-outside": [
         "none", "url()", "circle()", "ellipse()", "inset()", "polygon()", "margin-box", "border-box", "padding-box", "content-box"
     ],
     "orphans": [

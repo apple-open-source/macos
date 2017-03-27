@@ -25,6 +25,7 @@
 
 #include "Globals.h"
 #include "KCExceptions.h"
+#include <utilities/SecCFRelease.h>
 
 
 namespace Security {
@@ -45,11 +46,11 @@ mUI(true), mIntegrityProtection(false)
 
     if (integrity && CFGetTypeID(integrity) == CFBooleanGetTypeID()) {
         mIntegrityProtection = CFBooleanGetValue((CFBooleanRef)integrity);
-        CFRelease(integrity);
     } else {
         // preference not set: defaulting to true
         mIntegrityProtection = true;
     }
+    CFReleaseSafe(integrity);
 }
 
 const AccessCredentials * Globals::keychainCredentials() 

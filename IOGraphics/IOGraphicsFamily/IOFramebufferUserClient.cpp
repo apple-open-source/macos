@@ -182,7 +182,7 @@ IOReturn IOFramebufferUserClient::externalMethod( uint32_t selector, IOExternalM
         /*[10]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetNewCursor,
                     3, 0, 0, 0 },
         /*[11]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetGammaTable,
-                    3, kIOUCVariableStructureSize, 0, 0 },
+                    5, kIOUCVariableStructureSize, 0, 0 },
         /*[12]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorVisible,
                     1, 0, 0, 0 },
         /*[13]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorPosition,

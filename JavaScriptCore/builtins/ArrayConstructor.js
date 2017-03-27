@@ -28,7 +28,7 @@ function of(/* items... */)
     "use strict";
 
     var length = arguments.length;
-    var array = @isConstructor(this) ? new this(length) : new @Array(length);
+    var array = @isConstructor(this) ? new this(length) : @newArrayWithSize(length);
     for (var k = 0; k < length; ++k)
         @putByValDirect(array, k, arguments[k]);
     array.length = length;
@@ -41,25 +41,24 @@ function from(items /*, mapFn, thisArg */)
 
     var thisObj = this;
 
-    var mapFn = arguments.length > 1 ? arguments[1] : @undefined;
+    var mapFn = @argument(1);
 
     var thisArg;
 
     if (mapFn !== @undefined) {
         if (typeof mapFn !== "function")
-            throw new @TypeError("Array.from requires that the second argument, when provided, be a function");
+            @throwTypeError("Array.from requires that the second argument, when provided, be a function");
 
-        if (arguments.length > 2)
-            thisArg = arguments[2];
+        thisArg = @argument(2);
     }
 
     if (items == null)
-        throw new @TypeError("Array.from requires an array-like object - not null or undefined");
+        @throwTypeError("Array.from requires an array-like object - not null or undefined");
 
     var iteratorMethod = items.@iteratorSymbol;
     if (iteratorMethod != null) {
         if (typeof iteratorMethod !== "function")
-            throw new @TypeError("Array.from requires that the property of the first argument, items[Symbol.iterator], when exists, be a function");
+            @throwTypeError("Array.from requires that the property of the first argument, items[Symbol.iterator], when exists, be a function");
 
         var result = @isConstructor(thisObj) ? new thisObj() : [];
 
@@ -87,7 +86,7 @@ function from(items /*, mapFn, thisArg */)
     var arrayLike = @Object(items);
     var arrayLikeLength = @toLength(arrayLike.length);
 
-    var result = @isConstructor(thisObj) ? new thisObj(arrayLikeLength) : new @Array(arrayLikeLength);
+    var result = @isConstructor(thisObj) ? new thisObj(arrayLikeLength) : @newArrayWithSize(arrayLikeLength);
 
     var k = 0;
     while (k < arrayLikeLength) {
@@ -101,4 +100,15 @@ function from(items /*, mapFn, thisArg */)
 
     result.length = arrayLikeLength;
     return result;
+}
+
+function isArray(array)
+{
+    "use strict";
+
+    if (@isJSArray(array) || @isDerivedArray(array))
+        return true;
+    if (!@isProxyObject(array))
+        return false;
+    return @isArraySlow(array);
 }

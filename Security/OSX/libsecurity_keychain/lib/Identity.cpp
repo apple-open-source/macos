@@ -96,7 +96,7 @@ Identity::Identity(const StorageManager::KeychainList &keychains, const SecPoint
             if (CFArrayGetCount(dynamicSearchList)) {
                 // Legacy way is used for dynamic keychains because SmartCards keychain does not support strict CSSM queries which are generated in SecItemCopyMatching
                 // Find a key whose label matches the publicKeyHash of the public key in the certificate.
-                KCCursor keyCursor(keychains, CSSM_DL_DB_RECORD_PRIVATE_KEY, NULL);
+                KCCursor keyCursor(keychains, (SecItemClass) CSSM_DL_DB_RECORD_PRIVATE_KEY, NULL);
                 keyCursor->add(CSSM_DB_EQUAL, KeySchema::Label, certificate->publicKeyHash());
 
                 Item key;

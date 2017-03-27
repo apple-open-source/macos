@@ -29,8 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SliderThumbElement_h
-#define SliderThumbElement_h
+#pragma once
 
 #include "HTMLDivElement.h"
 #include "HTMLNames.h"
@@ -53,7 +52,7 @@ public:
     void setPositionFromPoint(const LayoutPoint&);
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-    void handleTouchEvent(TouchEvent*);
+    void handleTouchEvent(TouchEvent&);
 
     void disabledAttributeChanged();
 #endif
@@ -68,7 +67,7 @@ private:
     bool matchesReadWritePseudoClass() const override;
     Element* focusDelegate() override;
 #if !PLATFORM(IOS)
-    void defaultEventHandler(Event*) override;
+    void defaultEventHandler(Event&) override;
     bool willRespondToMouseMoveEvents() override;
     bool willRespondToMouseClickEvents() override;
 #endif
@@ -78,7 +77,7 @@ private:
 #endif
     void willDetachRenderers() override;
 
-    Optional<ElementStyle> resolveCustomStyle(const RenderStyle&, const RenderStyle*) override;
+    std::optional<ElementStyle> resolveCustomStyle(const RenderStyle&, const RenderStyle*) override;
     const AtomicString& shadowPseudoId() const override;
 
     void startDragging();
@@ -89,9 +88,9 @@ private:
     void setExclusiveTouchIdentifier(unsigned);
     void clearExclusiveTouchIdentifier();
 
-    void handleTouchStart(TouchEvent*);
-    void handleTouchMove(TouchEvent*);
-    void handleTouchEndAndCancel(TouchEvent*);
+    void handleTouchStart(TouchEvent&);
+    void handleTouchMove(TouchEvent&);
+    void handleTouchEndAndCancel(TouchEvent&);
 
     bool shouldAcceptTouchEvents();
     void registerForTouchEvents();
@@ -135,7 +134,7 @@ public:
 private:
     SliderContainerElement(Document&);
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
-    Optional<ElementStyle> resolveCustomStyle(const RenderStyle&, const RenderStyle*) override;
+    std::optional<ElementStyle> resolveCustomStyle(const RenderStyle&, const RenderStyle*) override;
     const AtomicString& shadowPseudoId() const override;
     bool isSliderContainerElement() const override { return true; }
 
@@ -148,5 +147,3 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SliderContainerElement)
     static bool isType(const WebCore::Element& element) { return element.isSliderContainerElement(); }
     static bool isType(const WebCore::Node& node) { return is<WebCore::Element>(node) && isType(downcast<WebCore::Element>(node)); }
 SPECIALIZE_TYPE_TRAITS_END()
-
-#endif

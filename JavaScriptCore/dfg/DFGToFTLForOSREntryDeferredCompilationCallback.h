@@ -23,13 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef DFGToFTLForOSREntryDeferredCompilationCallback_h
-#define DFGToFTLForOSREntryDeferredCompilationCallback_h
+#pragma once
 
 #if ENABLE(FTL_JIT)
 
+#include "DFGJITCode.h"
 #include "DeferredCompilationCallback.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace JSC {
@@ -40,23 +39,20 @@ namespace DFG {
 
 class ToFTLForOSREntryDeferredCompilationCallback : public DeferredCompilationCallback {
 protected:
-    ToFTLForOSREntryDeferredCompilationCallback(uint8_t* forcedOSREntryTrigger);
+    ToFTLForOSREntryDeferredCompilationCallback(JITCode::TriggerReason* forcedOSREntryTrigger);
 
 public:
     virtual ~ToFTLForOSREntryDeferredCompilationCallback();
 
-    static Ref<ToFTLForOSREntryDeferredCompilationCallback> create(uint8_t* forcedOSREntryTrigger);
+    static Ref<ToFTLForOSREntryDeferredCompilationCallback> create(JITCode::TriggerReason* forcedOSREntryTrigger);
     
     virtual void compilationDidBecomeReadyAsynchronously(CodeBlock*, CodeBlock* profiledDFGCodeBlock);
     virtual void compilationDidComplete(CodeBlock*, CodeBlock* profiledDFGCodeBlock, CompilationResult);
 
 private:
-    uint8_t* m_forcedOSREntryTrigger;
+    JITCode::TriggerReason* m_forcedOSREntryTrigger;
 };
 
 } } // namespace JSC::DFG
 
 #endif // ENABLE(FTL_JIT)
-
-#endif // DFGToFTLForOSREntryDeferredCompilationCallback_h
-

@@ -42,7 +42,7 @@ const uint8_t* der_decode_boolean(CFAllocatorRef allocator, CFOptionFlags mutabi
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_BOOLEAN, &payload_size, der, der_end);
 
-    if (NULL == payload || (der_end - payload) < payload_size || payload_size != 1) {
+    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size || payload_size != 1) {
         SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown boolean encoding"), NULL, error);
         return NULL;
     }

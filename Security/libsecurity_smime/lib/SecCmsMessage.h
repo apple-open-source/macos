@@ -49,8 +49,6 @@ extern "C" {
 /*!
     @function
     @abstract Create a CMS message object.
-    @param poolp Arena to allocate memory from, or NULL if new arena should
-        be created.
     @result A pointer to a newly created SecCmsMessage.  When finished using
         this the caller should call SecCmsMessageDestroy().  On failure
         returns NULL.  In this case call PR_GetError() to find out what went

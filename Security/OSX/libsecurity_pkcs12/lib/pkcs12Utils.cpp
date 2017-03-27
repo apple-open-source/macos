@@ -104,7 +104,7 @@ void p12IntToData(
 }
 
 /* CFDataRef <--> CSSM_DATA */
-CFDataRef p12CssmDataToCf(
+CFDataRef CF_RETURNS_RETAINED p12CssmDataToCf(
 	const CSSM_DATA &c)
 {
 	return CFDataCreate(NULL, c.Data, c.Length);

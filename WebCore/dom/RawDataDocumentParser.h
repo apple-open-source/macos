@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RawDataDocumentParser_h
-#define RawDataDocumentParser_h
+#pragma once
 
 #include "DocumentParser.h"
 
@@ -50,7 +49,7 @@ private:
         appendBytes(writer, 0, 0);
     }
 
-    void insert(const SegmentedString&) override
+    void insert(SegmentedString&&) override
     {
         // <https://bugs.webkit.org/show_bug.cgi?id=25397>: JS code can always call document.write, we need to handle it.
         ASSERT_NOT_REACHED();
@@ -62,6 +61,4 @@ private:
     }
 };
 
-};
-
-#endif // RawDataDocumentParser_h
+} // namespace WebCore

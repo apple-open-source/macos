@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,9 @@
 #include <pthread.h>
 #include <sys/loadable_fs.h>
 #include <sys/stat.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/storage/IOBlockStorageDevice.h>
+#include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
@@ -877,6 +880,113 @@ Boolean DAUnitGetState( DADiskRef disk, DAUnitState state )
             unit = ( void * ) CFDataGetMutableBytePtr( data );
 
             return ( unit->state & state ) ? TRUE : FALSE;
+        }
+    }
+
+    return FALSE;
+}
+
+Boolean DAUnitGetStateRecursively( DADiskRef disk, DAUnitState state )
+{
+    io_service_t media;
+
+    if ( DAUnitGetState( disk, state ) )
+    {
+        return TRUE;
+    }
+
+    media = DADiskGetIOMedia( disk );
+
+    if ( media )
+    {
+        IOOptionBits options = kIORegistryIterateParents | kIORegistryIterateRecursively;
+
+        while ( options )
+        {
+            Boolean valid = FALSE;
+
+            while ( valid == FALSE )
+            {
+                io_iterator_t services = IO_OBJECT_NULL;
+
+                IORegistryEntryCreateIterator( media, kIOServicePlane, options, &services );
+
+                if ( services )
+                {
+                    io_service_t service;
+
+                    service = IOIteratorNext( services );
+
+                    if ( service )
+                    {
+                        IOObjectRelease( service );
+                    }
+
+                    while ( ( service = IOIteratorNext( services ) ) )
+                    {
+                        if ( IOObjectConformsTo( service, kIOMediaClass ) )
+                        {
+                            CFNumberRef key;
+
+                            key = IORegistryEntryCreateCFProperty( service, CFSTR( kIOBSDUnitKey ), kCFAllocatorDefault, 0 );
+
+                            if ( key )
+                            {
+                                CFMutableDataRef data;
+
+                                data = ( CFMutableDataRef ) CFDictionaryGetValue( gDAUnitList, key );
+
+                                if ( data )
+                                {
+                                    __DAUnit * unit;
+
+                                    unit = ( void * ) CFDataGetMutableBytePtr( data );
+
+                                    if ( ( unit->state & state ) )
+                                    {
+                                        CFRelease( key );
+                                        IOObjectRelease( service );
+                                        IOObjectRelease( services );
+
+                                        return TRUE;
+                                    }
+                                }
+
+                                CFRelease( key );
+                            }
+                        }
+                        else
+                        {
+                            if ( ( options & kIORegistryIterateParents ) )
+                            {
+                                if ( IOObjectConformsTo( service, kIOBlockStorageDeviceClass ) )
+                                {
+                                    IORegistryIteratorExitEntry( services );
+                                }
+                            }
+                        }
+
+                        IOObjectRelease( service );
+                    }
+
+                    valid = IOIteratorIsValid( services );
+
+                    IOObjectRelease( services );
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if ( ( options & kIORegistryIterateParents ) )
+            {
+                options = kIORegistryIterateRecursively;
+            }
+            else
+            {
+                options = 0;
+            }
         }
     }
 

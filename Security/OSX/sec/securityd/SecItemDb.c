@@ -561,7 +561,7 @@ static void SecDbAppendLimit(CFMutableStringRef sql, CFIndex limit) {
         CFStringAppendFormat(sql, NULL, CFSTR(" LIMIT %" PRIdCFIndex), limit);
 }
 
-static CFStringRef s3dl_select_sql(Query *q, CFArrayRef accessGroups) {
+static CF_RETURNS_RETAINED CFStringRef s3dl_select_sql(Query *q, CFArrayRef accessGroups) {
     CFMutableStringRef sql = CFStringCreateMutable(NULL, 0);
 	if (q->q_class == &identity_class) {
         CFStringAppendFormat(sql, NULL, CFSTR("SELECT crowid, %@"

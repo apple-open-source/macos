@@ -53,7 +53,7 @@ typedef struct
 
 int SecFDERecoveryWrapCRSKWithPubKey(const uint8_t *crsk, size_t crskLen, 
 	SecCertificateRef certificateRef, FVPrivateKeyHeader *outHeader);
-CFDataRef SecFDERecoveryUnwrapCRSKWithPrivKey(SecKeychainRef keychain, 
+CFDataRef CF_RETURNS_RETAINED SecFDERecoveryUnwrapCRSKWithPrivKey(SecKeychainRef keychain, 
 	const FVPrivateKeyHeader *inHeader);
 
 #ifdef  __cplusplus

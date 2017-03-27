@@ -24,6 +24,7 @@
 #include "config.h"
 #include "HTMLStyleElement.h"
 
+#include "CachedResource.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -33,6 +34,7 @@
 #include "RuntimeEnabledFeatures.h"
 #include "ScriptableDocumentParser.h"
 #include "ShadowRoot.h"
+#include "StyleScope.h"
 #include "StyleSheetContents.h"
 
 namespace WebCore {
@@ -48,17 +50,13 @@ static StyleEventSender& styleLoadEventSender()
 inline HTMLStyleElement::HTMLStyleElement(const QualifiedName& tagName, Document& document, bool createdByParser)
     : HTMLElement(tagName, document)
     , m_styleSheetOwner(document, createdByParser)
-    , m_firedLoad(false)
-    , m_loadedSheet(false)
 {
     ASSERT(hasTagName(styleTag));
 }
 
 HTMLStyleElement::~HTMLStyleElement()
 {
-    // During tear-down, willRemove isn't called, so m_scopedStyleRegistrationState may still be RegisteredAsScoped or RegisteredInShadowRoot here.
-    // Therefore we can't ASSERT(m_scopedStyleRegistrationState == NotRegistered).
-    m_styleSheetOwner.clearDocumentData(document(), *this);
+    m_styleSheetOwner.clearDocumentData(*this);
 
     styleLoadEventSender().cancelEvent(*this);
 }
@@ -68,6 +66,11 @@ Ref<HTMLStyleElement> HTMLStyleElement::create(const QualifiedName& tagName, Doc
     return adoptRef(*new HTMLStyleElement(tagName, document, createdByParser));
 }
 
+Ref<HTMLStyleElement> HTMLStyleElement::create(Document& document)
+{
+    return adoptRef(*new HTMLStyleElement(styleTag, document, false));
+}
+
 void HTMLStyleElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == titleAttr && sheet())
@@ -75,10 +78,11 @@ void HTMLStyleElement::parseAttribute(const QualifiedName& name, const AtomicStr
     else if (name == mediaAttr) {
         m_styleSheetOwner.setMedia(value);
         if (sheet()) {
-            sheet()->setMediaQueries(MediaQuerySet::createAllowingDescriptionSyntax(value));
-            if (inDocument() && document().hasLivingRenderTree())
-                document().styleResolverChanged(RecalcStyleImmediately);
-        }
+            sheet()->setMediaQueries(MediaQuerySet::create(value));
+            if (auto* scope = m_styleSheetOwner.styleScope())
+                scope->didChangeStyleSheetContents();
+        } else
+            m_styleSheetOwner.childrenChanged(*this);
     } else if (name == typeAttr)
         m_styleSheetOwner.setContentType(value);
     else
@@ -93,19 +97,18 @@ void HTMLStyleElement::finishParsingChildren()
 
 Node::InsertionNotificationRequest HTMLStyleElement::insertedInto(ContainerNode& insertionPoint)
 {
-    HTMLElement::insertedInto(insertionPoint);
-    if (insertionPoint.inDocument())
-        m_styleSheetOwner.insertedIntoDocument(document(), *this);
-
-    return InsertionDone;
+    bool wasInDocument = inDocument();
+    auto result = HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint.inDocument() && !wasInDocument)
+        m_styleSheetOwner.insertedIntoDocument(*this);
+    return result;
 }
 
 void HTMLStyleElement::removedFrom(ContainerNode& insertionPoint)
 {
     HTMLElement::removedFrom(insertionPoint);
-
-    if (insertionPoint.inDocument())
-        m_styleSheetOwner.removedFromDocument(document(), *this);
+    if (insertionPoint.inDocument() && !inDocument())
+        m_styleSheetOwner.removedFromDocument(*this);
 }
 
 void HTMLStyleElement::childrenChanged(const ChildChange& change)
@@ -141,8 +144,12 @@ void HTMLStyleElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 {    
     HTMLElement::addSubresourceAttributeURLs(urls);
 
-    if (CSSStyleSheet* styleSheet = const_cast<HTMLStyleElement*>(this)->sheet())
-        styleSheet->contents().addSubresourceStyleURLs(urls);
+    if (auto* styleSheet = this->sheet()) {
+        styleSheet->contents().traverseSubresources([&] (auto& resource) {
+            urls.add(resource.url());
+            return false;
+        });
+    }
 }
 
 bool HTMLStyleElement::disabled() const

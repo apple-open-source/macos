@@ -320,7 +320,7 @@ struct _krb5_encryption_type _krb5_enctype_arcfour_hmac_md5 = {
     &keytype_arcfour,
     &_krb5_checksum_hmac_md5,
     NULL,
-    F_SPECIAL /* | F_DISABLED | F_WEAK */,
+    F_SPECIAL | F_WARNING /* | F_DISABLED | F_WEAK */,
     ARCFOUR_encrypt,
     0,
     NULL

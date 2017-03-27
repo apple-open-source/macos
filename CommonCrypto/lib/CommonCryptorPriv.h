@@ -29,9 +29,10 @@
 #ifndef _CC_COMMON_CRYPTOR_PRIV_
 #define _CC_COMMON_CRYPTOR_PRIV_
 
-#include "CommonCryptor.h"
-#include "CommonCryptorSPI.h"
-#include <dispatch/dispatch.h>
+#include  <CommonCrypto/CommonCryptor.h>
+#include  <CommonCrypto/CommonCryptorSPI.h>
+#include "ccDispatch.h"
+
 #include "corecryptoSymmetricBridge.h"
 
 #ifdef DEBUG

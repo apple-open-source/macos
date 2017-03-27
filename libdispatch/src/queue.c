@@ -784,18 +784,9 @@ _dispatch_root_queue_init_pthread_pool(dispatch_root_queue_context_t qc,
 #endif
 	}
 #endif // HAVE_PTHREAD_WORKQUEUES
-#if USE_MACH_SEM
-	// override the default FIFO behavior for the pool semaphores
-	kern_return_t kr = semaphore_create(mach_task_self(),
-			&pqc->dpq_thread_mediator.dsema_port, SYNC_POLICY_LIFO, 0);
-	DISPATCH_VERIFY_MIG(kr);
-	(void)dispatch_assume_zero(kr);
-	(void)dispatch_assume(pqc->dpq_thread_mediator.dsema_port);
-#elif USE_POSIX_SEM
-	/* XXXRW: POSIX semaphores don't support LIFO? */
-	int ret = sem_init(&(pqc->dpq_thread_mediator.dsema_sem), 0, 0);
-	(void)dispatch_assume_zero(ret);
-#endif
+	_os_semaphore_t *sema = &pqc->dpq_thread_mediator.dsema_sema;
+	_os_semaphore_init(sema, _OS_SEM_POLICY_LIFO);
+	_os_semaphore_create(sema, _OS_SEM_POLICY_LIFO);
 }
 #endif // DISPATCH_USE_PTHREAD_POOL
 
@@ -1025,25 +1016,19 @@ libdispatch_tsd_init(void)
 }
 #endif
 
-DISPATCH_EXPORT DISPATCH_NOTHROW
+DISPATCH_NOTHROW
 void
-dispatch_atfork_child(void)
+_dispatch_queue_atfork_child(void)
 {
 	void *crash = (void *)0x100;
 	size_t i;
 
 #if HAVE_MACH
 	_dispatch_mach_host_port_pred = 0;
-	_dispatch_mach_host_port = MACH_VOUCHER_NULL;
+	_dispatch_mach_host_port = MACH_PORT_NULL;
 #endif
-	_voucher_atfork_child();
-	if (!_dispatch_is_multithreaded_inline()) {
-		// clear the _PROHIBIT bit if set
-		_dispatch_unsafe_fork = 0;
-		return;
-	}
-	_dispatch_unsafe_fork = 0;
-	_dispatch_child_of_unsafe_fork = true;
+
+	if (!_dispatch_is_multithreaded_inline()) return;
 
 	_dispatch_main_q.dq_items_head = crash;
 	_dispatch_main_q.dq_items_tail = crash;
@@ -2734,12 +2719,16 @@ _dispatch_block_create_with_voucher_and_priority(dispatch_block_flags_t flags,
 	bool assign = (flags & DISPATCH_BLOCK_ASSIGN_CURRENT);
 
 	if (assign && !(flags & DISPATCH_BLOCK_HAS_VOUCHER)) {
+#if OS_VOUCHER_ACTIVITY_SPI
 		voucher = VOUCHER_CURRENT;
+#endif
 		flags |= DISPATCH_BLOCK_HAS_VOUCHER;
 	}
+#if OS_VOUCHER_ACTIVITY_SPI
 	if (voucher == VOUCHER_CURRENT) {
 		voucher = _voucher_get();
 	}
+#endif
 	if (assign && !(flags & DISPATCH_BLOCK_HAS_PRIORITY)) {
 		pri = _dispatch_priority_propagate();
 		flags |= DISPATCH_BLOCK_HAS_PRIORITY;
@@ -3722,7 +3711,7 @@ _dispatch_sync_block_with_private_data(dispatch_queue_t dq,
 	}
 	// balanced in d_block_sync_invoke or d_block_wait
 	if (os_atomic_cmpxchg2o(_dispatch_block_get_data(work),
-			dbpd_queue, NULL, dq, relaxed)) {
+			dbpd_queue, NULL, dq->_as_oq, relaxed)) {
 		_dispatch_retain(dq);
 	}
 	if (flags & DISPATCH_BLOCK_BARRIER) {
@@ -5833,12 +5822,7 @@ _dispatch_queue_set_mainq_drain_state(bool arg)
 
 void
 _dispatch_main_queue_callback_4CF(
-#if TARGET_OS_MAC
-		mach_msg_header_t *_Null_unspecified msg
-#else
-		void *ignored
-#endif
-		DISPATCH_UNUSED)
+		void *ignored DISPATCH_UNUSED)
 {
 	if (main_q_is_draining) {
 		return;
@@ -5853,6 +5837,9 @@ _dispatch_main_queue_callback_4CF(
 void
 dispatch_main(void)
 {
+	dispatch_once_f(&_dispatch_root_queues_pred, NULL,
+		_dispatch_root_queues_init_once);
+
 #if HAVE_PTHREAD_MAIN_NP
 	if (pthread_main_np()) {
 #endif

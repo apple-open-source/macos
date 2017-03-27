@@ -238,7 +238,7 @@ IdentityCursorPolicyAndID::next(SecPointer<Identity> &identity)
 
 IdentityCursor::IdentityCursor(const StorageManager::KeychainList &searchList, CSSM_KEYUSE keyUsage) :
 	mSearchList(searchList),
-	mKeyCursor(mSearchList, CSSM_DL_DB_RECORD_PRIVATE_KEY, NULL),
+	mKeyCursor(mSearchList, (SecItemClass) CSSM_DL_DB_RECORD_PRIVATE_KEY, NULL),
 	mMutex(Mutex::recursive)
 {
 	StLock<Mutex>_(mMutex);
@@ -322,7 +322,7 @@ IdentityCursor::next(SecPointer<Identity> &identity)
 			uniqueId->get(&dbAttributes, NULL);
 			const CssmData &keyHash = dbAttributes[0];
 
-			mCertificateCursor = KCCursor(mSearchList, CSSM_DL_DB_RECORD_X509_CERTIFICATE, NULL);
+			mCertificateCursor = KCCursor(mSearchList, (SecItemClass) CSSM_DL_DB_RECORD_X509_CERTIFICATE, NULL);
 			mCertificateCursor->add(CSSM_DB_EQUAL, Schema::kX509CertificatePublicKeyHash, keyHash);
 
             // if we have entries for the system identities, exclude their public key hashes in the search

@@ -27,18 +27,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorDatabaseAgent_h
-#define InspectorDatabaseAgent_h
+#pragma once
 
 #include "InspectorWebAgentBase.h"
 #include <inspector/InspectorBackendDispatchers.h>
 #include <inspector/InspectorFrontendDispatchers.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
-
-namespace Inspector {
-class InspectorArray;
-}
 
 namespace WebCore {
 
@@ -81,5 +76,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // !defined(InspectorDatabaseAgent_h)

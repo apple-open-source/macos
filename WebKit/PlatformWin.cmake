@@ -1,8 +1,8 @@
 if (${WTF_PLATFORM_WIN_CAIRO})
     add_definitions(-DUSE_CAIRO=1 -DUSE_CURL=1 -DWEBKIT_EXPORTS=1)
     list(APPEND WebKit_INCLUDE_DIRECTORIES
+        ${CAIRO_INCLUDE_DIRS}
         "${WEBKIT_LIBRARIES_DIR}/include"
-        "${WEBKIT_LIBRARIES_DIR}/include/cairo"
         "${WEBKIT_LIBRARIES_DIR}/include/sqlite"
         "${WEBCORE_DIR}/platform/graphics/cairo"
     )
@@ -25,6 +25,8 @@ else ()
         PRIVATE CFNetwork${DEBUG_SUFFIX}
         PRIVATE CoreFoundation${DEBUG_SUFFIX}
         PRIVATE CoreGraphics${DEBUG_SUFFIX}
+        PRIVATE CoreText${DEBUG_SUFFIX}
+        PRIVATE QuartzCore${DEBUG_SUFFIX}
         PRIVATE SQLite3${DEBUG_SUFFIX}
         PRIVATE WebKitSystemInterface${DEBUG_SUFFIX}
         PRIVATE libdispatch${DEBUG_SUFFIX}
@@ -50,13 +52,11 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}/../include/private"
     "${CMAKE_BINARY_DIR}/../include/private/JavaScriptCore"
     "${CMAKE_BINARY_DIR}/../include/private/WebCore"
-    win
-    win/plugins
-    win/WebCoreSupport
-    "${WEBKIT_DIR}/.."
+    "${WEBKIT_DIR}/win"
+    "${WEBKIT_DIR}/win/plugins"
+    "${WEBKIT_DIR}/win/WebCoreSupport"
     "${DERIVED_SOURCES_WEBKIT_DIR}/include"
     "${DERIVED_SOURCES_WEBKIT_DIR}/Interfaces"
-    "${DERIVED_SOURCES_DIR}"
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders/ANGLE"
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders/ANGLE/include"
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders/ANGLE/include/egl"
@@ -142,6 +142,7 @@ list(APPEND WebKit_SOURCES_Classes
     win/AccessibleDocument.cpp
     win/AccessibleImage.cpp
     win/AccessibleTextImpl.cpp
+    win/BackForwardList.cpp
     win/CFDictionaryPropertyBag.cpp
     win/DOMCSSClasses.cpp
     win/DOMCoreClasses.cpp
@@ -246,6 +247,8 @@ list(APPEND WebKit_SOURCES_WebCoreSupport
     win/WebCoreSupport/WebInspectorDelegate.h
     win/WebCoreSupport/WebPlatformStrategies.cpp
     win/WebCoreSupport/WebPlatformStrategies.h
+    win/WebCoreSupport/WebPluginInfoProvider.cpp
+    win/WebCoreSupport/WebPluginInfoProvider.h
     win/WebCoreSupport/WebVisitedLinkStore.cpp
     win/WebCoreSupport/WebVisitedLinkStore.h
 )
@@ -417,6 +420,9 @@ list(APPEND WebKit_LIBRARIES
     PRIVATE Comctl32
     PRIVATE Comsupp
     PRIVATE Crypt32
+    PRIVATE D2d1
+    PRIVATE Dwrite
+    PRIVATE dxguid
     PRIVATE Iphlpapi
     PRIVATE Psapi
     PRIVATE Rpcrt4
@@ -426,6 +432,7 @@ list(APPEND WebKit_LIBRARIES
     PRIVATE Winmm
     PRIVATE WebKitGUID${DEBUG_SUFFIX}
     PRIVATE WebCoreDerivedSources${DEBUG_SUFFIX}
+    PRIVATE WindowsCodecs
 )
 
 if (ENABLE_GRAPHICS_CONTEXT_3D)

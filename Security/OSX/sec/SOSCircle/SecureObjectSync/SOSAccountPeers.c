@@ -34,11 +34,6 @@ bool SOSAccountIsMyPeerActive(SOSAccountRef account, CFErrorRef* error) {
     return me ? SOSCircleHasActivePeer(account->trusted_circle, me, error) : false;
 }
 
-SOSTransportMessageRef SOSAccountGetMessageTransportFor(SOSAccountRef account, SOSPeerInfoRef peerInfo) {
-    // Returns the transport to use to talk to that peer. if he's a member of the circle.
-    return (SOSPeerInfoHasDeviceID(peerInfo) && (false)) ? account->ids_message_transport : account->kvs_message_transport;
-}
-
 //
 // MARK: Peer Querying
 //

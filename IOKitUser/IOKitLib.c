@@ -49,6 +49,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFMachPort.h>
 
+#include <libkern/OSAtomic.h>
 
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
@@ -803,31 +804,49 @@ IONotificationPortCreate(
     return notify;
 }
 
+static void
+IONotificationPortRelease(void *ctxt)
+{
+	IONotificationPortRef notify = ctxt;
+
+	if (OSAtomicDecrement32(&notify->refcount) < 0) {
+		/* Note: dispatch sources require resources they are monitoring to be
+		 * destroyed after their corresponding kevent has been unregistered.
+		 *
+		 * We hence use an internal refcount to make sure the port destruction
+		 * is delayed until it is safe: the IONotificationPort and each each
+		 * created dispatch source own a reference.
+		 *
+		 * The refcount encoding is offset by 1 so that its initial value (a
+		 * single refcount owned by the IONotificationPort) can be 0. So
+		 * we free resources when the refcount encoding becomes -1.
+		 */
+		mach_port_mod_refs(mach_task_self(), notify->wakePort,
+				MACH_PORT_RIGHT_RECEIVE, -1);
+		mach_port_deallocate(mach_task_self(), notify->masterPort);
+		free( notify );
+	}
+}
+
 void
 IONotificationPortDestroy(
 	IONotificationPortRef	notify )
 {
+	if (notify->cfmachPort) {
+		CFMachPortInvalidate(notify->cfmachPort);
+		CFRelease(notify->cfmachPort);
+	}
 
-    if (notify->cfmachPort) {
-        CFMachPortInvalidate(notify->cfmachPort);
-        CFRelease(notify->cfmachPort);
-    }
+	if (notify->source) {
+		CFRelease(notify->source);
+	}
 
-    if( notify->source) {
-        CFRelease(notify->source);
-    }
+	if (notify->dispatchSource) {
+		dispatch_source_cancel(notify->dispatchSource);
+		dispatch_release(notify->dispatchSource);
+	}
 
-    if (notify->dispatchSource) {
-        dispatch_source_cancel(notify->dispatchSource);
-        dispatch_release(notify->dispatchSource);
-    }
-
-    mach_port_mod_refs(mach_task_self(), notify->wakePort, 
-                        MACH_PORT_RIGHT_RECEIVE, -1);
-
-    mach_port_deallocate(mach_task_self(), notify->masterPort);
-
-    free( notify );
+	IONotificationPortRelease(notify);
 }
 
 CFRunLoopSourceRef
@@ -904,30 +923,26 @@ boolean_t _IODispatchCalloutWithDispatch(mach_msg_header_t *msg, mach_msg_header
 void
 IONotificationPortSetDispatchQueue(IONotificationPortRef notify, dispatch_queue_t queue)
 {
-    dispatch_source_t dispatchSource;
+	dispatch_source_t dispatchSource;
 
-    if (notify->dispatchSource)
-    {
-        dispatch_source_cancel(notify->dispatchSource);
-        dispatch_release(notify->dispatchSource);
-        notify->dispatchSource = NULL;
-    }
+	if (notify->dispatchSource) {
+		dispatch_source_cancel(notify->dispatchSource);
+		dispatch_release(notify->dispatchSource);
+		notify->dispatchSource = NULL;
+	}
 
-    if (!queue) return;
+	if (!queue) return;
 
-    dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, notify->wakePort, 0, queue);
-    dispatch_source_set_event_handler(dispatchSource, ^{
-        dispatch_mig_server(dispatchSource, MAX_MSG_SIZE, _IODispatchCalloutWithDispatch);
-    });
-    notify->dispatchSource = dispatchSource;
+	OSAtomicIncrement32(&notify->refcount);
+	dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, notify->wakePort, 0, queue);
+	dispatch_set_context(dispatchSource, notify);
+	dispatch_source_set_event_handler(dispatchSource, ^{
+		dispatch_mig_server(dispatchSource, MAX_MSG_SIZE, _IODispatchCalloutWithDispatch);
+	});
+	dispatch_source_set_cancel_handler_f(dispatchSource, IONotificationPortRelease);
 
-   /* Note: normally, dispatch sources for mach ports should destroy the underlying
-    * mach port in their cancellation handler.  We take care to destroy the port
-    * after we destroy the source in IONotificationPortDestroy(), which gives us the
-    * flexibility of changing the queue used for the dispatch source.
-    */
-
-    dispatch_resume(notify->dispatchSource);
+	notify->dispatchSource = dispatchSource;
+	dispatch_activate(dispatchSource);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

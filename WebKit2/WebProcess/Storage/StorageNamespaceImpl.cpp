@@ -34,7 +34,6 @@
 #include <WebCore/PageGroup.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/Settings.h>
-#include <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
@@ -69,21 +68,21 @@ StorageNamespaceImpl::~StorageNamespaceImpl()
 
 void StorageNamespaceImpl::didDestroyStorageAreaMap(StorageAreaMap& map)
 {
-    m_storageAreaMaps.remove(&map.securityOrigin());
+    m_storageAreaMaps.remove(SecurityOriginData::fromSecurityOrigin(map.securityOrigin()));
 }
 
-RefPtr<StorageArea> StorageNamespaceImpl::storageArea(RefPtr<SecurityOrigin>&& securityOrigin)
+RefPtr<StorageArea> StorageNamespaceImpl::storageArea(const SecurityOriginData& securityOrigin)
 {
     RefPtr<StorageAreaMap> map;
 
-    auto& slot = m_storageAreaMaps.add(securityOrigin.get(), nullptr).iterator->value;
+    auto& slot = m_storageAreaMaps.add(securityOrigin, nullptr).iterator->value;
     if (!slot) {
-        map = StorageAreaMap::create(this, *securityOrigin);
+        map = StorageAreaMap::create(this, securityOrigin.securityOrigin());
         slot = map.get();
     } else
         map = slot;
 
-    return StorageAreaImpl::create(WTFMove(map));
+    return StorageAreaImpl::create(map.releaseNonNull());
 }
 
 RefPtr<StorageNamespace> StorageNamespaceImpl::copy(Page* newPage)

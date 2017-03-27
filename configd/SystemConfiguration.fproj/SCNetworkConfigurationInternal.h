@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -211,7 +211,7 @@ Boolean
 __SCNetworkInterfaceMatchesName	(CFStringRef name, CFStringRef key);
 
 CFArrayRef
-__SCNetworkInterfaceCopyAll_IONetworkInterface	(void);
+__SCNetworkInterfaceCopyAll_IONetworkInterface	(Boolean		keep_pre_configured);
 
 /*!
  @function __SCNetworkInterfaceCopyStorageEntity

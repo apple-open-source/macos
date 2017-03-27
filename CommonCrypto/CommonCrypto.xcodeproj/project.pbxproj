@@ -217,7 +217,6 @@
 		48BEE6DD15800C1800A6A1E7 /* CommonRandomSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6CB15800C1800A6A1E7 /* CommonRandomSPI.h */; settings = {ATTRIBUTES = (); }; };
 		48BEE6DE15800C1800A6A1E7 /* CommonRSACryptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6CC15800C1800A6A1E7 /* CommonRSACryptor.h */; settings = {ATTRIBUTES = (); }; };
 		48BEE6DF15800C1800A6A1E7 /* CommonSymmetricKeywrap.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6CD15800C1800A6A1E7 /* CommonSymmetricKeywrap.h */; settings = {ATTRIBUTES = (); }; };
-		48BEE6FD15800C2600A6A1E7 /* ccdebug.c in Sources */ = {isa = PBXBuildFile; fileRef = 48BEE6E415800C2600A6A1E7 /* ccdebug.c */; };
 		48BEE6FE15800C2600A6A1E7 /* ccdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E515800C2600A6A1E7 /* ccdebug.h */; };
 		48BEE6FF15800C2600A6A1E7 /* ccErrors.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E615800C2600A6A1E7 /* ccErrors.h */; };
 		48BEE70015800C2600A6A1E7 /* ccMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E715800C2600A6A1E7 /* ccMemory.h */; };
@@ -282,6 +281,11 @@
 		48EEF09015E2E65B00429FF7 /* reverse_poly.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C489B215DAF0E500B301EC /* reverse_poly.c */; };
 		48EEF09515E2EAA600429FF7 /* adler32.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C4899115DAF0E500B301EC /* adler32.c */; };
 		4BF74BC61A608F64007DB706 /* CommonCryptoSymECB.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BF74BC51A608F64007DB706 /* CommonCryptoSymECB.c */; };
+		F40146DD1D5BE2F00003AE85 /* ccDispatch.c in Sources */ = {isa = PBXBuildFile; fileRef = F40146DB1D5BE2F00003AE85 /* ccDispatch.c */; };
+		F40146DE1D5BE2F00003AE85 /* ccDispatch.h in Headers */ = {isa = PBXBuildFile; fileRef = F40146DC1D5BE2F00003AE85 /* ccDispatch.h */; };
+		F40146E01D5D4E240003AE85 /* ccGlobals.c in Sources */ = {isa = PBXBuildFile; fileRef = F40146DF1D5D4E240003AE85 /* ccGlobals.c */; };
+		F471D2A81DA70B76001699FD /* cc_macros_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = F471D2A71DA709E5001699FD /* cc_macros_priv.h */; };
+		F48F29991D470E81001891BE /* aes.h in Headers */ = {isa = PBXBuildFile; fileRef = F48F29981D470E81001891BE /* aes.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -557,7 +561,6 @@
 		48AC91F61581554800BA9060 /* CCRegression */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CCRegression; sourceTree = BUILT_PRODUCTS_DIR; };
 		48BDB99118FDAFE50055E601 /* CommonCryptoError.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCryptoError.h; sourceTree = "<group>"; };
 		48BEE6B51580085A00A6A1E7 /* libcommonCrypto.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcommonCrypto.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		48BEE6BD15800C1800A6A1E7 /* aes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aes.h; sourceTree = "<group>"; };
 		48BEE6BE15800C1800A6A1E7 /* CommonBigNum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonBigNum.h; sourceTree = "<group>"; };
 		48BEE6BF15800C1800A6A1E7 /* CommonCMACSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCMACSPI.h; sourceTree = "<group>"; };
 		48BEE6C015800C1800A6A1E7 /* CommonCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCrypto.h; sourceTree = "<group>"; };
@@ -575,15 +578,12 @@
 		48BEE6CC15800C1800A6A1E7 /* CommonRSACryptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonRSACryptor.h; sourceTree = "<group>"; };
 		48BEE6CD15800C1800A6A1E7 /* CommonSymmetricKeywrap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonSymmetricKeywrap.h; sourceTree = "<group>"; };
 		48BEE6CE15800C1800A6A1E7 /* lionCompat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lionCompat.h; sourceTree = "<group>"; };
-		48BEE6E415800C2600A6A1E7 /* ccdebug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccdebug.c; sourceTree = "<group>"; };
 		48BEE6E515800C2600A6A1E7 /* ccdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccdebug.h; sourceTree = "<group>"; };
 		48BEE6E615800C2600A6A1E7 /* ccErrors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccErrors.h; sourceTree = "<group>"; };
 		48BEE6E715800C2600A6A1E7 /* ccMemory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccMemory.h; sourceTree = "<group>"; };
 		48BEE6E815800C2600A6A1E7 /* CommonBigNum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonBigNum.c; sourceTree = "<group>"; };
 		48BEE6E915800C2600A6A1E7 /* CommonBigNumPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonBigNumPriv.h; sourceTree = "<group>"; };
 		48BEE6EA15800C2600A6A1E7 /* CommonCMAC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCMAC.c; sourceTree = "<group>"; };
-		48BEE6EB15800C2600A6A1E7 /* CommonCryptoAESShoefly.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptoAESShoefly.c; sourceTree = "<group>"; };
-		48BEE6EC15800C2600A6A1E7 /* CommonCryptoCASTShoefly.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptoCASTShoefly.c; sourceTree = "<group>"; };
 		48BEE6ED15800C2600A6A1E7 /* CommonCryptor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptor.c; sourceTree = "<group>"; };
 		48BEE6EE15800C2600A6A1E7 /* CommonCryptorPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCryptorPriv.h; sourceTree = "<group>"; };
 		48BEE6EF15800C2600A6A1E7 /* CommonDH.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonDH.c; sourceTree = "<group>"; };
@@ -641,6 +641,13 @@
 		48E5035815DDB99900045A4B /* CommonBaseEncoding.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonBaseEncoding.c; sourceTree = "<group>"; };
 		48ED815C15D308A900E40487 /* CommonCryptorWithData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptorWithData.c; sourceTree = "<group>"; };
 		4BF74BC51A608F64007DB706 /* CommonCryptoSymECB.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptoSymECB.c; sourceTree = "<group>"; };
+		F40146DB1D5BE2F00003AE85 /* ccDispatch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccDispatch.c; sourceTree = "<group>"; };
+		F40146DC1D5BE2F00003AE85 /* ccDispatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccDispatch.h; sourceTree = "<group>"; };
+		F40146DF1D5D4E240003AE85 /* ccGlobals.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ccGlobals.c; path = lib/ccGlobals.c; sourceTree = SOURCE_ROOT; };
+		F436D9631D39C97100ACE018 /* module.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		F471D2A71DA709E5001699FD /* cc_macros_priv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cc_macros_priv.h; sourceTree = "<group>"; };
+		F48F29981D470E81001891BE /* aes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aes.h; sourceTree = "<group>"; };
+		F4D1073D1D88ADD400DFF209 /* timingsafe_bcmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timingsafe_bcmp.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -872,10 +879,10 @@
 		48BEE6BC15800C1800A6A1E7 /* include */ = {
 			isa = PBXGroup;
 			children = (
+				F48F29981D470E81001891BE /* aes.h */,
 				48E5035515DDAC1D00045A4B /* CommonBaseXX.h */,
 				48C489D615DAF10400B301EC /* CommonCRC.h */,
 				48C489D715DAF10400B301EC /* CommonNumerics.h */,
-				48BEE6BD15800C1800A6A1E7 /* aes.h */,
 				48BEE6BE15800C1800A6A1E7 /* CommonBigNum.h */,
 				48BEE6BF15800C1800A6A1E7 /* CommonCMACSPI.h */,
 				48BEE6C015800C1800A6A1E7 /* CommonCrypto.h */,
@@ -896,6 +903,7 @@
 				48BEE6CD15800C1800A6A1E7 /* CommonSymmetricKeywrap.h */,
 				48BEE6CE15800C1800A6A1E7 /* lionCompat.h */,
 				4872EA4B185EDED600639C0B /* CommonKeyDerivationSPI.h */,
+				F436D9631D39C97100ACE018 /* module.modulemap */,
 			);
 			path = include;
 			sourceTree = "<group>";
@@ -904,15 +912,15 @@
 			isa = PBXGroup;
 			children = (
 				482B9DB415869BF500F49463 /* ccGlobals.h */,
-				48BEE6E415800C2600A6A1E7 /* ccdebug.c */,
+				F40146DF1D5D4E240003AE85 /* ccGlobals.c */,
+				F40146DC1D5BE2F00003AE85 /* ccDispatch.h */,
+				F40146DB1D5BE2F00003AE85 /* ccDispatch.c */,
 				48BEE6E515800C2600A6A1E7 /* ccdebug.h */,
 				48BEE6E615800C2600A6A1E7 /* ccErrors.h */,
 				48BEE6E715800C2600A6A1E7 /* ccMemory.h */,
 				48BEE6E815800C2600A6A1E7 /* CommonBigNum.c */,
 				48BEE6E915800C2600A6A1E7 /* CommonBigNumPriv.h */,
 				48BEE6EA15800C2600A6A1E7 /* CommonCMAC.c */,
-				48BEE6EB15800C2600A6A1E7 /* CommonCryptoAESShoefly.c */,
-				48BEE6EC15800C2600A6A1E7 /* CommonCryptoCASTShoefly.c */,
 				48BEE6ED15800C2600A6A1E7 /* CommonCryptor.c */,
 				4836297715893DE20064232C /* CommonCryptorDES.c */,
 				4836297415893D0C0064232C /* CommonCryptorRC4.c */,
@@ -932,6 +940,8 @@
 				48BEE6FA15800C2600A6A1E7 /* corecryptoSymmetricBridge.h */,
 				485CB94115E8350E00EC6390 /* dummy.c */,
 				4872EA49185EDEAE00639C0B /* CommonKeyDerivationSPI.c */,
+				F4D1073D1D88ADD400DFF209 /* timingsafe_bcmp.c */,
+				F471D2A71DA709E5001699FD /* cc_macros_priv.h */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -1032,11 +1042,13 @@
 				48BEE6D915800C1800A6A1E7 /* CommonECCryptor.h in Headers */,
 				48BEE6DE15800C1800A6A1E7 /* CommonRSACryptor.h in Headers */,
 				48BEE6D515800C1800A6A1E7 /* CommonCryptorSPI.h in Headers */,
+				F471D2A81DA70B76001699FD /* cc_macros_priv.h in Headers */,
 				48BEE6D815800C1800A6A1E7 /* CommonDigestSPI.h in Headers */,
 				489ED55B18FDAAEF001327C5 /* CommonRandom.h in Headers */,
 				48BEE6DD15800C1800A6A1E7 /* CommonRandomSPI.h in Headers */,
 				48BEE6D215800C1800A6A1E7 /* CommonCrypto.h in Headers */,
 				48BEE6DA15800C1800A6A1E7 /* CommonHMAC.h in Headers */,
+				F40146DE1D5BE2F00003AE85 /* ccDispatch.h in Headers */,
 				48BEE6D715800C1800A6A1E7 /* CommonDigest.h in Headers */,
 				48BEE6DF15800C1800A6A1E7 /* CommonSymmetricKeywrap.h in Headers */,
 				48BEE6DC15800C1800A6A1E7 /* CommonKeyDerivation.h in Headers */,
@@ -1044,6 +1056,7 @@
 				48C489D815DAF10400B301EC /* CommonCRC.h in Headers */,
 				48C489D915DAF10400B301EC /* CommonNumerics.h in Headers */,
 				48BEE6FE15800C2600A6A1E7 /* ccdebug.h in Headers */,
+				F48F29991D470E81001891BE /* aes.h in Headers */,
 				48BEE6FF15800C2600A6A1E7 /* ccErrors.h in Headers */,
 				48BEE70015800C2600A6A1E7 /* ccMemory.h in Headers */,
 				48BEE70215800C2600A6A1E7 /* CommonBigNumPriv.h in Headers */,
@@ -1158,7 +1171,7 @@
 		48BEE6AC1580085A00A6A1E7 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = "Platform Security";
 			};
 			buildConfigurationList = 48BEE6AF1580085A00A6A1E7 /* Build configuration list for PBXProject "CommonCrypto" */;
@@ -1279,6 +1292,8 @@
 				48EEF07E15E2E65B00429FF7 /* crc16-xmodem.c in Sources */,
 				48EEF07F15E2E65B00429FF7 /* crc16.c in Sources */,
 				48EEF08015E2E65B00429FF7 /* crc32-bzip2.c in Sources */,
+				F40146E01D5D4E240003AE85 /* ccGlobals.c in Sources */,
+				F40146DD1D5BE2F00003AE85 /* ccDispatch.c in Sources */,
 				48EEF08115E2E65B00429FF7 /* crc32-castagnoli.c in Sources */,
 				48EEF08215E2E65B00429FF7 /* crc32-mpeg-2.c in Sources */,
 				48EEF08315E2E65B00429FF7 /* crc32-posix.c in Sources */,
@@ -1296,7 +1311,6 @@
 				48EEF08E15E2E65B00429FF7 /* reflect.c in Sources */,
 				48EEF08F15E2E65B00429FF7 /* reverse_crc.c in Sources */,
 				48EEF09015E2E65B00429FF7 /* reverse_poly.c in Sources */,
-				48BEE6FD15800C2600A6A1E7 /* ccdebug.c in Sources */,
 				48BEE70115800C2600A6A1E7 /* CommonBigNum.c in Sources */,
 				48BEE70315800C2600A6A1E7 /* CommonCMAC.c in Sources */,
 				48BEE70615800C2600A6A1E7 /* CommonCryptor.c in Sources */,
@@ -1570,16 +1584,21 @@
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = NO;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -1605,7 +1624,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
-				ONLY_ACTIVE_ARCH = NO;
+				ONLY_ACTIVE_ARCH = YES;
 				PROVISIONING_PROFILE = "";
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
@@ -1635,15 +1654,19 @@
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = NO;
+				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = NDEBUG;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;

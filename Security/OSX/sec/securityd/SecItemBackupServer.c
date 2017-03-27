@@ -116,7 +116,7 @@ static bool SOSDataSourceWithBackup(SOSDataSourceRef ds, CFDataRef backup, keyba
 bool SecServerItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDataRef keybag, CFDataRef secret, CFDataRef backup, CFErrorRef *error) {
     // TODO: Decrypt and merge items in backup to dataSource
 
-    __block bool ok = true;
+    __block bool ok = false; // return false if the bag_handle code fails.
     CFDataRef aksKeybag = NULL;
     CFMutableSetRef viewSet = NULL;
     SOSBackupSliceKeyBagRef backupSliceKeyBag = NULL;
@@ -128,13 +128,18 @@ bool SecServerItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDa
     if (peerID) {
         bag_handle = SOSBSKBLoadAndUnlockWithPeerIDAndSecret(backupSliceKeyBag, peerID, secret, error);
     } else {
-        bag_handle = SOSBSKBLoadAndUnlockWithDirectSecret(backupSliceKeyBag, secret, error);
+        if (SOSBSKBIsDirect(backupSliceKeyBag)) {
+            bag_handle = SOSBSKBLoadAndUnlockWithDirectSecret(backupSliceKeyBag, secret, error);
+        } else {
+            bag_handle = SOSBSKBLoadAndUnlockWithWrappingSecret(backupSliceKeyBag, secret, error);
+        }
     }
     require(bag_handle != bad_keybag_handle, xit);
 
     // TODO: How do we know which views we are allow to restore
     //viewSet = SOSAccountCopyRestorableViews();
 
+    ok = true; // Start from original code start point - otherwise begin in this nest of stuff
     ok &= withDataSourceAndEngine(error, ^(SOSDataSourceRef ds, SOSEngineRef engine) {
         ok &= SOSDataSourceWith(ds, error, ^(SOSTransactionRef txn, bool *commit) {
             ok &= SOSDataSourceWithBackup(ds, backup, bag_handle, error, ^(SOSObjectRef item) {

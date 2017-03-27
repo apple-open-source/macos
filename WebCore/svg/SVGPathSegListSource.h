@@ -17,12 +17,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SVGPathSegListSource_h
-#define SVGPathSegListSource_h
+#pragma once
 
 #include "FloatPoint.h"
 #include "SVGPathSeg.h"
-#include "SVGPathSegList.h"
+#include "SVGPathSegListValues.h"
 #include "SVGPathSource.h"
 #include <wtf/RefPtr.h>
 
@@ -30,30 +29,28 @@ namespace WebCore {
 
 class SVGPathSegListSource final : public SVGPathSource {
 public:
-    explicit SVGPathSegListSource(const SVGPathSegList&);
+    explicit SVGPathSegListSource(const SVGPathSegListValues&);
 
 private:
-    bool hasMoreData() const override;
-    bool moveToNextToken() override { return true; }
-    bool parseSVGSegmentType(SVGPathSegType&) override;
-    SVGPathSegType nextCommand(SVGPathSegType) override;
+    bool hasMoreData() const final;
+    bool moveToNextToken() final { return true; }
+    bool parseSVGSegmentType(SVGPathSegType&) final;
+    SVGPathSegType nextCommand(SVGPathSegType) final;
 
-    bool parseMoveToSegment(FloatPoint&) override;
-    bool parseLineToSegment(FloatPoint&) override;
-    bool parseLineToHorizontalSegment(float&) override;
-    bool parseLineToVerticalSegment(float&) override;
-    bool parseCurveToCubicSegment(FloatPoint&, FloatPoint&, FloatPoint&) override;
-    bool parseCurveToCubicSmoothSegment(FloatPoint&, FloatPoint&) override;
-    bool parseCurveToQuadraticSegment(FloatPoint&, FloatPoint&) override;
-    bool parseCurveToQuadraticSmoothSegment(FloatPoint&) override;
-    bool parseArcToSegment(float&, float&, float&, bool&, bool&, FloatPoint&) override;
+    bool parseMoveToSegment(FloatPoint&) final;
+    bool parseLineToSegment(FloatPoint&) final;
+    bool parseLineToHorizontalSegment(float&) final;
+    bool parseLineToVerticalSegment(float&) final;
+    bool parseCurveToCubicSegment(FloatPoint&, FloatPoint&, FloatPoint&) final;
+    bool parseCurveToCubicSmoothSegment(FloatPoint&, FloatPoint&) final;
+    bool parseCurveToQuadraticSegment(FloatPoint&, FloatPoint&) final;
+    bool parseCurveToQuadraticSmoothSegment(FloatPoint&) final;
+    bool parseArcToSegment(float&, float&, float&, bool&, bool&, FloatPoint&) final;
 
-    const SVGPathSegList& m_pathSegList;
+    const SVGPathSegListValues& m_pathSegList;
     RefPtr<SVGPathSeg> m_segment;
     int m_itemCurrent;
     int m_itemEnd;
 };
 
 } // namespace WebCore
-
-#endif // SVGPathSegListSource_h

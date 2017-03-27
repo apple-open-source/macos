@@ -101,10 +101,9 @@ public:
         AutomationSession,
         BackForwardList,
         BackForwardListItem,
-        BatteryManager,
-        BatteryStatus,
         CacheManager,
         ColorPickerResultListener,
+        ContextMenuListener,
         CookieManager,
         Download,
         ExperimentalFeature,
@@ -144,7 +143,6 @@ public:
         RunJavaScriptAlertResultListener,
         RunJavaScriptConfirmResultListener,
         RunJavaScriptPromptResultListener,
-        Session,
         TextChecker,
         UserContentController,
         UserContentExtension,
@@ -158,6 +156,7 @@ public:
         VisitedLinkStore,
         WebsiteDataRecord,
         WebsiteDataStore,
+        WebsitePolicies,
         WindowFeatures,
 
 #if ENABLE(MEDIA_SESSION)

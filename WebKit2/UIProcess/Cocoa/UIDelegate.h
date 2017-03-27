@@ -81,14 +81,18 @@ private:
         void fullscreenMayReturnToInline(WebKit::WebPageProxy*) override;
         void didEnterFullscreen(WebKit::WebPageProxy*) override;
         void didExitFullscreen(WebKit::WebPageProxy*) override;
-        void runJavaScriptAlert(WebKit::WebPageProxy*, const WTF::String&, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, std::function<void ()> completionHandler) override;
-        void runJavaScriptConfirm(WebKit::WebPageProxy*, const WTF::String&, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, std::function<void (bool)> completionHandler) override;
-        void runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, std::function<void (const WTF::String&)> completionHandler) override;
-        void exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin*, const WTF::String& databaseName, const WTF::String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentUsage, unsigned long long expectedUsage, std::function<void (unsigned long long)>) override;
-        void reachedApplicationCacheOriginQuota(WebPageProxy*, const WebCore::SecurityOrigin&, uint64_t currentQuota, uint64_t totalBytesNeeded, std::function<void (unsigned long long)> completionHandler) override;
+        void runJavaScriptAlert(WebKit::WebPageProxy*, const WTF::String&, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void ()>&& completionHandler) override;
+        void runJavaScriptConfirm(WebKit::WebPageProxy*, const WTF::String&, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void (bool)>&& completionHandler) override;
+        void runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF::String&, const WTF::String&, WebKit::WebFrameProxy*, const WebCore::SecurityOriginData&, Function<void (const WTF::String&)>&& completionHandler) override;
+        void exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin*, const WTF::String& databaseName, const WTF::String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentUsage, unsigned long long expectedUsage, Function<void (unsigned long long)>&& completionHandler) override;
+        void reachedApplicationCacheOriginQuota(WebPageProxy*, const WebCore::SecurityOrigin&, uint64_t currentQuota, uint64_t totalBytesNeeded, Function<void (unsigned long long)>&& completionHandler) override;
 #if PLATFORM(MAC)
         bool runOpenPanel(WebPageProxy*, WebFrameProxy*, const WebCore::SecurityOriginData&, API::OpenPanelParameters*, WebOpenPanelResultListenerProxy*) override;
 #endif
+        bool decidePolicyForUserMediaPermissionRequest(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, WebKit::UserMediaPermissionRequestProxy&) override;
+        bool checkUserMediaPermissionForOrigin(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, WebKit::UserMediaPermissionCheckProxy&) override;
+        void didBeginCaptureSession() override;
+        void didEndCaptureSession() override;
         void printFrame(WebKit::WebPageProxy*, WebKit::WebFrameProxy*) override;
 #if PLATFORM(IOS)
 #if HAVE(APP_LINKS)
@@ -100,6 +104,11 @@ private:
 #endif // PLATFORM(IOS)
 
         NSDictionary *dataDetectionContext() override;
+
+#if ENABLE(POINTER_LOCK)
+        void requestPointerLock(WebKit::WebPageProxy*) override;
+        void didLosePointerLock(WebKit::WebPageProxy*) override;
+#endif
 
         void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&) override;
 
@@ -125,6 +134,10 @@ private:
         bool webViewFullscreenMayReturnToInline : 1;
         bool webViewDidEnterFullscreen : 1;
         bool webViewDidExitFullscreen : 1;
+        bool webViewRequestUserMediaAuthorizationForMicrophoneCameraURLMainFrameURLDecisionHandler : 1;
+        bool webViewCheckUserMediaPermissionForURLMainFrameURLFrameIdentifierDecisionHandler : 1;
+        bool webViewDidBeginCaptureSession : 1;
+        bool webViewDidEndCaptureSession : 1;
 #if PLATFORM(IOS)
 #if HAVE(APP_LINKS)
         bool webViewShouldIncludeAppLinkActionsForElement : 1;
@@ -135,7 +148,10 @@ private:
 #endif
         bool dataDetectionContextForWebView : 1;
         bool webViewImageOrMediaDocumentSizeChanged : 1;
-
+#if ENABLE(POINTER_LOCK)
+        bool webViewRequestPointerLock : 1;
+        bool webViewDidLosePointerLock : 1;
+#endif
 #if ENABLE(CONTEXT_MENUS)
         bool webViewContextMenuForElement : 1;
         bool webViewContextMenuForElementUserInfo : 1;

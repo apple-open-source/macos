@@ -1497,6 +1497,18 @@ See remaining rules for examples.
 		    <key>rule</key>
 		    <string>authenticate-session-owner</string>
 		</dict>		
+		<key>com.apple.security.sudo</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>2</integer>
+			<key>rule</key>
+			<array>
+				<string>entitled</string>
+				<string>authenticate-session-owner</string>
+			</array>
+		</dict>		
 		<key>system.localauthentication.ui</key>
 		<dict>
 			<key>class</key>
@@ -1518,6 +1530,19 @@ See remaining rules for examples.
 			<array>
 				<string>authenticate-staff-extract-context</string>
 			</array>
+		</dict>
+		<key>com.apple.safaridriver.allow</key>
+		<dict>
+			<key>comment</key>
+			<string>This right is used by safaridriver to allow running it.</string>
+			<key>class</key>
+			<string>user</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>allow-root</key>
+			<true/>
+			<key>shared</key>
+			<true/>
 		</dict>
 	</dict>
 	<key>rules</key>

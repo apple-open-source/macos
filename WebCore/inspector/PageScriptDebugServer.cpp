@@ -27,6 +27,7 @@
 #include "config.h"
 #include "PageScriptDebugServer.h"
 
+#include "CommonVM.h"
 #include "Document.h"
 #include "EventLoop.h"
 #include "FrameView.h"
@@ -54,7 +55,7 @@ using namespace Inspector;
 namespace WebCore {
 
 PageScriptDebugServer::PageScriptDebugServer(Page& page)
-    : ScriptDebugServer(WebCore::JSDOMWindowBase::commonVM())
+    : ScriptDebugServer(WebCore::commonVM())
     , m_page(page)
 {
 }
@@ -113,9 +114,13 @@ void PageScriptDebugServer::runEventLoopWhilePausedInternal()
 {
     TimerBase::fireTimersInNestedEventLoop();
 
+    m_page.incrementNestedRunLoopCount();
+
     EventLoop loop;
     while (!m_doneProcessingDebuggerEvents && !loop.ended())
         loop.cycle();
+
+    m_page.decrementNestedRunLoopCount();
 }
 
 bool PageScriptDebugServer::isContentScript(ExecState* exec) const
@@ -123,7 +128,7 @@ bool PageScriptDebugServer::isContentScript(ExecState* exec) const
     return &currentWorld(exec) != &mainThreadNormalWorld();
 }
 
-void PageScriptDebugServer::reportException(ExecState* exec, Exception* exception) const
+void PageScriptDebugServer::reportException(ExecState* exec, JSC::Exception* exception) const
 {
     WebCore::reportException(exec, exception);
 }

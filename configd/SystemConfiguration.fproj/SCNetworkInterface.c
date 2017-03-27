@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1600,21 +1600,27 @@ processUSBInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 {
 #if	!TARGET_OS_SIMULATOR
 	// capture USB info
-	interfacePrivate->usb.name = IORegistryEntrySearchCFProperty(interface,
-								     kIOServicePlane,
-								     CFSTR(kUSBProductString),
-								     NULL,
-								     kIORegistryIterateRecursively | kIORegistryIterateParents);
-	interfacePrivate->usb.vid  = IORegistryEntrySearchCFProperty(interface,
-								     kIOServicePlane,
-								     CFSTR(kUSBVendorID),
-								     NULL,
-								     kIORegistryIterateRecursively | kIORegistryIterateParents);
-	interfacePrivate->usb.pid  = IORegistryEntrySearchCFProperty(interface,
-								     kIOServicePlane,
-								     CFSTR(kUSBProductID),
-								     NULL,
-								     kIORegistryIterateRecursively | kIORegistryIterateParents);
+	if (interfacePrivate->usb.name == NULL) {
+		interfacePrivate->usb.name = IORegistryEntrySearchCFProperty(interface,
+									     kIOServicePlane,
+									     CFSTR(kUSBProductString),
+									     NULL,
+									     kIORegistryIterateRecursively | kIORegistryIterateParents);
+	}
+	if (interfacePrivate->usb.vid == NULL) {
+		interfacePrivate->usb.vid  = IORegistryEntrySearchCFProperty(interface,
+									     kIOServicePlane,
+									     CFSTR(kUSBVendorID),
+									     NULL,
+									     kIORegistryIterateRecursively | kIORegistryIterateParents);
+	}
+	if (interfacePrivate->usb.pid == NULL) {
+		interfacePrivate->usb.pid  = IORegistryEntrySearchCFProperty(interface,
+									     kIOServicePlane,
+									     CFSTR(kUSBProductID),
+									     NULL,
+									     kIORegistryIterateRecursively | kIORegistryIterateParents);
+	}
 #endif	// !TARGET_OS_SIMULATOR
 
 	return;
@@ -1738,7 +1744,7 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 	    CFNumberGetValue(num, kCFNumberIntType, &ift)) {
 		interfacePrivate->type = CFRetain(num);
 	} else {
-		SC_log(LOG_INFO, "no interface type");
+		SC_log(LOG_INFO, "no interface type: %@", interface_dict);
 		return FALSE;
 	}
 
@@ -4401,7 +4407,7 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 
 __private_extern__
 CFArrayRef
-__SCNetworkInterfaceCopyAll_IONetworkInterface(void)
+__SCNetworkInterfaceCopyAll_IONetworkInterface(Boolean keep_pre_configured)
 {
 	CFDictionaryRef		matching;
 	CFArrayRef		new_interfaces;
@@ -4412,7 +4418,7 @@ __SCNetworkInterfaceCopyAll_IONetworkInterface(void)
 	new_interfaces = findMatchingInterfaces(matching,
 						processNetworkInterface,
 						kSCNetworkInterfaceHiddenInterfaceKey,
-						FALSE);
+						keep_pre_configured);
 	CFRelease(matching);
 
 	return new_interfaces;
@@ -4611,7 +4617,7 @@ _SCNetworkInterfaceCopyAllWithPreferences(SCPreferencesRef prefs)
 	all_interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 	// get Ethernet, Firewire, Thunderbolt, and AirPort interfaces
-	new_interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface();
+	new_interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface(FALSE);
 	if (new_interfaces != NULL) {
 		add_interfaces(all_interfaces, new_interfaces);
 		CFRelease(new_interfaces);

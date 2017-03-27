@@ -78,8 +78,8 @@
 #include <time.h>
 #include "cryptlib.h"
 //#include <openssl/sha.h>
-#include <openssl/bn.h>
-#include <openssl/dsa.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/dsa_legacy.h>
 #include <openssl/rand.h>
 
 int DSA_generate_key(DSA *dsa)

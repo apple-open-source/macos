@@ -218,7 +218,7 @@ int DOMTimer::install(ScriptExecutionContext& context, std::unique_ptr<Scheduled
 #endif
 
     timer->suspendIfNeeded();
-    InspectorInstrumentation::didInstallTimer(&context, timer->m_timeoutId, timeout, singleShot);
+    InspectorInstrumentation::didInstallTimer(context, timer->m_timeoutId, timeout, singleShot);
 
     // Keep track of nested timer installs.
     if (NestedTimersMap* nestedTimers = NestedTimersMap::instanceForContext(context))
@@ -238,7 +238,7 @@ void DOMTimer::removeById(ScriptExecutionContext& context, int timeoutId)
     if (NestedTimersMap* nestedTimers = NestedTimersMap::instanceForContext(context))
         nestedTimers->remove(timeoutId);
 
-    InspectorInstrumentation::didRemoveTimer(&context, timeoutId);
+    InspectorInstrumentation::didRemoveTimer(context, timeoutId);
     context.removeTimeout(timeoutId);
 }
 
@@ -311,7 +311,7 @@ void DOMTimer::fired()
     // Only the first execution of a multi-shot timer should get an affirmative user gesture indicator.
     m_userGestureTokenToForward = nullptr;
 
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireTimer(&context, m_timeoutId);
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireTimer(context, m_timeoutId);
 
     // Simple case for non-one-shot timers.
     if (isActive()) {
@@ -426,11 +426,11 @@ std::chrono::milliseconds DOMTimer::intervalClampedToMinimum() const
     return interval;
 }
 
-Optional<std::chrono::milliseconds> DOMTimer::alignedFireTime(std::chrono::milliseconds fireTime) const
+std::optional<std::chrono::milliseconds> DOMTimer::alignedFireTime(std::chrono::milliseconds fireTime) const
 {
     auto alignmentInterval = scriptExecutionContext()->timerAlignmentInterval(m_nestingLevel >= maxTimerNestingLevel);
     if (alignmentInterval == 0ms)
-        return Nullopt;
+        return std::nullopt;
     
     static const double randomizedProportion = randomNumber();
 

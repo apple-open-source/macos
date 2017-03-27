@@ -39,7 +39,7 @@ static CFMutableDictionaryRef makeBaseKeyDictionary() {
     return query;
 }
 
-static CFMutableDictionaryRef makeQueryKeyDictionary(SecKeychainRef kc, CFStringRef keyClass) {
+static CFMutableDictionaryRef createQueryKeyDictionary(SecKeychainRef kc, CFStringRef keyClass) {
     CFMutableDictionaryRef query = makeBaseKeyDictionary();
 
     CFMutableArrayRef searchList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
@@ -52,13 +52,13 @@ static CFMutableDictionaryRef makeQueryKeyDictionary(SecKeychainRef kc, CFString
     return query;
 }
 
-static CFMutableDictionaryRef makeQueryKeyDictionaryWithLabel(SecKeychainRef kc, CFStringRef keyClass, CFStringRef label) {
-    CFMutableDictionaryRef query = makeQueryKeyDictionary(kc, keyClass);
+static CFMutableDictionaryRef createQueryKeyDictionaryWithLabel(SecKeychainRef kc, CFStringRef keyClass, CFStringRef label) {
+    CFMutableDictionaryRef query = createQueryKeyDictionary(kc, keyClass);
     CFDictionarySetValue(query, kSecAttrLabel, label);
     return query;
 }
 
-static CFMutableDictionaryRef makeAddKeyDictionaryWithApplicationLabel(SecKeychainRef kc, CFStringRef keyClass, CFStringRef label, CFStringRef applicationLabel) {
+static CFMutableDictionaryRef createAddKeyDictionaryWithApplicationLabel(SecKeychainRef kc, CFStringRef keyClass, CFStringRef label, CFStringRef applicationLabel) {
     CFMutableDictionaryRef query = makeBaseKeyDictionary();
     CFDictionaryAddValue(query, kSecUseKeychain, kc);
 
@@ -80,15 +80,16 @@ static CFMutableDictionaryRef makeAddKeyDictionaryWithApplicationLabel(SecKeycha
     }
     CFNumberRef num = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &n);
     CFDictionarySetValue(query, kSecAttrKeySizeInBits, num);
+    CFReleaseNull(num);
 
     return query;
 }
-static CFMutableDictionaryRef makeAddKeyDictionary(SecKeychainRef kc, CFStringRef keyClass, CFStringRef label) {
-    return makeAddKeyDictionaryWithApplicationLabel(kc, keyClass, label, NULL);
+static CFMutableDictionaryRef createAddKeyDictionary(SecKeychainRef kc, CFStringRef keyClass, CFStringRef label) {
+    return createAddKeyDictionaryWithApplicationLabel(kc, keyClass, label, NULL);
 }
 
-static SecKeyRef makeCustomKeyWithApplicationLabel(const char* name, SecKeychainRef kc, CFStringRef label, CFStringRef applicationLabel) {
-    CFMutableDictionaryRef query = makeAddKeyDictionaryWithApplicationLabel(kc, kSecAttrKeyClassSymmetric, label, applicationLabel);
+static SecKeyRef createCustomKeyWithApplicationLabel(const char* name, SecKeychainRef kc, CFStringRef label, CFStringRef applicationLabel) {
+    CFMutableDictionaryRef query = createAddKeyDictionaryWithApplicationLabel(kc, kSecAttrKeyClassSymmetric, label, applicationLabel);
 
     CFErrorRef error = NULL;
     SecKeyRef item = SecKeyGenerateSymmetric(query, &error);
@@ -97,20 +98,20 @@ static SecKeyRef makeCustomKeyWithApplicationLabel(const char* name, SecKeychain
     CFReleaseNull(query);
     return item;
 }
-#define makeCustomKeyWithApplicationLabelTests 1
+#define createCustomKeyWithApplicationLabelTests 1
 
-static SecKeyRef makeCustomKey(const char* name, SecKeychainRef kc, CFStringRef label) {
-    return makeCustomKeyWithApplicationLabel(name, kc, label, NULL);
+static SecKeyRef createCustomKey(const char* name, SecKeychainRef kc, CFStringRef label) {
+    return createCustomKeyWithApplicationLabel(name, kc, label, NULL);
 }
-#define makeCustomKeyTests makeCustomKeyWithApplicationLabelTests
+#define createCustomKeyTests createCustomKeyWithApplicationLabelTests
 
 static SecKeyRef makeKey(const char* name, SecKeychainRef kc) {
-    return makeCustomKey(name, kc, CFSTR("test_key"));
+    return createCustomKey(name, kc, CFSTR("test_key"));
 }
-#define makeKeyTests makeCustomKeyTests
+#define makeKeyTests createCustomKeyTests
 
 static void makeCustomKeyPair(const char* name, SecKeychainRef kc, CFStringRef label, SecKeyRef* aPub, SecKeyRef* aPriv) {
-    CFMutableDictionaryRef query = makeAddKeyDictionary(kc, kSecAttrKeyClassPublic, label);
+    CFMutableDictionaryRef query = createAddKeyDictionary(kc, kSecAttrKeyClassPublic, label);
 
     SecKeyRef pub;
     SecKeyRef priv;
@@ -136,7 +137,7 @@ static void makeKeyPair(const char* name, SecKeychainRef kc, SecKeyRef* aPub, Se
 static void makeCustomDuplicateKey(const char* name, SecKeychainRef kc, CFStringRef label) {
     CFMutableDictionaryRef query;
 
-    query = makeAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
+    query = createAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
     CFErrorRef error = NULL;
     CFReleaseSafe(SecKeyGenerateSymmetric(query, &error));
     is(CFErrorGetCode(error), errSecDuplicateItem, "%s: SecKeyGenerateSymmetric (duplicate) errored: %ld", name, error ? CFErrorGetCode(error) : -1);
@@ -162,7 +163,7 @@ static SecKeyRef makeCustomFreeKey(const char* name, SecKeychainRef kc, CFString
                              NULL, /* initialAccess */
                              &symkey), "%s: SecKeyGenerate", name);;
 
-    CFMutableDictionaryRef query = makeAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
+    CFMutableDictionaryRef query = createAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
 
     CFMutableArrayRef itemList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
     CFArrayAppendValue((CFMutableArrayRef)itemList, symkey);
@@ -194,7 +195,7 @@ static SecKeyRef makeCustomDuplicateFreeKey(const char* name, SecKeychainRef kc,
                              NULL, /* initialAccess */
                              &symkey), "%s: SecKeyGenerate", name);;
 
-    CFMutableDictionaryRef query = makeAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
+    CFMutableDictionaryRef query = createAddKeyDictionary(kc, kSecAttrKeyClassSymmetric, label);
 
     CFMutableArrayRef itemList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
     CFArrayAppendValue((CFMutableArrayRef)itemList, symkey);

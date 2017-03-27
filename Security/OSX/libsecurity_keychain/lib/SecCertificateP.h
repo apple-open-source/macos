@@ -54,7 +54,7 @@ CFTypeID SecCertificateGetTypeIDP(void)
 	@function SecCertificateCreateWithDataP
 	@abstract Create a certificate given it's DER representation as a CFData.
     @param allocator CFAllocator to allocate the certificate with.
-    @param certificate DER encoded X.509 certificate.
+    @param data DER encoded X.509 certificate.
 	@result Return NULL if the passed-in data is not a valid DER-encoded
     X.509 certificate, return a SecCertificateRef otherwise.
 */
@@ -100,7 +100,7 @@ bool SecCertificateIsValidP(SecCertificateRefP certificate, CFAbsoluteTime verif
 	@function SecCertificateCopyPublicKeySHA1DigestFromCertificateData
 	@abstract Returns the SHA1 hash of the public key of a certificate or NULL
     @param allocator CFAllocator to allocate the certificate with.
-    @param certificate DER encoded X.509 certificate.
+    @param der_certificate DER encoded X.509 certificate.
 	@result SHA1 hash of the public key of a certificate or NULL
 */
 CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllocatorRef allocator,

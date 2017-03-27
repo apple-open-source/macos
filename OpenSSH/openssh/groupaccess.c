@@ -34,10 +34,6 @@
 #include <string.h>
 #include <limits.h>
 
-#ifdef __APPLE_MEMBERSHIP__
-#include <membership.h>
-#endif
-
 #include "xmalloc.h"
 #include "groupaccess.h"
 #include "match.h"

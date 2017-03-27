@@ -22,41 +22,47 @@
  */
 
 #include <stdio.h>
-#include "CommonNumerics.h"
-#include "CommonCRC.h"
+#include <CommonNumerics/CommonNumerics.h>
+#include <CommonNumerics/CommonCRC.h>
 #include "crc.h"
-#include "ccGlobals.h"
+#include "../lib/ccGlobals.h"
 #include <stdlib.h>
 
-static inline crcInfoPtr getDesc(CNcrc algorithm) {
+static void init_globals(__unused void *g)
+{
     cc_globals_t globals = _cc_globals();
-    dispatch_once(&globals->crc_init, ^{
-        globals->crcSelectionTab[kCN_CRC_8].descriptor = &crc8;
-        globals->crcSelectionTab[kCN_CRC_8_ICODE].descriptor = &crc8_icode;
-        globals->crcSelectionTab[kCN_CRC_8_ITU].descriptor = &crc8_itu;
-        globals->crcSelectionTab[kCN_CRC_8_ROHC].descriptor = &crc8_rohc;
-        globals->crcSelectionTab[kCN_CRC_8_WCDMA].descriptor = &crc8_wcdma;
-        globals->crcSelectionTab[kCN_CRC_16].descriptor = &crc16;
-        globals->crcSelectionTab[kCN_CRC_16_CCITT_TRUE].descriptor = &crc16_ccitt_true;
-        globals->crcSelectionTab[kCN_CRC_16_CCITT_FALSE].descriptor = &crc16_ccitt_false;
-        globals->crcSelectionTab[kCN_CRC_16_USB].descriptor = &crc16_usb;
-        globals->crcSelectionTab[kCN_CRC_16_XMODEM].descriptor = &crc16_xmodem;
-        globals->crcSelectionTab[kCN_CRC_16_DECT_R].descriptor = &crc16_dect_r;
-        globals->crcSelectionTab[kCN_CRC_16_DECT_X].descriptor = &crc16_dect_x;
-        globals->crcSelectionTab[kCN_CRC_16_ICODE].descriptor = &crc16_icode;
-        globals->crcSelectionTab[kCN_CRC_16_VERIFONE].descriptor = &crc16_verifone;
-        globals->crcSelectionTab[kCN_CRC_16_A].descriptor = &crc16_a;
-        globals->crcSelectionTab[kCN_CRC_16_B].descriptor = &crc16_b;
-        globals->crcSelectionTab[kCN_CRC_16_Fletcher].descriptor = NULL;
-        globals->crcSelectionTab[kCN_CRC_32_Adler].descriptor = &adler32;
-        globals->crcSelectionTab[kCN_CRC_32].descriptor = &crc32;
-        globals->crcSelectionTab[kCN_CRC_32_CASTAGNOLI].descriptor = &crc32_castagnoli;
-        globals->crcSelectionTab[kCN_CRC_32_BZIP2].descriptor = &crc32_bzip2;
-        globals->crcSelectionTab[kCN_CRC_32_MPEG_2].descriptor = &crc32_mpeg_2;
-        globals->crcSelectionTab[kCN_CRC_32_POSIX].descriptor = &crc32_posix;
-        globals->crcSelectionTab[kCN_CRC_32_XFER].descriptor = &crc32_xfer;
-        globals->crcSelectionTab[kCN_CRC_64_ECMA_182].descriptor = &crc64_ecma_182;
-    });
+    
+    globals->crcSelectionTab[kCN_CRC_8].descriptor = &crc8;
+    globals->crcSelectionTab[kCN_CRC_8_ICODE].descriptor = &crc8_icode;
+    globals->crcSelectionTab[kCN_CRC_8_ITU].descriptor = &crc8_itu;
+    globals->crcSelectionTab[kCN_CRC_8_ROHC].descriptor = &crc8_rohc;
+    globals->crcSelectionTab[kCN_CRC_8_WCDMA].descriptor = &crc8_wcdma;
+    globals->crcSelectionTab[kCN_CRC_16].descriptor = &crc16;
+    globals->crcSelectionTab[kCN_CRC_16_CCITT_TRUE].descriptor = &crc16_ccitt_true;
+    globals->crcSelectionTab[kCN_CRC_16_CCITT_FALSE].descriptor = &crc16_ccitt_false;
+    globals->crcSelectionTab[kCN_CRC_16_USB].descriptor = &crc16_usb;
+    globals->crcSelectionTab[kCN_CRC_16_XMODEM].descriptor = &crc16_xmodem;
+    globals->crcSelectionTab[kCN_CRC_16_DECT_R].descriptor = &crc16_dect_r;
+    globals->crcSelectionTab[kCN_CRC_16_DECT_X].descriptor = &crc16_dect_x;
+    globals->crcSelectionTab[kCN_CRC_16_ICODE].descriptor = &crc16_icode;
+    globals->crcSelectionTab[kCN_CRC_16_VERIFONE].descriptor = &crc16_verifone;
+    globals->crcSelectionTab[kCN_CRC_16_A].descriptor = &crc16_a;
+    globals->crcSelectionTab[kCN_CRC_16_B].descriptor = &crc16_b;
+    globals->crcSelectionTab[kCN_CRC_16_Fletcher].descriptor = NULL;
+    globals->crcSelectionTab[kCN_CRC_32_Adler].descriptor = &adler32;
+    globals->crcSelectionTab[kCN_CRC_32].descriptor = &crc32;
+    globals->crcSelectionTab[kCN_CRC_32_CASTAGNOLI].descriptor = &crc32_castagnoli;
+    globals->crcSelectionTab[kCN_CRC_32_BZIP2].descriptor = &crc32_bzip2;
+    globals->crcSelectionTab[kCN_CRC_32_MPEG_2].descriptor = &crc32_mpeg_2;
+    globals->crcSelectionTab[kCN_CRC_32_POSIX].descriptor = &crc32_posix;
+    globals->crcSelectionTab[kCN_CRC_32_XFER].descriptor = &crc32_xfer;
+    globals->crcSelectionTab[kCN_CRC_64_ECMA_182].descriptor = &crc64_ecma_182;
+}
+
+static inline crcInfoPtr getDesc(CNcrc algorithm)
+{
+	cc_globals_t globals = _cc_globals();
+    cc_dispatch_once(&globals->crc_init, NULL, init_globals);
     return &globals->crcSelectionTab[algorithm];
 }
 
@@ -99,8 +105,10 @@ CNCRC(CNcrc algorithm, const void *in, size_t len, uint64_t *result)
 {
     crcInfoPtr crc = getDesc(algorithm);
     if(crc->descriptor == NULL) return kCNUnimplemented;
-    if(crc->descriptor->defType == model) *result = try_generic_oneshot(crc, len, in);
-    else *result = crc->descriptor->def.funcs.oneshot(len, in);
+    if(crc->descriptor->defType == model)
+        *result = try_generic_oneshot(crc, len, in);
+    else
+        *result = crc->descriptor->def.funcs.oneshot(len, in);
     return kCNSuccess;
 }
 

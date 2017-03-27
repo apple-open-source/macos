@@ -37,7 +37,7 @@
 
 
 #pragma D option quiet
-
+#pragma D option nolibs
 tick-1ms
 {
 	printf("This test is a simple tick-ms provider test\n");

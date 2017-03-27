@@ -29,8 +29,8 @@
 
 #include "opensshCoding.h"
 #include <CoreFoundation/CFData.h>
-#include <openssl/bn.h>
-#include <openssl/crypto.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/crypto_legacy.h>
 #include <security_cdsa_utils/cuEnc64.h>
 
 #define SSH2_RSA_HEADER		"ssh-rsa"

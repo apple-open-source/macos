@@ -29,6 +29,7 @@
 #include "ScriptExecutionContext.h"
 
 #include "CachedScript.h"
+#include "CommonVM.h"
 #include "DOMTimer.h"
 #include "DatabaseContext.h"
 #include "Document.h"
@@ -137,6 +138,10 @@ ScriptExecutionContext::~ScriptExecutionContext()
 
 void ScriptExecutionContext::processMessagePortMessagesSoon()
 {
+    if (m_willProcessMessagePortMessagesSoon)
+        return;
+
+    m_willProcessMessagePortMessagesSoon = true;
     postTask([] (ScriptExecutionContext& context) {
         context.dispatchMessagePortEvents();
     });
@@ -147,6 +152,8 @@ void ScriptExecutionContext::dispatchMessagePortEvents()
     checkConsistency();
 
     Ref<ScriptExecutionContext> protectedThis(*this);
+    ASSERT(m_willProcessMessagePortMessagesSoon);
+    m_willProcessMessagePortMessagesSoon = false;
 
     // Make a frozen copy of the ports so we can iterate while new ones might be added or destroyed.
     Vector<MessagePort*> possibleMessagePorts;
@@ -176,7 +183,7 @@ void ScriptExecutionContext::destroyedMessagePort(MessagePort& messagePort)
     m_messagePorts.remove(&messagePort);
 }
 
-void ScriptExecutionContext::didLoadResourceSynchronously(const ResourceRequest&)
+void ScriptExecutionContext::didLoadResourceSynchronously()
 {
 }
 
@@ -352,9 +359,15 @@ void ScriptExecutionContext::willDestroyDestructionObserver(ContextDestructionOb
 
 bool ScriptExecutionContext::sanitizeScriptError(String& errorMessage, int& lineNumber, int& columnNumber, String& sourceURL, Deprecated::ScriptValue& error, CachedScript* cachedScript)
 {
-    URL targetURL = completeURL(sourceURL);
-    if (securityOrigin()->canRequest(targetURL) || (cachedScript && cachedScript->passesAccessControlCheck(*securityOrigin())))
+    ASSERT(securityOrigin());
+    if (cachedScript) {
+        ASSERT(cachedScript->origin());
+        ASSERT(securityOrigin()->toString() == cachedScript->origin()->toString());
+        if (cachedScript->isCORSSameOrigin())
+            return false;
+    } else if (securityOrigin()->canRequest(completeURL(sourceURL)))
         return false;
+
     errorMessage = "Script error.";
     sourceURL = String();
     lineNumber = 0;
@@ -465,14 +478,13 @@ std::chrono::milliseconds ScriptExecutionContext::timerAlignmentInterval(bool) c
 JSC::VM& ScriptExecutionContext::vm()
 {
     if (is<Document>(*this))
-        return JSDOMWindow::commonVM();
+        return commonVM();
 
     return downcast<WorkerGlobalScope>(*this).script()->vm();
 }
 
 void ScriptExecutionContext::setDatabaseContext(DatabaseContext* databaseContext)
 {
-    ASSERT(!m_databaseContext);
     m_databaseContext = databaseContext;
 }
 

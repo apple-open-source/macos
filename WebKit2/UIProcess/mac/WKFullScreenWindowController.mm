@@ -229,7 +229,6 @@ static RetainPtr<CGImageRef> createImageWithCopiedData(CGImageRef sourceImage)
     NSDisableScreenUpdates();
     [[self window] setAutodisplay:NO];
 
-    NSResponder *webWindowFirstResponder = [[_webView window] firstResponder];
     [self _manager]->saveScrollPosition();
     _savedTopContentInset = _page->topContentInset();
     _page->setTopContentInset(0);
@@ -255,8 +254,6 @@ static RetainPtr<CGImageRef> createImageWithCopiedData(CGImageRef sourceImage)
     NSView *contentView = [[self window] contentView];
     [_clipView addSubview:_webView positioned:NSWindowBelow relativeTo:nil];
     _webView.frame = NSInsetRect(contentView.bounds, 0, -_page->topContentInset());
-
-    makeResponderFirstResponderIfDescendantOfView(self.window, webWindowFirstResponder, _webView);
 
     _savedScale = _page->pageScaleFactor();
     _page->scalePage(1, IntPoint());
@@ -393,6 +390,8 @@ static const float minVideoWidth = 480 + 20 + 20; // Note: Keep in sync with med
         return;
     _fullScreenState = NotInFullScreen;
 
+    NSResponder *firstResponder = [[self window] firstResponder];
+
     // Screen updates to be re-enabled in completeFinishExitFullScreenAnimationAfterRepaint.
     NSDisableScreenUpdates();
     _page->setSuppressVisibilityUpdates(true);
@@ -402,7 +401,6 @@ static const float minVideoWidth = 480 + 20 + 20; // Note: Keep in sync with med
     [_backgroundView.get().layer removeAllAnimations];
     [[_webViewPlaceholder window] setAutodisplay:NO];
 
-    NSResponder *firstResponder = [[self window] firstResponder];
     [self _replaceView:_webViewPlaceholder.get() with:_webView];
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [NSLayoutConstraint activateConstraints:self.savedConstraints];
@@ -417,6 +415,7 @@ static const float minVideoWidth = 480 + 20 + 20; // Note: Keep in sync with med
     [self _manager]->setAnimatingFullScreen(false);
     _page->scalePage(_savedScale, IntPoint());
     [self _manager]->restoreScrollPosition();
+    _page->setTopContentInset(_savedTopContentInset);
 
     if (_repaintCallback) {
         _repaintCallback->invalidate(WebKit::CallbackBase::Error::OwnerWasInvalidated);
@@ -557,6 +556,16 @@ static CAAnimation *zoomAnimation(const FloatRect& initialFrame, const FloatRect
     return scaleAnimation;
 }
 
+static CALayer *createMask(const FloatRect& bounds)
+{
+    CALayer *maskLayer = [CALayer layer];
+    maskLayer.anchorPoint = CGPointZero;
+    maskLayer.frame = bounds;
+    maskLayer.backgroundColor = CGColorGetConstantColor(kCGColorBlack);
+    maskLayer.autoresizingMask = (NSViewWidthSizable | NSViewHeightSizable);
+    return maskLayer;
+}
+
 static CAAnimation *maskAnimation(const FloatRect& initialFrame, const FloatRect& finalFrame, const FloatRect& screenFrame, CFTimeInterval duration, AnimationDirection direction)
 {
     CABasicAnimation *boundsAnimation = [CABasicAnimation animationWithKeyPath:@"bounds"];
@@ -602,11 +611,7 @@ static CAAnimation *fadeAnimation(CFTimeInterval duration, AnimationDirection di
     NSView* contentView = [[self window] contentView];
 
     [[_clipView layer] addAnimation:zoomAnimation(_initialFrame, _finalFrame, self.window.screen.frame, duration, AnimateIn) forKey:@"fullscreen"];
-    CALayer *maskLayer = [CALayer layer];
-    maskLayer.anchorPoint = CGPointZero;
-    maskLayer.frame = NSRectToCGRect(contentView.bounds);
-    maskLayer.backgroundColor = CGColorGetConstantColor(kCGColorBlack);
-    maskLayer.autoresizingMask = (NSViewWidthSizable | NSViewHeightSizable);
+    CALayer *maskLayer = createMask(contentView.bounds);
     [maskLayer addAnimation:maskAnimation(_initialFrame, _finalFrame, self.window.screen.frame, duration, AnimateIn) forKey:@"fullscreen"];
     [_clipView layer].mask = maskLayer;
 
@@ -618,6 +623,7 @@ static CAAnimation *fadeAnimation(CFTimeInterval duration, AnimationDirection di
     [window setCollectionBehavior:(behavior | NSWindowCollectionBehaviorCanJoinAllSpaces)];
     [window makeKeyAndOrderFront:self];
     [window setCollectionBehavior:behavior];
+    [window makeFirstResponder:_webView];
 
     _page->setSuppressVisibilityUpdates(false);
     [[self window] setAutodisplay:YES];
@@ -636,9 +642,11 @@ static CAAnimation *fadeAnimation(CFTimeInterval duration, AnimationDirection di
     }
 
     [[_clipView layer] addAnimation:zoomAnimation(_initialFrame, _finalFrame, self.window.screen.frame, duration, AnimateOut) forKey:@"fullscreen"];
-    [[_clipView layer].mask addAnimation:maskAnimation(_initialFrame, _finalFrame, self.window.screen.frame, duration, AnimateOut) forKey:@"fullscreen"];
-
     NSView* contentView = [[self window] contentView];
+    CALayer *maskLayer = createMask(contentView.bounds);
+    [maskLayer addAnimation:maskAnimation(_initialFrame, _finalFrame, self.window.screen.frame, duration, AnimateOut) forKey:@"fullscreen"];
+    [_clipView layer].mask = maskLayer;
+
     contentView.hidden = NO;
     [_backgroundView.get().layer addAnimation:fadeAnimation(duration, AnimateOut) forKey:@"fullscreen"];
 

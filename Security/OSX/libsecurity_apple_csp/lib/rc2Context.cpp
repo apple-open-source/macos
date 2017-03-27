@@ -20,7 +20,7 @@
  * rc2Context.cpp - glue between BlockCrytpor and ssleay RC2 implementation
  */
  
-#include <openssl/rc2.h>
+#include <openssl/rc2_legacy.h>
 #include <misc/rc2_locl.h>
 #include "rc2Context.h"
 

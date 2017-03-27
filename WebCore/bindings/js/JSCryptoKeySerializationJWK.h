@@ -23,15 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JSCryptoKeySerializationJWK_h
-#define JSCryptoKeySerializationJWK_h
+#pragma once
+
+#if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoKeySerialization.h"
 #include <heap/Strong.h>
-#include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
-
-#if ENABLE(SUBTLE_CRYPTO)
 
 namespace JSC {
 class ExecState;
@@ -40,7 +38,7 @@ class JSObject;
 
 namespace WebCore {
 
-class CryptoAlgorithmParameters;
+class CryptoAlgorithmParametersDeprecated;
 class CryptoKey;
 class CryptoKeyDataRSAComponents;
 
@@ -53,9 +51,9 @@ public:
     static String serialize(JSC::ExecState* exec, const CryptoKey&);
 
 private:
-    Optional<CryptoAlgorithmPair> reconcileAlgorithm(CryptoAlgorithm*, CryptoAlgorithmParameters*) const override;
+    std::optional<CryptoAlgorithmPair> reconcileAlgorithm(CryptoAlgorithm*, CryptoAlgorithmParametersDeprecated*) const override;
 
-    void reconcileUsages(CryptoKeyUsage&) const override;
+    void reconcileUsages(CryptoKeyUsageBitmap&) const override;
     void reconcileExtractable(bool&) const override;
 
     std::unique_ptr<CryptoKeyData> keyData() const override;
@@ -70,7 +68,6 @@ private:
     mutable String m_jwkAlgorithmName; // Stored when reconcileAlgorithm is called, and used later.
 };
 
-}
+} // namespace WebCore
 
 #endif // ENABLE(SUBTLE_CRYPTO)
-#endif // JSCryptoKeySerializationJWK_h

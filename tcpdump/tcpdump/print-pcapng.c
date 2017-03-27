@@ -30,12 +30,12 @@
 #include "config.h"
 #endif
 
-#include <tcpdump-stdinc.h>
+#include <netdissect-stdinc.h>
 
 #include <pcap.h>
 #include <stdlib.h>
 
-#include "interface.h"
+#include "netdissect.h"
 
 #ifdef DLT_PCAPNG
 
@@ -43,7 +43,7 @@ u_int
 pcapng_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 			   const u_char *raw)
 {
-	error("Intenal error, %s should not be called", __func__);
+	fprintf(stderr, "Intenal error, %s should not be called\n", __func__);
 	
 	return (0);
 }

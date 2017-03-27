@@ -77,11 +77,11 @@ void PseudoElement::clearHostElement()
     m_hostElement = nullptr;
 }
 
-Optional<ElementStyle> PseudoElement::resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle*)
+std::optional<ElementStyle> PseudoElement::resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle*)
 {
     auto* style = m_hostElement->renderer()->getCachedPseudoStyle(m_pseudoId, &parentStyle);
     if (!style)
-        return Nullopt;
+        return std::nullopt;
     return ElementStyle(RenderStyle::clonePtr(*style));
 }
 
@@ -96,12 +96,8 @@ void PseudoElement::didAttachRenderers()
 
     for (const ContentData* content = style.contentData(); content; content = content->next()) {
         auto child = content->createContentRenderer(document(), style);
-        if (renderer->isChildAllowed(*child, style)) {
-            auto* childPtr = child.get();
+        if (renderer->isChildAllowed(*child, style))
             renderer->addChild(child.leakPtr());
-            if (is<RenderQuote>(*childPtr))
-                downcast<RenderQuote>(*childPtr).attachQuote();
-        }
     }
 }
 

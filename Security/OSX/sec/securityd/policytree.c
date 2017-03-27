@@ -112,11 +112,10 @@ void policy_set_intersect(policy_set_t *policy_set, policy_set_t other_set) {
 
 policy_tree_t policy_tree_create(const oid_t *p_oid, policy_qualifier_t p_q) {
     policy_tree_t node = malloc(sizeof(*node));
+    memset(node, 0, sizeof(*node));
     node->valid_policy = *p_oid;
     node->qualifier_set = p_q;
     node->expected_policy_set = policy_set_create(p_oid);
-    node->children = NULL;
-    node->siblings = NULL;
     secdebug("policy-node", "%p", node);
     return node;
 }
@@ -169,6 +168,21 @@ static void policy_tree_free_node(policy_tree_t node) {
         node->expected_policy_set = NULL;
     }
     free(node);
+}
+
+void policy_tree_remove_node(policy_tree_t *node) {
+    /* Free node's children */
+    policy_tree_t *child = &(*node)->children;
+    if (*child)
+        policy_tree_prune(child);
+
+    /* Remove node from parent */
+    policy_tree_t parent = (*node)->parent;
+    parent->children = (*node)->siblings;
+
+    /* Free node */
+    policy_tree_free_node(*node);
+    *node = NULL;
 }
 
 /* Prune nodes from node down. */
@@ -237,10 +251,11 @@ void policy_tree_prune_childless(policy_tree_t *root, int depth) {
 static void policy_tree_add_child_explicit(policy_tree_t parent,
     const oid_t *p_oid, policy_qualifier_t p_q, policy_set_t p_expected) {
     policy_tree_t child = malloc(sizeof(*child));
+    memset(child, 0, sizeof(*child));
     child->valid_policy = *p_oid;
     child->qualifier_set = p_q;
     child->expected_policy_set = p_expected;
-    child->children = NULL;
+    child->parent = parent;
 
 #if 0
     printf("# /%.08lx\\ |%.08lx| \\%.08lx/ >%.08lx> \\>%.08lx>/\n",
@@ -264,6 +279,13 @@ void policy_tree_add_child(policy_tree_t parent,
     const oid_t *p_oid, policy_qualifier_t p_q) {
     policy_set_t policy_set = policy_set_create(p_oid);
     policy_tree_add_child_explicit(parent, p_oid, p_q, policy_set);
+}
+
+/* Add a new sibling to the tree setting valid_policy to p_oid,
+   qualifier set to p_q and expected_policy_set to p_expected */
+void policy_tree_add_sibling(policy_tree_t sibling, const oid_t *p_oid,
+                             policy_qualifier_t p_q, policy_set_t p_expected) {
+    policy_tree_add_child_explicit(sibling->parent, p_oid, p_q, p_expected);
 }
 
 void policy_tree_set_expected_policy(policy_tree_t node,

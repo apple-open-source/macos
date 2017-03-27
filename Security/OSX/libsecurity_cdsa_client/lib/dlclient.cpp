@@ -195,6 +195,7 @@ DbImpl::close()
 void
 DbImpl::activate()
 {
+    StLock<Mutex> _(mActivateMutex);
 	if (!mActive)
 	{
 		if (mDbInfo)
@@ -627,7 +628,6 @@ CSSM_HANDLE Db::dlGetFirst(const CSSM_QUERY &query,	CSSM_DB_RECORD_ATTRIBUTE_DAT
 		return CSSM_INVALID_HANDLE;
 	default:
 		CssmError::throwMe(rc);
-		return CSSM_INVALID_HANDLE; // placebo
 	}
 }
 
@@ -642,7 +642,6 @@ bool Db::dlGetNext(CSSM_HANDLE query, CSSM_DB_RECORD_ATTRIBUTE_DATA &attributes,
 		return false;
 	default:
 		CssmError::throwMe(rc);
-		return false;   // placebo
 	}
 }
 

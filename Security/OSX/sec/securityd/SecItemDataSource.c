@@ -392,7 +392,8 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
         for (size_t class_ix = 0; class_ix < array_size(dsSyncedClasses); ++class_ix) {
             result &= SecDbReleaseCachedStmt(dbconn, sqls[class_ix], stmts[class_ix], error);
             CFReleaseSafe(sqls[class_ix]);
-            result &= query_destroy(queries[class_ix], error);
+            if (queries[class_ix])
+                result &= query_destroy(queries[class_ix], error);
         }
     };
 
@@ -433,6 +434,13 @@ static CFDataRef copyObjectDigest(SOSObjectRef object, CFErrorRef *error) {
     CFDataRef digest = SecDbItemGetSHA1(item, error);
     CFRetainSafe(digest);
     return digest;
+}
+
+static CFDateRef copyObjectModDate(SOSObjectRef object, CFErrorRef *error) {
+    SecDbItemRef item = (SecDbItemRef) object;
+    CFDateRef modDate = SecDbItemGetValueKind(item, kSecDbModificationDateAttr, NULL);
+    CFRetainSafe(modDate);
+    return modDate;
 }
 
 static CFDictionaryRef objectCopyPropertyList(SOSObjectRef object, CFErrorRef *error) {
@@ -737,6 +745,7 @@ SOSDataSourceRef SecItemDataSourceCreate(SecDbRef db, CFStringRef name, CFErrorR
 
     // Object field accessors
     ds->ds.objectCopyDigest = copyObjectDigest;
+    ds->ds.objectCopyModDate = copyObjectModDate;
 
     // Object encode and decode.
     ds->ds.objectCreateWithPropertyList = objectCreateWithPropertyList;
@@ -774,7 +783,7 @@ static SOSDataSourceRef SecItemDataSourceFactoryCopyDataSource(SOSDataSourceFact
     __block SOSDataSourceRef dataSource = NULL;
     dispatch_sync(f->queue, ^{
         dataSource = (SOSDataSourceRef)CFDictionaryGetValue(f->dsCache, dataSourceName);
-        if (!dataSource) {
+        if (!dataSource && f->db) {
             dataSource = (SOSDataSourceRef)SecItemDataSourceCreate(f->db, dataSourceName, error);
             CFDictionarySetValue(f->dsCache, dataSourceName, dataSource);
         }
@@ -832,24 +841,24 @@ SOSDataSourceFactoryRef SecItemDataSourceFactoryGetShared(SecDbRef db) {
     
     dispatch_once(&sDSFQueueOnce, ^{
         sDSFQueue = dispatch_queue_create("dataSourceFactory queue", DISPATCH_QUEUE_SERIAL);
+        sDSTable = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
     });
     
     __block SOSDataSourceFactoryRef result = NULL;
     dispatch_sync(sDSFQueue, ^{
-        CFStringRef dbPath = SecDbGetPath(db);
-        if (sDSTable) {
-            result = (SOSDataSourceFactoryRef) CFDictionaryGetValue(sDSTable, dbPath);
-        } else {
-            sDSTable = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
-        }
-        
-        if (!result) {
-            result = SecItemDataSourceFactoryCreate(db);
-            
-            CFDictionaryAddValue(sDSTable, dbPath, result);
+        if(db) {
+            CFStringRef dbPath = SecDbGetPath(db);
+            if(dbPath) {
+                result = (SOSDataSourceFactoryRef) CFDictionaryGetValue(sDSTable, dbPath);
+
+                if(!result) {
+                    result = SecItemDataSourceFactoryCreate(db);
+                    CFDictionaryAddValue(sDSTable, dbPath, result);
+                }
+            }
         }
     });
-    
+
     return result;
 }
 

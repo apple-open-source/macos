@@ -71,10 +71,10 @@ float RenderCombineText::width(unsigned from, unsigned length, const FontCascade
     return RenderText::width(from, length, font, xPosition, fallbackFonts, glyphOverflow);
 }
 
-Optional<FloatPoint> RenderCombineText::computeTextOrigin(const FloatRect& boxRect) const
+std::optional<FloatPoint> RenderCombineText::computeTextOrigin(const FloatRect& boxRect) const
 {
     if (!m_isCombined)
-        return Nullopt;
+        return std::nullopt;
 
     // Visually center m_combinedTextWidth/Ascent/Descent within boxRect
     FloatPoint result = boxRect.minXMaxYCorner();
@@ -84,17 +84,15 @@ Optional<FloatPoint> RenderCombineText::computeTextOrigin(const FloatRect& boxRe
     return result;
 }
 
-void RenderCombineText::getStringToRender(int start, String& string, int& length) const
+String RenderCombineText::combinedStringForRendering() const
 {
-    ASSERT(start >= 0);
     if (m_isCombined) {
-        string = originalText();
-        length = string.length();
-        return;
+        auto originalText = this->originalText();
+        ASSERT(!originalText.isNull());
+        return originalText;
     }
  
-    string = text();
-    string = string.substringSharingImpl(static_cast<unsigned>(start), length);
+    return { };
 }
 
 void RenderCombineText::combineText()

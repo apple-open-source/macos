@@ -141,6 +141,8 @@ tdatamarker: $(TZDATA)
 	gunzip -d < $(TZDATA) | tar xf - --exclude=Makefile
 	touch $@
 
+yearistype.sh: | $(TDATA)
+
 yearistype:	yearistype.sh
 		cp yearistype.sh yearistype
 		chmod +x yearistype

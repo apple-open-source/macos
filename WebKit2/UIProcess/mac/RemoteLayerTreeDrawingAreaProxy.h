@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,11 @@ public:
     uint64_t nextLayerTreeTransactionID() const { return m_pendingLayerTreeTransactionID + 1; }
     uint64_t lastCommittedLayerTreeTransactionID() const { return m_transactionIDForPendingCACommit; }
 
-    void didRefreshDisplay(double timestamp);
+    void didRefreshDisplay();
+    
+    bool hasDebugIndicator() const { return !!m_debugIndicatorLayerTreeHost; }
+
+    bool isAlwaysOnLoggingAllowed() const;
 
 private:
     void sizeDidChange() override;
@@ -64,7 +68,7 @@ private:
     void dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)>) override;
 
 #if PLATFORM(MAC)
-    void setViewExposedRect(Optional<WebCore::FloatRect>) override;
+    void setViewExposedRect(std::optional<WebCore::FloatRect>) override;
 #endif
 
     float indicatorScale(WebCore::IntSize contentsSize) const;
@@ -73,15 +77,17 @@ private:
     void updateDebugIndicatorPosition();
     void initializeDebugIndicator();
 
-    void waitForDidUpdateViewState() override;
+    void waitForDidUpdateActivityState() override;
     void hideContentUntilPendingUpdate() override;
     void hideContentUntilAnyUpdate() override;
     bool hasVisibleContent() const override;
+
+    void prepareForAppSuspension() final;
     
     WebCore::FloatPoint indicatorLocation() const;
 
     // IPC::MessageReceiver
-    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Message handlers
     void willCommitLayerTree(uint64_t transactionID);

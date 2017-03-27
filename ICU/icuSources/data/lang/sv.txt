@@ -615,7 +615,7 @@ sv{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wolof"}
-        wuu{"wu"}
+        wuu{"shanghainese"}
         xal{"kalmuckiska"}
         xh{"xhosa"}
         xmf{"mingrelianska"}

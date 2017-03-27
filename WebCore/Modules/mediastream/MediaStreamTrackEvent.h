@@ -22,8 +22,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MediaStreamTrackEvent_h
-#define MediaStreamTrackEvent_h
+#pragma once
 
 #if ENABLE(MEDIA_STREAM)
 
@@ -34,16 +33,16 @@ namespace WebCore {
 
 class MediaStreamTrack;
 
-struct MediaStreamTrackEventInit : public EventInit {
-    RefPtr<MediaStreamTrack> track;
-};
-
 class MediaStreamTrackEvent : public Event {
 public:
     virtual ~MediaStreamTrackEvent();
 
-    static Ref<MediaStreamTrackEvent> create(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<MediaStreamTrack>);
-    static Ref<MediaStreamTrackEvent> createForBindings(const AtomicString& type, const MediaStreamTrackEventInit& initializer);
+    static Ref<MediaStreamTrackEvent> create(const AtomicString& type, bool canBubble, bool cancelable, RefPtr<MediaStreamTrack>&&);
+
+    struct Init : EventInit {
+        RefPtr<MediaStreamTrack> track;
+    };
+    static Ref<MediaStreamTrackEvent> create(const AtomicString& type, const Init&, IsTrusted = IsTrusted::No);
 
     MediaStreamTrack* track() const;
 
@@ -51,8 +50,8 @@ public:
     EventInterface eventInterface() const override;
 
 private:
-    MediaStreamTrackEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<MediaStreamTrack>);
-    MediaStreamTrackEvent(const AtomicString& type, const MediaStreamTrackEventInit&);
+    MediaStreamTrackEvent(const AtomicString& type, bool canBubble, bool cancelable, RefPtr<MediaStreamTrack>&&);
+    MediaStreamTrackEvent(const AtomicString& type, const Init&, IsTrusted);
 
     RefPtr<MediaStreamTrack> m_track;
 };
@@ -60,5 +59,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(MEDIA_STREAM)
-
-#endif // MediaStreamTrackEvent_h

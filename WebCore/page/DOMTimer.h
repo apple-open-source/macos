@@ -24,8 +24,7 @@
  *
  */
 
-#ifndef DOMTimer_h
-#define DOMTimer_h
+#pragma once
 
 #include "SuspendableTimer.h"
 #include "UserGestureIndicator.h"
@@ -36,9 +35,7 @@ namespace WebCore {
 
 class DOMTimerFireState;
 class Document;
-class Element;
 class HTMLPlugInElement;
-class IntRect;
 class ScheduledAction;
 
 class DOMTimer final : public RefCounted<DOMTimer>, public SuspendableTimer {
@@ -74,7 +71,7 @@ private:
     // SuspendableTimer
     void fired() override;
     void didStop() override;
-    Optional<std::chrono::milliseconds> alignedFireTime(std::chrono::milliseconds) const override;
+    std::optional<std::chrono::milliseconds> alignedFireTime(std::chrono::milliseconds) const override;
 
     // ActiveDOMObject API.
     const char* activeDOMObjectName() const override;
@@ -95,6 +92,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // DOMTimer_h
-

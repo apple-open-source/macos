@@ -441,14 +441,14 @@ static void logAssertionToASL(assertLogAction  action,
             snprintf(retainCountBuf, sizeof(retainCountBuf), "%d", retainCount);
             asl_set(m, "RetainCount", retainCountBuf);
         }
-    }
 
-    if ((procName = assertion->pinfo->name))
-    {
-        CFStringGetCString(procName, proc_name_buf, sizeof(proc_name_buf), kCFStringEncodingUTF8);
-        asl_set(m, kPMASLProcessNameKey, proc_name_buf);
-    }
+        if ((procName = CFDictionaryGetValue(assertionDictionary, kIOPMAssertionProcessNameKey)))
+        {
+            CFStringGetCString(procName, proc_name_buf, sizeof(proc_name_buf), kCFStringEncodingUTF8);
+            asl_set(m, kPMASLProcessNameKey, proc_name_buf);
+        }
 
+    }
     printAggregateAssertionsToBuf(assertionsBuf, sizeof(assertionsBuf), getKerAssertionBits());
 
     pid_buf[0] = 0;

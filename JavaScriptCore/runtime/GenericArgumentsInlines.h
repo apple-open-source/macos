@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef GenericArgumentsInlines_h
-#define GenericArgumentsInlines_h
+#pragma once
 
 #include "GenericArguments.h"
 #include "JSCInlines.h"
@@ -52,7 +51,7 @@ bool GenericArguments<Type>::getOwnPropertySlot(JSObject* object, ExecState* exe
         }
     }
     
-    Optional<uint32_t> index = parseIndex(ident);
+    std::optional<uint32_t> index = parseIndex(ident);
     if (index && thisObject->canAccessIndexQuickly(index.value())) {
         slot.setValue(thisObject, None, thisObject->getIndexQuickly(index.value()));
         return true;
@@ -67,11 +66,13 @@ bool GenericArguments<Type>::getOwnPropertySlotByIndex(JSObject* object, ExecSta
     Type* thisObject = jsCast<Type*>(object);
     
     if (thisObject->canAccessIndexQuickly(index)) {
-        slot.setValue(thisObject, None, thisObject->getIndexQuickly(index));
+        JSValue result = thisObject->getIndexQuickly(index);
+        slot.setValue(thisObject, None, result);
         return true;
     }
     
-    return Base::getOwnPropertySlotByIndex(object, exec, index, slot);
+    bool result = Base::getOwnPropertySlotByIndex(object, exec, index, slot);
+    return result;
 }
 
 template<typename Type>
@@ -116,7 +117,7 @@ bool GenericArguments<Type>::put(JSCell* cell, ExecState* exec, PropertyName ide
     if (UNLIKELY(isThisValueAltered(slot, thisObject)))
         return ordinarySetSlow(exec, thisObject, ident, value, slot.thisValue(), slot.isStrictMode());
     
-    Optional<uint32_t> index = parseIndex(ident);
+    std::optional<uint32_t> index = parseIndex(ident);
     if (index && thisObject->canAccessIndexQuickly(index.value())) {
         thisObject->setIndexQuickly(vm, index.value(), value);
         return true;
@@ -130,7 +131,7 @@ bool GenericArguments<Type>::putByIndex(JSCell* cell, ExecState* exec, unsigned 
 {
     Type* thisObject = jsCast<Type*>(cell);
     VM& vm = exec->vm();
-
+    
     if (thisObject->canAccessIndexQuickly(index)) {
         thisObject->setIndexQuickly(vm, index, value);
         return true;
@@ -151,7 +152,7 @@ bool GenericArguments<Type>::deleteProperty(JSCell* cell, ExecState* exec, Prope
             || ident == vm.propertyNames->iteratorSymbol))
         thisObject->overrideThings(vm);
     
-    Optional<uint32_t> index = parseIndex(ident);
+    std::optional<uint32_t> index = parseIndex(ident);
     if (index && thisObject->canAccessIndexQuickly(index.value())) {
         thisObject->overrideArgument(vm, index.value());
         return true;
@@ -185,7 +186,7 @@ bool GenericArguments<Type>::defineOwnProperty(JSObject* object, ExecState* exec
         || ident == vm.propertyNames->iteratorSymbol)
         thisObject->overrideThingsIfNecessary(vm);
     else {
-        Optional<uint32_t> optionalIndex = parseIndex(ident);
+        std::optional<uint32_t> optionalIndex = parseIndex(ident);
         if (optionalIndex && thisObject->canAccessIndexQuickly(optionalIndex.value())) {
             uint32_t index = optionalIndex.value();
             if (!descriptor.isAccessorDescriptor()) {
@@ -219,19 +220,18 @@ bool GenericArguments<Type>::defineOwnProperty(JSObject* object, ExecState* exec
 template<typename Type>
 void GenericArguments<Type>::copyToArguments(ExecState* exec, VirtualRegister firstElementDest, unsigned offset, unsigned length)
 {
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     Type* thisObject = static_cast<Type*>(this);
     for (unsigned i = 0; i < length; ++i) {
         if (thisObject->canAccessIndexQuickly(i + offset))
             exec->r(firstElementDest + i) = thisObject->getIndexQuickly(i + offset);
         else {
             exec->r(firstElementDest + i) = get(exec, i + offset);
-            if (UNLIKELY(exec->vm().exception()))
-                return;
+            RETURN_IF_EXCEPTION(scope, void());
         }
     }
 }
 
 } // namespace JSC
-
-#endif // GenericArgumentsInlines_h
-

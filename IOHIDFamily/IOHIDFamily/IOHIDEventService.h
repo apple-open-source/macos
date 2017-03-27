@@ -770,8 +770,21 @@ protected:
                                                                 IOFixed                         joystickRz,
                                                                 IOOptionBits                    options         = 0 );
     
-
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 14);
+    /*!
+     @function dispatchBiometricEvent
+     @abstract Dispatch biometric event
+     @param timeStamp   AbsoluteTime representing origination of event.
+     @param level       Float value from 0 - 1.0 detailing the current level.
+     @param eventType   The type of biometric event.
+     @param options     Additional options to be defined.
+     */
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 14);
+    virtual void            dispatchBiometricEvent(
+                                                   AbsoluteTime                 timeStamp,
+                                                   IOFixed                      level,
+                                                   IOHIDBiometricEventType      eventType,
+                                                   IOOptionBits                 options = 0);
+    
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 15);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 16);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 17);

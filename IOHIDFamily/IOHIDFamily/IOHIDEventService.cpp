@@ -2470,6 +2470,20 @@ void IOHIDEventService::dispatchExtendedGameControllerEvent(
     }
 }
 
+OSMetaClassDefineReservedUsed(IOHIDEventService, 14);
+void IOHIDEventService::dispatchBiometricEvent(
+                                               AbsoluteTime                 timeStamp,
+                                               IOFixed                      level,
+                                               IOHIDBiometricEventType      eventType,
+                                               IOOptionBits                 options)
+{
+    IOHIDEvent *event = IOHIDEvent::biometricEvent(timeStamp, level, eventType, options);
+    
+    if (event) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
 
 void IOHIDEventService::close(IOService *forClient, IOOptionBits options)
 {
@@ -2478,6 +2492,9 @@ void IOHIDEventService::close(IOService *forClient, IOOptionBits options)
 
 void IOHIDEventService::closeGated(IOService *forClient, IOOptionBits * pOptions)
 {
+    if (*pOptions & kIOHIDOpenedByEventSystem) {
+        _provider->message(kIOHIDMessageOpenedByEventSystem, this, (void*)kOSBooleanFalse);
+    }
     super::close(forClient, *pOptions);
 }
 
@@ -2633,7 +2650,9 @@ bool IOHIDEventService::openGated(IOService *                 client,
         }
         clientData->release();
     }
-
+    if ((*pOptions & kIOHIDOpenedByEventSystem) && ret) {
+        _provider->message(kIOHIDMessageOpenedByEventSystem, this, (void*)kOSBooleanTrue);
+    }
 #if !TARGET_OS_EMBEDDED
     
     if (_keyboardShim == kLegacyShimEnabledForSingleUserMode) {
@@ -2700,7 +2719,6 @@ IOReturn  IOHIDEventService::newUserClient (
 }
 
 
-OSMetaClassDefineReservedUnused(IOHIDEventService, 14);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 15);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 16);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 17);

@@ -76,6 +76,9 @@ struct FontDescriptionKey {
         , m_weight(description.weight())
         , m_flags(makeFlagsKey(description))
         , m_featureSettings(description.featureSettings())
+#if ENABLE(VARIATION_FONTS)
+        , m_variationSettings(description.variationSettings())
+#endif
     { }
 
     explicit FontDescriptionKey(WTF::HashTableDeletedValueType)
@@ -84,7 +87,12 @@ struct FontDescriptionKey {
 
     bool operator==(const FontDescriptionKey& other) const
     {
-        return m_size == other.m_size && m_weight == other.m_weight && m_flags == other.m_flags
+        return m_size == other.m_size
+            && m_weight == other.m_weight
+            && m_flags == other.m_flags
+#if ENABLE(VARIATION_FONTS)
+            && m_variationSettings == other.m_variationSettings
+#endif
             && m_featureSettings == other.m_featureSettings;
     }
 
@@ -103,6 +111,9 @@ struct FontDescriptionKey {
         for (unsigned flagItem : m_flags)
             hasher.add(flagItem);
         hasher.add(m_featureSettings.hash());
+#if ENABLE(VARIATION_FONTS)
+        hasher.add(m_variationSettings.hash());
+#endif
         return hasher.hash();
     }
 
@@ -110,8 +121,8 @@ private:
     static std::array<unsigned, 2> makeFlagsKey(const FontDescription& description)
     {
         static_assert(USCRIPT_CODE_LIMIT < 0x1000, "Script code must fit in an unsigned along with the other flags");
-        unsigned first = static_cast<unsigned>(description.script()) << 10
-            | static_cast<unsigned>(description.textRenderingMode()) << 8
+        unsigned first = static_cast<unsigned>(description.script()) << 11
+            | static_cast<unsigned>(description.textRenderingMode()) << 9
             | static_cast<unsigned>(description.fontSynthesis()) << 6
             | static_cast<unsigned>(description.widthVariant()) << 4
             | static_cast<unsigned>(description.nonCJKGlyphOrientation()) << 3
@@ -143,6 +154,9 @@ private:
     unsigned m_weight { 0 };
     std::array<unsigned, 2> m_flags {{ 0, 0 }};
     FontFeatureSettings m_featureSettings;
+#if ENABLE(VARIATION_FONTS)
+    FontVariationSettings m_variationSettings;
+#endif
 };
 
 struct FontDescriptionKeyHash {
@@ -190,6 +204,7 @@ public:
 
     WEBCORE_EXPORT RefPtr<Font> fontForFamily(const FontDescription&, const AtomicString&, const FontFeatureSettings* fontFaceFeatures = nullptr, const FontVariantSettings* fontFaceVariantSettings = nullptr, bool checkingAlternateName = false);
     WEBCORE_EXPORT Ref<Font> lastResortFallbackFont(const FontDescription&);
+    Ref<Font> lastResortFallbackFontForEveryCharacter(const FontDescription&);
     WEBCORE_EXPORT Ref<Font> fontForPlatformData(const FontPlatformData&);
     RefPtr<Font> similarFont(const FontDescription&, const AtomicString& family);
 
@@ -256,7 +271,7 @@ struct SynthesisPair {
     bool needsSyntheticOblique;
 };
 
-RetainPtr<CTFontRef> preparePlatformFont(CTFontRef, TextRenderingMode, const FontFeatureSettings* fontFaceFeatures, const FontVariantSettings* fontFaceVariantSettings, const FontFeatureSettings& features, const FontVariantSettings&);
+RetainPtr<CTFontRef> preparePlatformFont(CTFontRef, TextRenderingMode, const FontFeatureSettings* fontFaceFeatures, const FontVariantSettings* fontFaceVariantSettings, const FontFeatureSettings& features, const FontVariantSettings&, const FontVariationSettings&);
 FontWeight fontWeightFromCoreText(CGFloat weight);
 uint16_t toCoreTextFontWeight(FontWeight);
 bool isFontWeightBold(FontWeight);

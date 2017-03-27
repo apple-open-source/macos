@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -364,7 +364,7 @@ SCBondInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 	}
 
 	// identify available interfaces
-	interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface();
+	interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface(FALSE);
 	if (interfaces != NULL) {
 		CFIndex	i;
 		CFIndex	n;

@@ -9,6 +9,9 @@
 #include "SOSGenCount.h"
 #include <utilities/SecCFWrappers.h>
 #include <CoreFoundation/CFLocale.h>
+#include <utilities/der_plist.h>
+#include <utilities/der_plist_internal.h>
+
 
 static CFAbsoluteTime SOSGenerationCountGetDateBits(int64_t genValue) {
     return (uint32_t) ((((uint64_t) genValue) >> 32) << 1);
@@ -116,3 +119,24 @@ SOSGenCountRef SOSGenerationCreateWithBaseline(SOSGenCountRef reference) {
     }
     return retval;
 }
+
+
+SOSGenCountRef SOSGenCountCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
+                                        const uint8_t** der_p, const uint8_t *der_end) {
+    SOSGenCountRef retval = NULL;
+    *der_p = der_decode_number(allocator, 0, &retval, error, *der_p, der_end);
+    if(retval == NULL)
+        retval = SOSGenerationCreate();
+    return retval;
+}
+
+size_t SOSGenCountGetDEREncodedSize(SOSGenCountRef gencount, CFErrorRef *error) {
+    return der_sizeof_number(gencount, error);
+}
+
+uint8_t *SOSGenCountEncodeToDER(SOSGenCountRef gencount, CFErrorRef* error, const uint8_t* der, uint8_t* der_end) {
+    return der_encode_number(gencount, error, der, der_end);
+}
+
+
+

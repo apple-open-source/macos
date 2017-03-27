@@ -12,6 +12,8 @@
 
 #include "SOSInternal.h"
 
+
+
 //
 // MARK: V0 Keybag keychain stuff
 //
@@ -99,14 +101,24 @@ static void SOSAccountWithBackupPeersForView(SOSAccountRef account, CFStringRef 
     CFReleaseNull(backupPeersForView);
 }
 
+
 static bool SOSAccountWithBSKBForView(SOSAccountRef account, CFStringRef viewName, CFErrorRef *error,
                                       bool (^action)(SOSBackupSliceKeyBagRef bskb, CFErrorRef *error)) {
     __block SOSBackupSliceKeyBagRef bskb = NULL;
     bool result = false;
+    CFDataRef rkbg = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, account, error);
 
     SOSAccountWithBackupPeersForView(account, viewName, ^(CFSetRef peers) {
-        bskb = SOSBackupSliceKeyBagCreate(kCFAllocatorDefault, peers, error);
+        if(! rkbg) {
+            bskb = SOSBackupSliceKeyBagCreate(kCFAllocatorDefault, peers, error);
+        } else {
+            CFMutableDictionaryRef additionalKeys = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+            CFDictionaryAddValue(additionalKeys, bskbRkbgPrefix, rkbg);
+            bskb = SOSBackupSliceKeyBagCreateWithAdditionalKeys(kCFAllocatorDefault, peers, additionalKeys, error);
+            CFReleaseNull(additionalKeys);
+        }
     });
+    CFReleaseNull(rkbg);
 
     require_quiet(bskb, exit);
 
@@ -121,29 +133,6 @@ exit:
 
 CFStringRef SOSBackupCopyRingNameForView(CFStringRef viewName) {
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@-tomb"), viewName);
-}
-
-static bool SOSAccountUpdateNamedRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error,
-                                      SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
-                                      SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error)) {
-    bool result = false;
-    SOSRingRef found = SOSAccountCopyRing(account, ringName, error);
-    SOSRingRef newRing = NULL;
-    if(!found) {
-        found = create(ringName, error);
-    }
-    require_quiet(found, errOut);
-    newRing = copyModified(found, error);
-    CFReleaseNull(found);
-
-    require_quiet(newRing, errOut);
-
-    result = SOSAccountHandleUpdateRing(account, newRing, true, error);
-
-errOut:
-    CFReleaseNull(found);
-    CFReleaseNull(newRing);
-    return result;
 }
 
 static bool SOSAccountUpdateBackupRing(SOSAccountRef account, CFStringRef viewName, CFErrorRef *error,
@@ -350,7 +339,7 @@ fail:
     return result;
 }
 
-void SOSAccountForEachBackupRingName(SOSAccountRef account, void (^operation)(CFStringRef value)) {
+void SOSAccountForEachRingName(SOSAccountRef account, void (^operation)(CFStringRef value)) {
     SOSPeerInfoRef myPeer = SOSAccountGetMyPeerInfo(account);
     if (myPeer) {
         CFSetRef allViews = SOSViewCopyViewSet(kViewSetAll); // All non virtual views.
@@ -364,8 +353,9 @@ void SOSAccountForEachBackupRingName(SOSAccountRef account, void (^operation)(CF
                 CFReleaseNull(ringName);
             }
         });
-
         CFReleaseNull(allViews);
+        // Only one "ring" now (other than backup rings) when there's more this will need to be modified.
+        operation(kSOSRecoveryRing);
     }
 }
 
@@ -379,6 +369,7 @@ void SOSAccountForEachBackupView(SOSAccountRef account,  void (^operation)(const
         CFReleaseNull(myBackupViews);
     }
 }
+
 
 bool SOSAccountSetBackupPublicKey(SOSAccountTransactionRef aTxn, CFDataRef backupKey, CFErrorRef *error)
 {
@@ -593,4 +584,3 @@ bool SOSAccountIsLastBackupPeer(SOSAccountRef account, CFErrorRef *error) {
 errOut:
     return retval;
 }
-

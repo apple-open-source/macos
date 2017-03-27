@@ -22,12 +22,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RTCStatsReport_h
-#define RTCStatsReport_h
+#pragma once
 
 #include "ScriptWrappable.h"
 #include <wtf/HashMap.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -61,5 +59,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // RTCStatsReport_h

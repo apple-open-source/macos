@@ -87,7 +87,7 @@ public:
     size_t capacity() const { return m_capacity; }
     size_t approximateSize() const;
 
-    static const unsigned version = 9;
+    static const unsigned version = 11;
 #if PLATFORM(MAC)
     /// Allow the last stable version of the cache to co-exist with the latest development one.
     static const unsigned lastStableVersion = 9;
@@ -97,10 +97,14 @@ public:
     String versionPath() const;
     String recordsPath() const;
 
+    const Salt& salt() const { return m_salt; }
+
+    bool canUseSharedMemoryForBodyData() const { return m_canUseSharedMemoryForBodyData; }
+
     ~Storage();
 
 private:
-    Storage(const String& directoryPath);
+    Storage(const String& directoryPath, Salt);
 
     String recordDirectoryPathForKey(const Key&) const;
     String recordPathForKey(const Key&) const;
@@ -122,8 +126,8 @@ private:
     void dispatchPendingWriteOperations();
     void finishWriteOperation(WriteOperation&);
 
-    Optional<BlobStorage::Blob> storeBodyAsBlob(WriteOperation&);
-    Data encodeRecord(const Record&, Optional<BlobStorage::Blob>);
+    std::optional<BlobStorage::Blob> storeBodyAsBlob(WriteOperation&);
+    Data encodeRecord(const Record&, std::optional<BlobStorage::Blob>);
     void readRecord(ReadOperation&, const Data&);
 
     void updateFileModificationTime(const String& path);
@@ -140,6 +144,10 @@ private:
 
     const String m_basePath;
     const String m_recordsPath;
+
+    const Salt m_salt;
+
+    const bool m_canUseSharedMemoryForBodyData;
 
     size_t m_capacity { std::numeric_limits<size_t>::max() };
     size_t m_approximateRecordsSize { 0 };
@@ -175,7 +183,8 @@ private:
 };
 
 // FIXME: Remove, used by NetworkCacheStatistics only.
-void traverseRecordsFiles(const String& recordsPath, const String& type, const std::function<void (const String& fileName, const String& hashString, const String& type, bool isBodyBlob, const String& recordDirectoryPath)>&);
+using RecordFileTraverseFunction = std::function<void (const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath)>;
+void traverseRecordsFiles(const String& recordsPath, const String& type, const RecordFileTraverseFunction&);
 
 }
 }

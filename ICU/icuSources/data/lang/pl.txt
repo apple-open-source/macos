@@ -614,7 +614,7 @@ pl{
         was{"washo"}
         wbp{"Warlpiri"}
         wo{"wolof"}
-        wuu{"wu"}
+        wuu{"shanghainese"}
         xal{"kałmucki"}
         xh{"khosa"}
         xmf{"megrelski"}

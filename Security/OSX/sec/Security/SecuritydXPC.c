@@ -35,7 +35,8 @@ const char *kSecXPCKeyOperation = "operation";
 const char *kSecXPCKeyResult = "status";
 const char *kSecXPCKeyError = "error";
 const char *kSecXPCKeyClientToken = "client";
-const char *kSecXPCKeyPeerInfos = "peer-infos";
+const char *kSecXPCKeyPeerInfoArray = "peer-infos";
+const char *kSecXPCKeyPeerInfo = "peer-info";
 const char *kSecXPCKeyUserLabel = "userlabel";
 const char *kSecXPCKeyBackup = "backup";
 const char *kSecXPCKeyKeybag = "keybag";
@@ -61,7 +62,10 @@ const char *kSecXPCKeyViewActionCode = "viewactioncode";
 const char *kSecXPCKeyHSA2AutoAcceptInfo = "autoacceptinfo";
 const char *kSecXPCKeyString = "cfstring";
 const char *kSecXPCKeyArray = "cfarray";
+const char *kSecXPCKeySet = "cfset";
+const char *kSecXPCKeySet2 = "cfset2";
 const char *kSecXPCKeyNewPublicBackupKey = "newPublicBackupKey";
+const char *kSecXPCKeyRecoveryPublicKey = "RecoveryPublicKey";
 const char *kSecXPCKeyIncludeV0 = "includeV0";
 const char *kSecXPCKeyReason = "reason";
 const char *kSecXPCKeyEnabledViewsKey = "enabledViews";
@@ -135,12 +139,16 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("SyncIDSPeer");
         case kSecXPCOpIDSDeviceID:
             return CFSTR("IDSDeviceID");
+        case kSecXPCOpClearKVSPeerMessage:
+            return CFSTR("kSecXPCOpClearKVSPeerMessage");
         case kSecXPCOpLoggedOutOfAccount:
             return CFSTR("LoggedOutOfAccount");
         case kSecXPCOpPingTest:
             return CFSTR("PingTest");
         case kSecXPCOpProcessSyncWithAllPeers:
             return CFSTR("ProcessSyncWithAllPeers");
+        case kSecXPCOpProcessSyncWithPeers:
+            return CFSTR("ProcessSyncWithPeers");
         case kSecXPCOpProcessUnlockNotification:
             return CFSTR("ProcessUnlockNotification");
         case kSecXPCOpPurgeUserCredentials:
@@ -273,6 +281,18 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("sec_delete_items_with_access_groups_id");
         case kSecXPCOpPeersHaveViewsEnabled:
             return CFSTR("kSecXPCOpPeersHaveViewsEnabled");
+        case kSecXPCOpRegisterRecoveryPublicKey:
+            return CFSTR("RegisterRecoveryPublicKey");
+        case kSecXPCOpGetRecoveryPublicKey:
+            return CFSTR("GetRecoveryPublicKey");
+        case kSecXPCOpCopyBackupInformation:
+            return CFSTR("CopyBackupInformation");
+        case sec_device_is_internal_id:
+            return CFSTR("DeviceIsInternal");
+        case kSecXPCOpMessageFromPeerIsPending:
+            return CFSTR("MessageFromPeerIsPending");
+        case kSecXPCOpSendToPeerIsPending:
+            return CFSTR("SendToPeerIsPending");
         default:
             return CFSTR("Unknown xpc operation");
     }
@@ -358,6 +378,18 @@ int SecXPCDictionaryDupFileDescriptor(xpc_object_t message, const char *key, CFE
         SecError(errSecParam, error, CFSTR("missing fd for key %s"), key);
 
     return fd;
+}
+
+CFSetRef SecXPCDictionaryCopySet(xpc_object_t message, const char *key, CFErrorRef *error) {
+    CFTypeRef obj = SecXPCDictionaryCopyPList(message, key, error);
+    CFSetRef set = copyIfSet(obj, error);
+    if (obj && !set) {
+        CFStringRef description = CFCopyTypeIDDescription(CFGetTypeID(obj));
+        SecError(errSecParam, error, CFSTR("object for key %s not set but %@"), key, description);
+        CFReleaseNull(description);
+    }
+    CFReleaseNull(obj);
+    return set;
 }
 
 CFArrayRef SecXPCDictionaryCopyArray(xpc_object_t message, const char *key, CFErrorRef *error) {

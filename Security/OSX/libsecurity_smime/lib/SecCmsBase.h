@@ -506,7 +506,7 @@ OSStatus SecArenaPoolCreate(size_t chunksize, SecArenaPoolRef *outArena);
     @abstract Free a SecArenaPool object and everything in it.
     @param arena The SecArenaPool object to free.
     @param zero If this is true the arena's memory will be zero filled before it is freed.
-    @result arena will no longer be valid and the memory used by it is returned to the malloc heap.
+    @discussion arena will no longer be valid and the memory used by it is returned to the malloc heap.
     @availability 10.4 and later
     @updated 2004-04-23
  */

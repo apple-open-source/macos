@@ -24,6 +24,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
 
 #include "bless.h"
 #include "bless_private.h"
@@ -231,6 +232,9 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
     
     CFStringRef firstBooter = NULL;
     CFStringRef firstData = NULL;
+    CFStringRef firstVolume = NULL;
+    char        prebootBSD[MAXPATHLEN];
+    char        partialPath[MAXPATHLEN];
     int         uefiDiscBootEntry = 0;
     int         uefiDiscPartitionStart = 0;
     int         uefiDiscPartitionSize = 0;
@@ -253,22 +257,48 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
             return 1;
         }
         
+        array = CFDictionaryGetValue(dict, kBLAPFSPrebootVolumesKey);
+        if (array && CFArrayGetCount(array) > 0) {
+            io_registry_entry_t rootMedia;
+            CFStringRef         rootUUID;
+            
+            firstVolume = CFArrayGetValueAtIndex(array, 0);
+            rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, newBSDName));
+            if (!rootMedia) {
+                CFRelease(dict);
+                return 2;
+            }
+            rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+            IOObjectRelease(rootMedia);
+            if (!rootUUID) {
+                CFRelease(dict);
+                return 2;
+            }
+            CFStringGetCString(firstVolume, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
+            contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
+            strlcpy(partialPath, "/", sizeof partialPath);
+            CFStringGetCString(rootUUID, partialPath + strlen(partialPath), sizeof partialPath - strlen(partialPath), kCFStringEncodingUTF8);
+            strlcat(partialPath, "/System/Library/CoreServices/boot.efi", sizeof partialPath);
+        }
+        
         // check to see if there's a booter partition. If so, use it
-        array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
-        if(array) {
-            if(CFArrayGetCount(array) > 0) {
-                firstBooter = CFArrayGetValueAtIndex(array, 0);
-                if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
-                                       kCFStringEncodingUTF8)) {
-                    return 1;
+        if (!firstVolume) {
+            array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
+            if(array) {
+                if(CFArrayGetCount(array) > 0) {
+                    firstBooter = CFArrayGetValueAtIndex(array, 0);
+                    if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
+                                           kCFStringEncodingUTF8)) {
+                        return 1;
+                    }
+                    contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
                 }
-                contextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
             }
         }
         
         // check to see if there's a data partition (without auxiliary) that
         // we should boot from
-        if (!firstBooter) {
+        if (!firstVolume && !firstBooter) {
             array = CFDictionaryGetValue(dict, kBLDataPartitionsKey);
             if(array) {
                 if(CFArrayGetCount(array) > 0) {
@@ -310,6 +340,13 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
                                                            uefiDiscPartitionStart,
                                                            uefiDiscPartitionSize,
                                                            &xmlString);
+    } else if (firstVolume) {
+        ret = BLCreateEFIXMLRepresentationForPartialPath(context,
+                                                         prebootBSD,
+                                                         partialPath,
+                                                         optionalData,
+                                                         &xmlString,
+                                                         shortForm);
     } else {
         ret = BLCreateEFIXMLRepresentationForPath(context,
                                                   path,

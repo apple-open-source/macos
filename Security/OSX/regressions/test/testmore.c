@@ -281,7 +281,7 @@ test_diag(const char *directive, const char *reason,
 }
 
 int
-test_ok(int passed, __attribute((cf_consumed)) CFStringRef description, const char *directive,
+test_ok(int passed, __attribute((cf_consumed)) CFStringRef CF_CONSUMED description, const char *directive,
 	const char *reason, const char *file, unsigned line,
 	const char *fmt, ...)
 {

@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <security_utilities/casts.h>
 #include "SecKeychainItemExtendedAttributes.h"
 #include "SecKeychainItemPriv.h"
 #include "ExtendedAttribute.h"
@@ -122,7 +123,7 @@ static bool lookupExtendedAttr(
 	StorageManager::KeychainList kcList;
 	kcList.push_back(inItem->keychain());
 	
-	KCCursor cursor(kcList, CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE, &attrList);
+	KCCursor cursor(kcList, (SecItemClass) CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE, &attrList);
 	try {
 		return cursor->next(foundItem);
 	}
@@ -163,7 +164,7 @@ OSStatus SecKeychainItemSetExtendedAttribute(
 		return errSecSuccess;
 	}
 
-	CSSM_DATA attrCValue = {CFDataGetLength(attrValue), (uint8 *)CFDataGetBytePtr(attrValue)};
+	CSSM_DATA attrCValue = {int_cast<CFIndex, CSSM_SIZE>(CFDataGetLength(attrValue)), (uint8 *)CFDataGetBytePtr(attrValue)};
 	
 	if(haveMatch) {
 		/* update existing extended attribute record */
@@ -274,7 +275,7 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
 	CFMutableArrayRef outValues = NULL;
 	OSStatus ourRtn = errSecSuccess;
 	
-	KCCursor cursor(kcList, CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE, &attrList);
+	KCCursor cursor(kcList, (SecItemClass) CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE, &attrList);
 	for(;;) {
 		bool gotOne = false;
 		Item foundItem;

@@ -20,7 +20,10 @@ for i in x xx X XX A AA; do
 	else
 		printname=$i
 	fi
-	if (../tcpdump -$i -s0 -nr print-flags.pcap | tee NEW/print-$printname.new | diff - print-$printname.out >DIFF/print-$printname.out.diff )
+	#
+	# Apple: was ../tcpdump
+	#
+	if (tcpdump -$i -s0 -nr print-flags.pcap | tee NEW/print-$printname.new | diff - print-$printname.out >DIFF/print-$printname.out.diff )
 	then
 		echo print-$i passed.
 	else

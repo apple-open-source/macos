@@ -78,6 +78,9 @@
 #if !defined(OS_VOUCHER_ACTIVITY_SPI) && TARGET_OS_MAC
 #define OS_VOUCHER_ACTIVITY_SPI 1
 #endif
+#if !defined(OS_VOUCHER_ACTIVITY_GENERATE_SWAPS)
+#define OS_VOUCHER_ACTIVITY_GENERATE_SWAPS 0
+#endif
 #if !defined(OS_FIREHOSE_SPI) && TARGET_OS_MAC
 #define OS_FIREHOSE_SPI 1
 #endif
@@ -352,8 +355,12 @@ DISPATCH_EXPORT DISPATCH_NOTHROW void dispatch_atfork_child(void);
 
 #if DISPATCH_DEBUG
 // sys/queue.h debugging
+#if defined(__linux__)
+#define QUEUE_MACRO_DEBUG 1
+#else
 #undef TRASHIT
 #define TRASHIT(x) do {(x) = (void *)-1;} while (0)
+#endif
 #endif // DISPATCH_DEBUG
 #define _TAILQ_TRASH_ENTRY(elm, field) do { \
 			TRASHIT((elm)->field.tqe_next); \
@@ -649,22 +656,12 @@ typedef pthread_worqueue_function_kevent_t pthread_workqueue_function_kevent_t;
 #endif
 #endif // EVFILT_MEMORYSTATUS
 
-#if defined(EVFILT_VM) && !DISPATCH_USE_MEMORYSTATUS
-#ifndef DISPATCH_USE_VM_PRESSURE
-#define DISPATCH_USE_VM_PRESSURE 1
-#endif
-#endif // EVFILT_VM
-
 #if TARGET_OS_SIMULATOR
 #undef DISPATCH_USE_MEMORYPRESSURE_SOURCE
 #define DISPATCH_USE_MEMORYPRESSURE_SOURCE 0
-#undef DISPATCH_USE_VM_PRESSURE_SOURCE
-#define DISPATCH_USE_VM_PRESSURE_SOURCE 0
 #endif // TARGET_OS_SIMULATOR
 #if !defined(DISPATCH_USE_MEMORYPRESSURE_SOURCE) && DISPATCH_USE_MEMORYSTATUS
 #define DISPATCH_USE_MEMORYPRESSURE_SOURCE 1
-#elif !defined(DISPATCH_USE_VM_PRESSURE_SOURCE) && DISPATCH_USE_VM_PRESSURE
-#define DISPATCH_USE_VM_PRESSURE_SOURCE 1
 #endif
 #if DISPATCH_USE_MEMORYPRESSURE_SOURCE
 extern bool _dispatch_memory_warn;
@@ -705,6 +702,14 @@ extern bool _dispatch_memory_warn;
 #ifndef VQ_QUOTA
 #undef HAVE_DECL_VQ_QUOTA // rdar://problem/24160982
 #endif // VQ_QUOTA
+
+#ifndef VQ_NEARLOWDISK
+#undef HAVE_DECL_VQ_NEARLOWDISK
+#endif // VQ_NEARLOWDISK
+
+#ifndef VQ_DESIRED_DISK
+#undef HAVE_DECL_VQ_DESIRED_DISK
+#endif // VQ_DESIRED_DISK
 
 #if !defined(NOTE_MEMORYSTATUS_PROC_LIMIT_WARN) || \
 		!DISPATCH_HOST_SUPPORTS_OSX(101200)
@@ -835,10 +840,6 @@ typedef struct kevent64_s _dispatch_kevent_qos_s;
 #include <sys/guarded.h>
 #ifndef DISPATCH_USE_GUARDED_FD
 #define DISPATCH_USE_GUARDED_FD 1
-#endif
-// change_fdguard_np() requires GUARD_DUP <rdar://problem/11814513>
-#if DISPATCH_USE_GUARDED_FD && RDAR_11814513
-#define DISPATCH_USE_GUARDED_FD_CHANGE_FDGUARD 1
 #endif
 #endif // HAVE_SYS_GUARDED_H
 

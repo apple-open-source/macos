@@ -26,8 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorLayerTreeAgent_h
-#define InspectorLayerTreeAgent_h
+#pragma once
 
 #include "InspectorWebAgentBase.h"
 #include <inspector/InspectorBackendDispatchers.h>
@@ -55,7 +54,7 @@ public:
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
     void reset();
 
-    // InspectorInstrumentation callbacks.
+    // InspectorInstrumentation
     void layerTreeDidChange();
     void renderLayerDestroyed(const RenderLayer&);
     void pseudoElementDestroyed(PseudoElement&);
@@ -93,5 +92,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // !defined(InspectorLayerTreeAgent_h)

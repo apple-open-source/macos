@@ -29,7 +29,7 @@ namespace WebCore {
 
 class JSTestException : public JSDOMWrapper<TestException> {
 public:
-    typedef JSDOMWrapper<TestException> Base;
+    using Base = JSDOMWrapper<TestException>;
     static JSTestException* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestException>&& impl)
     {
         JSTestException* ptr = new (NotNull, JSC::allocateCell<JSTestException>(globalObject->vm().heap)) JSTestException(structure, *globalObject, WTFMove(impl));
@@ -55,12 +55,7 @@ public:
 protected:
     JSTestException(JSC::Structure*, JSDOMGlobalObject&, Ref<TestException>&&);
 
-    void finishCreation(JSC::VM& vm)
-    {
-        Base::finishCreation(vm);
-        ASSERT(inherits(info()));
-    }
-
+    void finishCreation(JSC::VM&);
 };
 
 class JSTestExceptionOwner : public JSC::WeakHandleOwner {
@@ -85,5 +80,9 @@ inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject,
 JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestException>&&);
 inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestException>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
+template<> struct JSDOMWrapperConverterTraits<TestException> {
+    using WrapperClass = JSTestException;
+    using ToWrappedReturnType = TestException*;
+};
 
 } // namespace WebCore

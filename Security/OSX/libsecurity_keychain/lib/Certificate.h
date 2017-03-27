@@ -81,9 +81,9 @@ public:
 	CFStringRef copyFirstEmailAddress();
 	CFArrayRef copyEmailAddresses();
 	CFArrayRef copyDNSNames();
-    const CSSM_X509_NAME_PTR subjectName();
-    const CSSM_X509_NAME_PTR issuerName();
-	const CSSM_X509_ALGORITHM_IDENTIFIER_PTR algorithmID();
+    CSSM_X509_NAME_PTR subjectName();
+    CSSM_X509_NAME_PTR issuerName();
+	CSSM_X509_ALGORITHM_IDENTIFIER_PTR algorithmID();
    	CSSM_CL_HANDLE clHandle();
 	void inferLabel(bool addLabel, CFStringRef *rtnString = NULL);
 	SecPointer<KeyItem> publicKey();

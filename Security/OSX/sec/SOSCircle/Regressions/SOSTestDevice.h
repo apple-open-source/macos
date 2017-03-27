@@ -42,7 +42,8 @@ CFStringRef SOSTestDeviceGetID(SOSTestDeviceRef td);
 void SOSTestDeviceForEachPeerID(SOSTestDeviceRef td, void(^peerBlock)(CFStringRef peerID, bool *stop));
 SOSTestDeviceRef SOSTestDeviceCreateWithDb(CFAllocatorRef allocator, CFStringRef engineID, SecDbRef db);
 SOSTestDeviceRef SOSTestDeviceCreateWithDbNamed(CFAllocatorRef allocator, CFStringRef engineID, CFStringRef dbName);
-SOSTestDeviceRef SOSTestDeviceCreateWithTestDataSource(CFAllocatorRef allocator, CFStringRef engineID);
+SOSTestDeviceRef SOSTestDeviceCreateWithTestDataSource(CFAllocatorRef allocator, CFStringRef engineID,
+                                                       void(^prepop)(SOSDataSourceRef ds));
 CFSetRef SOSViewsCopyTestV0Default(void);
 CFSetRef SOSViewsCopyTestV2Default(void);
 SOSTestDeviceRef SOSTestDeviceSetPeerIDs(SOSTestDeviceRef td, CFArrayRef peerIDs, CFIndex version, CFSetRef defaultViews);
@@ -52,6 +53,8 @@ SOSTestDeviceRef SOSTestDeviceSetMute(SOSTestDeviceRef td, bool mute);
 bool SOSTestDeviceIsMute(SOSTestDeviceRef td);
 
 bool SOSTestDeviceSetEngineState(SOSTestDeviceRef td, CFDataRef derEngineState);
+bool SOSTestDeviceEngineSave(SOSTestDeviceRef td, CFErrorRef *error);
+bool SOSTestDeviceEngineLoad(SOSTestDeviceRef td, CFErrorRef *error);
 
 CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID);
 
@@ -62,8 +65,10 @@ void SOSTestDeviceAddGenericItemTombstone(SOSTestDeviceRef td, CFStringRef accou
 void SOSTestDeviceAddGenericItemWithData(SOSTestDeviceRef td, CFStringRef account, CFStringRef server, CFDataRef data);
 void SOSTestDeviceAddRemoteGenericItem(SOSTestDeviceRef td, CFStringRef account, CFStringRef server);
 bool SOSTestDeviceAddGenericItems(SOSTestDeviceRef td, CFIndex count, CFStringRef account, CFStringRef server);
+void SOSTestDeviceAddV0EngineStateWithData(SOSDataSourceRef ds, CFDataRef engineStateData);
 
-CFMutableDictionaryRef SOSTestDeviceListCreate(bool realDb, CFIndex version, CFArrayRef deviceIDs);
+CFMutableDictionaryRef SOSTestDeviceListCreate(bool realDb, CFIndex version, CFArrayRef deviceIDs,
+                                               void(^prepop)(SOSDataSourceRef ds));
 
 void SOSTestDeviceListSync(const char *name, const char *test_directive, const char *test_reason, CFMutableDictionaryRef testDevices, bool(^pre)(SOSTestDeviceRef source, SOSTestDeviceRef dest), bool(^post)(SOSTestDeviceRef source, SOSTestDeviceRef dest, SOSMessageRef message));
 

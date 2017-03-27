@@ -155,3 +155,6 @@
 "system.preferences.continuity" = "Touch ID to Unlock the Touch ID Preferences.";
 
 "com.apple.ctkbind.admin" = "Touch ID to Pair the Current User With the SmartCard Identity.";
+
+"com.apple.security.sudo" = "Touch ID to Execute a command as administrator.";
+

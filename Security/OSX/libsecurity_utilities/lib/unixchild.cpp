@@ -384,7 +384,6 @@ bool Child::checkStatus(int options)
 		default:
 			UnixError::throwMe();
 		}
-		break;	// placebo
 	case 0:
 		return false;	// child not ready (do nothing)
 	default:
@@ -437,7 +436,6 @@ void Child::checkChildren()
 					default:
 						UnixError::throwMe();
 					}
-					break;
 				default:
 					if (Child *child = mChildren()[pid]) {
 						child->bury(status);

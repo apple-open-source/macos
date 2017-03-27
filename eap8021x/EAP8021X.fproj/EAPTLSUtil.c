@@ -741,34 +741,24 @@ EAPTLSPacketCreate(EAPCode code, int type, u_char identifier, int mtu,
 OSStatus 
 EAPSSLCopyPeerCertificates(SSLContextRef context, CFArrayRef * certs)
 {
-    CFMutableArrayRef	array = NULL;
-    CFIndex		count = 0;
-    int			i;
     OSStatus		status;
     SecTrustRef		trust = NULL;
 
+    *certs = NULL;
     status = SSLCopyPeerTrust(context, &trust);
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE, "SSLCopyPeerTrust returned NULL");
 	goto done;
     }
-    count = SecTrustGetCertificateCount(trust);
-    if (count == 0) {
-	/* this should not happen */
-	status = errSecItemNotFound;
-	EAPLOG_FL(LOG_NOTICE, "SecTrustGetCertificateCount returned 0");
-	goto done;
+    status = SecTrustCopyInputCertificates(trust, certs);
+    if (status != noErr) {
+	EAPLOG_FL(LOG_NOTICE, "SecTrustCopyInputCertificates failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
     }
-    array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
-    for (i = 0; i < count; i++) {
-	SecCertificateRef	s;
 
-	s = SecTrustGetCertificateAtIndex(trust, i);
-	CFArrayAppendValue(array, s);
-    }
- done:
+done:
+
     my_CFRelease(&trust);
-    *certs = array;
     return (status);
 }
 

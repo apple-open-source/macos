@@ -1,0 +1,5 @@
+#include "xcconfig/lib_ios.xcconfig"
+
+GCC_PREPROCESSOR_DEFINITIONS[sdk=embedded] = $(inherited) NO_SERVER=1
+
+ONLY_ACTIVE_ARCH = YES

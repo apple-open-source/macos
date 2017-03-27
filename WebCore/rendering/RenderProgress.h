@@ -18,8 +18,7 @@
  *
  */
 
-#ifndef RenderProgress_h
-#define RenderProgress_h
+#pragma once
 
 #include "RenderBlockFlow.h"
 
@@ -45,7 +44,7 @@ private:
     const char* renderName() const override { return "RenderProgress"; }
     bool isProgress() const override { return true; }
     bool requiresForcedStyleRecalcPropagation() const override { return true; }
-    void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const override;
+    LogicalExtentComputedValues computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop) const override;
 
     void animationTimerFired();
     void updateAnimationState();
@@ -61,6 +60,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderProgress, isProgress())
-
-#endif // RenderProgress_h
-

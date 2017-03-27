@@ -26,7 +26,7 @@
 #include "config.h"
 #include "SynchronousResourceHandleCFURLConnectionDelegate.h"
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
 
 #include "AuthenticationCF.h"
 #include "AuthenticationChallenge.h"
@@ -178,7 +178,7 @@ void SynchronousResourceHandleCFURLConnectionDelegate::didReceiveResponse(CFURLC
 
     ResourceResponse resourceResponse(cfResponse);
 #if PLATFORM(COCOA) && ENABLE(WEB_TIMING)
-    ResourceHandle::getConnectionTimingData(connection, resourceResponse.resourceLoadTiming());
+    ResourceHandle::getConnectionTimingData(connection, resourceResponse.networkLoadTiming());
 #else
     UNUSED_PARAM(connection);
 #endif
@@ -186,7 +186,7 @@ void SynchronousResourceHandleCFURLConnectionDelegate::didReceiveResponse(CFURLC
 #if USE(QUICK_LOOK)
     resourceResponse.setIsQuickLook(isQuickLookPreview);
 #endif
-    
+
     m_handle->client()->didReceiveResponse(m_handle, WTFMove(resourceResponse));
 }
 

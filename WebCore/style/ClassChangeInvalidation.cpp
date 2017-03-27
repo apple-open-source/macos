@@ -32,6 +32,7 @@
 #include "SpaceSplitString.h"
 #include "StyleInvalidationAnalysis.h"
 #include "StyleResolver.h"
+#include "StyleScope.h"
 #include <wtf/BitVector.h>
 
 namespace WebCore {
@@ -85,12 +86,26 @@ static ClassChangeVector computeClassChange(const SpaceSplitString& oldClasses, 
     return changedClasses;
 }
 
-static bool mayBeAffectedByHostStyle(ShadowRoot& shadowRoot, AtomicStringImpl* changedClass)
+static bool mayBeAffectedByHostRules(ShadowRoot* shadowRoot, AtomicStringImpl* changedClass)
 {
-    auto& shadowRuleSets = shadowRoot.styleResolver().ruleSets();
-    if (shadowRuleSets.authorStyle()->hostPseudoClassRules().isEmpty())
+    if (!shadowRoot)
+        return false;
+    auto& shadowRuleSets = shadowRoot->styleScope().resolver().ruleSets();
+    if (shadowRuleSets.authorStyle().hostPseudoClassRules().isEmpty())
         return false;
     return shadowRuleSets.features().classesInRules.contains(changedClass);
+}
+
+static bool mayBeAffectedBySlottedRules(const Vector<ShadowRoot*>& assignedShadowRoots, AtomicStringImpl* changedClass)
+{
+    for (auto& assignedShadowRoot : assignedShadowRoots) {
+        auto& ruleSets = assignedShadowRoot->styleScope().resolver().ruleSets();
+        if (ruleSets.authorStyle().slottedPseudoElementRules().isEmpty())
+            continue;
+        if (ruleSets.features().classesInRules.contains(changedClass))
+            return true;
+    }
+    return false;
 }
 
 void ClassChangeInvalidation::invalidateStyle(const SpaceSplitString& oldClasses, const SpaceSplitString& newClasses)
@@ -99,14 +114,13 @@ void ClassChangeInvalidation::invalidateStyle(const SpaceSplitString& oldClasses
 
     auto& ruleSets = m_element.styleResolver().ruleSets();
     auto* shadowRoot = m_element.shadowRoot();
+    auto assignedShadowRoots = assignedShadowRootsIfSlotted(m_element);
 
     ClassChangeVector changedClassesAffectingStyle;
     for (auto* changedClass : changedClasses) {
-        bool mayAffectStyle = ruleSets.features().classesInRules.contains(changedClass);
-
-        if (!mayAffectStyle && shadowRoot && mayBeAffectedByHostStyle(*shadowRoot, changedClass))
-            mayAffectStyle = true;
-
+        bool mayAffectStyle = ruleSets.features().classesInRules.contains(changedClass)
+            || mayBeAffectedByHostRules(shadowRoot, changedClass)
+            || mayBeAffectedBySlottedRules(assignedShadowRoots, changedClass);
         if (mayAffectStyle)
             changedClassesAffectingStyle.append(changedClass);
     };
@@ -114,12 +128,12 @@ void ClassChangeInvalidation::invalidateStyle(const SpaceSplitString& oldClasses
     if (changedClassesAffectingStyle.isEmpty())
         return;
 
-    if (shadowRoot && ruleSets.authorStyle()->hasShadowPseudoElementRules()) {
-        m_element.setNeedsStyleRecalc(FullStyleChange);
+    if (shadowRoot && ruleSets.authorStyle().hasShadowPseudoElementRules()) {
+        m_element.invalidateStyleForSubtree();
         return;
     }
 
-    m_element.setNeedsStyleRecalc(InlineStyleChange);
+    m_element.invalidateStyle();
 
     if (!childrenOfType<Element>(m_element).first())
         return;

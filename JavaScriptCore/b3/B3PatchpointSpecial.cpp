@@ -59,7 +59,7 @@ void PatchpointSpecial::forEachArg(Inst& inst, const ScopedLambda<Inst::EachArgC
         callback(inst.args[argIndex++], role, inst.origin->airType(), inst.origin->airWidth());
     }
 
-    forEachArgImpl(0, argIndex, inst, SameAsRep, Nullopt, callback);
+    forEachArgImpl(0, argIndex, inst, SameAsRep, std::nullopt, callback);
     argIndex += inst.origin->numChildren();
 
     for (unsigned i = patchpoint->numGPScratchRegisters; i--;)
@@ -153,6 +153,11 @@ CCallHelpers::Jump PatchpointSpecial::generate(
     value->m_generator->run(jit, params);
 
     return CCallHelpers::Jump();
+}
+
+bool PatchpointSpecial::isTerminal(Inst& inst)
+{
+    return inst.origin->as<PatchpointValue>()->effects.terminal;
 }
 
 void PatchpointSpecial::dumpImpl(PrintStream& out) const

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MathCommon_h
-#define MathCommon_h
+#pragma once
 
 #include <cmath>
 #include <wtf/Optional.h>
@@ -111,15 +110,23 @@ ALWAYS_INLINE int32_t toInt32(double number)
     return bits < 0 ? -result : result;
 }
 
-inline Optional<double> safeReciprocalForDivByConst(double constant)
+// This implements ToUInt32, defined in ECMA-262 9.6.
+inline uint32_t toUInt32(double number)
+{
+    // As commented in the spec, the operation of ToInt32 and ToUint32 only differ
+    // in how the result is interpreted; see NOTEs in sections 9.5 and 9.6.
+    return toInt32(number);
+}
+
+inline std::optional<double> safeReciprocalForDivByConst(double constant)
 {
     // No "weird" numbers (NaN, Denormal, etc).
     if (!constant || !std::isnormal(constant))
-        return Nullopt;
+        return std::nullopt;
 
     int exponent;
     if (std::frexp(constant, &exponent) != 0.5)
-        return Nullopt;
+        return std::nullopt;
 
     // Note that frexp() returns the value divided by two
     // so we to offset this exponent by one.
@@ -128,7 +135,7 @@ inline Optional<double> safeReciprocalForDivByConst(double constant)
     // A double exponent is between -1022 and 1023.
     // Nothing we can do to invert 1023.
     if (exponent == 1023)
-        return Nullopt;
+        return std::nullopt;
 
     double reciprocal = std::ldexp(1, -exponent);
     ASSERT(std::isnormal(reciprocal));
@@ -151,6 +158,4 @@ double JIT_OPERATION jsMod(double x, double y) REFERENCED_FROM_ASM WTF_INTERNAL;
 #endif
 }
 
-}
-
-#endif // MathCommon_h
+} // namespace JSC

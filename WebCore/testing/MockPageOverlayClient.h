@@ -23,9 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MockPageOverlayClient_h
-#define MockPageOverlayClient_h
+#pragma once
 
+#include "Frame.h"
 #include "MockPageOverlay.h"
 #include "PageOverlay.h"
 #include <wtf/HashSet.h>
@@ -44,7 +44,7 @@ public:
     Ref<MockPageOverlay> installOverlay(MainFrame&, PageOverlay::OverlayType);
     void uninstallAllOverlays();
 
-    String layerTreeAsText(MainFrame&);
+    String layerTreeAsText(MainFrame&, LayerTreeFlags);
 
     virtual ~MockPageOverlayClient() { }
 
@@ -62,6 +62,4 @@ private:
     HashSet<RefPtr<MockPageOverlay>> m_overlays;
 };
 
-}
-
-#endif // MockPageOverlayClient_h
+} // namespace WebCore

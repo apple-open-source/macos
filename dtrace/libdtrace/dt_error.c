@@ -27,6 +27,7 @@
 
 #include <strings.h>
 #include <dt_impl.h>
+#include <TargetConditionals.h>
 
 static const struct {
 	int err;
@@ -108,7 +109,13 @@ static const struct {
 	{ EDT_ENABLING_ERR, "Failed to enable probe" },
 	{ EDT_OVERSION,	"Client requested deprecated version of library" },
 	{ EDT_BADPID, "Unable to get symbols for pid" },
-	{ EDT_NOSYMBOLICATOR, "Could not symbolicate"}
+	{ EDT_NOSYMBOLICATOR, "Could not symbolicate"},
+#if !TARGET_OS_EMBEDDED
+	{ EDT_PROBE_RESTRICTED, "System Integrity Protection is on"},
+#else
+#endif
+	{EDT_BOOTARGS, "Could not retrieve boot-args"},
+	{EDT_OPTUNSUPPORTED, "Option value not supported on this OS"}
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);

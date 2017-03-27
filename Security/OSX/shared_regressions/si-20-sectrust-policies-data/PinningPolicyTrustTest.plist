@@ -864,8 +864,6 @@
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
-		<key>EnableTestCertificates</key>
-		<string>ApplePinningAllowTestCertsAppleSMPEncryption</string>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -998,7 +996,7 @@
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
-		<key>EnableTestCerts</key>
+		<key>EnableTestCertificates</key>
 		<string>ApplePinningAllowTestCertsiPhoneApplicationSigning</string>
 	</dict>
 	<dict>
@@ -1115,7 +1113,7 @@
 		<integer>4</integer>
 		<key>ChainLength</key>
 		<integer>3</integer>
-		<key>EnableTestCerts</key>
+		<key>EnableTestCertificates</key>
 		<string>ApplePinningAllowTestCertsiPhoneProvisioningProfileSigning</string>
 	</dict>
 	<dict>
@@ -1309,35 +1307,6 @@
 		<integer>3</integer>
 		<key>EnableTestCertificates</key>
 		<string>AppleServerAuthenticationAllowUATIDS</string>
-	</dict>
-	<dict>
-		<key>MajorTestName</key>
-		<string>LegacyAPN</string>
-		<key>MinorTestName</key>
-		<string>PositiveTest</string>
-		<key>Policies</key>
-		<dict>
-			<key>PolicyIdentifier</key>
-			<string>1.2.840.113635.100.1.70</string>
-			<key>Properties</key>
-			<dict>
-				<key>SecPolicyName</key>
-				<string>courier.push.apple.com</string>
-			</dict>
-		</dict>
-		<key>Leaf</key>
-		<string>apn_legacy</string>
-		<key>Intermediates</key>
-		<array>
-			<string>EntrustCAL1C</string>
-			<string>EntrustRootCA</string>
-		</array>
-		<key>VerifyDate</key>
-		<date>2015-05-11T19:00:00Z</date>
-		<key>ExpectedResult</key>
-		<integer>4</integer>
-		<key>ChainLength</key>
-		<integer>3</integer>
 	</dict>
 	<dict>
 		<key>MajorTestName</key>
@@ -2267,6 +2236,154 @@
 		<integer>5</integer>
 		<key>EnableTestCertificates</key>
 		<string>AllowAppleTestCertificatesSecureIOStaticAsset</string>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>FakeDOD</string>
+		<key>MinorTestName</key>
+		<string>PolicyMappings</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>tlstest.com</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>FakeDODLeaf</string>
+		<key>Intermediates</key>
+		<array>
+			<string>FakeFederalBridgeCA</string>
+			<string>FakeDODInteroperability</string>
+			<string>FakeDODRootCA3</string>
+			<string>FakeDODIDSWCA37</string>
+		</array>
+		<key>Anchors</key>
+		<string>FakeFederalCommonPolicy</string>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2016-12-10T04:38:00Z</date>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>FakeDOD</string>
+		<key>MinorTestName</key>
+		<string>NoRequireExplicitPoliciesConstraint</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>tlstest.com</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>FakeDODLeaf</string>
+		<key>Intermediates</key>
+		<array>
+			<string>FakeFederalBridgeCA</string>
+			<string>FakeDODInteroperability-noRequireExplicitPolicies</string>
+			<string>FakeDODRootCA3-noRequireExplicitPolicies</string>
+			<string>FakeDODIDSWCA37-noRequireExplicitPolicies</string>
+		</array>
+		<key>Anchors</key>
+		<string>FakeFederalCommonPolicy</string>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2016-12-10T04:38:00Z</date>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>FakeDOD</string>
+		<key>MinorTestName</key>
+		<string>ExtraPolicies</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>tlstest.com</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>FakeDODLeaf</string>
+		<key>Intermediates</key>
+		<array>
+			<string>FakeFederalBridgeCA-extraPolicies</string>
+			<string>FakeDODInteroperability-extraPolicies</string>
+			<string>FakeDODRootCA3</string>
+			<string>FakeDODIDSWCA37</string>
+		</array>
+		<key>Anchors</key>
+		<string>FakeFederalCommonPolicy</string>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2016-12-10T04:38:00Z</date>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>DOD</string>
+		<key>MinorTestName</key>
+		<string>SHA2</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.2</string>
+		</dict>
+		<key>Leaf</key>
+		<string>ECARootCA4</string>
+		<key>Intermediates</key>
+		<array>
+			<string>FederalBridgeCA2013</string>
+			<string>DODInteroperabilityRootCA2</string>
+		</array>
+		<key>Anchors</key>
+		<string>FederalCommonPolicyCA</string>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2016-12-10T04:38:00Z</date>
+	</dict>
+	<dict>
+		<key>MajorTestName</key>
+		<string>DOD</string>
+		<key>MinorTestName</key>
+		<string>SHA1-SMIME</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.8</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>bailey@eclipse.ncsc.mil</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>smime_signing</string>
+		<key>Intermediates</key>
+		<array>
+			<string>SHA1FederalRootCA</string>
+			<string>DODInteroperabilityRootCA1</string>
+			<string>DODRootCA2</string>
+			<string>DODEMAILCA30</string>
+		</array>
+		<key>Anchors</key>
+		<string>FederalCommonPolicyCA</string>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2016-01-01T21:00:00Z</date>
 	</dict>
 </array>
 </plist>

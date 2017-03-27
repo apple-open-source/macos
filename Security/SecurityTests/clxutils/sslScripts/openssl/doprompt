@@ -1,2 +1,0 @@
-#! /bin/sh 
-read -p "Hit CR to continue: " foo

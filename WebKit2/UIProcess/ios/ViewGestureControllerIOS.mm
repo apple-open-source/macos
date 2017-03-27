@@ -34,6 +34,7 @@
 #import "ViewSnapshotStore.h"
 #import "WKBackForwardListItemInternal.h"
 #import "WKWebViewInternal.h"
+#import "WeakObjCPtr.h"
 #import "WebBackForwardList.h"
 #import "WebPageGroup.h"
 #import "WebPageMessages.h"
@@ -42,7 +43,6 @@
 #import <UIKit/UIScreenEdgePanGestureRecognizer.h>
 #import <WebCore/IOSurface.h>
 #import <WebCore/QuartzCoreSPI.h>
-#import <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
 
@@ -129,6 +129,11 @@ static const float swipeSnapshotRemovalRenderTreeSizeTargetFraction = 0.5;
     return [recognizer autorelease];
 }
 
+- (BOOL)isNavigationSwipeGestureRecognizer:(UIGestureRecognizer *)recognizer
+{
+    return recognizer == [_backTransitionController gestureRecognizer] || recognizer == [_forwardTransitionController gestureRecognizer];
+}
+
 @end
 
 namespace WebKit {
@@ -141,9 +146,9 @@ void ViewGestureController::platformTeardown()
     [m_swipeInteractiveTransitionDelegate invalidate];
 }
 
-void ViewGestureController::setAlternateBackForwardListSourceView(WKWebView *view)
+bool ViewGestureController::isNavigationSwipeGestureRecognizer(UIGestureRecognizer *recognizer) const
 {
-    m_alternateBackForwardListSourceView = view;
+    return [m_swipeInteractiveTransitionDelegate isNavigationSwipeGestureRecognizer:recognizer];
 }
 
 void ViewGestureController::installSwipeHandler(UIView *gestureRecognizerView, UIView *swipingView)
@@ -160,7 +165,9 @@ void ViewGestureController::beginSwipeGesture(_UINavigationInteractiveTransition
 
     m_webPageProxy.recordAutomaticNavigationSnapshot();
 
-    m_webPageProxyForBackForwardListForCurrentSwipe = m_alternateBackForwardListSourceView.get() ? m_alternateBackForwardListSourceView.get()->_page : &m_webPageProxy;
+    RefPtr<WebPageProxy> alternateBackForwardListSourcePage = m_alternateBackForwardListSourcePage.get();
+    m_webPageProxyForBackForwardListForCurrentSwipe = alternateBackForwardListSourcePage ? alternateBackForwardListSourcePage.get() : &m_webPageProxy;
+
     m_webPageProxyForBackForwardListForCurrentSwipe->navigationGestureDidBegin();
     if (&m_webPageProxy != m_webPageProxyForBackForwardListForCurrentSwipe)
         m_webPageProxy.navigationGestureDidBegin();
@@ -232,20 +239,11 @@ void ViewGestureController::beginSwipeGesture(_UINavigationInteractiveTransition
         if (auto gestureController = gestureControllerForPage(pageID))
             gestureController->endSwipeGesture(targetItem.get(), context, !didComplete);
     }];
-    [m_swipeTransitionContext _setInteractiveUpdateHandler:^(BOOL, CGFloat, BOOL, _UIViewControllerTransitionContext *) { }];
 
     [transition setAnimationController:animationController.get()];
     [transition startInteractiveTransition:m_swipeTransitionContext.get()];
 
     m_activeGestureType = ViewGestureType::Swipe;
-}
-
-bool ViewGestureController::canSwipeInDirection(SwipeDirection direction)
-{
-    auto& backForwardList = m_alternateBackForwardListSourceView.get() ? m_alternateBackForwardListSourceView.get()->_page->backForwardList() : m_webPageProxy.backForwardList();
-    if (direction == SwipeDirection::Back)
-        return !!backForwardList.backItem();
-    return !!backForwardList.forwardItem();
 }
 
 void ViewGestureController::endSwipeGesture(WebBackForwardListItem* targetItem, _UIViewControllerTransitionContext *context, bool cancelled)

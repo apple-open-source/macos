@@ -55,7 +55,7 @@ public:
 	NameValuePair (const CssmData &data);
 	~NameValuePair ();
 
-	const uint32 Name () {return mName;}
+	uint32 Name () {return mName;}
 	const CssmData& Value () const {return mValue;}
 	void Export (CssmData &data) const;
 };

@@ -131,7 +131,6 @@ RenderImage::RenderImage(Element& element, RenderStyle&& style, StyleImage* styl
     , m_imageDevicePixelRatio(imageDevicePixelRatio)
 {
     updateAltText();
-    imageResource().initialize(this);
     if (is<HTMLImageElement>(element))
         m_hasShadowControls = downcast<HTMLImageElement>(element).hasShadowControls();
 }
@@ -140,7 +139,6 @@ RenderImage::RenderImage(Document& document, RenderStyle&& style, StyleImage* st
     : RenderReplaced(document, WTFMove(style), IntSize())
     , m_imageResource(styleImage ? std::make_unique<RenderImageResourceStyleImage>(*styleImage) : std::make_unique<RenderImageResource>())
 {
-    imageResource().initialize(this);
 }
 
 RenderImage::~RenderImage()
@@ -201,6 +199,13 @@ ImageSizeChangeType RenderImage::setImageSizeForAltText(CachedImage* newImage /*
     return ImageSizeChangeForAltText;
 }
 
+void RenderImage::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
+{
+    if (!hasInitializedStyle())
+        imageResource().initialize(this);
+    RenderReplaced::styleWillChange(diff, newStyle);
+}
+
 void RenderImage::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderReplaced::styleDidChange(diff, oldStyle);
@@ -228,7 +233,7 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
     // FIXME (86669): Instead of the RenderImage determining whether its document is in the page
     // cache, the RenderImage should remove itself as a client when its document is put into the
     // page cache.
-    if (documentBeingDestroyed() || document().inPageCache())
+    if (documentBeingDestroyed() || document().pageCacheState() != Document::NotInPageCache)
         return;
 
     if (hasVisibleBoxDecorations() || hasMask() || hasShapeOutside())
@@ -251,7 +256,7 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
             ASSERT(element());
             if (element()) {
                 m_needsToSetSizeForAltText = true;
-                element()->setNeedsStyleRecalc(SyntheticStyleChange);
+                element()->invalidateStyleAndLayerComposition();
             }
             return;
         }
@@ -333,14 +338,14 @@ void RenderImage::repaintOrMarkForLayout(ImageSizeChangeType imageSizeChange, co
     contentChanged(ImageChanged);
 }
 
-void RenderImage::notifyFinished(CachedResource* newImage)
+void RenderImage::notifyFinished(CachedResource& newImage)
 {
     if (documentBeingDestroyed())
         return;
 
     invalidateBackgroundObscurationStatus();
 
-    if (newImage == imageResource().cachedImage()) {
+    if (&newImage == imageResource().cachedImage()) {
         // tell any potential compositing layers
         // that the image is done and they can reference it directly.
         contentChanged(ImageChanged);
@@ -628,7 +633,7 @@ bool RenderImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
             LayoutRect contentBox = contentBoxRect();
             float scaleFactor = 1 / style().effectiveZoom();
             LayoutPoint mapLocation = locationInContainer.point() - toLayoutSize(accumulatedOffset) - locationOffset() - toLayoutSize(contentBox.location());
-            mapLocation.scale(scaleFactor, scaleFactor);
+            mapLocation.scale(scaleFactor);
 
             if (map->mapMouseEvent(mapLocation, contentBox.size(), tempResult))
                 tempResult.setInnerNonSharedNode(element());
@@ -677,6 +682,9 @@ void RenderImage::layout()
 
 void RenderImage::layoutShadowControls(const LayoutSize& oldSize)
 {
+    // We expect a single containing box under the UA shadow root.
+    ASSERT(firstChild() == lastChild());
+
     auto* controlsRenderer = downcast<RenderBox>(firstChild());
     if (!controlsRenderer)
         return;

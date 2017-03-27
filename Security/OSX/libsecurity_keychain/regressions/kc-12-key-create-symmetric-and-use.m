@@ -97,7 +97,7 @@ static SecAccessRef createAccess(SecKeychainItemRef item, NSString *accessLabel,
         ok_status(err, "%s: SecTrustedApplicationCreateFromPath (1)", testName);
         err = SecTrustedApplicationCreateFromPath("/Applications/Safari.app", &someOther);
         ok_status(err, "%s: SecTrustedApplicationCreateFromPath (2)", testName);
-        trustedApplications = [NSArray arrayWithObjects:(id)myself, (id)someOther, nil];
+        trustedApplications = [NSArray arrayWithObjects:(__bridge_transfer id)myself, (__bridge_transfer id)someOther, nil];
     }
 
     // If the keychain item already exists, use its access reference; otherwise, create a new one
@@ -242,7 +242,7 @@ int kc_12_key_create_symmetric_and_use(int argc, char *const *argv)
         if (encryptedData) {
             NSData *roundtrippedData = decryptData(kc, encryptedData);
 
-            eq_cf(roundtrippedData, data, "%s: Round-tripped data does not match original data", testName);
+            eq_cf((__bridge CFTypeRef) roundtrippedData, (__bridge CFTypeRef) data, "%s: Round-tripped data does not match original data", testName);
             NSLog(@"Decrypted: %@", roundtrippedData);
         }
     }

@@ -38,7 +38,6 @@
 __BEGIN_DECLS
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
-#include <IOKit/iokitmig.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IODataQueueClient.h>
 #include <System/libkern/OSCrossEndian.h>

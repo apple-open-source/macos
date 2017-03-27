@@ -164,7 +164,7 @@ static const uint8_t *der_decode_decimal_fraction(double *fraction, CFErrorRef *
     return der;
 }
 
-static const CFTimeInterval der_decode_timezone_offset(const uint8_t **der_p,
+static CFTimeInterval der_decode_timezone_offset(const uint8_t **der_p,
                                                        const uint8_t *der_end,
                                                        CFErrorRef *error) {
     CFTimeInterval timeZoneOffset;

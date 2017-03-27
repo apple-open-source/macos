@@ -37,6 +37,7 @@
 #include <Security/SecKeychainItemPriv.h>
 #include <SecBase.h>
 #include <Security/SecBasePriv.h>
+#include <utilities/array_size.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -74,8 +75,9 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecIt
 	for (const SecKeychainAttribute *attr=attrList->attr; attr != end; ++attr)
 	{
 		const CSSM_DB_ATTRIBUTE_INFO *temp;
-		
-		if (attr->tag <'    ') // ok, is this a key schema?  Handle differently, just because we can...
+
+		// ok, is this a key schema?  Handle differently, just because we can...
+		if (attr->tag <'    ' && attr->tag < array_size(gKeyAttributeLookupTable))
 		{
 			temp = gKeyAttributeLookupTable[attr->tag];
 		}

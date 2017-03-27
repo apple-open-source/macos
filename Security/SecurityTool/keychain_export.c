@@ -665,8 +665,11 @@ ctk_dump(CFTypeRef secClass, const char *name, const char *tid)
 
     stat = SecItemCopyMatching(query, (CFTypeRef *)&result);
     if(stat) {
-        sec_error("SecItemCopyMatching: %x (%d) - %s",
-                  stat, stat, sec_errstr(stat));
+        if (stat == errSecItemNotFound) {
+            fprintf(stderr, "No items found.\n");
+        } else {
+            sec_error("SecItemCopyMatching: %x (%d) - %s", stat, stat, sec_errstr(stat));
+        }
         goto cleanup;
     }
 
@@ -731,7 +734,7 @@ ctk_export(int argc, char * const *argv)
     const char* names[] = { "certificate", "private key", "identity" };
     ItemSpec specs[] = { IS_Certs, IS_PrivKeys, IS_Identities };
 
-    for(int i = 0; i < sizeof(classes)/sizeof(classes[0]); i++) {
+    for(size_t i = 0; i < sizeof(classes)/sizeof(classes[0]); i++) {
         if(specs[i] == itemSpec || itemSpec == IS_All) {
             stat = ctk_dump(classes[i], names[i], tid);
             if(stat) {

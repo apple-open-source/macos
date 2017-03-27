@@ -47,7 +47,7 @@ using namespace Inspector;
 static const char* const errorNameAndDetailsSeparator = ";";
 
 // Make sure the predefined error name is valid, otherwise use InternalError.
-#define VALIDATED_ERROR_MESSAGE(errorString) Inspector::Protocol::AutomationHelpers::parseEnumValueFromString<Inspector::Protocol::Automation::ErrorMessage>(errorString).valueOr(Inspector::Protocol::Automation::ErrorMessage::InternalError)
+#define VALIDATED_ERROR_MESSAGE(errorString) Inspector::Protocol::AutomationHelpers::parseEnumValueFromString<Inspector::Protocol::Automation::ErrorMessage>(errorString).value_or(Inspector::Protocol::Automation::ErrorMessage::InternalError)
 
 // If the error name is incorrect for these macros, it will be a compile-time error.
 #define STRING_FOR_PREDEFINED_ERROR_NAME(errorName) Inspector::Protocol::AutomationHelpers::getEnumConstantValue(Inspector::Protocol::Automation::ErrorMessage::errorName)
@@ -129,17 +129,25 @@ void WebAutomationSession::connect(Inspector::FrontendChannel* channel, bool isA
 void WebAutomationSession::disconnect(Inspector::FrontendChannel* channel)
 {
     ASSERT(channel == m_remoteChannel);
+    terminate();
+}
 
-    m_remoteChannel = nullptr;
-    m_frontendRouter->disconnectFrontend(channel);
+#endif // ENABLE(REMOTE_INSPECTOR)
+
+void WebAutomationSession::terminate()
+{
+#if ENABLE(REMOTE_INSPECTOR)
+    if (Inspector::FrontendChannel* channel = m_remoteChannel) {
+        m_remoteChannel = nullptr;
+        m_frontendRouter->disconnectFrontend(channel);
+    }
 
     setIsPaired(false);
+#endif
 
     if (m_client)
         m_client->didDisconnectFromRemote(this);
 }
-
-#endif // ENABLE(REMOTE_INSPECTOR)
 
 WebPageProxy* WebAutomationSession::webPageProxyForHandle(const String& handle)
 {
@@ -166,14 +174,14 @@ String WebAutomationSession::handleForWebPageProxy(const WebPageProxy& webPagePr
     return handle;
 }
 
-Optional<uint64_t> WebAutomationSession::webFrameIDForHandle(const String& handle)
+std::optional<uint64_t> WebAutomationSession::webFrameIDForHandle(const String& handle)
 {
     if (handle.isEmpty())
         return 0;
 
     auto iter = m_handleWebFrameMap.find(handle);
     if (iter == m_handleWebFrameMap.end())
-        return Nullopt;
+        return std::nullopt;
 
     return iter->value;
 }
@@ -292,7 +300,7 @@ void WebAutomationSession::switchToBrowsingContext(Inspector::ErrorString& error
     if (!page)
         FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
-    Optional<uint64_t> frameID = webFrameIDForHandle(optionalFrameHandle ? *optionalFrameHandle : emptyString());
+    std::optional<uint64_t> frameID = webFrameIDForHandle(optionalFrameHandle ? *optionalFrameHandle : emptyString());
     if (!frameID)
         FAIL_WITH_PREDEFINED_ERROR(FrameNotFound);
 
@@ -427,8 +435,7 @@ void WebAutomationSession::reloadBrowsingContext(Inspector::ErrorString& errorSt
     m_pendingNavigationInBrowsingContextCallbacksPerPage.set(page->pageID(), WTFMove(callback));
 
     const bool reloadFromOrigin = false;
-    const bool contentBlockersEnabled = true;
-    page->reload(reloadFromOrigin, contentBlockersEnabled);
+    page->reload(reloadFromOrigin, { });
 }
 
 void WebAutomationSession::inspectBrowsingContext(Inspector::ErrorString& errorString, const String& handle, const bool* optionalEnableAutoCapturing, Ref<InspectBrowsingContextCallback>&& callback)
@@ -476,7 +483,7 @@ void WebAutomationSession::evaluateJavaScriptFunction(Inspector::ErrorString& er
     if (!page)
         FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
-    Optional<uint64_t> frameID = webFrameIDForHandle(optionalFrameHandle ? *optionalFrameHandle : emptyString());
+    std::optional<uint64_t> frameID = webFrameIDForHandle(optionalFrameHandle ? *optionalFrameHandle : emptyString());
     if (!frameID)
         FAIL_WITH_PREDEFINED_ERROR(FrameNotFound);
 
@@ -519,7 +526,7 @@ void WebAutomationSession::resolveChildFrameHandle(Inspector::ErrorString& error
     if (!page)
         FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
-    Optional<uint64_t> frameID = webFrameIDForHandle(optionalFrameHandle ? *optionalFrameHandle : emptyString());
+    std::optional<uint64_t> frameID = webFrameIDForHandle(optionalFrameHandle ? *optionalFrameHandle : emptyString());
     if (!frameID)
         FAIL_WITH_PREDEFINED_ERROR(FrameNotFound);
 
@@ -562,7 +569,7 @@ void WebAutomationSession::resolveParentFrameHandle(Inspector::ErrorString& erro
     if (!page)
         FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
-    Optional<uint64_t> frameID = webFrameIDForHandle(frameHandle);
+    std::optional<uint64_t> frameID = webFrameIDForHandle(frameHandle);
     if (!frameID)
         FAIL_WITH_PREDEFINED_ERROR(FrameNotFound);
 
@@ -590,7 +597,7 @@ void WebAutomationSession::computeElementLayout(Inspector::ErrorString& errorStr
     if (!page)
         FAIL_WITH_PREDEFINED_ERROR(WindowNotFound);
 
-    Optional<uint64_t> frameID = webFrameIDForHandle(frameHandle);
+    std::optional<uint64_t> frameID = webFrameIDForHandle(frameHandle);
     if (!frameID)
         FAIL_WITH_PREDEFINED_ERROR(FrameNotFound);
 
@@ -843,7 +850,7 @@ void WebAutomationSession::addSingleCookie(ErrorString& errorString, const Strin
     callback->sendSuccess();
 }
 
-void WebAutomationSession::deleteAllCookies(ErrorString& errorString, const String& browsingContextHandle, Ref<DeleteAllCookiesCallback>&& callback)
+void WebAutomationSession::deleteAllCookies(ErrorString& errorString, const String& browsingContextHandle)
 {
     WebPageProxy* page = webPageProxyForHandle(browsingContextHandle);
     if (!page)

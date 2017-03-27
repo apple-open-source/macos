@@ -378,7 +378,7 @@ dt_probe_lookup(dt_provider_t *pvp, const char *s)
 		return (dt_probe_discover(pvp, &pd));
 
 	if (errno == ESRCH || errno == EBADF)
-		(void) dt_set_errno(dtp, EDT_NOPROBE);
+		(void) dt_set_errno(dtp, dt_probe_noprobe_errno(dtp, &pd));
 	else
 		(void) dt_set_errno(dtp, errno);
 
@@ -869,7 +869,7 @@ dtrace_probe_iter(dtrace_hdl_t *dtp,
 	switch (errno) {
 	case ESRCH:
 	case EBADF:
-		return (pit.pit_matches ? 0 : dt_set_errno(dtp, EDT_NOPROBE));
+		return (pit.pit_matches ? 0 : dt_set_errno(dtp, dt_probe_noprobe_errno(dtp, pdp)));
 	case EINVAL:
 		return (dt_set_errno(dtp, EDT_BADPGLOB));
 	default:

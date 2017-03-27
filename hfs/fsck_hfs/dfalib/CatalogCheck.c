@@ -1035,7 +1035,8 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 					uint8_t *dataBuffer = malloc(file->dataFork.totalBlocks * gScavGlobals->calculatedVCB->vcbBlockSize + 1);
 					
 					if (dataBuffer == NULL) {
-						plog("Unable to allocate %llu bytes for reading symlink", file->dataFork.logicalSize);
+                        if (debug)
+                            plog("Unable to allocate %llu bytes for reading symlink", file->dataFork.logicalSize);
 					} else {
 						char *curPtr = (char*)dataBuffer;
 						size_t nread = 0;

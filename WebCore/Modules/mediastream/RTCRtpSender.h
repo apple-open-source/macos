@@ -28,20 +28,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RTCRtpSender_h
-#define RTCRtpSender_h
+#pragma once
 
 #if ENABLE(WEB_RTC)
 
 #include "PeerConnectionBackend.h"
 #include "RTCRtpSenderReceiverBase.h"
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class RTCRtpSenderClient {
 public:
-    virtual void replaceTrack(RTCRtpSender&, RefPtr<MediaStreamTrack>&&, PeerConnection::VoidPromise&&) = 0;
+    virtual void replaceTrack(RTCRtpSender&, RefPtr<MediaStreamTrack>&&, DOMPromise<void>&&) = 0;
 
     virtual ~RTCRtpSenderClient() { }
 };
@@ -61,7 +59,7 @@ public:
     void stop() { m_client = nullptr; }
     void setTrack(RefPtr<MediaStreamTrack>&&);
 
-    void replaceTrack(Ref<MediaStreamTrack>&&, PeerConnection::VoidPromise&&, ExceptionCode&);
+    ExceptionOr<void> replaceTrack(Ref<MediaStreamTrack>&&, DOMPromise<void>&&);
 
 private:
     RTCRtpSender(RefPtr<MediaStreamTrack>&&, const String& trackKind, Vector<String>&& mediaStreamIds, RTCRtpSenderClient&);
@@ -75,4 +73,3 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(WEB_RTC)
-#endif // RTCRtpSender_h

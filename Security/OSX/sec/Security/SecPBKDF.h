@@ -16,6 +16,11 @@ void hmac_sha1_PRF(const uint8_t *key,
                    size_t text_len,
                    uint8_t digest[CC_SHA1_DIGEST_LENGTH]);
 
+void hmac_sha256_PRF(const uint8_t *key,
+                   size_t key_len,
+                   const uint8_t *text,
+                   size_t text_len,
+                   uint8_t digest[CC_SHA256_DIGEST_LENGTH]);
 
 /* PBKDF for clients who want to let us allocate the intermediate buffer.
    We over write any intermediate results we use in calculating */
@@ -24,7 +29,10 @@ void pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
                       uint32_t iterationCount,
                       void *dkPtr, size_t dkLen);
 
-
+void pbkdf2_hmac_sha256(const uint8_t *passwordPtr, size_t passwordLen,
+                      const uint8_t *saltPtr, size_t saltLen,
+                      uint32_t iterationCount,
+                      void *dkPtr, size_t dkLen);
 
 /* Transformation conveninces from and to CFData where the password bytes used are the UTF-8 representation and 1000 iterations
 
@@ -44,7 +52,6 @@ void pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
                          CFDataGetBytePtr(salt), CFDataGetLength(salt),
                          interationCount,
                          CFDataGetMutableBytePtr(derivedKey), CFDataGetLength(derivedKey));
-
    }
    
    Suggested way to transform strings into data:
@@ -58,3 +65,4 @@ void pbkdf2_hmac_sha1(const uint8_t *passwordPtr, size_t passwordLen,
 */
 
 void SecKeyFromPassphraseDataHMACSHA1(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey);
+void SecKeyFromPassphraseDataHMACSHA256(CFDataRef password, CFDataRef salt, uint32_t interationCount, CFMutableDataRef derivedKey);

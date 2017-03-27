@@ -94,6 +94,8 @@ static SecKeychainRef setup_keychain(const uint8_t *p12, size_t p12_len, SecIden
     CFReleaseNull(imported_items);
 
 out:
+    CFReleaseNull(oldSearchList);
+    CFReleaseNull(newSearchList);
     return keychain;
 }
 

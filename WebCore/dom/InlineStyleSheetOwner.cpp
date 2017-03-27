@@ -21,19 +21,50 @@
 #include "config.h"
 #include "InlineStyleSheetOwner.h"
 
-#include "AuthorStyleSheets.h"
 #include "ContentSecurityPolicy.h"
 #include "Element.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "ScriptableDocumentParser.h"
 #include "ShadowRoot.h"
+#include "StyleScope.h"
 #include "StyleSheetContents.h"
 #include "TextNodeTraversal.h"
+#include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
+
+using InlineStyleSheetCacheKey = std::pair<String, CSSParserContext>;
+using InlineStyleSheetCache = HashMap<InlineStyleSheetCacheKey, RefPtr<StyleSheetContents>>;
+
+static InlineStyleSheetCache& inlineStyleSheetCache()
+{
+    static NeverDestroyed<InlineStyleSheetCache> cache;
+    return cache;
+}
+
+static CSSParserContext parserContextForElement(const Element& element)
+{
+    auto* shadowRoot = element.containingShadowRoot();
+    // User agent shadow trees can't contain document-relative URLs. Use blank URL as base allowing cross-document sharing.
+    auto& baseURL = shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent ? blankURL() : element.document().baseURL();
+
+    CSSParserContext result = CSSParserContext { element.document(), baseURL, element.document().characterSetWithUTF8Fallback() };
+    if (shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent)
+        result.mode = UASheetMode;
+    return result;
+}
+
+static std::optional<InlineStyleSheetCacheKey> makeInlineStyleSheetCacheKey(const String& text, const Element& element)
+{
+    // Only cache for shadow trees. Main document inline stylesheets are generally unique and can't be shared between documents.
+    // FIXME: This could be relaxed when a stylesheet does not contain document-relative URLs (or #urls).
+    if (!element.isInShadowTree())
+        return { };
+
+    return std::make_pair(text, parserContextForElement(element));
+}
 
 InlineStyleSheetOwner::InlineStyleSheetOwner(Document& document, bool createdByParser)
     : m_isParsingChildren(createdByParser)
@@ -50,41 +81,35 @@ InlineStyleSheetOwner::~InlineStyleSheetOwner()
         clearSheet();
 }
 
-static AuthorStyleSheets& authorStyleSheetsForElement(Element& element)
+void InlineStyleSheetOwner::insertedIntoDocument(Element& element)
 {
-    auto* shadowRoot = element.containingShadowRoot();
-    return shadowRoot ? shadowRoot->authorStyleSheets() : element.document().authorStyleSheets();
-}
-
-void InlineStyleSheetOwner::insertedIntoDocument(Document&, Element& element)
-{
-    authorStyleSheetsForElement(element).addStyleSheetCandidateNode(element, m_isParsingChildren);
+    m_styleScope = &Style::Scope::forNode(element);
+    m_styleScope->addStyleSheetCandidateNode(element, m_isParsingChildren);
 
     if (m_isParsingChildren)
         return;
     createSheetFromTextContents(element);
 }
 
-void InlineStyleSheetOwner::removedFromDocument(Document& document, Element& element)
+void InlineStyleSheetOwner::removedFromDocument(Element& element)
 {
-    authorStyleSheetsForElement(element).removeStyleSheetCandidateNode(element);
-
+    if (m_styleScope) {
+        m_styleScope->removeStyleSheetCandidateNode(element);
+        m_styleScope = nullptr;
+    }
     if (m_sheet)
         clearSheet();
-
-    // If we're in document teardown, then we don't need to do any notification of our sheet's removal.
-    if (document.hasLivingRenderTree())
-        document.styleResolverChanged(DeferRecalcStyle);
 }
 
-void InlineStyleSheetOwner::clearDocumentData(Document&, Element& element)
+void InlineStyleSheetOwner::clearDocumentData(Element& element)
 {
     if (m_sheet)
         m_sheet->clearOwnerNode();
 
-    if (!element.inDocument())
-        return;
-    authorStyleSheetsForElement(element).removeStyleSheetCandidateNode(element);
+    if (m_styleScope) {
+        m_styleScope->removeStyleSheetCandidateNode(element);
+        m_styleScope = nullptr;
+    }
 }
 
 void InlineStyleSheetOwner::childrenChanged(Element& element)
@@ -131,8 +156,8 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
     ASSERT(element.inDocument());
     Document& document = element.document();
     if (m_sheet) {
-        if (m_sheet->isLoading())
-            document.authorStyleSheets().removePendingSheet();
+        if (m_sheet->isLoading() && m_styleScope)
+            m_styleScope->removePendingSheet();
         clearSheet();
     }
 
@@ -145,30 +170,55 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
     if (!contentSecurityPolicy.allowInlineStyle(document.url(), m_startTextPosition.m_line, text, hasKnownNonce))
         return;
 
-    RefPtr<MediaQuerySet> mediaQueries;
-    if (element.isHTMLElement())
-        mediaQueries = MediaQuerySet::createAllowingDescriptionSyntax(m_media);
-    else
-        mediaQueries = MediaQuerySet::create(m_media);
+    RefPtr<MediaQuerySet> mediaQueries = MediaQuerySet::create(m_media);
 
     MediaQueryEvaluator screenEval(ASCIILiteral("screen"), true);
     MediaQueryEvaluator printEval(ASCIILiteral("print"), true);
     if (!screenEval.evaluate(*mediaQueries) && !printEval.evaluate(*mediaQueries))
         return;
 
-    authorStyleSheetsForElement(element).addPendingSheet();
+    if (m_styleScope)
+        m_styleScope->addPendingSheet();
+
+    auto cacheKey = makeInlineStyleSheetCacheKey(text, element);
+    if (cacheKey) {
+        if (auto* cachedSheet = inlineStyleSheetCache().get(*cacheKey)) {
+            ASSERT(cachedSheet->isCacheable());
+            m_sheet = CSSStyleSheet::createInline(*cachedSheet, element, m_startTextPosition);
+            m_sheet->setMediaQueries(mediaQueries.releaseNonNull());
+            m_sheet->setTitle(element.title());
+
+            sheetLoaded(element);
+            element.notifyLoadedSheetAndAllCriticalSubresources(false);
+            return;
+        }
+    }
 
     m_loading = true;
 
-    m_sheet = CSSStyleSheet::createInline(element, URL(), m_startTextPosition, document.encoding());
+    auto contents = StyleSheetContents::create(String(), parserContextForElement(element));
+
+    m_sheet = CSSStyleSheet::createInline(contents.get(), element, m_startTextPosition);
     m_sheet->setMediaQueries(mediaQueries.releaseNonNull());
     m_sheet->setTitle(element.title());
-    m_sheet->contents().parseStringAtPosition(text, m_startTextPosition, m_isParsingChildren);
+
+    contents->parseString(text);
 
     m_loading = false;
 
-    if (m_sheet)
-        m_sheet->contents().checkLoaded();
+    contents->checkLoaded();
+
+    if (cacheKey && contents->isCacheable()) {
+        m_sheet->contents().addedToMemoryCache();
+        inlineStyleSheetCache().add(*cacheKey, &m_sheet->contents());
+
+        // Prevent pathological growth.
+        const size_t maximumInlineStyleSheetCacheSize = 50;
+        if (inlineStyleSheetCache().size() > maximumInlineStyleSheetCacheSize) {
+            inlineStyleSheetCache().begin()->value->removedFromMemoryCache();
+            inlineStyleSheetCache().remove(inlineStyleSheetCache().begin());
+        }
+    }
 }
 
 bool InlineStyleSheetOwner::isLoading() const
@@ -178,18 +228,26 @@ bool InlineStyleSheetOwner::isLoading() const
     return m_sheet && m_sheet->isLoading();
 }
 
-bool InlineStyleSheetOwner::sheetLoaded(Element& element)
+bool InlineStyleSheetOwner::sheetLoaded(Element&)
 {
     if (isLoading())
         return false;
 
-    authorStyleSheetsForElement(element).removePendingSheet();
+    if (m_styleScope)
+        m_styleScope->removePendingSheet();
+
     return true;
 }
 
-void InlineStyleSheetOwner::startLoadingDynamicSheet(Element& element)
+void InlineStyleSheetOwner::startLoadingDynamicSheet(Element&)
 {
-    authorStyleSheetsForElement(element).addPendingSheet();
+    if (m_styleScope)
+        m_styleScope->addPendingSheet();
+}
+
+void InlineStyleSheetOwner::clearCache()
+{
+    inlineStyleSheetCache().clear();
 }
 
 }

@@ -303,7 +303,7 @@ void IOHIDNXEventTranslatorServiceFilter::setPropertyForClient(CFStringRef key,C
 {
   if (CFEqual(key, CFSTR(kIOHIDServiceCapsLockStateKey))) {
       if (_queue && _translator) {
-          HIDLogDebug("YGDBG: Dispatch capslog flag change event");
+          CFRetain(_service);
           dispatch_async(_queue, ^(){
           
               CFBooleanRefWrap capsLockState ((CFBooleanRef)IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDServiceCapsLockStateKey)), true);
@@ -322,6 +322,7 @@ void IOHIDNXEventTranslatorServiceFilter::setPropertyForClient(CFStringRef key,C
                       CFRelease(collection);
                   }
               }
+              CFRelease(_service);
           });
       }
   }

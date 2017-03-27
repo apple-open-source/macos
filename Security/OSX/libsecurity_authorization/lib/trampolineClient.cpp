@@ -193,7 +193,6 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 				goto exit_point;
 			}
         }
-		break;
 		
 		case 0:		// child
 			// close foreign side of pipes

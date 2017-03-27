@@ -47,7 +47,6 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "TransformState.h"
-#include "WebKitNamedFlow.h"
 #include <wtf/StackStats.h>
 
 namespace WebCore {
@@ -72,7 +71,7 @@ RenderFlowThread::RenderFlowThread(Document& document, RenderStyle&& style)
 RenderStyle RenderFlowThread::createFlowThreadStyle(const RenderStyle* parentStyle)
 {
     auto newStyle = RenderStyle::create();
-    newStyle.inheritFrom(parentStyle);
+    newStyle.inheritFrom(*parentStyle);
     newStyle.setDisplay(BLOCK);
     newStyle.setPosition(AbsolutePosition);
     newStyle.setZIndex(0);
@@ -92,11 +91,11 @@ void RenderFlowThread::styleDidChange(StyleDifference diff, const RenderStyle* o
         invalidateRegions();
 }
 
-void RenderFlowThread::removeFlowChildInfo(RenderObject* child)
+void RenderFlowThread::removeFlowChildInfo(RenderElement& child)
 {
-    if (is<RenderBlockFlow>(*child))
+    if (is<RenderBlockFlow>(child))
         removeLineRegionInfo(downcast<RenderBlockFlow>(child));
-    if (is<RenderBox>(*child))
+    if (is<RenderBox>(child))
         removeRenderBoxRegionInfo(downcast<RenderBox>(child));
 }
 
@@ -172,7 +171,7 @@ void RenderFlowThread::validateRegions()
                 previousRegionLogicalWidth = regionLogicalWidth;
             }
 
-            setRegionRangeForBox(this, m_regionList.first(), m_regionList.last());
+            setRegionRangeForBox(*this, m_regionList.first(), m_regionList.last());
         }
     }
 
@@ -345,8 +344,9 @@ void RenderFlowThread::updateLogicalWidth()
     }
 }
 
-void RenderFlowThread::computeLogicalHeight(LayoutUnit, LayoutUnit logicalTop, LogicalExtentComputedValues& computedValues) const
+RenderBox::LogicalExtentComputedValues RenderFlowThread::computeLogicalHeight(LayoutUnit, LayoutUnit logicalTop) const
 {
+    LogicalExtentComputedValues computedValues;
     computedValues.m_position = logicalTop;
     computedValues.m_extent = 0;
 
@@ -359,8 +359,9 @@ void RenderFlowThread::computeLogicalHeight(LayoutUnit, LayoutUnit logicalTop, L
 
         // If we reached the maximum size there's no point in going further.
         if (computedValues.m_extent == maxFlowSize)
-            return;
+            return computedValues;
     }
+    return computedValues;
 }
 
 bool RenderFlowThread::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)
@@ -560,7 +561,7 @@ RenderRegion* RenderFlowThread::mapFromFlowToRegion(TransformState& transformSta
     return renderRegion;
 }
 
-void RenderFlowThread::removeRenderBoxRegionInfo(RenderBox* box)
+void RenderFlowThread::removeRenderBoxRegionInfo(RenderBox& box)
 {
     if (!hasRegions())
         return;
@@ -573,7 +574,7 @@ void RenderFlowThread::removeRenderBoxRegionInfo(RenderBox* box)
 
     RenderRegion* startRegion = nullptr;
     RenderRegion* endRegion = nullptr;
-    if (getRegionRangeForBox(box, startRegion, endRegion)) {
+    if (getRegionRangeForBox(&box, startRegion, endRegion)) {
         for (auto it = m_regionList.find(startRegion), end = m_regionList.end(); it != end; ++it) {
             RenderRegion* region = *it;
             region->removeRenderBoxRegionInfo(box);
@@ -585,21 +586,19 @@ void RenderFlowThread::removeRenderBoxRegionInfo(RenderBox* box)
 #ifndef NDEBUG
     // We have to make sure we did not leave any RenderBoxRegionInfo attached.
     for (auto& region : m_regionList)
-        ASSERT(!region->renderBoxRegionInfo(box));
+        ASSERT(!region->renderBoxRegionInfo(&box));
 #endif
 
-    m_regionRangeMap.remove(box);
+    m_regionRangeMap.remove(&box);
 }
 
-void RenderFlowThread::removeLineRegionInfo(const RenderBlockFlow* blockFlow)
+void RenderFlowThread::removeLineRegionInfo(const RenderBlockFlow& blockFlow)
 {
-    if (!m_lineToRegionMap || blockFlow->lineLayoutPath() == SimpleLinesPath)
+    if (!m_lineToRegionMap || blockFlow.lineLayoutPath() == SimpleLinesPath)
         return;
 
-    for (RootInlineBox* curr = blockFlow->firstRootBox(); curr; curr = curr->nextRootBox()) {
-        if (m_lineToRegionMap->contains(curr))
-            m_lineToRegionMap->remove(curr);
-    }
+    for (auto* curr = blockFlow.firstRootBox(); curr; curr = curr->nextRootBox())
+        m_lineToRegionMap->remove(curr);
 
     ASSERT_WITH_SECURITY_IMPLICATION(checkLinesConsistency(blockFlow));
 }
@@ -700,7 +699,7 @@ RenderRegion* RenderFlowThread::lastRegion() const
     return m_regionList.last();
 }
 
-void RenderFlowThread::clearRenderBoxRegionInfoAndCustomStyle(const RenderBox* box,
+void RenderFlowThread::clearRenderBoxRegionInfoAndCustomStyle(const RenderBox& box,
     const RenderRegion* newStartRegion, const RenderRegion* newEndRegion,
     const RenderRegion* oldStartRegion, const RenderRegion* oldEndRegion)
 {
@@ -717,7 +716,7 @@ void RenderFlowThread::clearRenderBoxRegionInfoAndCustomStyle(const RenderBox* b
         if (!(insideOldRegionRange && insideNewRegionRange)) {
             if (is<RenderNamedFlowFragment>(*region))
                 downcast<RenderNamedFlowFragment>(*region).clearObjectStyleInRegion(box);
-            if (region->renderBoxRegionInfo(box))
+            if (region->renderBoxRegionInfo(&box))
                 region->removeRenderBoxRegionInfo(box);
         }
 
@@ -728,14 +727,14 @@ void RenderFlowThread::clearRenderBoxRegionInfoAndCustomStyle(const RenderBox* b
     }
 }
 
-void RenderFlowThread::setRegionRangeForBox(const RenderBox* box, RenderRegion* startRegion, RenderRegion* endRegion)
+void RenderFlowThread::setRegionRangeForBox(const RenderBox& box, RenderRegion* startRegion, RenderRegion* endRegion)
 {
     ASSERT(hasRegions());
     ASSERT(startRegion && endRegion && startRegion->flowThread() == this && endRegion->flowThread() == this);
 
-    auto it = m_regionRangeMap.find(box);
+    auto it = m_regionRangeMap.find(&box);
     if (it == m_regionRangeMap.end()) {
-        m_regionRangeMap.set(box, RenderRegionRange(startRegion, endRegion));
+        m_regionRangeMap.set(&box, RenderRegionRange(startRegion, endRegion));
         return;
     }
 
@@ -748,11 +747,9 @@ void RenderFlowThread::setRegionRangeForBox(const RenderBox* box, RenderRegion* 
     range.setRange(startRegion, endRegion);
 }
 
-bool RenderFlowThread::hasCachedRegionRangeForBox(const RenderBox* box) const
+bool RenderFlowThread::hasCachedRegionRangeForBox(const RenderBox& box) const
 {
-    ASSERT(box);
-
-    return m_regionRangeMap.contains(box);
+    return m_regionRangeMap.contains(&box);
 }
 
 bool RenderFlowThread::getRegionRangeForBoxFromCachedInfo(const RenderBox* box, RenderRegion*& startRegion, RenderRegion*& endRegion) const
@@ -803,11 +800,10 @@ bool RenderFlowThread::computedRegionRangeForBox(const RenderBox* box, RenderReg
     if (getRegionRangeForBox(box, startRegion, endRegion))
         return true;
 
-    // Search the region range using the information provided by the
-    // containing block chain.
-    RenderBox* cb = const_cast<RenderBox*>(box);
-    while (!cb->isRenderFlowThread()) {
-        InlineElementBox* boxWrapper = cb->inlineBoxWrapper();
+    // Search the region range using the information provided by the containing block chain.
+    auto* containingBlock = const_cast<RenderBox*>(box);
+    while (!containingBlock->isRenderFlowThread()) {
+        InlineElementBox* boxWrapper = containingBlock->inlineBoxWrapper();
         if (boxWrapper && boxWrapper->root().containingRegion()) {
             startRegion = endRegion = boxWrapper->root().containingRegion();
             ASSERT(m_regionList.contains(startRegion));
@@ -817,18 +813,17 @@ bool RenderFlowThread::computedRegionRangeForBox(const RenderBox* box, RenderReg
         // FIXME: Use the containingBlock() value once we patch all the layout systems to be region range aware
         // (e.g. if we use containingBlock() the shadow controls of a video element won't get the range from the
         // video box because it's not a block; they need to be patched separately).
-        ASSERT(cb->parent());
-        cb = &cb->parent()->enclosingBox();
-        ASSERT(cb);
+        ASSERT(containingBlock->parent());
+        containingBlock = &containingBlock->parent()->enclosingBox();
+        ASSERT(containingBlock);
 
         // If a box doesn't have a cached region range it usually means the box belongs to a line so startRegion should be equal with endRegion.
         // FIXME: Find the cases when this startRegion should not be equal with endRegion and make sure these boxes have cached region ranges.
-        if (hasCachedRegionRangeForBox(cb)) {
-            startRegion = endRegion = regionAtBlockOffset(cb, box->offsetFromLogicalTopOfFirstPage(), true);
+        if (containingBlock && hasCachedRegionRangeForBox(*containingBlock)) {
+            startRegion = endRegion = regionAtBlockOffset(containingBlock, containingBlock->offsetFromLogicalTopOfFirstPage(), true);
             return true;
         }
     }
-
     ASSERT_NOT_REACHED();
     return false;
 }
@@ -932,7 +927,7 @@ bool RenderFlowThread::isAutoLogicalHeightRegionsCountConsistent() const
 #endif
 
 #if !ASSERT_WITH_SECURITY_IMPLICATION_DISABLED
-bool RenderFlowThread::checkLinesConsistency(const RenderBlockFlow* removedBlock) const
+bool RenderFlowThread::checkLinesConsistency(const RenderBlockFlow& removedBlock) const
 {
     if (!m_lineToRegionMap)
         return true;
@@ -940,7 +935,7 @@ bool RenderFlowThread::checkLinesConsistency(const RenderBlockFlow* removedBlock
     for (auto& linePair : *m_lineToRegionMap.get()) {
         const RootInlineBox* line = linePair.key;
         RenderRegion* region = linePair.value;
-        if (&line->blockFlow() == removedBlock)
+        if (&line->blockFlow() == &removedBlock)
             return false;
         if (line->blockFlow().flowThreadState() == NotInsideFlowThread)
             return false;
@@ -1094,7 +1089,7 @@ bool RenderFlowThread::addForcedRegionBreak(const RenderBlock* block, LayoutUnit
         hasComputedAutoHeight = true;
 
         // Compute the region height pretending that the offsetBreakInCurrentRegion is the logicalHeight for the auto-height region.
-        LayoutUnit regionComputedAutoHeight = namedFlowFragment.constrainContentBoxLogicalHeightByMinMax(offsetBreakInCurrentRegion, Nullopt);
+        LayoutUnit regionComputedAutoHeight = namedFlowFragment.constrainContentBoxLogicalHeightByMinMax(offsetBreakInCurrentRegion, std::nullopt);
 
         // The new height of this region needs to be smaller than the initial value, the max height. A forced break is the only way to change the initial
         // height of an auto-height region besides content ending.

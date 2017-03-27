@@ -75,7 +75,7 @@ void ResourceResponse::disableLazyInitialization()
 
 CertificateInfo ResourceResponse::platformCertificateInfo() const
 {
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
     ASSERT(m_cfResponse);
     CFURLResponseRef cfResponse = m_cfResponse.get();
 #else
@@ -114,7 +114,7 @@ CertificateInfo ResourceResponse::platformCertificateInfo() const
 #endif
 }
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
 
 NSURLResponse *ResourceResponse::nsURLResponse() const
 {
@@ -242,7 +242,7 @@ bool ResourceResponse::platformCompare(const ResourceResponse& a, const Resource
     return a.nsURLResponse() == b.nsURLResponse();
 }
 
-#endif // USE(CFNETWORK)
+#endif // USE(CFURLCONNECTION)
 
 } // namespace WebCore
 

@@ -23,12 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef URL_h
-#define URL_h
+#pragma once
 
 #include "PlatformExportMacros.h"
 #include <wtf/Forward.h>
-#include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -100,12 +98,12 @@ public:
 
     const String& string() const { return m_string; }
 
-    String stringCenterEllipsizedToLength(unsigned length = 1024) const;
+    WEBCORE_EXPORT String stringCenterEllipsizedToLength(unsigned length = 1024) const;
 
-    WEBCORE_EXPORT String protocol() const;
+    WEBCORE_EXPORT StringView protocol() const;
     WEBCORE_EXPORT String host() const;
-    WEBCORE_EXPORT unsigned short port() const;
-    bool hasPort() const;
+    WEBCORE_EXPORT std::optional<uint16_t> port() const;
+    WEBCORE_EXPORT String hostAndPort() const;
     WEBCORE_EXPORT String user() const;
     WEBCORE_EXPORT String pass() const;
     WEBCORE_EXPORT String path() const;
@@ -131,6 +129,7 @@ public:
     // Returns true if the current URL's protocol is the same as the null-
     // terminated ASCII argument. The argument must be lower-case.
     WEBCORE_EXPORT bool protocolIs(const char*) const;
+    bool protocolIs(StringView) const;
     bool protocolIsBlob() const { return protocolIs("blob"); }
     bool protocolIsData() const { return protocolIs("data"); }
     bool protocolIsInHTTPFamily() const;
@@ -192,13 +191,9 @@ public:
     operator NSString*() const { return string(); }
 #endif
 
-    const URL* innerURL() const { return 0; }
-
 #ifndef NDEBUG
     void print() const;
 #endif
-
-    bool isSafeToSendToAnotherThread() const;
 
     template <class Encoder> void encode(Encoder&) const;
     template <class Decoder> static bool decode(Decoder&, URL&);
@@ -206,6 +201,7 @@ public:
     String serialize(bool omitFragment = false) const;
 
 private:
+    friend class URLParser;
     WEBCORE_EXPORT void invalidate();
     static bool protocolIs(const String&, const char*);
     void init(const URL&, const String&, const TextEncoding&);
@@ -222,17 +218,18 @@ private:
     String m_string;
     bool m_isValid : 1;
     bool m_protocolIsInHTTPFamily : 1;
+    bool m_cannotBeABaseURL : 1;
 
-    int m_schemeEnd;
-    int m_userStart;
-    int m_userEnd;
-    int m_passwordEnd;
-    int m_hostEnd;
-    int m_portEnd;
-    int m_pathAfterLastSlash;
-    int m_pathEnd;
-    int m_queryEnd;
-    int m_fragmentEnd;
+    unsigned m_schemeEnd;
+    unsigned m_userStart;
+    unsigned m_userEnd;
+    unsigned m_passwordEnd;
+    unsigned m_hostEnd;
+    unsigned m_portEnd;
+    unsigned m_pathAfterLastSlash;
+    unsigned m_pathEnd;
+    unsigned m_queryEnd;
+    unsigned m_fragmentEnd;
 };
 
 template <class Encoder>
@@ -315,9 +312,12 @@ WEBCORE_EXPORT bool protocolIs(const String& url, const char* protocol);
 WEBCORE_EXPORT bool protocolIsJavaScript(const String& url);
 WEBCORE_EXPORT bool protocolIsInHTTPFamily(const String& url);
 
-unsigned short defaultPortForProtocol(const String& protocol);
-bool isDefaultPortForProtocol(unsigned short port, const String& protocol);
+std::optional<uint16_t> defaultPortForProtocol(StringView protocol);
+WEBCORE_EXPORT bool isDefaultPortForProtocol(uint16_t port, StringView protocol);
 WEBCORE_EXPORT bool portAllowed(const URL&); // Blacklist ports that should never be used for Web resources.
+
+WEBCORE_EXPORT void registerDefaultPortForProtocolForTesting(uint16_t port, const String& protocol);
+WEBCORE_EXPORT void clearDefaultPortForProtocolMapForTesting();
 
 bool isValidProtocol(const String&);
 
@@ -392,11 +392,6 @@ inline bool URL::hasPath() const
     return m_pathEnd != m_portEnd;
 }
 
-inline bool URL::hasPort() const
-{
-    return m_hostEnd < m_portEnd;
-}
-
 inline bool URL::hasUsername() const
 {
     return m_userEnd > m_userStart;
@@ -458,5 +453,3 @@ namespace WTF {
     };
 
 } // namespace WTF
-
-#endif // URL_h

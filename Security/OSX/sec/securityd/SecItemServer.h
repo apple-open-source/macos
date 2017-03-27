@@ -113,7 +113,7 @@ bool _SecServerGetKeyStats(const SecDbClass *qclass, struct _SecServerKeyStats *
 // Should all be blocks called from SecItemDb
 bool match_item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDictionaryRef item);
 bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
-void SecKeychainChanged(bool syncWithPeers);
+void SecKeychainChanged(void);
 
 extern void (*SecTaskDiagnoseEntitlements)(CFArrayRef accessGroups);
 

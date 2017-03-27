@@ -30,19 +30,15 @@
 
 // MARK: Basic Ring Ops
 
-static SOSRingRef SOSRingCreate_Basic(CFStringRef name, CFStringRef myPeerID, CFErrorRef *error) {
-    SOSRingRef retval = NULL;
-    retval = SOSRingCreate_Internal(name, 0, error);
-    if(!retval) return NULL;
-    SOSRingSetLastModifier(retval, myPeerID);
-    return retval;
+SOSRingRef SOSRingCreate_Basic(CFStringRef name, CFStringRef myPeerID, CFErrorRef *error) {
+    return SOSRingCreate_ForType(name, kSOSRingBase, myPeerID, error);
 }
 
-static bool SOSRingResetToEmpty_Basic(SOSRingRef ring, CFStringRef myPeerID, CFErrorRef *error) {
+bool SOSRingResetToEmpty_Basic(SOSRingRef ring, CFStringRef myPeerID, CFErrorRef *error) {
     return SOSRingResetToEmpty_Internal(ring, error) && SOSRingSetLastModifier(ring, myPeerID);
 }
 
-static bool SOSRingResetToOffering_Basic(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+bool SOSRingResetToOffering_Basic(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
     bool retval = priv && myPeerID &&
@@ -55,14 +51,14 @@ static bool SOSRingResetToOffering_Basic(SOSRingRef ring, SecKeyRef user_privkey
     return retval;
 }
 
-static SOSRingStatus SOSRingDeviceIsInRing_Basic(SOSRingRef ring, CFStringRef peerID) {
+SOSRingStatus SOSRingDeviceIsInRing_Basic(SOSRingRef ring, CFStringRef peerID) {
     if(SOSRingHasPeerID(ring, peerID)) return kSOSRingMember;
     if(SOSRingHasApplicant(ring, peerID)) return kSOSRingApplicant;
     if(SOSRingHasRejection(ring, peerID)) return kSOSRingReject;
     return kSOSRingNotInRing;
 }
 
-static bool SOSRingApply_Basic(SOSRingRef ring, SecKeyRef user_pubkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+bool SOSRingApply_Basic(SOSRingRef ring, SecKeyRef user_pubkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
     bool retval = false;
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
@@ -77,7 +73,7 @@ errOut:
 
 }
 
-static bool SOSRingWithdraw_Basic(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+bool SOSRingWithdraw_Basic(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     if(SOSRingHasPeerID(ring, myPeerID)) {
         SOSRingRemovePeerID(ring, myPeerID);
@@ -98,7 +94,7 @@ static bool SOSRingWithdraw_Basic(SOSRingRef ring, SecKeyRef user_privkey, SOSFu
     return true;
 }
 
-static bool SOSRingGenerationSign_Basic(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+bool SOSRingGenerationSign_Basic(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
     bool retval = priv && myPeerID &&
@@ -109,7 +105,7 @@ static bool SOSRingGenerationSign_Basic(SOSRingRef ring, SecKeyRef user_privkey,
     return retval;
 }
 
-static bool SOSRingConcordanceSign_Basic(SOSRingRef ring, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+bool SOSRingConcordanceSign_Basic(SOSRingRef ring, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
     bool retval = priv && myPeerID &&
@@ -119,7 +115,7 @@ static bool SOSRingConcordanceSign_Basic(SOSRingRef ring, SOSFullPeerInfoRef req
     return retval;
 }
 
-static bool SOSRingSetPayload_Basic(SOSRingRef ring, SecKeyRef user_privkey, CFDataRef payload, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+bool SOSRingSetPayload_Basic(SOSRingRef ring, SecKeyRef user_privkey, CFDataRef payload, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
     CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
     SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
     bool retval = priv && myPeerID &&
@@ -131,7 +127,7 @@ static bool SOSRingSetPayload_Basic(SOSRingRef ring, SecKeyRef user_privkey, CFD
     return retval;
 }
 
-static CFDataRef SOSRingGetPayload_Basic(SOSRingRef ring, CFErrorRef *error) {
+CFDataRef SOSRingGetPayload_Basic(SOSRingRef ring, CFErrorRef *error) {
     return SOSRingGetPayload_Internal(ring);
 }
 

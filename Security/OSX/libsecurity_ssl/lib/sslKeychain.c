@@ -46,6 +46,9 @@
 
 #include <Security/Security.h>
 #include <Security/SecKeyPriv.h>
+#if SEC_OS_IPHONE
+#include <Security/SecECKey.h>
+#endif
 #include <AssertMacros.h>
 #include <tls_handshake.h>
 

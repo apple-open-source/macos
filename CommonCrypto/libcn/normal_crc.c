@@ -28,9 +28,7 @@
 uint64_t
 crc_normal_init(crcInfoPtr crc)
 {
-    dispatch_once(&crc->table_init, ^{
-        gen_std_crc_table(crc);
-    });
+    cc_dispatch_once(&crc->table_init, crc, gen_std_crc_table);
     return crc->descriptor->def.parms.initial_value;
 }
 
@@ -76,15 +74,13 @@ crc_normal_update(crcInfoPtr crc, uint8_t *p, size_t len, uint64_t current)
 uint64_t
 crc_normal_final(crcInfoPtr crc, uint64_t current)
 {
-    return current ^ crc->descriptor->def.parms.final_xor & descmaskfunc(crc->descriptor);
+    return current ^ (crc->descriptor->def.parms.final_xor & descmaskfunc(crc->descriptor));
 }
 
 uint64_t
 crc_normal_oneshot(crcInfoPtr crc, uint8_t *p, size_t len)
 {
-    dispatch_once(&crc->table_init, ^{
-        gen_std_crc_table(crc);
-    });
+    cc_dispatch_once(&crc->table_init, crc, gen_std_crc_table);
     uint64_t current = crc->descriptor->def.parms.initial_value;
     while (len--) {
         switch (crc->descriptor->def.parms.width) {

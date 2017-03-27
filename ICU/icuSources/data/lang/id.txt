@@ -546,6 +546,7 @@ id{
         was{"Washo"}
         wbp{"Warlpiri"}
         wo{"Wolof"}
+        wuu{"Dialek Shanghai"}
         xal{"Kalmuk"}
         xh{"Xhosa"}
         xog{"Soga"}

@@ -24,7 +24,7 @@
 /*
  * SecKey.c - CoreFoundation based key object
  */
-
+#include <Security/SecBase.h>
 
 #include <Security/SecKeyInternal.h>
 #include <Security/SecItem.h>
@@ -41,10 +41,10 @@
 #include "SecECKeyPriv.h"
 #include "SecCTKKeyPriv.h"
 #include "SecBasePriv.h"
+#include <Security/SecKeyPriv.h>
 
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFString.h>
-#include <Security/SecBase.h>
 #include <pthread.h>
 #include <string.h>
 #include <AssertMacros.h>
@@ -191,6 +191,8 @@ static Boolean SecKeyEqual(CFTypeRef cf1, CFTypeRef cf2)
     d2 = SecKeyCopyAttributeDictionary(key2);
     // Returning NULL is an error; bail out of the equality check
     if(!d1 || !d2) {
+        CFReleaseSafe(d1);
+        CFReleaseSafe(d2);
         return false;
     }
     Boolean result = CFEqual(d1, d2);
@@ -560,7 +562,7 @@ static OSStatus SecKeyPerformLegacyOperation(SecKeyRef key,
     CFErrorRef error = NULL;
     OSStatus status = errSecSuccess;
     CFDataRef in1 = CFDataCreateWithBytesNoCopy(NULL, in1Ptr, in1Len, kCFAllocatorNull);
-    CFDataRef in2 = in2Ptr ? CFDataCreateWithBytesNoCopy(NULL, in2Ptr, in2Len, kCFAllocatorNull) : NULL;
+    CFDataRef in2 = CFDataCreateWithBytesNoCopy(NULL, in2Ptr, in2Len, kCFAllocatorNull);
     CFRange range = { 0, -1 };
     CFTypeRef output = operation(in1, in2, &range, &error);
     require_quiet(output, out);
@@ -619,7 +621,7 @@ OSStatus SecKeyRawVerify(
     }
     OSStatus status = SecKeyPerformLegacyOperation(key, signedData, signedDataLen, sig, sigLen, NULL, NULL,
                                                    ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
-                                                       return in2 != NULL && SecKeyVerifySignature(key, algorithm, in1, in2, error)
+                                                       return SecKeyVerifySignature(key, algorithm, in1, in2, error)
                                                        ? kCFBooleanTrue : NULL;
                                                    });
     return status;

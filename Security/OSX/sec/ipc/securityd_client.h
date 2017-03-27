@@ -40,7 +40,7 @@ typedef struct SecCertificatePath *SecCertificatePathRef;
 # endif // _SECURITY_SECCERTIFICATEPATH_H_
 #endif // MINIMIZE_INCLUDES
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_HAS_KEYSTORE
 #include <libaks.h>
 #endif
 
@@ -75,7 +75,7 @@ extern CFStringRef sSecXPCErrorDomain;
 extern const char *kSecXPCKeyOperation;
 extern const char *kSecXPCKeyResult;
 extern const char *kSecXPCKeyError;
-extern const char *kSecXPCKeyPeerInfos;
+extern const char *kSecXPCKeyPeerInfoArray;
 extern const char *kSecXPCKeyUserLabel;
 extern const char *kSecXPCKeyBackup;
 extern const char *kSecXPCKeyKeybag;
@@ -84,6 +84,7 @@ extern const char *kSecXPCKeyDSID;
 extern const char *kSecXPCKeyViewName;
 extern const char *kSecXPCKeyViewActionCode;
 extern const char *kSecXPCKeyNewPublicBackupKey;
+extern const char *kSecXPCKeyRecoveryPublicKey;
 extern const char *kSecXPCKeyIncludeV0;
 extern const char *kSecXPCKeyEnabledViewsKey;
 extern const char *kSecXPCKeyDisabledViewsKey;
@@ -111,7 +112,8 @@ extern const char *kSecXPCKeyClasses;
 extern const char *kSecXPCKeyOperation;
 extern const char *kSecXPCKeyResult;
 extern const char *kSecXPCKeyError;
-extern const char *kSecXPCKeyPeerInfos;
+extern const char *kSecXPCKeyPeerInfoArray;
+extern const char *kSecXPCKeyPeerInfo;
 extern const char *kSecXPCKeyUserLabel;
 extern const char *kSecXPCKeyUserPassword;
 extern const char *kSecXPCKeyDSID;
@@ -136,6 +138,8 @@ extern const char *kSecXPCKeyEscrowLabel;
 extern const char *kSecXPCKeyTriesLabel;
 extern const char *kSecXPCKeyString;
 extern const char *kSecXPCKeyArray;
+extern const char *kSecXPCKeySet;
+extern const char *kSecXPCKeySet2;
 
 extern const char *kSecXPCKeyReason;
 
@@ -193,6 +197,7 @@ enum SecXPCOperation {
     kSecXPCOpSendIDSMessage,
     kSecXPCOpPingTest,
     kSecXPCOpIDSDeviceID,
+    kSecXPCOpSyncWithKVSPeerIDOnly,
     // any process using an operation below here is required to have entitlement keychain-cloud-circle
     kSecXPCOpTryUserCredentials,
     kSecXPCOpSetUserCredentials,
@@ -245,6 +250,10 @@ enum SecXPCOperation {
     kSecXPCOpJoinWithCircleJoiningBlob,
     kSecXPCOpAccountHasPublicKey,
     kSecXPCOpAccountIsNew,
+    kSecXPCOpClearKVSPeerMessage,
+    kSecXPCOpRegisterRecoveryPublicKey,
+    kSecXPCOpGetRecoveryPublicKey,
+    kSecXPCOpCopyBackupInformation,
     /* after this is free for all */
     kSecXPCOpWhoAmI,
     kSecXPCOpTransmogrifyToSyncBubble,
@@ -258,6 +267,10 @@ enum SecXPCOperation {
     kSecXPCOpIsThisDeviceLastBackup,
     sec_keychain_backup_keybag_uuid_id,
     kSecXPCOpPeersHaveViewsEnabled,
+    kSecXPCOpProcessSyncWithPeers,
+    sec_device_is_internal_id,
+    kSecXPCOpMessageFromPeerIsPending,
+    kSecXPCOpSendToPeerIsPending,
 };
 
 
@@ -269,7 +282,7 @@ typedef struct {
     bool isNetworkExtension;
     uid_t uid;
     CFDataRef musr;
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_EMBEDDED && TARGET_HAS_KEYSTORE
     keybag_handle_t keybag;
 #endif
 #if TARGET_OS_IPHONE
@@ -298,6 +311,7 @@ struct securityd {
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);                         // TODO: remove, has no msg id
     bool (*sec_item_delete_all)(CFErrorRef* error);
     SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
+    bool (*sec_device_is_internal)(CFErrorRef* error);
     CFDataRef (*sec_keychain_backup)(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_keychain_restore)(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
@@ -336,6 +350,8 @@ struct securityd {
     bool (*soscc_ViewSet)(CFSetRef enabledViews, CFSetRef disabledViews);
     SOSSecurityPropertyResultCode (*soscc_SecurityProperty)(CFStringRef property, SOSSecurityPropertyActionCode action, CFErrorRef *error);
     bool (*soscc_RegisterSingleRecoverySecret)(CFDataRef backupSlice, bool forV0Only, CFErrorRef *error);
+    bool (*soscc_RegisterRecoveryPublicKey)(CFDataRef recovery_key, CFErrorRef *error);
+    CFDataRef (*soscc_CopyRecoveryPublicKey)(CFErrorRef *error);
     bool (*soscc_RemoveThisDeviceFromCircle)(CFErrorRef* error);
     bool (*soscc_RemovePeersFromCircle)(CFArrayRef peers, CFErrorRef* error);
     bool (*soscc_LoggedOutOfAccount)(CFErrorRef* error);
@@ -359,6 +375,7 @@ struct securityd {
     bool (*soscc_SetLastDepartureReason)(enum DepartureReason, CFErrorRef* error);
 	CFArrayRef (*ota_CopyEscrowCertificates)(uint32_t escrowRootType, CFErrorRef* error);
 	int (*sec_ota_pki_get_new_asset)(CFErrorRef* error);
+    CFSetRef (*soscc_ProcessSyncWithPeers)(CFSetRef peerIDs, CFSetRef backupPeerIDs, CFErrorRef* error);
     SyncWithAllPeersReason (*soscc_ProcessSyncWithAllPeers)(CFErrorRef* error);
     bool (*soscc_EnsurePeerRegistration)(CFErrorRef* error);
     bool (*sec_roll_keys)(bool force, CFErrorRef* error);
@@ -372,6 +389,7 @@ struct securityd {
     CFArrayRef (*soscc_CopyYetToSyncViewsList)(CFErrorRef*);
     bool (*soscc_SetEscrowRecords)(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
     CFDictionaryRef (*soscc_CopyEscrowRecords)(CFErrorRef *error);
+    CFDictionaryRef (*soscc_CopyBackupInformation)(CFErrorRef *error);
     bool (*soscc_PeerAvailability)(CFErrorRef *error);
     bool (*sosbskb_WrapToBackupSliceKeyBagForView)(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
     CFDataRef (*soscc_CopyAccountState)(CFErrorRef *error);
@@ -388,9 +406,13 @@ struct securityd {
     bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
     bool (*soscc_IsThisDeviceLastBackup)(CFErrorRef *error);
-    bool (*soscc_requestSyncWithPeerOverKVS)(CFStringRef peerID, CFErrorRef *error);
+    bool (*soscc_requestSyncWithPeerOverKVS)(CFStringRef peerID, CFDataRef message, CFErrorRef *error);
     bool (*soscc_requestSyncWithPeerOverIDS)(CFStringRef peerID, CFErrorRef *error);
     CFBooleanRef (*soscc_SOSCCPeersHaveViewsEnabled)(CFArrayRef views, CFErrorRef *error);
+    bool (*socc_clearPeerMessageKeyInKVS)(CFStringRef peerID, CFErrorRef *error);
+    bool (*soscc_requestSyncWithPeerOverKVSIDOnly)(CFStringRef peerID, CFErrorRef *error);
+    bool (*soscc_SOSCCMessageFromPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
+    bool (*soscc_SOSCCSendToPeerIsPending)(SOSPeerInfoRef peer, CFErrorRef* error);
 };
 
 extern struct securityd *gSecurityd;

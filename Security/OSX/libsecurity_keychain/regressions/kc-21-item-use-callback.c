@@ -6,6 +6,13 @@
 #include "keychain_regressions.h"
 #include "kc-helpers.h"
 
+/*
+ Note: to force a failure, run this as root:
+    chmod o-r /var/db/mds/messages/se_SecurityMessages
+ Restore with
+    chmod o+r /var/db/mds/messages/se_SecurityMessages
+ */
+
 static char account[] = "account";
 static char service[] = "service";
 static char password[] = "password";
@@ -32,6 +39,7 @@ static void checkContent(SecKeychainItemRef itemRef)
     is(length, sizeof(password), "<rdar://problem/3867900> "
         "SecKeychainItemCopyContent() returns bad data on items "
         "from notifications");
+    ok(data, "received data from item");
 
     ok(!memcmp(password, data, length), "password data matches.");
 
@@ -61,7 +69,7 @@ static OSStatus callbackFunction(SecKeychainEvent keychainEvent,
 int
 kc_21_item_use_callback(int argc, char *const *argv)
 {
-	plan_tests(14);
+	plan_tests(16);
 
     // Run the CFRunLoop to clear out existing notifications
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);
@@ -84,6 +92,8 @@ kc_21_item_use_callback(int argc, char *const *argv)
     is(callbackCalled, true, "Keychain callback function was not called or did not finish");
 
 	CFRelease(itemRef);
+
+    ok_status(SecKeychainRemoveCallback(callbackFunction), "Remove callback");
 
     ok_status(SecKeychainDelete(keychain), "%s: SecKeychainDelete", testName);
 	CFRelease(keychain);

@@ -29,8 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InspectorNetworkAgent_h
-#define InspectorNetworkAgent_h
+#pragma once
 
 #include "InspectorWebAgentBase.h"
 #include <inspector/InspectorBackendDispatchers.h>
@@ -48,13 +47,14 @@ namespace WebCore {
 class CachedResource;
 class Document;
 class DocumentLoader;
+class DocumentThreadableLoader;
 class InspectorPageAgent;
+class NetworkLoadTiming;
 class NetworkResourcesData;
 class ResourceError;
 class ResourceLoader;
 class ResourceRequest;
 class ResourceResponse;
-class ThreadableLoaderClient;
 class URL;
 
 #if ENABLE(WEB_SOCKETS)
@@ -72,7 +72,7 @@ public:
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
-    // InspectorInstrumentation callbacks.
+    // InspectorInstrumentation
     void willRecalculateStyle();
     void didRecalculateStyle();
     void willSendRequest(unsigned long identifier, DocumentLoader&, ResourceRequest&, const ResourceResponse& redirectResponse);
@@ -82,8 +82,8 @@ public:
     void didFinishLoading(unsigned long identifier, DocumentLoader&, double finishTime);
     void didFailLoading(unsigned long identifier, DocumentLoader&, const ResourceError&);
     void didLoadResourceFromMemoryCache(DocumentLoader&, CachedResource&);
-    void didFinishXHRLoading(ThreadableLoaderClient*, unsigned long identifier, const String& sourceString);
-    void didReceiveXHRResponse(unsigned long identifier);
+    void didReceiveThreadableLoaderResponse(unsigned long identifier, DocumentThreadableLoader&);
+    void didFinishXHRLoading(unsigned long identifier, const String& decodedText);
     void willLoadXHRSynchronously();
     void didLoadXHRSynchronously();
     void didReceiveScriptResponse(unsigned long identifier);
@@ -117,6 +117,10 @@ public:
 private:
     void enable();
 
+    Ref<Inspector::Protocol::Network::ResourceTiming> buildObjectForTiming(const NetworkLoadTiming&, ResourceLoader&);
+    RefPtr<Inspector::Protocol::Network::Response> buildObjectForResourceResponse(const ResourceResponse&, ResourceLoader*);
+    Ref<Inspector::Protocol::Network::CachedResource> buildObjectForCachedResource(CachedResource*);
+
     double timestamp();
 
     std::unique_ptr<Inspector::NetworkFrontendDispatcher> m_frontendDispatcher;
@@ -136,5 +140,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // !defined(InspectorNetworkAgent_h)

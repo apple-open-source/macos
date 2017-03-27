@@ -104,6 +104,7 @@ int SOSCircleCountRetiredPeers(SOSCircleRef circle);
 
 void SOSCircleForEachPeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
 void SOSCircleForEachRetiredPeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
+void SOSCircleForEachiCloudIdentityPeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
 void SOSCircleForEachActivePeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
 void SOSCircleForEachActiveValidPeer(SOSCircleRef circle, SecKeyRef user_public_key, void (^action)(SOSPeerInfoRef peer));
 void SOSCircleForEachValidPeer(SOSCircleRef circle, SecKeyRef user_public_key, void (^action)(SOSPeerInfoRef peer));
@@ -116,6 +117,7 @@ bool SOSCircleHasActivePeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErr
 bool SOSCircleHasActivePeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error);
 bool SOSCircleHasActiveValidPeerWithID(SOSCircleRef circle, CFStringRef peerid, SecKeyRef user_public_key, CFErrorRef *error);
 bool SOSCircleHasActiveValidPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, SecKeyRef user_public_key, CFErrorRef *error);
+bool SOSCircleHasValidSyncingPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, SecKeyRef user_public_key, CFErrorRef *error);
 
 bool SOSCircleResetToOffering(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
 bool SOSCircleResetToEmpty(SOSCircleRef circle, CFErrorRef *error);
@@ -135,10 +137,11 @@ bool SOSCirclePeerSigUpdate(SOSCircleRef circle, SecKeyRef userPrivKey, SOSFullP
 // No resigning of the circle is done, only updates to their own self signed description.
 //
 bool SOSCircleUpdatePeerInfo(SOSCircleRef circle, SOSPeerInfoRef replacement_peer_info);
+bool SOSCircleRemovePeersByIDUnsigned(SOSCircleRef circle, CFSetRef peersToRemove);
 
 bool SOSCircleRemovePeer(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, SOSPeerInfoRef peerInfo, CFErrorRef *error);
 bool SOSCircleRemovePeers(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, CFSetRef peerInfo, CFErrorRef *error);
-
+bool SOSCircleRemovePeersByID(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, CFSetRef peerIDs, CFErrorRef *error);
 bool SOSCircleRemoveRetired(SOSCircleRef circle, CFErrorRef *error);
 
 bool SOSCircleAcceptRequests(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef device_approver, CFErrorRef *error);

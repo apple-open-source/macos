@@ -28,7 +28,9 @@
 
 #include <list>
 #include <security_utilities/globalizer.h>
+#if( __cplusplus <= 201103L)
 #include <stdatomic.h>
+#endif
 
 SecPointerBase::SecPointerBase(const SecPointerBase& p)
 {
@@ -146,11 +148,7 @@ void
 SecCFObject::operator delete(void *object) throw()
 {
 	CFTypeRef cfType = reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(object) - kAlignedRuntimeSize);
-    if (CF_IS_COLLECTABLE(cfType))
-    {
-        return;
-    }
-    
+
     CFAllocatorRef allocator = CFGetAllocator(cfType);
     CFAllocatorDeallocate(allocator, (void*) cfType);
 }

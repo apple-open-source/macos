@@ -431,7 +431,7 @@ CSSM_CSP_ChangeLoginAcl (CSSM_CSP_HANDLE CSPHandle,
 /* --------------------------------------------------------------------------
 	CSSM_GetKeyAcl has been deprecated in 10.7 and later.  
 	If the key in question is in a keychain then the ACL for the key can be 
-	aquired by using the SecItemCopyMatching API specifically 
+	acquired by using the SecItemCopyMatching API specifically
 	kSecReturnAttributes with a value of kCFBooleanTrue.  In the attributes
 	dictionary is kSecAttrAccess key with a value of a SecAccessRef. With
 	a SecAccessRef the ACL for the key can be gotten using either the
@@ -460,7 +460,7 @@ CSSM_ChangeKeyAcl (CSSM_CSP_HANDLE CSPHandle,
 /* --------------------------------------------------------------------------
 	CSSM_GetKeyOwner has been deprecated in 10.7 and later.  
 	If the key in question is in a keychain then the ACL for the key can be 
-	aquired by using the SecItemCopyMatching API specifically 
+	acquired by using the SecItemCopyMatching API specifically
 	kSecReturnAttributes with a value of kCFBooleanTrue.  In the attributes
 	dictionary is kSecAttrAccess key with a value of a SecAccessRef. With
 	a SecAccessRef the ACL for the key can be gotten using either the

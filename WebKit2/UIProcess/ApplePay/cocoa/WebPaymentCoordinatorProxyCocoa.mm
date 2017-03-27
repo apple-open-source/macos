@@ -29,6 +29,7 @@
 #if ENABLE(APPLE_PAY)
 
 #import "WebPaymentCoordinatorProxy.h"
+#import "WebProcessPool.h"
 #import <WebCore/PassKitSPI.h>
 #import <WebCore/PaymentAuthorizationStatus.h>
 #import <WebCore/PaymentHeaders.h>
@@ -274,7 +275,7 @@ static RetainPtr<NSDecimalNumber> toDecimalNumber(int64_t value)
 
 static RetainPtr<PKPaymentSummaryItem> toPKPaymentSummaryItem(const WebCore::PaymentRequest::LineItem& lineItem)
 {
-    return [getPKPaymentSummaryItemClass() summaryItemWithLabel:lineItem.label amount:toDecimalNumber(lineItem.amount.valueOr(0)).get() type:toPKPaymentSummaryItemType(lineItem.type)];
+    return [getPKPaymentSummaryItemClass() summaryItemWithLabel:lineItem.label amount:toDecimalNumber(lineItem.amount.value_or(0)).get() type:toPKPaymentSummaryItemType(lineItem.type)];
 }
 
 static PKMerchantCapability toPKMerchantCapabilities(const WebCore::PaymentRequest::MerchantCapabilities& merchantCapabilities)
@@ -359,7 +360,7 @@ static RetainPtr<PKShippingMethod> toPKShippingMethod(const WebCore::PaymentRequ
     return result;
 }
 
-RetainPtr<PKPaymentRequest> toPKPaymentRequest(const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLs, const WebCore::PaymentRequest& paymentRequest)
+RetainPtr<PKPaymentRequest> toPKPaymentRequest(WebPageProxy& webPageProxy, const WebCore::URL& originatingURL, const Vector<WebCore::URL>& linkIconURLs, const WebCore::PaymentRequest& paymentRequest)
 {
     auto result = adoptNS([allocPKPaymentRequestInstance() init]);
 
@@ -409,6 +410,20 @@ RetainPtr<PKPaymentRequest> toPKPaymentRequest(const WebCore::URL& originatingUR
         [result setApplicationData:applicationData.get()];
     }
 
+    // FIXME: Instead of using respondsToSelector, this should use a proper #if version check.
+    auto& configuration = webPageProxy.process().processPool().configuration();
+
+    if (!configuration.sourceApplicationBundleIdentifier().isEmpty() && [result respondsToSelector:@selector(setSourceApplicationBundleIdentifier:)])
+        [result setSourceApplicationBundleIdentifier:configuration.sourceApplicationBundleIdentifier()];
+
+    if (!configuration.sourceApplicationSecondaryIdentifier().isEmpty() && [result respondsToSelector:@selector(setSourceApplicationSecondaryIdentifier:)])
+        [result setSourceApplicationSecondaryIdentifier:configuration.sourceApplicationSecondaryIdentifier()];
+
+#if PLATFORM(IOS)
+    if (!configuration.ctDataConnectionServiceType().isEmpty() && [result respondsToSelector:@selector(setCTDataConnectionServiceType:)])
+        [result setCTDataConnectionServiceType:configuration.ctDataConnectionServiceType()];
+#endif
+
     return result;
 }
 
@@ -453,7 +468,7 @@ void WebPaymentCoordinatorProxy::platformCompleteMerchantValidation(const WebCor
     m_paymentAuthorizationViewControllerDelegate->_sessionBlock = nullptr;
 }
 
-void WebPaymentCoordinatorProxy::platformCompleteShippingMethodSelection(WebCore::PaymentAuthorizationStatus status, const Optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
+void WebPaymentCoordinatorProxy::platformCompleteShippingMethodSelection(WebCore::PaymentAuthorizationStatus status, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
 {
     ASSERT(m_paymentAuthorizationViewController);
     ASSERT(m_paymentAuthorizationViewControllerDelegate);
@@ -475,7 +490,7 @@ void WebPaymentCoordinatorProxy::platformCompleteShippingMethodSelection(WebCore
     m_paymentAuthorizationViewControllerDelegate->_didSelectShippingMethodCompletion = nullptr;
 }
 
-void WebPaymentCoordinatorProxy::platformCompleteShippingContactSelection(WebCore::PaymentAuthorizationStatus status, const Vector<WebCore::PaymentRequest::ShippingMethod>& newShippingMethods, const Optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
+void WebPaymentCoordinatorProxy::platformCompleteShippingContactSelection(WebCore::PaymentAuthorizationStatus status, const Vector<WebCore::PaymentRequest::ShippingMethod>& newShippingMethods, const std::optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
 {
     ASSERT(m_paymentAuthorizationViewController);
     ASSERT(m_paymentAuthorizationViewControllerDelegate);
@@ -503,7 +518,7 @@ void WebPaymentCoordinatorProxy::platformCompleteShippingContactSelection(WebCor
     m_paymentAuthorizationViewControllerDelegate->_didSelectShippingContactCompletion = nullptr;
 }
 
-void WebPaymentCoordinatorProxy::platformCompletePaymentMethodSelection(const Optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
+void WebPaymentCoordinatorProxy::platformCompletePaymentMethodSelection(const std::optional<WebCore::PaymentRequest::TotalAndLineItems>& newTotalAndLineItems)
 {
     ASSERT(m_paymentAuthorizationViewController);
     ASSERT(m_paymentAuthorizationViewControllerDelegate);

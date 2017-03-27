@@ -32,6 +32,7 @@
 #include "SecOTRDHKey.h"
 
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecBuffer.h>
 
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFString.h>
@@ -404,113 +405,113 @@ static OSStatus SecVerifySignatureAndMac(SecOTRSessionRef session,
                                          const uint8_t **signatureAndMacBytes,
                                          size_t *signatureAndMacSize)
 {
-    OSStatus result = errSecDecode;
-    
-    uint8_t m1[kOTRAuthMACKeyBytes];
-    uint8_t m2[kOTRAuthMACKeyBytes];
-    uint8_t c[kOTRAuthKeyBytes];
-    
-    {
-        cc_unit s[kExponentiationUnits];
-        
-        SecPDHKeyGenerateS(session->_myKey, session->_theirKey, s);
-        // Derive M1, M2 and C, either prime or normal versions.
-        DeriveOTR256BitsFromS(usePrimes ? kM1Prime : kM1,
-                              kExponentiationUnits, s, sizeof(m1), m1);
-        DeriveOTR256BitsFromS(usePrimes ? kM2Prime : kM2,
-                              kExponentiationUnits, s, sizeof(m2), m2);
-        DeriveOTR128BitPairFromS(kCs,
-                                 kExponentiationUnits, s,
-                                 sizeof(c),usePrimes ? NULL : c,
-                                 sizeof(c), usePrimes ? c : NULL);
-        bzero(s, sizeof(s));
-    }
-    
-    cchmac_di_decl(ccsha256_di(), mBContext);
+    __block OSStatus result = errSecDecode;
 
-    cchmac_init(ccsha256_di(), mBContext, sizeof(m1), m1);
+    PerformWithBufferAndClear(kOTRAuthMACKeyBytes, ^(size_t m1_size, uint8_t *m1) {
+        PerformWithBufferAndClear(kOTRAuthMACKeyBytes, ^(size_t m2_size, uint8_t *m2) {
+            PerformWithBufferAndClear(kOTRAuthKeyBytes, ^(size_t c_size, uint8_t *c) {
+                {
+                    cc_unit s[kExponentiationUnits];
 
-    {
-        CFMutableDataRef toHash = CFDataCreateMutable(kCFAllocatorDefault, 0);
-        
-        SecPDHKAppendSerialization(session->_theirKey, toHash);
-        SecFDHKAppendPublicSerialization(session->_myKey, toHash);
-        
-        cchmac_update(ccsha256_di(), mBContext, (size_t)CFDataGetLength(toHash), CFDataGetBytePtr(toHash));
-        
-        CFReleaseNull(toHash);
-    }
-    
-    const uint8_t* encSigDataBlobStart = *signatureAndMacBytes;
-    
-    uint32_t xbSize = 0;
-    result = ReadLong(signatureAndMacBytes, signatureAndMacSize, &xbSize);
-    require_noerr(result, exit);
-    require_action(xbSize > 4, exit, result = errSecDecode);
-    require_action(xbSize <= *signatureAndMacSize, exit, result = errSecDecode);
-    
-    uint8_t signatureMac[CCSHA256_OUTPUT_SIZE];
-    cchmac(ccsha256_di(), sizeof(m2), m2, xbSize + 4, encSigDataBlobStart, signatureMac);
-    
-    require(xbSize + kSHA256HMAC160Bytes <= *signatureAndMacSize, exit);
-    const uint8_t *macStart = *signatureAndMacBytes + xbSize;
+                    SecPDHKeyGenerateS(session->_myKey, session->_theirKey, s);
+                    // Derive M1, M2 and C, either prime or normal versions.
+                    DeriveOTR256BitsFromS(usePrimes ? kM1Prime : kM1,
+                                          kExponentiationUnits, s, m1_size, m1);
+                    DeriveOTR256BitsFromS(usePrimes ? kM2Prime : kM2,
+                                          kExponentiationUnits, s, m2_size, m2);
+                    DeriveOTR128BitPairFromS(kCs,
+                                             kExponentiationUnits, s,
+                                             c_size,usePrimes ? NULL : c,
+                                             c_size, usePrimes ? c : NULL);
+                    bzero(s, sizeof(s));
+                }
 
-    // check the outer hmac
-    require_action(0 == cc_cmp_safe(kSHA256HMAC160Bytes, macStart, signatureMac), exit, result = errSecDecode);
-           
+                const uint8_t* encSigDataBlobStart = *signatureAndMacBytes;
 
-    {
-        uint8_t xb[xbSize];
-        // Decrypt and copy the signature block
-        AES_CTR_IV0_Transform(sizeof(c), c, xbSize, *signatureAndMacBytes, xb);
+                uint32_t xbSize = 0;
+                result = ReadLong(signatureAndMacBytes, signatureAndMacSize, &xbSize);
+                require_noerr(result, exit);
+                require_action(xbSize > 4, exit, result = errSecDecode);
+                require_action(xbSize <= *signatureAndMacSize, exit, result = errSecDecode);
 
-        const uint8_t* signaturePacket = xb;
-        size_t signaturePacketSize = xbSize;
-        
-        uint16_t pubKeyType;
-        result = ReadShort(&signaturePacket, &signaturePacketSize, &pubKeyType);
-        require_noerr(result, exit);
-        require_action(pubKeyType == 0xF000, exit, result = errSecUnimplemented);
+                uint8_t signatureMac[CCSHA256_OUTPUT_SIZE];
+                cchmac(ccsha256_di(), m2_size, m2, xbSize + 4, encSigDataBlobStart, signatureMac);
 
-        uint32_t pubKeySize;
-        result = ReadLong(&signaturePacket, &signaturePacketSize, &pubKeySize);
-        require_noerr(result, exit);
-        require_action(pubKeySize <= signaturePacketSize, exit, result = errSecDecode);
-        require(((CFIndex)pubKeySize) >= 0, exit);
-        
-        // Add the signature and keyid to the hash.
-        // PUBKEY of our type is 2 bytes of type, 2 bytes of size and size bytes.
-        // Key ID is 4 bytes.
-        cchmac_update(ccsha256_di(), mBContext, 2 + 4 + pubKeySize + 4, xb);
-        
-        uint8_t mb[CCSHA256_OUTPUT_SIZE];
-        cchmac_final(ccsha256_di(), mBContext, mb);
+                require_action(xbSize + kSHA256HMAC160Bytes <= *signatureAndMacSize, exit, result = errSecDecode);
+                const uint8_t *macStart = *signatureAndMacBytes + xbSize;
 
-        // Make reference to the deflated key
-        require_action(SecOTRPIEqualToBytes(session->_them, signaturePacket, (CFIndex)pubKeySize), exit, result = errSecAuthFailed);
+                // check the outer hmac
+                require_action(0 == cc_cmp_safe(kSHA256HMAC160Bytes, macStart, signatureMac), exit, result = errSecDecode);
 
-        signaturePacket += pubKeySize;
-        signaturePacketSize -= pubKeySize;
-       
-        result = ReadLong(&signaturePacket, &signaturePacketSize, &session->_theirKeyID);
-        require_noerr(result, exit);
 
-        uint32_t sigSize;
-        result = ReadLong(&signaturePacket, &signaturePacketSize, &sigSize);
-        require_noerr(result, exit);
-        require_action(sigSize <= signaturePacketSize, exit, result = errSecDecode);
-        
-        bool bresult = SecOTRPIVerifySignature(session->_them, mb, sizeof(mb), signaturePacket, sigSize, NULL);
-        result = bresult ? errSecSuccess : errSecDecode;
-        require_noerr(result, exit);
-        
-    }
+                PerformWithBufferAndClear(xbSize, ^(size_t size, uint8_t *xb) {
+                    cchmac_di_decl(ccsha256_di(), mBContext);
 
-exit:
-    bzero(m1, sizeof(m1));
-    bzero(m2, sizeof(m2));
-    bzero(c, sizeof(c));
-    
+                    cchmac_init(ccsha256_di(), mBContext, m1_size, m1);
+
+                    {
+                        CFMutableDataRef toHash = CFDataCreateMutable(kCFAllocatorDefault, 0);
+
+                        SecPDHKAppendSerialization(session->_theirKey, toHash);
+                        SecFDHKAppendPublicSerialization(session->_myKey, toHash);
+
+                        cchmac_update(ccsha256_di(), mBContext, (size_t)CFDataGetLength(toHash), CFDataGetBytePtr(toHash));
+                        
+                        CFReleaseNull(toHash);
+                    }
+
+                    // Decrypt and copy the signature block
+                    AES_CTR_IV0_Transform(c_size, c, xbSize, *signatureAndMacBytes, xb);
+
+                    const uint8_t* signaturePacket = xb;
+                    size_t signaturePacketSize = xbSize;
+
+                    uint16_t pubKeyType;
+                    result = ReadShort(&signaturePacket, &signaturePacketSize, &pubKeyType);
+                    require_noerr(result, exit);
+                    require_action(pubKeyType == 0xF000, exit, result = errSecUnimplemented);
+
+                    uint32_t pubKeySize;
+                    result = ReadLong(&signaturePacket, &signaturePacketSize, &pubKeySize);
+                    require_noerr(result, exit);
+                    require_action(pubKeySize <= signaturePacketSize, exit, result = errSecDecode);
+                    require(((CFIndex)pubKeySize) >= 0, exit);
+
+                    // Add the signature and keyid to the hash.
+                    // PUBKEY of our type is 2 bytes of type, 2 bytes of size and size bytes.
+                    // Key ID is 4 bytes.
+                    cchmac_update(ccsha256_di(), mBContext, 2 + 4 + pubKeySize + 4, xb);
+
+                    uint8_t mb[CCSHA256_OUTPUT_SIZE];
+                    cchmac_final(ccsha256_di(), mBContext, mb);
+
+                    // Make reference to the deflated key
+                    require_action(SecOTRPIEqualToBytes(session->_them, signaturePacket, (CFIndex)pubKeySize), exit, result = errSecAuthFailed);
+                    
+                    signaturePacket += pubKeySize;
+                    signaturePacketSize -= pubKeySize;
+                    
+                    result = ReadLong(&signaturePacket, &signaturePacketSize, &session->_theirKeyID);
+                    require_noerr(result, exit);
+                    
+                    uint32_t sigSize;
+                    result = ReadLong(&signaturePacket, &signaturePacketSize, &sigSize);
+                    require_noerr(result, exit);
+                    require_action(sigSize <= signaturePacketSize, exit, result = errSecDecode);
+                    
+                    bool bresult = SecOTRPIVerifySignature(session->_them, mb, sizeof(mb), signaturePacket, sigSize, NULL);
+                    result = bresult ? errSecSuccess : errSecDecode;
+                    require_noerr(result, exit);
+                exit:
+                    ;
+                });
+            exit:
+                ;
+            });
+        });
+    });
+
+
     return result;
 }
 

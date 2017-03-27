@@ -64,16 +64,25 @@ static Boolean SOSTransportMessageCompare(CFTypeRef lhs, CFTypeRef rhs){
     return SOSTransportMessageHash(lhs) == SOSTransportMessageHash(rhs);
 }
 
-bool SOSTransportMessageSendMessages(SOSTransportMessageRef transport, CFDictionaryRef circle_messages, CFErrorRef *error) {
-    return transport->sendMessages(transport, circle_messages, error);
+bool SOSTransportMessageSendMessage(SOSTransportMessageRef transport, CFStringRef peerID, CFDataRef message, CFErrorRef *error) {
+    CFDictionaryRef peerMessage = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, peerID, message, NULL);
+
+    bool result = SOSTransportMessageSendMessages(transport, peerMessage, error);
+
+    CFReleaseNull(peerMessage);
+    return result;
+}
+
+bool SOSTransportMessageSendMessages(SOSTransportMessageRef transport, CFDictionaryRef peer_messages, CFErrorRef *error) {
+    return transport->sendMessages(transport, peer_messages, error);
 }
 
 bool SOSTransportMessageFlushChanges(SOSTransportMessageRef transport, CFErrorRef *error){
     return transport->flushChanges(transport, error);
 }
 
-bool SOSTransportMessageSyncWithPeers(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef *error){
-    return transport->syncWithPeers(transport, circleToPeerIDs, error);
+bool SOSTransportMessageSyncWithPeers(SOSTransportMessageRef transport, CFSetRef peers, CFErrorRef *error){
+    return transport->syncWithPeers(transport, peers, error);
 }
 
 bool SOSTransportMessageCleanupAfterPeerMessages(SOSTransportMessageRef transport, CFDictionaryRef circleToPeerIDs, CFErrorRef* error){
@@ -89,10 +98,10 @@ SOSEngineRef SOSTransportMessageGetEngine(SOSTransportMessageRef transport) {
     return transport->engine;
 }
 
-bool SOSTransportMessageHandlePeerMessage(SOSTransportMessageRef transport, CFStringRef peerID, CFDataRef codedMessage, CFErrorRef *error) {
+static bool SOSEngineHandleCodedMessage(SOSEngineRef engine, CFStringRef peerID, CFDataRef codedMessage, CFErrorRef*error) {
     __block bool result = true;
     __block bool somethingChanged = false;
-    SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
+
     result &= SOSEngineWithPeerID(engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *shouldSave) {
         CFDataRef decodedMessage = NULL;
         enum SOSCoderUnwrapStatus uwstatus = SOSPeerHandleCoderMessage(peer, coder, peerID, codedMessage, &decodedMessage, shouldSave, error);
@@ -113,10 +122,26 @@ bool SOSTransportMessageHandlePeerMessage(SOSTransportMessageRef transport, CFSt
         }
         CFReleaseNull(decodedMessage);
     });
-    // TODO: Wish this wasn't here but alas.  See the comment for SOSEngineHandleMessage_locked() on why this is needed.
-    if (somethingChanged)
-        SecKeychainChanged(false);
+    
+    if (somethingChanged) {
+        SecKeychainChanged();
+    }
 
+    if (result) {
+        SOSCCRequestSyncWithPeer(peerID);
+    }
+
+    return result;
+}
+
+bool SOSTransportMessageHandlePeerMessage(SOSTransportMessageRef transport, CFStringRef peerID, CFDataRef codedMessage, CFErrorRef *error) {
+    bool result = false;
+    SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
+    require_quiet(SecRequirementError(engine != NULL, error, CFSTR("Missing engine")), done);
+
+    result = SOSEngineHandleCodedMessage(engine, peerID, codedMessage, error);
+
+done:
     return result;
 }
 
@@ -125,29 +150,20 @@ bool SOSTransportMessageSendMessageIfNeeded(SOSTransportMessageRef transport, CF
     SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
 
     ok &= SOSEngineWithPeerID(engine, peer_id, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *forceSaveState) {
-            // Now under engine lock do stuff
-            CFDataRef message_to_send = NULL;
-            SOSEnginePeerMessageSentBlock sent = NULL;
-            ok = SOSPeerCoderSendMessageIfNeeded(engine, txn, peer, coder, &message_to_send, circle_id, peer_id, &sent, error);
-            if (message_to_send) {
-                CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                                                                         peer_id, message_to_send,
-                                                                         NULL);
-                CFDictionaryRef circle_peers = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                                                                            circle_id, peer_dict,
-                                                                            NULL);
-                ok = ok && SOSTransportMessageSendMessages(transport, circle_peers, error);
+        // Now under engine lock do stuff
+        CFDataRef message_to_send = NULL;
+        SOSEnginePeerMessageSentBlock sent = NULL;
+        ok = SOSPeerCoderSendMessageIfNeeded(engine, txn, peer, coder, &message_to_send, peer_id, &sent, error);
+        if (message_to_send) {
+            ok = ok && SOSTransportMessageSendMessage(transport, peer_id, message_to_send, error);
 
-                SOSPeerCoderConsume(&sent, ok);
-
-                CFReleaseSafe(peer_dict);
-                CFReleaseSafe(circle_peers);
-            }else{
-                secnotice("transport", "no message to send to peer: %@", peer_id);
-            }
+            SOSPeerCoderConsume(&sent, ok);
+        }else{
+            secnotice("transport", "no message to send to peer: %@", peer_id);
+        }
         
-            Block_release(sent);
-            CFReleaseSafe(message_to_send);
+        Block_release(sent);
+        CFReleaseSafe(message_to_send);
 
         *forceSaveState = ok;
     });

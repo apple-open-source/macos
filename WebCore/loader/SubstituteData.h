@@ -23,13 +23,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef SubstituteData_h
-#define SubstituteData_h
+#pragma once
 
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
 #include "URL.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -69,7 +67,4 @@ namespace WebCore {
         SessionHistoryVisibility m_shouldRevealToSessionHistory { SessionHistoryVisibility::Hidden };
     };
 
-}
-
-#endif // SubstituteData_h
-
+} // namespace WebCore

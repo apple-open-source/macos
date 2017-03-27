@@ -76,10 +76,10 @@ bool DatabaseProcess::shouldTerminate()
 
 void DatabaseProcess::didClose(IPC::Connection&)
 {
-    RunLoop::current().stop();
+    stopRunLoop();
 }
 
-void DatabaseProcess::didReceiveMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder)
+void DatabaseProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     if (messageReceiverMap().dispatchMessage(connection, decoder))
         return;
@@ -88,11 +88,6 @@ void DatabaseProcess::didReceiveMessage(IPC::Connection& connection, IPC::Messag
         didReceiveDatabaseProcessMessage(connection, decoder);
         return;
     }
-}
-
-void DatabaseProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference)
-{
-    RunLoop::current().stop();
 }
 
 #if ENABLE(INDEXED_DATABASE)
@@ -238,6 +233,7 @@ void DatabaseProcess::deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<
 #endif
 }
 
+#if ENABLE(SANDBOX_EXTENSIONS)
 void DatabaseProcess::grantSandboxExtensionsForBlobs(const Vector<String>& paths, const SandboxExtension::HandleArray& handles)
 {
     ASSERT(paths.size() == handles.size());
@@ -247,6 +243,7 @@ void DatabaseProcess::grantSandboxExtensionsForBlobs(const Vector<String>& paths
         ASSERT_UNUSED(result, result.isNewEntry);
     }
 }
+#endif
 
 #if ENABLE(INDEXED_DATABASE)
 void DatabaseProcess::prepareForAccessToTemporaryFile(const String& path)
@@ -266,17 +263,17 @@ void DatabaseProcess::accessToTemporaryFileComplete(const String& path)
         extension->revoke();
 }
 
-Vector<RefPtr<WebCore::SecurityOrigin>> DatabaseProcess::indexedDatabaseOrigins()
+Vector<WebCore::SecurityOriginData> DatabaseProcess::indexedDatabaseOrigins()
 {
     if (m_indexedDatabaseDirectory.isEmpty())
         return { };
 
-    Vector<RefPtr<WebCore::SecurityOrigin>> securityOrigins;
+    Vector<WebCore::SecurityOriginData> securityOrigins;
     for (auto& originPath : listDirectory(m_indexedDatabaseDirectory, "*")) {
         String databaseIdentifier = pathGetFileName(originPath);
 
-        if (auto securityOrigin = SecurityOrigin::maybeCreateFromDatabaseIdentifier(databaseIdentifier))
-            securityOrigins.append(WTFMove(securityOrigin));
+        if (auto securityOrigin = SecurityOriginData::fromDatabaseIdentifier(databaseIdentifier))
+            securityOrigins.append(WTFMove(*securityOrigin));
     }
 
     return securityOrigins;
@@ -284,6 +281,7 @@ Vector<RefPtr<WebCore::SecurityOrigin>> DatabaseProcess::indexedDatabaseOrigins(
 
 #endif
 
+#if ENABLE(SANDBOX_EXTENSIONS)
 void DatabaseProcess::getSandboxExtensionsForBlobFiles(const Vector<String>& filenames, std::function<void (SandboxExtension::HandleArray&&)> completionHandler)
 {
     static uint64_t lastRequestID;
@@ -298,6 +296,7 @@ void DatabaseProcess::didGetSandboxExtensionsForBlobFiles(uint64_t requestID, Sa
     if (auto handler = m_sandboxExtensionForBlobsCompletionHandlers.take(requestID))
         handler(WTFMove(handles));
 }
+#endif
 
 #if !PLATFORM(COCOA)
 void DatabaseProcess::initializeProcess(const ChildProcessInitializationParameters&)

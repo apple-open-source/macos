@@ -84,6 +84,7 @@
 ../dtrace/libdtrace/dt_string.h  ./usr/src/lib/libdtrace/common/dt_string.h
 ../dtrace/libdtrace/dt_strtab.c  ./usr/src/lib/libdtrace/common/dt_strtab.c
 ../dtrace/libdtrace/dt_strtab.h  ./usr/src/lib/libdtrace/common/dt_strtab.h
+../dtrace/libdtrace/dt_sugar.c  ./usr/src/lib/libdtrace/common/dt_sugar.c
 ../dtrace/libdtrace/dt_subr.c  ./usr/src/lib/libdtrace/common/dt_subr.c
 ../dtrace/libdtrace/dt_work.c  ./usr/src/lib/libdtrace/common/dt_work.c
 ../dtrace/libdtrace/dt_xlator.c  ./usr/src/lib/libdtrace/common/dt_xlator.c

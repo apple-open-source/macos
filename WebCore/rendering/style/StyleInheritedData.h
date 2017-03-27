@@ -22,8 +22,7 @@
  *
  */
 
-#ifndef StyleInheritedData_h
-#define StyleInheritedData_h
+#pragma once
 
 #include "Color.h"
 #include "FontCascade.h"
@@ -52,7 +51,7 @@ public:
     // could be packed in a short but doesn't
     // make a difference currently because of padding
     Length line_height;
-#if ENABLE(IOS_TEXT_AUTOSIZING)
+#if ENABLE(TEXT_AUTOSIZING)
     Length specifiedLineHeight;
 #endif
 
@@ -66,5 +65,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // StyleInheritedData_h

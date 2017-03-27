@@ -26,6 +26,11 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+
 #include <sys/types.h>
 #include <sys/kern_event.h>
 #include <sys/kern_control.h>
@@ -39,12 +44,8 @@
 #include <stddef.h>
 #include <arpa/inet.h>
 
-#define NETDISSECT_REWORKED
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <netdissect-stdinc.h>
 
-#include <tcpdump-stdinc.h>
 #include "netdissect.h"
 #include "interface.h"
 

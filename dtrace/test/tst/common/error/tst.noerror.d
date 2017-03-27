@@ -35,6 +35,7 @@
 
 #pragma D option quiet
 #pragma D option noerror
+#pragma D option nolibs
 
 BEGIN
 {

@@ -440,9 +440,9 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
     /* did we have digest calculation going on? */
     if (cinfo->digcx) {
 	rv = SecCmsDigestContextFinishMultiple(cinfo->digcx, (SecArenaPoolRef)poolp, &(sigd->digests));
+        cinfo->digcx = NULL;
 	if (rv != SECSuccess)
 	    goto loser;		/* error has been set by SecCmsDigestContextFinishMultiple */
-	cinfo->digcx = NULL;
     }
 
     signerinfos = sigd->signerInfos;
@@ -617,8 +617,10 @@ SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd)
 {
     /* did we have digest calculation going on? */
     if (sigd->contentInfo.digcx) {
-	if (SecCmsDigestContextFinishMultiple(sigd->contentInfo.digcx, (SecArenaPoolRef)sigd->cmsg->poolp, &(sigd->digests)) != SECSuccess)
+        if (SecCmsDigestContextFinishMultiple(sigd->contentInfo.digcx, (SecArenaPoolRef)sigd->cmsg->poolp, &(sigd->digests)) != SECSuccess) {
+            sigd->contentInfo.digcx = NULL;
 	    return SECFailure;	/* error has been set by SecCmsDigestContextFinishMultiple */
+        }
 	sigd->contentInfo.digcx = NULL;
     }
     return SECSuccess;
@@ -956,9 +958,9 @@ SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag)
 {
     int idx;
 
-	if(sigd->digests == NULL) {
-		return NULL;
-	}
+    if(sigd == NULL || sigd->digests == NULL) {
+        return NULL;
+    }
     idx = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, algtag);
     return (idx >= 0) ? sigd->digests[idx] : NULL;
 }
@@ -976,7 +978,8 @@ SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
 {
     int cnt, i, idx;
 
-    if (sigd->digestAlgorithms == NULL) {
+    /* Check input structure and items in structure */
+    if (sigd == NULL || sigd->digestAlgorithms == NULL || sigd->cmsg == NULL || sigd->cmsg->poolp == NULL) {
 	PORT_SetError(SEC_ERROR_INVALID_ARGS);
 	return SECFailure;
     }

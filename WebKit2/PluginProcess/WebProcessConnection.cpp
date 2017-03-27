@@ -39,8 +39,7 @@
 #include "PluginProxyMessages.h"
 #include "WebProcessConnectionMessages.h"
 #include <unistd.h>
-#include <wtf/RunLoop.h>
-#include <wtf/TemporaryChange.h>
+#include <wtf/SetForScope.h>
 
 using namespace WebCore;
 
@@ -119,9 +118,9 @@ void WebProcessConnection::setGlobalException(const String& exceptionString)
     currentConnection->sendSync(Messages::PluginProcessConnection::SetException(exceptionString), Messages::PluginProcessConnection::SetException::Reply(), 0);
 }
 
-void WebProcessConnection::didReceiveMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder)
+void WebProcessConnection::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    TemporaryChange<IPC::Connection*> currentConnectionChange(currentConnection, &connection);
+    SetForScope<IPC::Connection*> currentConnectionChange(currentConnection, &connection);
 
     if (decoder.messageReceiverName() == Messages::WebProcessConnection::messageReceiverName()) {
         didReceiveWebProcessConnectionMessage(connection, decoder);
@@ -141,9 +140,9 @@ void WebProcessConnection::didReceiveMessage(IPC::Connection& connection, IPC::M
     pluginControllerProxy->didReceivePluginControllerProxyMessage(connection, decoder);
 }
 
-void WebProcessConnection::didReceiveSyncMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder, std::unique_ptr<IPC::MessageEncoder>& replyEncoder)
+void WebProcessConnection::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& replyEncoder)
 {
-    TemporaryChange<IPC::Connection*> currentConnectionChange(currentConnection, &connection);
+    SetForScope<IPC::Connection*> currentConnectionChange(currentConnection, &connection);
 
     uint64_t destinationID = decoder.destinationID();
 
@@ -321,16 +320,6 @@ void WebProcessConnection::createPluginAsynchronously(const PluginCreationParame
     }
 
     m_connection->sendSync(Messages::PluginProxy::DidCreatePlugin(wantsWheelEvents, remoteLayerClientID), Messages::PluginProxy::DidCreatePlugin::Reply(), creationParameters.pluginInstanceID);
-}
-    
-void WebProcessConnection::audioHardwareDidBecomeActive()
-{
-    m_connection->send(Messages::PluginProcessConnection::AudioHardwareDidBecomeActive(), 0);
-}
-
-void WebProcessConnection::audioHardwareDidBecomeInactive()
-{
-    m_connection->send(Messages::PluginProcessConnection::AudioHardwareDidBecomeInactive(), 0);
 }
     
 } // namespace WebKit

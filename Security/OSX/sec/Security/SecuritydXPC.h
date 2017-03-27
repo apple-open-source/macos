@@ -24,6 +24,7 @@
 
 #include <xpc/xpc.h>
 #include <CoreFoundation/CFError.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #ifndef _UTILITIES_SECURITYDXPC_H_
 #define _UTILITIES_SECURITYDXPC_H_
@@ -62,5 +63,7 @@ bool SecXPCDictionaryCopyDictionaryOptional(xpc_object_t message, const char *ke
 CFStringRef SecXPCDictionaryCopyString(xpc_object_t message, const char *key, CFErrorRef *error);
 
 bool SecXPCDictionaryCopyStringOptional(xpc_object_t message, const char *key, CFStringRef *pstring, CFErrorRef *error);
+
+CFSetRef SecXPCDictionaryCopySet(xpc_object_t message, const char *key, CFErrorRef *error);
 
 #endif

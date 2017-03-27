@@ -146,7 +146,7 @@
     void checkDeferredCLUTSet( void );
     void updateCursorForCLUTSet( void );
     IOReturn updateGammaTable(  UInt32 channelCount, UInt32 dataCount,
-                                UInt32 dataWidth, const void * data, bool immediate = false );
+                                UInt32 dataWidth, const void * data, SInt32 syncType, bool immediate = false );
 
     static void dpInterruptProc(OSObject * target, void * ref);
     static void dpInterrupt(OSObject * owner, IOTimerEventSource * sender);
@@ -271,6 +271,9 @@ public:
     void fbLock( void );
     void fbUnlock( void );
 
+    /*! True when the device is powered on. */
+    bool isPowered() { return 0 != pendingPowerState; }
+
     void displayOnline( IODisplay * display, SInt32 delta, uint32_t options );
     static void updateDisplaysPowerState(void);
     static IOOptionBits clamshellState( void );
@@ -291,6 +294,8 @@ public:
                                             IOSelect attribute, uintptr_t value);
 
     IOReturn setWSAAAttribute(IOSelect attribute, uint32_t value);
+
+    IODeviceMemory * getApertureRangeWithLength( IOPixelAperture aperture, IOByteCount requiredLength );
 
 protected:
 

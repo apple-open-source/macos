@@ -218,7 +218,7 @@ static int bio_filter_out_write(BIO *bio, const char *in, int inl)
      *
      * Historically, this flush call was performed only for an SSLv2
      * connection or for a proxy connection.  Calling _out_flush can
-     * be expensive in cases where requests/reponses are pipelined,
+     * be expensive in cases where requests/responses are pipelined,
      * so limit the performance impact to handshake time.
      */
 #if OPENSSL_VERSION_NUMBER < 0x0009080df
@@ -602,6 +602,11 @@ static apr_status_t ssl_io_input_read(bio_filter_in_ctx_t *inctx,
             break;
         }
 
+        /* We rely on SSL_get_error() after the read, which requires an empty
+         * error queue before the read in order to work properly.
+         */
+        ERR_clear_error();
+
         /* SSL_read may not read because we haven't taken enough data
          * from the stack.  This is where we want to consider all of
          * the blocking and SPECULATIVE semantics
@@ -778,6 +783,11 @@ static apr_status_t ssl_filter_write(ap_filter_t *f,
     if (filter_ctx->pssl == NULL) {
         return APR_EGENERAL;
     }
+
+    /* We rely on SSL_get_error() after the write, which requires an empty error
+     * queue before the write in order to work properly.
+     */
+    ERR_clear_error();
 
     outctx = (bio_filter_out_ctx_t *)filter_ctx->pbioWrite->ptr;
     res = SSL_write(filter_ctx->pssl, (unsigned char *)data, len);
@@ -1249,6 +1259,11 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
         apr_table_setn(c->notes, "SSL_connect_rv", "ok");
         return APR_SUCCESS;
     }
+
+    /* We rely on SSL_get_error() after the accept, which requires an empty
+     * error queue before the accept in order to work properly.
+     */
+    ERR_clear_error();
 
     if ((n = SSL_accept(filter_ctx->pssl)) <= 0) {
         bio_filter_in_ctx_t *inctx = (bio_filter_in_ctx_t *)

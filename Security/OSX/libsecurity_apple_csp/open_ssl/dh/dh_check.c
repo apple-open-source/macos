@@ -75,8 +75,8 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
-#include <openssl/dh.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/dh_legacy.h>
 
 /* Check that p is a safe prime and
  * if g is 2, 3 or 5, check that is is a suitable generator

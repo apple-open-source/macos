@@ -1334,7 +1334,15 @@ hfs_vnop_setattr(struct vnop_setattr_args *ap)
 	 * NOTE: HFS COMPRESSION depends on the data_size being set *before* the bsd flags are updated
 	 */
 	VATTR_SET_SUPPORTED(vap, va_data_size);
-	if (VATTR_IS_ACTIVE(vap, va_data_size) && !vnode_islnk(vp)) {
+	if (VATTR_IS_ACTIVE(vap, va_data_size)) {
+		if (!vnode_isreg(vp)) {
+			if (vnode_isdir(vp)) {
+				return EISDIR;
+			}
+			//otherwise return EINVAL
+			return EINVAL;
+		}
+
 #if HFS_COMPRESSION
 		/* keep the compressed state locked until we're done truncating the file */
 		decmpfs_cnode *dp = VTOCMP(vp);
@@ -3874,7 +3882,8 @@ hfs_removefile(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 			 * The resource fork vnode & filefork did not exist.
 			 * Create a temporary one for use in this function only. 
 			 */
-			temp_rsrc_fork = hfs_mallocz(sizeof(struct filefork));
+			temp_rsrc_fork = hfs_zalloc(HFS_FILEFORK_ZONE);
+			bzero(temp_rsrc_fork, sizeof(struct filefork));
 			temp_rsrc_fork->ff_cp = cp;
 			rl_init(&temp_rsrc_fork->ff_invalidranges);
 		}	
@@ -3886,7 +3895,7 @@ hfs_removefile(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 			error = cat_lookup (hfsmp, &desc, 1, 0, (struct cat_desc*) NULL, 
 					(struct cat_attr*) NULL, &temp_rsrc_fork->ff_data, NULL);
 			if (error) {
-				hfs_free(temp_rsrc_fork, sizeof(struct filefork));
+				hfs_zfree(temp_rsrc_fork, HFS_FILEFORK_ZONE);
 				hfs_systemfile_unlock (hfsmp, lockflags);
 				goto out;
 			}
@@ -3895,7 +3904,7 @@ hfs_removefile(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 		if (!skip_reserve) {
 			if ((error = cat_preflight(hfsmp, CAT_DELETE, NULL, 0))) {
 				if (temp_rsrc_fork) {
-					hfs_free(temp_rsrc_fork, sizeof(struct filefork));
+					hfs_zfree(temp_rsrc_fork, HFS_FILEFORK_ZONE);
 				}
 				hfs_systemfile_unlock(hfsmp, lockflags);
 				goto out;
@@ -3924,7 +3933,7 @@ hfs_removefile(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 
 		if (error) {
 			if (temp_rsrc_fork) {
-				hfs_free(temp_rsrc_fork, sizeof(struct filefork));
+				hfs_zfree(temp_rsrc_fork, HFS_FILEFORK_ZONE);
 			}
 			goto out;
 		}
@@ -3997,7 +4006,7 @@ hfs_removefile(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 
 		/* Get rid of the temporary rsrc fork */
 		if (temp_rsrc_fork) {
-			hfs_free(temp_rsrc_fork, sizeof(struct filefork));
+			hfs_zfree(temp_rsrc_fork, HFS_FILEFORK_ZONE);
 		}
 
 		cp->c_flag |= C_NOEXISTS;
@@ -5179,7 +5188,10 @@ hfs_vnop_symlink(struct vnop_symlink_args *ap)
 		return (EINVAL);
 
 	hfsmp = VTOHFS(dvp);
+	
 	len = strlen(ap->a_target);
+	if (len > MAXPATHLEN)
+		return (ENAMETOOLONG);
 
 	/* Check for free space */
 	if (((u_int64_t)hfs_freeblks(hfsmp, 0) * (u_int64_t)hfsmp->blockSize) < len) {

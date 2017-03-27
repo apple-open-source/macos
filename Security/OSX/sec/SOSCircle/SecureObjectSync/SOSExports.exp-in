@@ -5,51 +5,77 @@
  // Cloud Circle API
  //
 
-
 _SOSCCAcceptApplicants
+_SOSCCAccountHasPublicKey
+_SOSCCAccountIsNew
 _SOSCCAccountSetToNew
 _SOSCCBailFromCircle_BestEffort
 _SOSCCCanAuthenticate
+_SOSCCCheckPeerAvailability
+_SOSCCClearPeerMessageKeyInKVS
+_SOSCCCopyAccountState
 _SOSCCCopyApplicantPeerInfo
+_SOSCCCopyApplication
+_SOSCCCopyBackupInformation
+_SOSCCCopyCircleJoiningBlob
 _SOSCCCopyConcurringPeerPeerInfo
-_SOSCCCopyEngineState
+_SOSCCCopyDeviceID
+_SOSCCCopyEngineData
+_SOSCCCopyEscrowRecord
 _SOSCCCopyGenerationPeerInfo
 _SOSCCCopyIncompatibilityInfo
 _SOSCCCopyMyPeerInfo
 _SOSCCCopyMyPeerWithNewDeviceRecoverySecret
 _SOSCCCopyNotValidPeerPeerInfo
 _SOSCCCopyPeerPeerInfo
+_SOSCCCopyRecoveryPublicKey
 _SOSCCCopyRetirementPeerInfo
 _SOSCCCopyValidPeerPeerInfo
 _SOSCCCopyViewUnawarePeerInfo
 _SOSCCCopyYetToSyncViewsList
+_SOSCCDeleteAccountState
+_SOSCCDeleteEngineState
+_SOSCCForEachEngineStateAsString
+_SOSCCForEachEngineStateAsStringFromArray
 _SOSCCGetLastDepartureReason
 _SOSCCGetStatusDescription
 _SOSCCHandleIDSMessage
 _SOSCCRequestSyncWithPeerOverKVS
-_SOSCCRequestSyncWithPeerOverIDS
+_SOSCCRequestSyncWithPeerOverKVSUsingIDOnly
 _SOSCCIDSDeviceIDIsAvailableTest
 _SOSCCIDSPingTest
 _SOSCCIDSServiceRegistrationTest
+_SOSCCIsAppleTVSyncing
+_SOSCCIsContinuityUnlockSyncing
+_SOSCCIsHomeKitSyncing
+_SOSCCIsIcloudKeychainSyncing
+_SOSCCIsSafariSyncing
+_SOSCCIsWiFiSyncing
+_SOSCCJoinWithCircleJoiningBlob
+_SOSCCLoggedOutOfAccount
+_SOSCCMessageFromPeerIsPending
 _SOSCCPeersHaveViewsEnabled
 _SOSCCProcessEnsurePeerRegistration
 _SOSCCProcessSyncWithAllPeers
+_SOSCCProcessSyncWithPeers
 _SOSCCPurgeUserCredentials
+_SOSCCRegisterRecoveryPublicKey
 _SOSCCRegisterSingleRecoverySecret
 _SOSCCRegisterUserCredentials
 _SOSCCRejectApplicants
 _SOSCCRemovePeersFromCircle
 _SOSCCRemoveThisDeviceFromCircle
-_SOSCCLoggedOutOfAccount
-_SOSCCCopyDeviceID
 _SOSCCRequestEnsureFreshParameters
+_SOSCCRequestSyncWithPeerOverKVS
 _SOSCCRequestToJoinCircle
 _SOSCCRequestToJoinCircleAfterRestore
 _SOSCCResetToEmpty
 _SOSCCResetToOffering
 _SOSCCSecurityProperty
+_SOSCCSendToPeerIsPending
 _SOSCCSetAutoAcceptInfo
 _SOSCCSetDeviceID
+_SOSCCSetEscrowRecord
 _SOSCCSetLastDepartureReason
 _SOSCCSetUserCredentials
 _SOSCCSetUserCredentialsAndDSID
@@ -60,26 +86,13 @@ _SOSCCTryUserCredentials
 _SOSCCValidateUserPublic
 _SOSCCView
 _SOSCCViewSet
-_SOSCCSecurityProperty
-_SOSCCIsIcloudKeychainSyncing
-_SOSCCIsSafariSyncing
-_SOSCCIsAppleTVSyncing
-_SOSCCIsHomeKitSyncing
-_SOSCCIsWiFiSyncing
-_SOSCCIsContinuityUnlockSyncing
 _SOSCCWaitForInitialSync
-_SOSCCSetEscrowRecord
-_SOSCCCopyEscrowRecord
-_SOSCCCheckPeerAvailability
-_SOSCCCopyAccountState
-_SOSCCDeleteAccountState
-_SOSCCCopyEngineData
-_SOSCCDeleteEngineState
-_SOSCCCopyApplication
-_SOSCCCopyCircleJoiningBlob
-_SOSCCJoinWithCircleJoiningBlob
-_SOSCCAccountHasPublicKey
-_SOSCCAccountIsNew
+
+_kSOSCCEngineStateCoderKey
+_kSOSCCEngineStateManifestCountKey
+_kSOSCCEngineStateManifestHashKey
+_kSOSCCEngineStatePeerIDKey
+_kSOSCCEngineStateSyncSetKey
 
 _UserParametersDescription
 
@@ -88,9 +101,14 @@ _kSOSCCViewMembershipChangedNotification
 _kSOSCCInitialSyncChangedNotification
 _kSOSCCHoldLockForInitialSync
 _kSOSCCPeerAvailable
+_kSOSCCRecoveryKeyChanged
 
 _SOSCCSetLastDepartureReason
 _SOSCCAccountSetToNew
+
+_SOSCCDumpCircleInformation
+_SOSCCDumpCircleKVSInformation
+
 
  //
  // Peer Info interfaces for SPI
@@ -187,10 +205,12 @@ _SOSBSKBCopyAKSBag
 _SOSBSKBCopyEncoded
 _SOSBSKBIsDirect
 _SOSBSKBGetPeers
+_SOSBSKBCopyRecoveryKey
 
 _SOSBSKBLoadLocked
 _SOSBSKBLoadAndUnlockWithDirectSecret
 _SOSBSKBLoadAndUnlockWithPeerSecret
+_SOSBSKBLoadAndUnlockWithWrappingSecret
 _SOSBackupSliceKeyBagCreate
 _SOSBackupSliceKeyBagCreateDirect
 _SOSBackupSliceKeyBagCreateFromData
@@ -200,6 +220,8 @@ _der_encode_BackupSliceKeyBag
 _der_sizeof_BackupSliceKeyBag
 
 _SOSWrapToBackupSliceKeyBagForView
+_SOSAccountRecoveryKeyIsInBackupAndCurrentInView
+_SOSBSKBHasRecoveryKey
 
  //
  // View SPI
@@ -216,7 +238,6 @@ _SOSViewsGetAllCurrent
 
 #include "Security/SecureObjectSync/SOSViews.exp-in"
 
-_kSecUseSystemKeychain
 _kSecUseSyncBubbleKeychain
 
  //
@@ -227,6 +248,7 @@ _SOSCircleGenerationIncrement
 _SOSCircleGenerationSetValue
 _SOSCircleGetGenerationSint
 _SOSAccountPeerGotInSync
+_SOSCloudKeychainRetrievePendingMessageFromProxy
 
 _SOSCloudKeychainClearAll
 _SOSCloudKeychainGetAllObjectsFromCloud
@@ -277,11 +299,19 @@ _sViewsKey
 _sSerialNumberKey
 _sPreferIDS
 _sPreferIDSFragmentation
+_sPreferIDSACKModel
 _sDeviceID
 _sTransportType
 _sSecurityPropertiesKey
-
+_kIDSOperationType
+_kIDSMessageToSendKey
+_kIDSMessageUniqueID
+_kIDSMessageRecipientPeerID
+_kIDSMessageRecipientDeviceID
+_kIDSMessageUsesAckModel
 _SOSGenerationCountCopyDescription
+
+_SOSLogSetOutputTo
 
 #if !(TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
 

@@ -51,10 +51,8 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <grp.h>
 #include <pwd.h>
 #include <TargetConditionals.h>
-#if !TARGET_OS_EMBEDDED
 #include <membership.h>
 #include <membershipPriv.h>
-#endif
 #include <uuid/uuid.h>
 #endif
 
@@ -203,9 +201,6 @@ static struct {
 static char *
 uuid_to_name(uuid_t *uu) 
 {
-#if TARGET_OS_EMBEDDED
-	return strdup("<UNKNOWN>");
-#else  /* !TARGET_OS_EMBEDDED */
 	int type;
 	char *name = NULL;
 	char *recname = NULL;
@@ -233,7 +228,6 @@ errout:
 	uuid_unparse_upper(*uu, name);
 	
 	return name;
-#endif	/* !TARGET_OS_EMBEDDED */
 }
 
 static void

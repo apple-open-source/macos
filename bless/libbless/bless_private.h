@@ -140,4 +140,10 @@ int blsustatfs(const char *path, struct statfs *buf);
 // give info that, when converted to XML form and put in the IOReg->NVRAM, will command EFI to boot it.
 bool isDVDWithElToritoWithUEFIBootableOS (BLContextPtr inContext, const char* inDevBSD, int* outBootEntry, int* outPartitionStart, int* outPartitionSize);
 
+
+int BLAPFSCreatePhysicalStoreBSDsFromVolumeBSD(BLContextPtr context, const char *volBSD, CFArrayRef *physBSDs);
+int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize);
+int UnmountPrebootVolume(BLContextPtr context, char *mntPoint);
+
+
 #endif // _BLESS_PRIVATE_H_

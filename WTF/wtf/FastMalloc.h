@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2005-2009, 2015 Apple Inc. All rights reserved.
+ *  Copyright (C) 2005-2009, 2015-2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -27,6 +27,10 @@
 
 namespace WTF {
 
+#if !defined(NDEBUG)
+WTF_EXPORT_PRIVATE void fastSetMaxSingleAllocationSize(size_t);
+#endif
+
 class TryMallocReturnValue {
 public:
     TryMallocReturnValue(void*);
@@ -37,6 +41,8 @@ private:
     void operator=(TryMallocReturnValue&&) = delete;
     mutable void* m_data;
 };
+
+WTF_EXPORT_PRIVATE bool isFastMallocEnabled();
 
 // These functions call CRASH() if an allocation fails.
 WTF_EXPORT_PRIVATE void* fastMalloc(size_t);
@@ -53,6 +59,7 @@ WTF_EXPORT_PRIVATE void fastFree(void*);
 
 // Allocations from fastAlignedMalloc() must be freed using fastAlignedFree().
 WTF_EXPORT_PRIVATE void* fastAlignedMalloc(size_t alignment, size_t);
+WTF_EXPORT_PRIVATE void* tryFastAlignedMalloc(size_t alignment, size_t);
 WTF_EXPORT_PRIVATE void fastAlignedFree(void*);
 
 WTF_EXPORT_PRIVATE size_t fastMallocSize(const void*);
@@ -99,6 +106,11 @@ template<typename T> inline bool TryMallocReturnValue::getValue(T*& data)
 
 } // namespace WTF
 
+#if !defined(NDEBUG)
+using WTF::fastSetMaxSingleAllocationSize;
+#endif
+
+using WTF::isFastMallocEnabled;
 using WTF::fastCalloc;
 using WTF::fastFree;
 using WTF::fastMalloc;
@@ -107,6 +119,7 @@ using WTF::fastMallocSize;
 using WTF::fastRealloc;
 using WTF::fastStrDup;
 using WTF::fastZeroedMalloc;
+using WTF::tryFastAlignedMalloc;
 using WTF::tryFastCalloc;
 using WTF::tryFastMalloc;
 using WTF::tryFastZeroedMalloc;

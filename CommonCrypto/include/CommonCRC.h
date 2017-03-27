@@ -24,15 +24,10 @@
 #ifndef _CC_COMMON_CRC_
 #define _CC_COMMON_CRC_
 
-#include <sys/cdefs.h>
 #if !defined(COMMON_NUMERICS_H)
 #include <CommonNumerics/CommonNumerics.h>
 #endif
 #include <Availability.h>
-#include <stdint.h>
-
-__BEGIN_DECLS
-
 typedef struct _CNCRCRef_t *CNCRCRef;
     
 enum {
@@ -151,8 +146,5 @@ __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0);
 CNStatus
 CNCRCDumpTable(CNcrc algorithm)
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0);
-
-
-__END_DECLS
 
 #endif /* _CC_COMMON_CRC_ */

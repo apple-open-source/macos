@@ -23,13 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebGLVertexArrayObjectBase_h
-#define WebGLVertexArrayObjectBase_h
+#pragma once
 
 #include "WebGLBuffer.h"
 #include "WebGLContextObject.h"
-
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -87,8 +84,8 @@ public:
     void setVertexAttribDivisor(GC3Duint index, GC3Duint divisor);
 
 protected:
-    WebGLVertexArrayObjectBase(WebGLRenderingContextBase*, VAOType);
-    virtual void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) = 0;
+    WebGLVertexArrayObjectBase(WebGLRenderingContextBase&, VAOType);
+    void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override = 0;
     
     VAOType m_type;
     bool m_hasEverBeenBound;
@@ -97,5 +94,3 @@ protected:
 };
     
 } // namespace WebCore
-
-#endif // WebGLVertexArrayObjectBase_h

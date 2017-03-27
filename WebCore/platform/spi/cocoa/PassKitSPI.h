@@ -187,6 +187,9 @@ typedef NSString * PKPaymentNetwork NS_EXTENSIBLE_STRING_ENUM;
 - (void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller didSelectPaymentMethod:(PKPaymentMethod *)paymentMethod completion:(void (^)(NSArray<PKPaymentSummaryItem *> *summaryItems))completion;
 @end
 
+@interface PKPassLibrary : NSObject
+@end
+
 NS_ASSUME_NONNULL_END
 
 #endif
@@ -215,14 +218,6 @@ NS_ASSUME_NONNULL_END
 
 #endif
 
-NS_ASSUME_NONNULL_BEGIN
-
-@interface PKPassLibrary ()
-- (void)openPaymentSetupForMerchantIdentifier:(NSString *)identifier domain:(NSString *)domain completion:(void(^)(BOOL success))completion;
-@end
-
-NS_ASSUME_NONNULL_END
-
 #if PLATFORM(MAC) && (!USE(APPLE_INTERNAL_SDK) || !__has_include(<PassKitCore/PKApplePayButton.h>))
 typedef NS_ENUM(NSInteger, PKPaymentButtonStyle) {
     PKPaymentButtonStyleWhite = 0,
@@ -240,3 +235,17 @@ typedef NS_ENUM(NSInteger, PKPaymentButtonType) {
 
 extern "C"
 void PKDrawApplePayButton(_Nonnull CGContextRef, CGRect drawRect, CGFloat scale, PKPaymentButtonType, PKPaymentButtonStyle, NSString * _Nullable languageCode);
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface PKPassLibrary ()
+- (void)openPaymentSetupForMerchantIdentifier:(NSString *)identifier domain:(NSString *)domain completion:(void(^)(BOOL success))completion;
+@end
+
+@interface PKPaymentRequest ()
+@property (nonatomic, strong) NSString *sourceApplicationBundleIdentifier;
+@property (nonatomic, strong) NSString *sourceApplicationSecondaryIdentifier;
+@property (nonatomic, strong) NSString *CTDataConnectionServiceType;
+@end
+
+NS_ASSUME_NONNULL_END

@@ -27,6 +27,7 @@
 #include "SecureObjectSync/SOSCloudCircle.h"
 #include "SecureObjectSync/SOSCloudCircleInternal.h"
 #include "SecureObjectSync/SOSPeerInfo.h"
+#include "SecureObjectSync/SOSInternal.h"
 #include <notify.h>
 #include <sysexits.h>
 #import "Applicant.h"
@@ -42,6 +43,7 @@
 #include "utilities/SecCFRelease.h"
 #include "utilities/debugging.h"
 #include "utilities/SecAKSWrappers.h"
+#include "utilities/SecCFWrappers.h"
 
 #import "CoreCDP/CDPFollowUpController.h"
 #import "CoreCDP/CDPFollowUpContext.h"
@@ -247,7 +249,7 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 			// password path.
 			secnotice("cjr", "Couldn't process reject without password (e=%@) for %@ (will try with password next)", error, onScreen);
 
-            if (CFErrorGetCode(error) == -536870174 && CFErrorGetDomain(error) == kSecKernDomain) {
+            if(CFErrorIsMalfunctioningKeybagError(error)){
                 secnotice("cjr", "system is locked, dismiss the notification");
                 processApplicantsAfterUnlock = true;
                 return;
@@ -460,7 +462,6 @@ static bool iCloudResetAvailable() {
 }
 
 
-
 static NSString *getLocalizedApplicationReminder() {
 	CFStringRef applicationReminder = NULL;
 	switch (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid)) {
@@ -496,10 +497,10 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
     }
 
     NSDictionary *pendingAttributes = @{
-		(id) kCFUserNotificationAlertHeaderKey		   : (__bridge NSString *) SecCopyCKString(SEC_CK_REMINDER_TITLE_IOS),
+		(id) kCFUserNotificationAlertHeaderKey		   : CFBridgingRelease(SecCopyCKString(SEC_CK_REMINDER_TITLE_IOS)),
 		(id) kCFUserNotificationAlertMessageKey		   : body,
-		(id) kCFUserNotificationDefaultButtonTitleKey  : (__bridge NSString *) SecCopyCKString(SEC_CK_REMINDER_BUTTON_OK),
-		(id) kCFUserNotificationAlternateButtonTitleKey: has_iCSC ? (__bridge NSString *) SecCopyCKString(SEC_CK_REMINDER_BUTTON_ICSC) : @"",
+		(id) kCFUserNotificationDefaultButtonTitleKey  : CFBridgingRelease(SecCopyCKString(SEC_CK_REMINDER_BUTTON_OK)),
+		(id) kCFUserNotificationAlternateButtonTitleKey: has_iCSC ? CFBridgingRelease(SecCopyCKString(SEC_CK_REMINDER_BUTTON_ICSC)) : @"",
 		(id) kCFUserNotificationAlertTopMostKey				: @YES,
 		(__bridge id) SBUserNotificationDontDismissOnUnlock	: @YES,
 		(__bridge id) SBUserNotificationDismissOnLock		: @NO,
@@ -611,14 +612,12 @@ static void postKickedOutAlert(enum DepartureReason reason)
 		// Was: SEC_CK_CR_BODY_WITHDREW
 		// "... if you turn off a switch you have some idea why the light is off" - Murf
 		return;
-		break;
 
 	case kSOSNeverAppliedToCircle:
 		// We didn't get kicked out, we were never here. This should only happen if we changed iCloud accounts
 		// (and we had sync on in the previous one, and never had it on in the new one). As this is explicit
 		// user action alot of the "Light switch" argument (above) applies.
 		return;
-		break;
 
     case kSOSPasswordChanged:
 	case kSOSNeverLeftCircle:

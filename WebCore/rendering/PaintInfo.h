@@ -23,8 +23,7 @@
  *
  */
 
-#ifndef PaintInfo_h
-#define PaintInfo_h
+#pragma once
 
 #include "AffineTransform.h"
 #include "GraphicsContext.h"
@@ -109,7 +108,7 @@ struct PaintInfo {
         if (rect.isInfinite())
             return;
 
-        FloatRect tranformedRect(localToAncestorTransform.inverse().valueOr(AffineTransform()).mapRect(rect));
+        FloatRect tranformedRect(localToAncestorTransform.inverse().value_or(AffineTransform()).mapRect(rect));
         rect.setLocation(LayoutPoint(tranformedRect.location()));
         rect.setSize(LayoutSize(tranformedRect.size()));
     }
@@ -127,5 +126,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // PaintInfo_h

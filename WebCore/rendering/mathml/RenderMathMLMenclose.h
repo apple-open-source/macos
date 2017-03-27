@@ -27,6 +27,7 @@
 #pragma once
 
 #if ENABLE(MATHML)
+
 #include "MathMLMencloseElement.h"
 #include "RenderMathMLRow.h"
 
@@ -34,21 +35,25 @@ namespace WebCore {
 
 class RenderMathMLMenclose final: public RenderMathMLRow {
 public:
-    RenderMathMLMenclose(Element&, RenderStyle&&);
+    RenderMathMLMenclose(MathMLMencloseElement&, RenderStyle&&);
 
 private:
     const char* renderName() const final { return "RenderMathMLMenclose"; }
     void computePreferredLogicalWidths() final;
     void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0) final;
-    Optional<int> firstLineBaseline() const final;
     void paint(PaintInfo&, const LayoutPoint&) final;
 
     LayoutUnit ruleThickness() const;
-    bool hasNotation(MathMLMencloseElement::MencloseNotationFlag notationFlag) const { return downcast<MathMLMencloseElement>(element())->hasNotation(notationFlag); }
+    bool hasNotation(MathMLMencloseElement::MencloseNotationFlag notationFlag) const { return downcast<MathMLMencloseElement>(element()).hasNotation(notationFlag); }
 
-    void getSpaceAroundContent(LayoutUnit contentWidth, LayoutUnit contentHeight, LayoutUnit& leftSpace, LayoutUnit& rightSpace, LayoutUnit& topSpace, LayoutUnit& bottomSpace) const;
+    struct SpaceAroundContent {
+        LayoutUnit left;
+        LayoutUnit right;
+        LayoutUnit top;
+        LayoutUnit bottom;
+    };
+    SpaceAroundContent spaceAroundContent(LayoutUnit contentWidth, LayoutUnit contentHeight) const;
 
-    LayoutUnit m_ascent;
     LayoutRect m_contentRect;
 };
 

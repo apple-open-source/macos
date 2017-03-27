@@ -80,7 +80,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "cryptlib.h"
-#include <openssl/bn.h>
+#include <openssl/bn_legacy.h>
 
 
 BN_CTX *BN_CTX_new(void)

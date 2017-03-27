@@ -97,10 +97,15 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
 
     // we have the IOMedia for the partition.
 
-    pn = (CFNumberRef)IORegistryEntryCreateCFProperty(obj, CFSTR(kIOMediaPartitionIDKey),
-        kCFAllocatorDefault, 0);
+    if (IOObjectConformsTo(obj, "AppleAPFSVolume")) {
+        result = 10;
+        goto finish;
+    }
     
-    if(pn == NULL) {
+    pn = (CFNumberRef)IORegistryEntryCreateCFProperty(obj, CFSTR(kIOMediaPartitionIDKey),
+                                                      kCFAllocatorDefault, 0);
+    
+    if (pn == NULL) {
         result = 4;
         goto finish;
     }

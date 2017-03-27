@@ -174,6 +174,8 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
 
     shown()
     {
+        super.shown();
+
         this._timelineOverview.shown();
         this._timelineContentBrowser.shown();
         this._clearTimelineNavigationItem.enabled = !this._recording.readonly && !isNaN(this._recording.startTime);
@@ -186,6 +188,8 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
 
     hidden()
     {
+        super.hidden();
+
         this._timelineOverview.hidden();
         this._timelineContentBrowser.hidden();
 
@@ -195,6 +199,8 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
 
     closed()
     {
+        super.closed();
+
         this._timelineContentBrowser.contentViewContainer.closeAllContentViews();
 
         this._recording.removeEventListener(null, null, this);
@@ -307,7 +313,7 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
         if (selectedPathComponent === this._selectedTimeRangePathComponent)
             return;
 
-        let timelineRuler = this._timelineOverview.timelineRuler
+        let timelineRuler = this._timelineOverview.timelineRuler;
         if (selectedPathComponent === this._entireRecordingPathComponent)
             timelineRuler.selectEntireRange();
         else {
@@ -377,6 +383,10 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
 
     _update(timestamp)
     {
+        // FIXME: <https://webkit.org/b/153634> Web Inspector: some background tabs think they are the foreground tab and do unnecessary work
+        if (!(WebInspector.tabBrowser.selectedTabContentView instanceof WebInspector.TimelineTabContentView))
+            return;
+
         if (this._waitingToResetCurrentTime) {
             requestAnimationFrame(this._updateCallback);
             return;
@@ -439,9 +449,9 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
         if (!WebInspector.visible)
             return;
 
-        if (typeof startTime === "number" && !isNaN(this._currentTime))
+        if (typeof startTime === "number")
             this._currentTime = startTime;
-        else {
+        else if (!isNaN(this._currentTime)) {
             // This happens when you stop and later restart recording.
             // COMPATIBILITY (iOS 9): Timeline.recordingStarted events did not include a timestamp.
             // We likely need to jump into the future to a better current time which we can
@@ -618,6 +628,9 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
 
     _recordingReset(event)
     {
+        for (let timelineView of this._timelineViewMap.values())
+            timelineView.reset();
+
         this._currentTime = NaN;
         this._discontinuityStartTime = NaN;
 
@@ -635,8 +648,6 @@ WebInspector.TimelineRecordingContentView = class TimelineRecordingContentView e
 
         this._timelineOverview.reset();
         this._overviewTimelineView.reset();
-        for (var timelineView of this._timelineViewMap.values())
-            timelineView.reset();
         this._clearTimelineNavigationItem.enabled = false;
     }
 

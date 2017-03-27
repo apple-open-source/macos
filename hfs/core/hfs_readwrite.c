@@ -49,6 +49,7 @@
 #include <sys/fsctl.h>
 #include <sys/ubc.h>
 #include <sys/fsevents.h>
+#include <uuid/uuid.h>
 
 #include <libkern/OSDebug.h>
 
@@ -2530,6 +2531,8 @@ fail_change_next_allocation:
 		}
 		hfs_lock_mount (hfsmp);
 		bcopy(ap->a_data, &hfsmp->vcbFndrInfo, sizeof(hfsmp->vcbFndrInfo));
+		/* Null out the cached UUID, to be safe */
+		uuid_clear (hfsmp->hfs_full_uuid);
 		hfs_unlock_mount (hfsmp);
 		(void) hfs_flushvolumeheader(hfsmp, HFS_FVH_WAIT);
 		break;

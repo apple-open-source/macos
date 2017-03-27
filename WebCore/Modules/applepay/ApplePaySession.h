@@ -28,17 +28,15 @@
 #if ENABLE(APPLE_PAY)
 
 #include "ActiveDOMObject.h"
+#include "ApplePayPaymentRequest.h"
 #include "EventTarget.h"
-#include "ExceptionCode.h"
-#include "PaymentRequest.h"
+#include "ExceptionOr.h"
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-class ArrayValue;
-class DeferredWrapper;
-class Dictionary;
+class DeferredPromise;
 class Document;
 class Payment;
 class PaymentContact;
@@ -46,12 +44,15 @@ class PaymentCoordinator;
 class PaymentMethod;
 class URL;
 
+struct ApplePayLineItem;
+struct ApplePayPaymentRequest;
+struct ApplePayShippingMethod;
+
 class ApplePaySession final : public RefCounted<ApplePaySession>, public ActiveDOMObject, public EventTargetWithInlineData {
 public:
-    static RefPtr<ApplePaySession> create(Document&, unsigned version, const Dictionary&, ExceptionCode&);
+    static ExceptionOr<Ref<ApplePaySession>> create(Document&, unsigned version, ApplePayPaymentRequest&&);
     virtual ~ApplePaySession();
 
-    // DOM API.
     static const unsigned short STATUS_SUCCESS = 0;
     static const unsigned short STATUS_FAILURE = 1;
     static const unsigned short STATUS_INVALID_BILLING_POSTAL_ADDRESS = 2;
@@ -61,18 +62,18 @@ public:
     static const unsigned short STATUS_PIN_INCORRECT = 6;
     static const unsigned short STATUS_PIN_LOCKOUT = 7;
 
-    static bool supportsVersion(ScriptExecutionContext&, unsigned version, ExceptionCode&);
-    static bool canMakePayments(ScriptExecutionContext&, ExceptionCode&);
-    static void canMakePaymentsWithActiveCard(ScriptExecutionContext&, const String& merchantIdentifier, DeferredWrapper&&, ExceptionCode&);
-    static void openPaymentSetup(ScriptExecutionContext&, const String& merchantIdentifier, DeferredWrapper&&, ExceptionCode&);
+    static ExceptionOr<bool> supportsVersion(ScriptExecutionContext&, unsigned version);
+    static ExceptionOr<bool> canMakePayments(ScriptExecutionContext&);
+    static ExceptionOr<void> canMakePaymentsWithActiveCard(ScriptExecutionContext&, const String& merchantIdentifier, Ref<DeferredPromise>&&);
+    static ExceptionOr<void> openPaymentSetup(ScriptExecutionContext&, const String& merchantIdentifier, Ref<DeferredPromise>&&);
 
-    void begin(ExceptionCode&);
-    void abort(ExceptionCode&);
-    void completeMerchantValidation(const Dictionary& merchantSessionDictionary, ExceptionCode&);
-    void completeShippingMethodSelection(unsigned short status, const Dictionary& newTotal, const ArrayValue& newLineItems, ExceptionCode&);
-    void completeShippingContactSelection(unsigned short status, const ArrayValue& newShippingMethods, const Dictionary& newTotal, const ArrayValue& newLineItems, ExceptionCode&);
-    void completePaymentMethodSelection(const Dictionary& newTotal, const ArrayValue& newLineItems, ExceptionCode&);
-    void completePayment(unsigned short status, ExceptionCode&);
+    ExceptionOr<void> begin();
+    ExceptionOr<void> abort();
+    ExceptionOr<void> completeMerchantValidation(JSC::ExecState&, JSC::JSValue merchantSession);
+    ExceptionOr<void> completeShippingMethodSelection(unsigned short status, ApplePayLineItem&& newTotal, Vector<ApplePayLineItem>&& newLineItems);
+    ExceptionOr<void> completeShippingContactSelection(unsigned short status, Vector<ApplePayShippingMethod>&& newShippingMethods, ApplePayLineItem&& newTotal, Vector<ApplePayLineItem>&& newLineItems);
+    ExceptionOr<void> completePaymentMethodSelection(ApplePayLineItem&& newTotal, Vector<ApplePayLineItem>&& newLineItems);
+    ExceptionOr<void> completePayment(unsigned short status);
 
     const PaymentRequest& paymentRequest() const { return m_paymentRequest; }
 
@@ -126,13 +127,13 @@ private:
 
         Aborted,
         Canceled,
-    } m_state;
+    } m_state { State::Idle };
 
     enum class MerchantValidationState {
         Idle,
         ValidatingMerchant,
         ValidationComplete,
-    } m_merchantValidationState;
+    } m_merchantValidationState { MerchantValidationState::Idle };
 
     const PaymentRequest m_paymentRequest;
 };

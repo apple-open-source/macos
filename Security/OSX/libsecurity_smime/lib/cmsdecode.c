@@ -380,9 +380,6 @@ static OSStatus
 nss_cms_after_end(SecCmsDecoderRef p7dcx)
 {
     OSStatus rv;
-    PLArenaPool *poolp;
-
-    poolp = p7dcx->cmsg->poolp;
 
     switch (p7dcx->type) {
     case SEC_OID_PKCS7_SIGNED_DATA:
@@ -645,6 +642,10 @@ loser:
 OSStatus
 SecCmsDecoderUpdate(SecCmsDecoderRef p7dcx, const void *buf, CFIndex len)
 {
+    if (!p7dcx) {
+        return errSecParam;
+    }
+
     if (p7dcx->dcx != NULL && p7dcx->error == 0) {	/* if error is set already, don't bother */
 	if (SEC_ASN1DecoderUpdate (p7dcx->dcx, buf, len) != SECSuccess) {
 	    p7dcx->error = PORT_GetError();
@@ -674,8 +675,7 @@ SecCmsDecoderUpdate(SecCmsDecoderRef p7dcx, const void *buf, CFIndex len)
 void
 SecCmsDecoderDestroy(SecCmsDecoderRef p7dcx)
 {
-    /* XXXX what about inner decoders? running digests? decryption? */
-    /* XXXX there's a leak here! */
+    /* SecCmsMessageDestroy frees inner decoders and digests. */
     if (p7dcx->cmsg) {
         SecCmsMessageDestroy(p7dcx->cmsg);
     }

@@ -28,10 +28,12 @@
 
 #if ENABLE(MEMORY_SAMPLER)
 
-#include "NotImplemented.h"
 #include <JavaScriptCore/MemoryStatistics.h>
-#include <runtime/JSCInlines.h>
+#include <WebCore/CommonVM.h>
+#include <WebCore/CurrentProcessMemoryStatus.h>
 #include <WebCore/JSDOMWindow.h>
+#include <WebCore/NotImplemented.h>
+#include <runtime/JSCInlines.h>
 #include <runtime/JSLock.h>
 #include <string.h>
 #include <sys/sysinfo.h>
@@ -43,16 +45,6 @@ using namespace JSC;
 using namespace WTF;
 
 namespace WebKit {
-
-struct ApplicationMemoryStats {
-    size_t totalProgramSize;
-    size_t residentSetSize;
-    size_t sharedSize;
-    size_t textSize;
-    size_t librarySize;
-    size_t dataStackSize;
-    size_t dirtyPageSize;
-};
 
 static const unsigned int maxBuffer = 128;
 static const unsigned int maxProcessPath = 35;
@@ -84,28 +76,6 @@ static inline void appendKeyValuePair(WebMemoryStatistics& stats, const String& 
     stats.values.append(value);
 }
 
-static ApplicationMemoryStats sampleMemoryAllocatedForApplication()
-{
-    ApplicationMemoryStats applicationStats = {0, 0, 0, 0, 0, 0, 0};
-    char processPath[maxProcessPath];
-    snprintf(processPath, maxProcessPath, "/proc/self/statm");
-    FILE* statmFileDescriptor = fopen(processPath, "r");
-    if (!statmFileDescriptor)
-        return applicationStats;
-
-    applicationStats.totalProgramSize = nextToken(statmFileDescriptor).toInt();
-    applicationStats.residentSetSize = nextToken(statmFileDescriptor).toInt();
-    applicationStats.sharedSize = nextToken(statmFileDescriptor).toInt();
-    applicationStats.textSize = nextToken(statmFileDescriptor).toInt();
-    applicationStats.librarySize = nextToken(statmFileDescriptor).toInt();
-    applicationStats.dataStackSize = nextToken(statmFileDescriptor).toInt();
-    applicationStats.dirtyPageSize = nextToken(statmFileDescriptor).toInt();
-
-    fclose(statmFileDescriptor);
-
-    return applicationStats;
-}
-
 String WebMemorySampler::processName() const
 {
     char processPath[maxProcessPath];
@@ -130,15 +100,16 @@ WebMemoryStatistics WebMemorySampler::sampleWebKit() const
 
     appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Timestamp"), now);
 
-    ApplicationMemoryStats applicationStats = sampleMemoryAllocatedForApplication();
+    ProcessMemoryStatus processMemoryStatus;
+    currentProcessMemoryStatus(processMemoryStatus);
 
-    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Total Program Size"), applicationStats.totalProgramSize);
-    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("RSS"), applicationStats.residentSetSize);
-    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Shared"), applicationStats.sharedSize);
-    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Text"), applicationStats.textSize);
-    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Library"), applicationStats.librarySize);
-    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Data/Stack"), applicationStats.dataStackSize);
-    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Dirty"), applicationStats.dirtyPageSize);
+    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Total Program Bytes"), processMemoryStatus.size);
+    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Resident Set Bytes"), processMemoryStatus.resident);
+    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Resident Shared Bytes"), processMemoryStatus.shared);
+    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Text Bytes"), processMemoryStatus.text);
+    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Library Bytes"), processMemoryStatus.lib);
+    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Data + Stack Bytes"), processMemoryStatus.data);
+    appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Dirty Bytes"), processMemoryStatus.dt);
 
     size_t totalBytesInUse = 0;
     size_t totalBytesCommitted = 0;
@@ -152,8 +123,8 @@ WebMemoryStatistics WebMemorySampler::sampleWebKit() const
     appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Fast Malloc In Use"), fastMallocBytesInUse);
     appendKeyValuePair(webKitMemoryStats, ASCIILiteral("Fast Malloc Committed Memory"), fastMallocBytesCommitted);
 
-    size_t jscHeapBytesInUse = JSDOMWindow::commonVM().heap.size();
-    size_t jscHeapBytesCommitted = JSDOMWindow::commonVM().heap.capacity();
+    size_t jscHeapBytesInUse = commonVM().heap.size();
+    size_t jscHeapBytesCommitted = commonVM().heap.capacity();
     totalBytesInUse += jscHeapBytesInUse;
     totalBytesCommitted += jscHeapBytesCommitted;
 

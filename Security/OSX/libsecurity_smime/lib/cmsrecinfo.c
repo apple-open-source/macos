@@ -95,7 +95,7 @@ nss_cmsrecipientinfo_create(SecCmsMessageRef cmsg, SecCmsRecipientIDSelector typ
 		rv = SecCertificateGetAlgorithmID(cert,&algid);
 	} else {
 		PORT_Assert(pubKey);
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))
+#if TARGET_OS_OSX
 		rv = SecKeyGetAlgorithmID(pubKey,&algid);
 #else
 		/* TBD: Unify this code. Currently, iOS has an incompatible
@@ -117,7 +117,6 @@ nss_cmsrecipientinfo_create(SecCmsMessageRef cmsg, SecCmsRecipientIDSelector typ
 	      break;
 	    }
 	} else if (type == SecCmsRecipientIDSubjectKeyID){
-	    SecCmsKeyTransRecipientInfoEx *riExtra;
 
 	    rid->id.subjectKeyID = PORT_ArenaNew(poolp, CSSM_DATA);
 	    if (rid->id.subjectKeyID == NULL) {
@@ -125,16 +124,12 @@ nss_cmsrecipientinfo_create(SecCmsMessageRef cmsg, SecCmsRecipientIDSelector typ
 		PORT_SetError(SEC_ERROR_NO_MEMORY);
 		break;
 	    } 
-	    SECITEM_CopyItem(poolp, rid->id.subjectKeyID, subjKeyID);
+            if (SECITEM_CopyItem(poolp, rid->id.subjectKeyID, subjKeyID)) {
+                rv = SECFailure;
+                PORT_SetError(SEC_ERROR_UNKNOWN_CERT);
+                break;
+            }
 	    if (rid->id.subjectKeyID->Data == NULL) {
-		rv = SECFailure;
-		PORT_SetError(SEC_ERROR_NO_MEMORY);
-		break;
-	    }
-	    riExtra = &ri->ri.keyTransRecipientInfoEx;
-	    riExtra->version = 0;
-	    riExtra->pubKey = SECKEY_CopyPublicKey(pubKey);
-	    if (riExtra->pubKey == NULL) {
 		rv = SECFailure;
 		PORT_SetError(SEC_ERROR_NO_MEMORY);
 		break;
@@ -328,25 +323,32 @@ SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg,
                                        NULL, pubKey, subjKeyID);
 }
 
+/* This is exported out of the Security framework, but it's in
+ * SecCertificateInternal.h, which we don't have access to from
+ * the libsecurity_smime project. */
+CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
+
 SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(SecCmsMessageRef cmsg,
                                              SecCertificateRef cert)
 {
-    SecPublicKeyRef pubKey = NULL;
+    SecKeyRef pubKey = NULL;
     CSSM_DATA subjKeyID = {0, NULL};
     SecCmsRecipientInfoRef retVal = NULL;
+    CFDataRef subjectKeyIDData = NULL;
+
 
     if (!cmsg || !cert) {
 	return NULL;
     }
-    pubKey = CERT_ExtractPublicKey(cert);
-    if (!pubKey) {
-	goto done;
-    }
-    if (CERT_FindSubjectKeyIDExtension(cert, &subjKeyID) != SECSuccess ||
-        subjKeyID.Data == NULL) {
-	goto done;
-    }
+
+    subjectKeyIDData = SecCertificateGetSubjectKeyID(cert);
+    if (!subjectKeyIDData)
+        goto done;
+    subjKeyID.Length =
+    CFDataGetLength(subjectKeyIDData);
+    subjKeyID.Data = (uint8_t *)CFDataGetBytePtr(subjectKeyIDData);
+
     retVal = SecCmsRecipientInfoCreateWithSubjKeyID(cmsg, &subjKeyID, pubKey);
 done:
     if (pubKey)
@@ -637,7 +639,6 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 
     switch (ri->recipientInfoType) {
     case SecCmsRecipientInfoIDKeyTrans:
-	encalg = &(ri->ri.keyTransRecipientInfo.keyEncAlg);
 	encalgtag = SECOID_GetAlgorithmTag(&(ri->ri.keyTransRecipientInfo.keyEncAlg));
 	enckey = &(ri->ri.keyTransRecipientInfo.encKey); /* ignore subIndex */
 	switch (encalgtag) {
@@ -650,6 +651,7 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	case SEC_OID_NETSCAPE_SMIME_KEA:
 	    /* FORTEZZA key exchange algorithm */
 	    /* the supplemental data is in the parameters of encalg */
+            encalg = &(ri->ri.keyTransRecipientInfo.keyEncAlg);
 	    bulkkey = SecCmsUtilDecryptSymKeyMISSI(privkey, enckey, encalg, bulkalgtag, ri->cmsg->pwfn_arg);
 	    break;
 #endif /* 0 */
@@ -659,9 +661,7 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	}
 	break;
     case SecCmsRecipientInfoIDKeyAgree:
-	encalg = &(ri->ri.keyAgreeRecipientInfo.keyEncAlg);
 	encalgtag = SECOID_GetAlgorithmTag(&(ri->ri.keyAgreeRecipientInfo.keyEncAlg));
-	enckey = &(ri->ri.keyAgreeRecipientInfo.recipientEncryptedKeys[subIndex]->encKey);
 	switch (encalgtag) {
 	case SEC_OID_X942_DIFFIE_HELMAN_KEY:
 	    /* Diffie-Helman key exchange */
@@ -677,10 +677,13 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	case SEC_OID_DH_SINGLE_STD_SHA1KDF:
 	{  
 	    /* ephemeral-static ECDH */
+            enckey = &(ri->ri.keyAgreeRecipientInfo.recipientEncryptedKeys[subIndex]->encKey);
+            encalg = &(ri->ri.keyAgreeRecipientInfo.keyEncAlg);
 	    SecCmsKeyAgreeRecipientInfo *kari = &ri->ri.keyAgreeRecipientInfo;
 	    SecCmsOriginatorIdentifierOrKey *oiok = &kari->originatorIdentifierOrKey;
 	    if(oiok->identifierType != SecCmsOriginatorIDOrKeyOriginatorPublicKey) {
 		dprintf("SEC_OID_EC_PUBLIC_KEY unwrap key: bad oiok.id\n");
+                error = SEC_ERROR_LIBRARY_FAILURE;
 		goto loser;
 	    }
 	    SecCmsOriginatorPublicKey *opk = &oiok->id.originatorPublicKey;
@@ -696,9 +699,6 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	}
 	break;
     case SecCmsRecipientInfoIDKEK:
-	encalg = &(ri->ri.kekRecipientInfo.keyEncAlg);
-	encalgtag = SECOID_GetAlgorithmTag(&(ri->ri.kekRecipientInfo.keyEncAlg));
-	enckey = &(ri->ri.kekRecipientInfo.encKey);
 	/* not supported yet */
 	error = SEC_ERROR_UNSUPPORTED_KEYALG;
 	goto loser;
@@ -708,5 +708,6 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
     return bulkkey;
 
 loser:
+    PORT_SetError(error);
     return NULL;
 }

@@ -49,7 +49,7 @@ public:
 	const CssmData getHash() const;
 	OSStatus checkValidity(SecCSFlags flags, SecRequirementRef requirement) const;
 	OSStatus copySigningInfo(SecCSFlags flags, CFDictionaryRef *info) const;
-	const bool checkAppleSigned() const;
+    bool checkAppleSigned() const;
 	bool hasEntitlement(const char *name) const;
 
 protected:

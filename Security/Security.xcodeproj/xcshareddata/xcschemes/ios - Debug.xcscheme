@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0800"
+   LastUpgradeVersion = "0810"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -173,6 +173,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "spbkdf_01_hmac_sha256"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_00_find_nothing"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -270,6 +274,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_28_sectrustsettings"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_29_sectrust_sha1_deprecation"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -557,6 +565,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "sc_160_keyinterest"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "sd_10_policytree"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -706,6 +718,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "otr_packetdata"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "rk_01_recoverykey"
             isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>

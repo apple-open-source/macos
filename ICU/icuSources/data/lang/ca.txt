@@ -570,7 +570,7 @@ ca{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wòlof"}
-        wuu{"xinès wu"}
+        wuu{"shanghainese"}
         xal{"calmuc"}
         xh{"xosa"}
         xmf{"mingrelià"}

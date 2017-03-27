@@ -89,7 +89,7 @@ try
 }
 catch(...)
 {
-	return;
+    return;	// Prevent re-throw of exception [function-try-block]
 }
 
 void
@@ -111,6 +111,7 @@ ObjectImpl::removeChild()
 Allocator &
 ObjectImpl::allocator() const
 {
+    StLock<Mutex> _(mAllocatorMutex);
 	if (mAllocator == NULL)
 	{
 		// fix allocator now
@@ -126,6 +127,7 @@ ObjectImpl::allocator() const
 void
 ObjectImpl::allocator(Allocator &alloc)
 {
+    StLock<Mutex> _(mAllocatorMutex);
 	assert(mAllocator == NULL);	// cannot redefine allocator once set
 	mAllocator = &alloc;
 }

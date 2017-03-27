@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef IDBGetResult_h
-#define IDBGetResult_h
+#pragma once
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -59,8 +58,8 @@ public:
     {
     }
 
-    IDBGetResult(PassRefPtr<IDBKey> key)
-        : m_keyData(key.get())
+    IDBGetResult(IDBKey& key)
+        : m_keyData(&key)
     {
     }
 
@@ -69,8 +68,8 @@ public:
     {
     }
 
-    IDBGetResult(PassRefPtr<SharedBuffer> buffer, PassRefPtr<IDBKey> key, const IDBKeyPath& path)
-        : m_keyData(key.get())
+    IDBGetResult(SharedBuffer* buffer, IDBKey& key, const IDBKeyPath& path)
+        : m_keyData(&key)
         , m_keyPath(path)
     {
         if (buffer)
@@ -153,4 +152,3 @@ bool IDBGetResult::decode(Decoder& decoder, IDBGetResult& result)
 } // namespace WebCore
 
 #endif // ENABLE(INDEXED_DATABASE)
-#endif // IDBGetResult_h

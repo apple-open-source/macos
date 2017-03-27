@@ -29,6 +29,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "IDBCursor.h"
+#include <heap/HeapInlines.h>
 
 namespace WebCore {
 namespace IDBClient {
@@ -42,6 +43,8 @@ TransactionOperation::TransactionOperation(IDBTransaction& transaction, IDBReque
         m_indexRecordType = request.requestedIndexRecordType();
     if (auto* cursor = request.pendingCursor())
         m_cursorIdentifier = std::make_unique<IDBResourceIdentifier>(cursor->info().identifier());
+
+    m_idbRequest = &request;
 }
 
 } // namespace IDBClient

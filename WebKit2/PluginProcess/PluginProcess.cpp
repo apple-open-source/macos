@@ -60,7 +60,6 @@ PluginProcess::PluginProcess()
     , m_connectionActivity("PluginProcess connection activity.")
 {
     NetscapePlugin::setSetExceptionFunction(WebProcessConnection::setGlobalException);
-    m_audioHardwareListener = AudioHardwareListener::create(*this);
 }
 
 PluginProcess::~PluginProcess()
@@ -110,7 +109,7 @@ bool PluginProcess::shouldTerminate()
     return m_webProcessConnections.isEmpty();
 }
 
-void PluginProcess::didReceiveMessage(IPC::Connection& connection, IPC::MessageDecoder& decoder)
+void PluginProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     didReceivePluginProcessMessage(connection, decoder);
 }
@@ -120,10 +119,6 @@ void PluginProcess::didClose(IPC::Connection&)
     // The UI process has crashed, just quit.
     // FIXME: If the plug-in is spinning in the main loop, we'll never get this message.
     stopRunLoop();
-}
-
-void PluginProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference)
-{
 }
 
 void PluginProcess::initializePluginProcess(PluginProcessCreationParameters&& parameters)
@@ -167,13 +162,6 @@ void PluginProcess::createWebProcessConnection()
 
     // Create a listening connection.
     auto connection = WebProcessConnection::create(IPC::Connection::Identifier(listeningPort));
-
-    if (m_audioHardwareListener) {
-        if (m_audioHardwareListener->hardwareActivity() == WebCore::AudioHardwareActivityType::IsActive)
-            connection->audioHardwareDidBecomeActive();
-        else if (m_audioHardwareListener->hardwareActivity() == WebCore::AudioHardwareActivityType::IsInactive)
-            connection->audioHardwareDidBecomeInactive();
-    }
 
     m_webProcessConnections.append(WTFMove(connection));
 
@@ -252,18 +240,6 @@ void PluginProcess::initializeSandbox(const ChildProcessInitializationParameters
 {
 }
 #endif
-
-void PluginProcess::audioHardwareDidBecomeActive()
-{
-    for (auto& connection : m_webProcessConnections)
-        connection->audioHardwareDidBecomeActive();
-}
-    
-void PluginProcess::audioHardwareDidBecomeInactive()
-{
-    for (auto& connection : m_webProcessConnections)
-        connection->audioHardwareDidBecomeInactive();
-}
 
 } // namespace WebKit
 

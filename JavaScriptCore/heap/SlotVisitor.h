@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,91 +23,107 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SlotVisitor_h
-#define SlotVisitor_h
+#pragma once
 
 #include "CellState.h"
-#include "CopyToken.h"
 #include "HandleTypes.h"
 #include "MarkStack.h"
 #include "OpaqueRootSet.h"
+#include "VisitRaceKey.h"
+#include <wtf/MonotonicTime.h>
 
 namespace JSC {
 
 class ConservativeRoots;
 class GCThreadSharedData;
 class Heap;
+class HeapCell;
 class HeapSnapshotBuilder;
-template<typename T> class JITWriteBarrier;
+class MarkedBlock;
 class UnconditionalFinalizer;
 template<typename T> class Weak;
 class WeakReferenceHarvester;
 template<typename T> class WriteBarrierBase;
+
+typedef uint32_t HeapVersion;
 
 class SlotVisitor {
     WTF_MAKE_NONCOPYABLE(SlotVisitor);
     WTF_MAKE_FAST_ALLOCATED;
 
     friend class SetCurrentCellScope;
-    friend class HeapRootVisitor; // Allowed to mark a JSValue* or JSCell** directly.
     friend class Heap;
 
 public:
     SlotVisitor(Heap&);
     ~SlotVisitor();
 
-    MarkStackArray& markStack() { return m_stack; }
-    const MarkStackArray& markStack() const { return m_stack; }
-
+    MarkStackArray& collectorMarkStack() { return m_collectorStack; }
+    MarkStackArray& mutatorMarkStack() { return m_mutatorStack; }
+    const MarkStackArray& collectorMarkStack() const { return m_collectorStack; }
+    const MarkStackArray& mutatorMarkStack() const { return m_mutatorStack; }
+    
     VM& vm();
     const VM& vm() const;
     Heap* heap() const;
 
     void append(ConservativeRoots&);
     
-    template<typename T> void append(JITWriteBarrier<T>*);
-    template<typename T> void append(WriteBarrierBase<T>*);
-    template<typename T> void appendHidden(WriteBarrierBase<T>*);
+    template<typename T> void append(const WriteBarrierBase<T>&);
+    template<typename T> void appendHidden(const WriteBarrierBase<T>&);
     template<typename Iterator> void append(Iterator begin , Iterator end);
-    void appendValues(WriteBarrierBase<Unknown>*, size_t count);
-    void appendValuesHidden(WriteBarrierBase<Unknown>*, size_t count);
+    void appendValues(const WriteBarrierBase<Unknown>*, size_t count);
+    void appendValuesHidden(const WriteBarrierBase<Unknown>*, size_t count);
+    
+    // These don't require you to prove that you have a WriteBarrier<>. That makes sense
+    // for:
+    //
+    // - roots.
+    // - sophisticated data structures that barrier through other means (like DFG::Plan and
+    //   friends).
+    //
+    // If you are not a root and you don't know what kind of barrier you have, then you
+    // shouldn't call these methods.
+    JS_EXPORT_PRIVATE void appendUnbarriered(JSValue);
+    void appendUnbarriered(JSValue*, size_t);
+    void appendUnbarriered(JSCell*);
     
     template<typename T>
-    void appendUnbarrieredPointer(T**);
-    void appendUnbarrieredValue(JSValue*);
-    template<typename T>
-    void appendUnbarrieredWeak(Weak<T>*);
-    template<typename T>
-    void appendUnbarrieredReadOnlyPointer(T*);
-    void appendUnbarrieredReadOnlyValue(JSValue);
+    void append(const Weak<T>& weak);
     
     JS_EXPORT_PRIVATE void addOpaqueRoot(void*);
+    
     JS_EXPORT_PRIVATE bool containsOpaqueRoot(void*) const;
     TriState containsOpaqueRootTriState(void*) const;
-    int opaqueRootCount();
 
-    bool isEmpty() { return m_stack.isEmpty(); }
+    bool isEmpty() { return m_collectorStack.isEmpty() && m_mutatorStack.isEmpty(); }
 
     void didStartMarking();
     void reset();
-    void clearMarkStack();
+    void clearMarkStacks();
 
     size_t bytesVisited() const { return m_bytesVisited; }
-    size_t bytesCopied() const { return m_bytesCopied; }
     size_t visitCount() const { return m_visitCount; }
+    
+    void addToVisitCount(size_t value) { m_visitCount += value; }
 
     void donate();
-    void drain();
-    void donateAndDrain();
+    void drain(MonotonicTime timeout = MonotonicTime::infinity());
+    void donateAndDrain(MonotonicTime timeout = MonotonicTime::infinity());
     
     enum SharedDrainMode { SlaveDrain, MasterDrain };
-    void drainFromShared(SharedDrainMode);
+    enum class SharedDrainResult { Done, TimedOut };
+    SharedDrainResult drainFromShared(SharedDrainMode, MonotonicTime timeout = MonotonicTime::infinity());
 
-    void harvestWeakReferences();
-    void finalizeUnconditionalFinalizers();
-
-    void copyLater(JSCell*, CopyToken, void*, size_t);
+    SharedDrainResult drainInParallel(MonotonicTime timeout = MonotonicTime::infinity());
+    SharedDrainResult drainInParallelPassively(MonotonicTime timeout = MonotonicTime::infinity());
     
+    JS_EXPORT_PRIVATE void mergeIfNecessary();
+
+    // This informs the GC about auxiliary of some size that we are keeping alive. If you don't do
+    // this then the space will be freed at end of GC.
+    void markAuxiliary(const void* base);
+
     void reportExtraMemoryVisited(size_t);
 #if ENABLE(RESOURCE_USAGE)
     void reportExternalMemoryVisited(size_t);
@@ -119,39 +135,82 @@ public:
     void dump(PrintStream&) const;
 
     bool isBuildingHeapSnapshot() const { return !!m_heapSnapshotBuilder; }
+    
+    HeapVersion markingVersion() const { return m_markingVersion; }
+
+    bool mutatorIsStopped() const { return m_mutatorIsStopped; }
+    
+    Lock& rightToRun() { return m_rightToRun; }
+    
+    void updateMutatorIsStopped(const AbstractLocker&);
+    void updateMutatorIsStopped();
+    
+    bool hasAcknowledgedThatTheMutatorIsResumed() const;
+    bool mutatorIsStoppedIsUpToDate() const;
+    
+    void optimizeForStoppedMutator();
+    
+    void didRace(const VisitRaceKey&);
+    void didRace(JSCell* cell, const char* reason) { didRace(VisitRaceKey(cell, reason)); }
+    
+    void visitAsConstraint(const JSCell*);
+    
+    bool didReachTermination();
+    
+    void setIgnoreNewOpaqueRoots(bool value) { m_ignoreNewOpaqueRoots = value; }
 
 private:
     friend class ParallelModeEnabler;
     
-    JS_EXPORT_PRIVATE void append(JSValue); // This is private to encourage clients to use WriteBarrier<T>.
+    void appendJSCellOrAuxiliary(HeapCell*);
     void appendHidden(JSValue);
 
     JS_EXPORT_PRIVATE void setMarkedAndAppendToMarkStack(JSCell*);
+    
+    template<typename ContainerType>
+    void setMarkedAndAppendToMarkStack(ContainerType&, JSCell*);
+    
     void appendToMarkStack(JSCell*);
     
-    JS_EXPORT_PRIVATE void mergeOpaqueRoots();
-    void mergeOpaqueRootsIfNecessary();
+    template<typename ContainerType>
+    void appendToMarkStack(ContainerType&, JSCell*);
+    
+    void appendToMutatorMarkStack(const JSCell*);
+    
+    void noteLiveAuxiliaryCell(HeapCell*);
+    
+    void mergeOpaqueRoots();
+
     void mergeOpaqueRootsIfProfitable();
 
     void visitChildren(const JSCell*);
     
     void donateKnownParallel();
+    void donateKnownParallel(MarkStackArray& from, MarkStackArray& to);
+    
+    bool hasWork(const LockHolder&);
+    bool didReachTermination(const LockHolder&);
 
-    MarkStackArray m_stack;
+    MarkStackArray m_collectorStack;
+    MarkStackArray m_mutatorStack;
     OpaqueRootSet m_opaqueRoots; // Handle-owning data structures not visible to the garbage collector.
+    bool m_ignoreNewOpaqueRoots { false }; // Useful as a debugging mode.
     
     size_t m_bytesVisited;
-    size_t m_bytesCopied;
     size_t m_visitCount;
     bool m_isInParallelMode;
+    
+    HeapVersion m_markingVersion;
     
     Heap& m_heap;
 
     HeapSnapshotBuilder* m_heapSnapshotBuilder { nullptr };
     JSCell* m_currentCell { nullptr };
-
-    CellState m_currentObjectCellStateBeforeVisiting { CellState::NewWhite };
-
+    bool m_isFirstVisit { false };
+    bool m_mutatorIsStopped { false };
+    bool m_canOptimizeForStoppedMutator { false };
+    Lock m_rightToRun;
+    
 public:
 #if !ASSERT_DISABLED
     bool m_isCheckingForDefaultMarkViolation;
@@ -179,5 +238,3 @@ private:
 };
 
 } // namespace JSC
-
-#endif // SlotVisitor_h

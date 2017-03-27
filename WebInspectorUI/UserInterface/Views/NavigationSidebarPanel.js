@@ -36,7 +36,6 @@ WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebIn
         this.contentView.element.addEventListener("scroll", this.soon._updateContentOverflowShadowVisibility);
 
         this._contentTreeOutline = this.createContentTreeOutline(true);
-        this._selectedContentTreeOutline = null;
 
         this._filterBar = new WebInspector.FilterBar;
         this._filterBar.addEventListener(WebInspector.FilterBar.Event.FilterDidChange, this._filterDidChange, this);
@@ -212,7 +211,12 @@ WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebIn
         // Do not steal a content view if we are not the active tab/sidebar.
         if (!this.selected) {
             let contentView = this.contentBrowser.contentViewForRepresentedObject(treeElement.representedObject);
-            if (contentView && contentView.parentContainer !== this.contentBrowser.contentViewContainer)
+            if (contentView && contentView.parentContainer && contentView.parentContainer !== this.contentBrowser.contentViewContainer)
+                return false;
+
+            // contentView.parentContainer may be null. Check for selected tab, too.
+            let selectedTabContentView = WebInspector.tabBrowser.selectedTabContentView;
+            if (selectedTabContentView && selectedTabContentView.contentBrowser !== this.contentBrowser)
                 return false;
         }
 
@@ -440,21 +444,6 @@ WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebIn
         treeElement.hidden = true;
     }
 
-    show()
-    {
-        if (!this.parentSidebar)
-            return;
-
-        super.show();
-
-        let treeOutline = this._selectedContentTreeOutline;
-        if (!treeOutline && this._visibleContentTreeOutlines.length)
-            treeOutline = this._visibleContentTreeOutlines[0];
-
-        if (treeOutline)
-            treeOutline.element.focus();
-    }
-
     shown()
     {
         super.shown();
@@ -589,8 +578,6 @@ WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebIn
                 break;
         }
 
-        let selectionWasHidden = selectedTreeElement && selectedTreeElement.hidden;
-
         let filters = this._filterBar.filters;
         this._textFilterRegex = simpleGlobStringToRegExp(filters.text, "i");
         this._filtersSetting.value = filters;
@@ -665,6 +652,15 @@ WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebIn
             return;
 
         let previousSelectedTreeElement = treeOutline[WebInspector.NavigationSidebarPanel.PreviousSelectedTreeElementSymbol];
+        if (!previousSelectedTreeElement || previousSelectedTreeElement.hidden) {
+            const skipUnrevealed = true;
+            let firstVisibleTreeElement = treeOutline.children[0];
+            while (firstVisibleTreeElement && firstVisibleTreeElement.hidden)
+                firstVisibleTreeElement = firstVisibleTreeElement.traverseNextTreeElement(skipUnrevealed, this);
+
+            previousSelectedTreeElement = firstVisibleTreeElement;
+        }
+
         if (!previousSelectedTreeElement)
             return;
 
@@ -673,22 +669,23 @@ WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebIn
 
     _contentTreeOutlineTreeSelectionDidChange(event)
     {
-        let {selectedElement, deselectedElement} = event.data;
-        if (deselectedElement)
-            deselectedElement.treeOutline[WebInspector.NavigationSidebarPanel.PreviousSelectedTreeElementSymbol] = deselectedElement;
-
+        let selectedElement = event.data.selectedElement;
         if (!selectedElement)
             return;
 
-        // Prevent two selections in the sidebar, if the selected tree outline is changing.
-        let treeOutline = selectedElement.treeOutline;
-        if (this._selectedContentTreeOutline && this._selectedContentTreeOutline !== treeOutline) {
-            if (this._selectedContentTreeOutline.selectedTreeElement)
-                this._selectedContentTreeOutline.selectedTreeElement.deselect();
-        }
+        let selectedTreeOutline = selectedElement.treeOutline;
+        selectedTreeOutline[WebInspector.NavigationSidebarPanel.PreviousSelectedTreeElementSymbol] = selectedElement;
 
-        treeOutline[WebInspector.NavigationSidebarPanel.PreviousSelectedTreeElementSymbol] = null;
-        this._selectedContentTreeOutline = treeOutline;
+        // Prevent multiple selections in the sidebar.
+        for (let treeOutline of this._visibleContentTreeOutlines) {
+            if (selectedTreeOutline === treeOutline)
+                continue;
+
+            if (treeOutline.selectedTreeElement) {
+                treeOutline.selectedTreeElement.deselect();
+                break;
+            }
+        }
     }
 
     _checkForStaleResourcesIfNeeded()
@@ -715,6 +712,8 @@ WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebIn
             || treeElement instanceof WebInspector.DatabaseHostTreeElement
             || treeElement instanceof WebInspector.IndexedDatabaseHostTreeElement
             || treeElement instanceof WebInspector.ApplicationCacheManifestTreeElement
+            || treeElement instanceof WebInspector.ThreadTreeElement
+            || treeElement instanceof WebInspector.IdleTreeElement
             || typeof treeElement.representedObject === "string"
             || treeElement.representedObject instanceof String;
     }

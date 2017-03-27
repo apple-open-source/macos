@@ -690,8 +690,9 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
     if (!url)
         return;
 
+    _positionInformation.request.point = roundedIntPoint([controller.pageView convertPoint:point toView:self]);
+
     _positionInformation.url = url.absoluteString;
-    _positionInformation.point = roundedIntPoint([controller.pageView convertPoint:point toView:self]);
     _positionInformation.bounds = roundedIntRect([self convertRect:[controller.pageView convertRectFromPDFPageSpace:annotation.Rect] fromView:controller.pageView]);
 
     [self _highlightLinkAnnotation:linkAnnotation forDuration:.75 completionHandler:^{
@@ -878,7 +879,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
 - (void)_applicationDidEnterBackground
 {
     _webView->_page->applicationDidEnterBackground();
-    _webView->_page->viewStateDidChange(ViewState::AllFlags & ~ViewState::IsInWindow);
+    _webView->_page->activityStateDidChange(ActivityState::AllFlags & ~ActivityState::IsInWindow);
 }
 
 - (void)_applicationDidCreateWindowContext
@@ -895,7 +896,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
     _webView->_page->applicationWillEnterForeground();
     if (auto drawingArea = _webView->_page->drawingArea())
         drawingArea->hideContentUntilAnyUpdate();
-    _webView->_page->viewStateDidChange(ViewState::AllFlags & ~ViewState::IsInWindow, true, WebPageProxy::ViewStateChangeDispatchMode::Immediate);
+    _webView->_page->activityStateDidChange(ActivityState::AllFlags & ~ActivityState::IsInWindow, true, WebPageProxy::ActivityStateChangeDispatchMode::Immediate);
 }
 
 @end

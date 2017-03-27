@@ -26,6 +26,7 @@
 #ifndef NetworkLoadParameters_h
 #define NetworkLoadParameters_h
 
+#include <WebCore/BlobDataFileReference.h>
 #include <WebCore/ResourceLoaderOptions.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SessionID.h>
@@ -40,11 +41,14 @@ public:
     WebCore::ResourceRequest request;
     WebCore::ContentSniffingPolicy contentSniffingPolicy { WebCore::SniffContent };
     WebCore::StoredCredentials allowStoredCredentials { WebCore::DoNotAllowStoredCredentials };
-    WebCore::ClientCredentialPolicy clientCredentialPolicy { WebCore::DoNotAskClientForAnyCredentials };
+    WebCore::ClientCredentialPolicy clientCredentialPolicy { WebCore::ClientCredentialPolicy::CannotAskClientForCredentials };
     bool shouldFollowRedirects { true };
     bool shouldClearReferrerOnHTTPSToHTTPRedirect { true };
     bool defersLoading { false };
     bool needsCertificateInfo { false };
+#if USE(NETWORK_SESSION)
+    Vector<RefPtr<WebCore::BlobDataFileReference>> blobFileReferences;
+#endif
 };
 
 } // namespace WebKit

@@ -1,5 +1,3 @@
-.\" @(#) $Header: /tcpdump/master/tcpdump/tcpdump.1.in,v 1.2 2008-11-09 23:35:03 mcr Exp $ (LBL)
-.\"
 .\"	$NetBSD: tcpdump.8,v 1.9 2003/03/31 00:18:17 perry Exp $
 .\"
 .\" Copyright (c) 1987, 1988, 1989, 1990, 1991, 1992, 1994, 1995, 1996, 1997
@@ -22,7 +20,7 @@
 .\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
 .\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 .\"
-.TH TCPDUMP 1  "11 July 2014"
+.TH TCPDUMP 1  "17 September 2015"
 .SH NAME
 tcpdump \- dump traffic on a network
 .SH SYNOPSIS
@@ -81,6 +79,10 @@ tcpdump \- dump traffic on a network
 [
 .B \-\-number
 ]
+[
+.B \-Q
+.I in|out|inout
+]
 .ti +8
 [
 .B \-r
@@ -132,6 +134,13 @@ tcpdump \- dump traffic on a network
 [
 .B \-Q
 .I packet-metadata-filter
+]
+[
+.B \-Q
+.I in|out|inout
+]
+[
+.BI \-\-time\-stamp\-precision= tstamp_precision
 ]
 .ti +8
 [
@@ -215,7 +224,9 @@ your ``status'' character, typically control-T, although on some
 platforms, such as Mac OS X, the ``status'' character is not set by
 default, so you must set it with
 .BR stty (1)
-in order to use it) and will continue capturing packets.
+in order to use it) and will continue capturing packets. On platforms that
+do not support the SIGINFO signal, the same can be achieved by using the
+SIGUSR1 signal.
 .LP
 Reading packets from a network interface may require that you have
 special privileges; see the
@@ -511,6 +522,25 @@ List the supported time stamp types for the interface and exit.  If the
 time stamp type cannot be set for the interface, no time stamp types are
 listed.
 .TP
+.BI \-\-time\-stamp\-precision= tstamp_precision
+When capturing, set the time stamp precision for the capture to
+\fItstamp_precision\fP.  Note that availability of high precision time
+stamps (nanoseconds) and their actual accuracy is platform and hardware
+dependent.  Also note that when writing captures made with nanosecond
+accuracy to a savefile, the time stamps are written with nanosecond
+resolution, and the file is written with a different magic number, to
+indicate that the time stamps are in seconds and nanoseconds; not all
+programs that read pcap savefiles will be able to read those captures.
+.LP
+When reading a savefile, convert time stamps to the precision specified
+by \fItimestamp_precision\fP, and display them with that resolution.  If
+the precision specified is less than the precision of time stamps in the
+file, the conversion will lose precision.
+.LP
+The supported values for \fItimestamp_precision\fP are \fBmicro\fP for
+microsecond resolution and \fBnano\fP for nanosecond resolution.  The
+default is microsecond resolution.
+.TP
 .B \-k
 Control the display of packet metadata via an optional 
 .I metadata_arg
@@ -665,17 +695,19 @@ See section
 PACKET METADATA FILTER 
 for the syntax of packet metadata filter expressions. 
 This is an Apple addition.
+.BI \-Q " direction"
+.PD 0
+.TP
+.BI \-\-direction= direction
+.PD
+Choose send/receive direction \fIdirection\fR for which packets should be
+captured. Possible values are `in', `out' and `inout'. Not available
+on all platforms.
 .TP
 .B \-q
 Quick (quiet?) output.
 Print less protocol information so output
 lines are shorter.
-.TP
-.B \-R
-Assume ESP/AH packets to be based on old specification (RFC1825 to RFC1829).
-If specified, \fItcpdump\fP will not print replay prevention field.
-Since there is no protocol version field in ESP/AH specification,
-\fItcpdump\fP cannot deduce the version of ESP/AH protocol.
 .TP
 .BI \-r " file"
 Read packets from \fIfile\fR (which was created with the
@@ -696,7 +728,7 @@ Print absolute, rather than relative, TCP sequence numbers.
 .BI \-\-snapshot\-length= snaplen
 .PD
 Snarf \fIsnaplen\fP bytes of data from each packet rather than the
-default of 65535 bytes.
+default of 262144 bytes.
 Packets truncated because of a limited snapshot
 are indicated in the output with ``[|\fIproto\fP]'', where \fIproto\fP
 is the name of the protocol level at which the truncation has occurred.
@@ -708,7 +740,7 @@ lost.
 You should limit \fIsnaplen\fP to the smallest number that will
 capture the protocol information you're interested in.
 Setting
-\fIsnaplen\fP to 0 sets it to the default of 65535,
+\fIsnaplen\fP to 0 sets it to the default of 262144,
 for backwards compatibility with recent older versions of
 .IR tcpdump .
 .TP
@@ -722,6 +754,7 @@ Currently known types are
 \fBlmp\fR (Link Management Protocol),
 \fBpgm\fR (Pragmatic General Multicast),
 \fBpgm_zmtp1\fR (ZMTP/1.0 inside PGM/EPGM),
+\fBresp\fR (REdis Serialization Protocol),
 \fBradius\fR (RADIUS),
 \fBrpc\fR (Remote Procedure Call),
 \fBrtp\fR (Real-Time Applications protocol),
@@ -1987,11 +2020,15 @@ is the current clock time in the form
 .fi
 .RE
 and is as accurate as the kernel's clock.
-The timestamp reflects the time the kernel first saw the packet.
-No attempt
-is made to account for the time lag between when the
-Ethernet interface removed the packet from the wire and when the kernel
-serviced the `new packet' interrupt.
+The timestamp reflects the time the kernel applied a time stamp to the packet.
+No attempt is made to account for the time lag between when the network
+interface finished receiving the packet from the network and when the
+kernel applied a time stamp to the packet; that time lag could include a
+delay between the time when the network interface finished receiving a
+packet from the network and the time when an interrupt was delivered to
+the kernel to get it to read the packet and a delay between the time
+when the kernel serviced the `new packet' interrupt and the time when it
+applied a time stamp to the packet.
 .SH "PACKET METADATA FILTER"
 Use packet metadata filter expression to match packets against descriptive 
 information about the packet: interface, process, service type or direction.

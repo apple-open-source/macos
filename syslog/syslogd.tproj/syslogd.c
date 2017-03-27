@@ -48,7 +48,6 @@
 #include <notify.h>
 #include <notify_keys.h>
 #include <utmpx.h>
-#include <vproc_priv.h>
 #include <asl_private.h>
 #include <pwd.h>
 
@@ -66,8 +65,6 @@
 #define BILLION 1000000000
 
 #define NOTIFY_DELAY 1
-
-#define forever for(;;)
 
 extern int _malloc_no_asl_log;
 
@@ -742,19 +739,6 @@ main(int argc, const char *argv[])
 		dispatch_source_set_timer(global.mark_timer, dispatch_time(DISPATCH_TIME_NOW, global.mark_time * NSEC_PER_SEC), global.mark_time * NSEC_PER_SEC, 0);
 		dispatch_resume(global.mark_timer);
 	}
-
-#if !TARGET_IPHONE_SIMULATOR
-	asldebug("starting launchd input channel\n");
-	/*
-	 * Start launchd service
-	 * This pins a thread in _vprocmgr_log_drain.  Eventually we will either
-	 * remove the whole stderr/stdout -> ASL mechanism entirely, or come up 
-	 * with a communication channel that we can trigger with a dispatch source.
-	 */
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-		forever _vprocmgr_log_drain(NULL, NULL, launchd_callback);
-	});
-#endif
 
 	asldebug("starting mach service\n");
 	/*

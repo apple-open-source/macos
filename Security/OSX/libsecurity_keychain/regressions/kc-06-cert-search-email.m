@@ -103,14 +103,11 @@ static void printCertificate(SecCertificateRef certificate, SecPolicyRef policy,
         if (SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_X509_BASIC, NULL, &policySearch)==noErr) {
             SecPolicySearchCopyNext(policySearch, &policy);
         }
-        [(id)policySearch release];
-    } else {
-        [(id)policy retain];
     }
 
     // Create a trust reference, given policy and certificates
     SecTrustRef trust=nil;
-    NSArray *certificates = [NSArray arrayWithObject:(id)certificate];
+    NSArray *certificates = [NSArray arrayWithObject:(__bridge id)certificate];
     status = SecTrustCreateWithCertificates((CFArrayRef)certificates, policy, &trust);
 
     SFCertificateData *sfCertData = [[SFCertificateData alloc] initWithCertificate:certificate trust:trust parse:NO];
@@ -119,17 +116,12 @@ static void printCertificate(SecCertificateRef certificate, SecPolicyRef policy,
     if (statusStr && (strcmp(statusStr, "This certificate is valid") != 0))
         fprintf(stdout, " (%s)", statusStr);
     fprintf(stdout, "\n");
-    [sfCertData release];
-
-    [(id)trust release];
-    [(id)policy release];
 }
 
 static BOOL certificateHasExpired(SecCertificateRef certificate)
 {
     SFCertificateData *sfCertData = [[SFCertificateData alloc] initWithCertificate:certificate trust:nil parse:NO];
     BOOL result = [sfCertData expired];
-    [sfCertData release];
 
     return result;
 }
@@ -177,9 +169,6 @@ static void doCertificateSearchForEmailAddress(SecKeychainRef kc, const char *em
 
 int kc_06_cert_search_email(int argc, char *const *argv)
 {
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	unsigned int i;
-	const char *emailAddr = NULL;
     bool showAll = false;
 
     plan_tests(7);
@@ -202,6 +191,5 @@ int kc_06_cert_search_email(int argc, char *const *argv)
     CFReleaseNull(kc);
 
     deleteTestFiles();
-	[pool release];
 	return 0;
 }

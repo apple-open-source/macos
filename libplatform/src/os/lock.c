@@ -28,6 +28,7 @@
 #include <mach/mach_init.h>
 #include <mach/mach_traps.h>
 #include <mach/thread_switch.h>
+#include <mach/mach_time.h>
 #include <os/tsd.h>
 
 #pragma mark -
@@ -88,9 +89,30 @@ OS_ATOMIC_EXPORT void OSSpinLockUnlock(volatile OSSpinLock *l);
 #define OS_LOCK_SPIN_SPIN_TRIES 1000
 #define OS_LOCK_SPIN_PAUSE() os_hardware_pause()
 #endif
-#define OS_LOCK_SPIN_YIELD_TRIES 100
 
 static const OSSpinLock _OSSpinLockLocked = TARGET_OS_EMBEDDED ? 1 : -1;
+
+OS_ALWAYS_INLINE
+static uint64_t
+_os_lock_yield_deadline(mach_msg_timeout_t timeout)
+{
+	uint64_t abstime = timeout * NSEC_PER_MSEC;
+#if !(defined(__i386__) || defined(__x86_64__))
+	mach_timebase_info_data_t tbi;
+	kern_return_t kr = mach_timebase_info(&tbi);
+	if (kr) return UINT64_MAX;
+	abstime *= tbi.denom;
+	abstime /= tbi.numer;
+#endif
+	return mach_absolute_time() + abstime;
+}
+
+OS_ALWAYS_INLINE
+static bool
+_os_lock_yield_until(uint64_t deadline)
+{
+	return mach_absolute_time() < deadline;
+}
 
 OS_NOINLINE
 static void
@@ -98,16 +120,19 @@ _OSSpinLockLockYield(volatile OSSpinLock *l)
 {
 	int option = SWITCH_OPTION_DEPRESS;
 	mach_msg_timeout_t timeout = 1;
-	uint32_t tries = OS_LOCK_SPIN_YIELD_TRIES;
+	uint64_t deadline = _os_lock_yield_deadline(timeout);
 	OSSpinLock lock;
 	while (unlikely(lock = *l)) {
 _yield:
 		if (unlikely(lock != _OSSpinLockLocked)) {
 			_os_lock_corruption_abort((void *)l, (uintptr_t)lock);
 		}
-		// Yield until tries first hits zero, then permanently switch to wait
-		if (unlikely(!tries--)) option = SWITCH_OPTION_WAIT;
 		thread_switch(MACH_PORT_NULL, option, timeout);
+		if (option == SWITCH_OPTION_WAIT) {
+			timeout++;
+		} else if (!_os_lock_yield_until(deadline)) {
+			option = SWITCH_OPTION_WAIT;
+		}
 	}
 	bool r = os_atomic_cmpxchgv(l, 0, _OSSpinLockLocked, &lock, acquire);
 	if (likely(r)) return;

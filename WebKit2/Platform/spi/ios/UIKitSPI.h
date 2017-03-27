@@ -450,7 +450,14 @@ typedef NS_ENUM (NSInteger, _UIBackdropMaskViewFlags) {
 @property (nonatomic, assign, setter=_setBackdropMaskViewFlags:) NSInteger _backdropMaskViewFlags;
 @end
 
+@interface UIWebSelectionView : UIView
+@end
+
 @interface UIWebSelectionAssistant : NSObject <UIGestureRecognizerDelegate>
+@end
+
+@protocol UISelectionInteractionAssistant
+- (void)showSelectionCommands;
 @end
 
 @interface UIWebSelectionAssistant ()
@@ -464,6 +471,7 @@ typedef NS_ENUM (NSInteger, _UIBackdropMaskViewFlags) {
 - (void)setGestureRecognizers;
 - (void)willStartScrollingOrZoomingPage;
 - (void)willStartScrollingOverflow;
+@property (nonatomic, retain) UIWebSelectionView *selectionView;
 @property (nonatomic, readonly) CGRect selectionFrame;
 @end
 
@@ -541,7 +549,12 @@ typedef NS_ENUM(NSInteger, UIWKHandlePosition) {
 @property (nonatomic, assign) NSRange rangeInMarkedText;
 @end
 
-@interface UIWKTextInteractionAssistant : UITextInteractionAssistant
+#if __IPHONE_OS_VERSION_MAX_ALLOWED < 100000
+@protocol UIResponderStandardEditActions
+@end
+#endif
+
+@interface UIWKTextInteractionAssistant : UITextInteractionAssistant <UIResponderStandardEditActions>
 @end
 
 @interface UIWKTextInteractionAssistant (UIWKTextInteractionAssistantDetails)
@@ -638,12 +651,23 @@ typedef enum {
     UIWebTouchEventTouchCancel = 3,
 } UIWebTouchEventType;
 
+typedef enum {
+    UIWebTouchPointTypeDirect = 0,
+    UIWebTouchPointTypeStylus
+} UIWebTouchPointType;
+
 struct _UIWebTouchPoint {
     CGPoint locationInScreenCoordinates;
     CGPoint locationInDocumentCoordinates;
     unsigned identifier;
     UITouchPhase phase;
+#if __IPHONE_OS_VERSION_MIN_REQUIRED > 100000
     CGFloat majorRadiusInScreenCoordinates;
+    CGFloat force;
+    CGFloat altitudeAngle;
+    CGFloat azimuthAngle;
+    UIWebTouchPointType touchType;
+#endif
 };
 
 struct _UIWebTouchEvent {
@@ -718,6 +742,7 @@ typedef NS_ENUM(NSInteger, _UIBackdropViewStylePrivate) {
 
 @interface _UINavigationInteractiveTransitionBase ()
 - (id)initWithGestureRecognizerView:(UIView *)gestureRecognizerView animator:(id<UIViewControllerAnimatedTransitioning>)animator delegate:(id<_UINavigationInteractiveTransitionBaseDelegate>)delegate;
+@property (nonatomic, weak) UIPanGestureRecognizer *gestureRecognizer;
 @property (nonatomic, assign) BOOL shouldReverseTranslation;
 @property (nonatomic, retain) _UINavigationParallaxTransition *animationController;
 @end
@@ -823,6 +848,10 @@ typedef enum {
 - (UIScrollView *)_scroller;
 - (CGPoint)accessibilityConvertPointFromSceneReferenceCoordinates:(CGPoint)point;
 - (CGRect)accessibilityConvertRectToSceneReferenceCoordinates:(CGRect)rect;
+@end
+
+@interface UIResponder ()
+- (UIResponder *)firstResponder;
 @end
 
 WTF_EXTERN_C_BEGIN

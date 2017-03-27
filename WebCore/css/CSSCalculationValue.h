@@ -35,11 +35,9 @@
 
 namespace WebCore {
 
-class CSSParserValueList;
+class CSSParserTokenRange;
 class CSSToLengthConversionData;
 class RenderStyle;
-
-struct CSSParserString;
 
 enum CalculationCategory {
     CalcNumber = 0,
@@ -68,7 +66,7 @@ public:
     virtual String customCSSText() const = 0;
     virtual bool equals(const CSSCalcExpressionNode& other) const { return m_category == other.m_category && m_isInteger == other.m_isInteger; }
     virtual Type type() const = 0;
-    virtual CSSPrimitiveValue::UnitTypes primitiveType() const = 0;
+    virtual CSSPrimitiveValue::UnitType primitiveType() const = 0;
 
     CalculationCategory category() const { return m_category; }
     bool isInteger() const { return m_isInteger; }
@@ -85,20 +83,22 @@ private:
     bool m_isInteger;
 };
 
-class CSSCalcValue : public CSSValue {
+class CSSCalcValue final : public CSSValue {
 public:
-    static RefPtr<CSSCalcValue> create(CSSParserString name, CSSParserValueList& arguments, CalculationPermittedValueRange);
+    static RefPtr<CSSCalcValue> create(const CSSParserTokenRange&, ValueRange);
+    
     static RefPtr<CSSCalcValue> create(const CalculationValue&, const RenderStyle&);
 
     CalculationCategory category() const { return m_expression->category(); }
     bool isInt() const { return m_expression->isInteger(); }
     double doubleValue() const;
     bool isPositive() const { return m_expression->doubleValue() > 0; }
+    bool isNegative() const { return m_expression->doubleValue() < 0; }
     double computeLengthPx(const CSSToLengthConversionData&) const;
     unsigned short primitiveType() const { return m_expression->primitiveType(); }
 
     Ref<CalculationValue> createCalculationValue(const CSSToLengthConversionData&) const;
-    void setPermittedValueRange(CalculationPermittedValueRange);
+    void setPermittedValueRange(ValueRange);
 
     String customCSSText() const;
     bool equals(const CSSCalcValue&) const;
@@ -122,12 +122,12 @@ inline CSSCalcValue::CSSCalcValue(Ref<CSSCalcExpressionNode>&& expression, bool 
 inline Ref<CalculationValue> CSSCalcValue::createCalculationValue(const CSSToLengthConversionData& conversionData) const
 {
     return CalculationValue::create(m_expression->createCalcExpression(conversionData),
-        m_shouldClampToNonNegative ? CalculationRangeNonNegative : CalculationRangeAll);
+        m_shouldClampToNonNegative ? ValueRangeNonNegative : ValueRangeAll);
 }
 
-inline void CSSCalcValue::setPermittedValueRange(CalculationPermittedValueRange range)
+inline void CSSCalcValue::setPermittedValueRange(ValueRange range)
 {
-    m_shouldClampToNonNegative = range != CalculationRangeAll;
+    m_shouldClampToNonNegative = range != ValueRangeAll;
 }
 
 } // namespace WebCore

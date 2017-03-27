@@ -23,62 +23,50 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "Editor.h"
+#import "config.h"
+#import "Editor.h"
 
-#include "CSSComputedStyleDeclaration.h"
-#include "CSSPrimitiveValueMappings.h"
-#include "CachedImage.h"
-#include "CachedResourceLoader.h"
-#include "DOMRangeInternal.h"
-#include "DataTransfer.h"
-#include "DocumentFragment.h"
-#include "DocumentLoader.h"
-#include "EditorClient.h"
-#include "FontCascade.h"
-#include "Frame.h"
-#include "FrameLoaderClient.h"
-#include "HTMLConverter.h"
-#include "HTMLImageElement.h"
-#include "HTMLInputElement.h"
-#include "HTMLNames.h"
-#include "HTMLParserIdioms.h"
-#include "HTMLTextAreaElement.h"
-#include "LegacyWebArchive.h"
-#include "NSAttributedStringSPI.h"
-#include "NodeTraversal.h"
-#include "Page.h"
-#include "Pasteboard.h"
-#include "RenderBlock.h"
-#include "RenderImage.h"
-#include "SharedBuffer.h"
-#include "SoftLinking.h"
-#include "StyleProperties.h"
-#include "Text.h"
-#include "TypingCommand.h"
-#include "WAKAppKitStubs.h"
-#include "htmlediting.h"
-#include "markup.h"
-#include <wtf/BlockObjCExceptions.h>
+#import "CSSComputedStyleDeclaration.h"
+#import "CSSPrimitiveValueMappings.h"
+#import "CachedImage.h"
+#import "CachedResourceLoader.h"
+#import "DataTransfer.h"
+#import "DictationCommandIOS.h"
+#import "DocumentFragment.h"
+#import "DocumentLoader.h"
+#import "DocumentMarkerController.h"
+#import "EditorClient.h"
+#import "FontCascade.h"
+#import "Frame.h"
+#import "FrameLoaderClient.h"
+#import "HTMLAnchorElement.h"
+#import "HTMLConverter.h"
+#import "HTMLImageElement.h"
+#import "HTMLInputElement.h"
+#import "HTMLNames.h"
+#import "HTMLParserIdioms.h"
+#import "HTMLTextAreaElement.h"
+#import "LegacyWebArchive.h"
+#import "NSAttributedStringSPI.h"
+#import "NodeTraversal.h"
+#import "Page.h"
+#import "Pasteboard.h"
+#import "RenderBlock.h"
+#import "RenderImage.h"
+#import "SharedBuffer.h"
+#import "SoftLinking.h"
+#import "StyleProperties.h"
+#import "Text.h"
+#import "TypingCommand.h"
+#import "WAKAppKitStubs.h"
+#import "htmlediting.h"
+#import "markup.h"
+#import <MobileCoreServices/MobileCoreServices.h>
+#import <wtf/BlockObjCExceptions.h>
+#include <wtf/text/StringBuilder.h>
 
 SOFT_LINK_FRAMEWORK(AppSupport)
 SOFT_LINK(AppSupport, CPSharedResourcesDirectory, CFStringRef, (void), ())
-
-SOFT_LINK_FRAMEWORK(MobileCoreServices)
-
-SOFT_LINK(MobileCoreServices, UTTypeConformsTo, Boolean, (CFStringRef inUTI, CFStringRef inConformsToUTI), (inUTI, inConformsToUTI))
-SOFT_LINK(MobileCoreServices, UTTypeCreatePreferredIdentifierForTag, CFStringRef, (CFStringRef inTagClass, CFStringRef inTag, CFStringRef inConformingToUTI), (inTagClass, inTag, inConformingToUTI))
-SOFT_LINK(MobileCoreServices, UTTypeCopyPreferredTagWithClass, CFStringRef, (CFStringRef inUTI, CFStringRef inTagClass), (inUTI, inTagClass))
-
-SOFT_LINK_CONSTANT(MobileCoreServices, kUTTypePNG, CFStringRef)
-SOFT_LINK_CONSTANT(MobileCoreServices, kUTTypeJPEG, CFStringRef)
-SOFT_LINK_CONSTANT(MobileCoreServices, kUTTagClassFilenameExtension, CFStringRef)
-SOFT_LINK_CONSTANT(MobileCoreServices, kUTTagClassMIMEType, CFStringRef)
-
-#define kUTTypePNG  getkUTTypePNG()
-#define kUTTypeJPEG getkUTTypeJPEG()
-#define kUTTagClassFilenameExtension getkUTTagClassFilenameExtension()
-#define kUTTagClassMIMEType getkUTTagClassMIMEType()
 
 @interface NSAttributedString (NSAttributedStringKitAdditions)
 - (id)initWithRTF:(NSData *)data documentAttributes:(NSDictionary **)dict;
@@ -189,7 +177,7 @@ const Font* Editor::fontForSelection(bool& hasMultipleFonts) const
         if (style) {
             result = &style->fontCascade().primaryFont();
             if (nodeToRemove)
-                nodeToRemove->remove(ASSERT_NO_EXCEPTION);
+                nodeToRemove->remove();
         }
 
         return result;
@@ -235,7 +223,7 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
     getTextDecorationAttributesRespectingTypingStyle(*style, result);
 
     if (nodeToRemove)
-        nodeToRemove->remove(ASSERT_NO_EXCEPTION);
+        nodeToRemove->remove();
     
     return result;
 }
@@ -388,10 +376,8 @@ private:
 void Editor::WebContentReader::addFragment(RefPtr<DocumentFragment>&& newFragment)
 {
     if (fragment) {
-        if (newFragment && newFragment->firstChild()) {
-            ExceptionCode ec;
-            fragment->appendChild(*newFragment->firstChild(), ec);
-        }
+        if (newFragment && newFragment->firstChild())
+            fragment->appendChild(*newFragment->firstChild());
     } else
         fragment = WTFMove(newFragment);
 }
@@ -490,7 +476,7 @@ bool Editor::WebContentReader::readURL(const URL& url, const String&)
             return fragment;
         }
     } else {
-        auto anchor = frame.document()->createElement(HTMLNames::aTag, false);
+        auto anchor = HTMLAnchorElement::create(*frame.document());
         anchor->setAttributeWithoutSynchronization(HTMLNames::hrefAttr, url.string());
         anchor->appendChild(frame.document()->createTextNode([[(NSURL *)url absoluteString] precomposedStringWithCanonicalMapping]));
 
@@ -566,11 +552,10 @@ RefPtr<DocumentFragment> Editor::createFragmentAndAddResources(NSAttributedStrin
     if (wasImagesEnabled)
         cachedResourceLoader.setImagesEnabled(false);
 
-    Vector<RefPtr<ArchiveResource>> resources;
-    RefPtr<DocumentFragment> fragment = client()->documentFragmentFromAttributedString(string, resources);
+    auto fragmentAndResources = createFragment(string);
 
     if (DocumentLoader* loader = m_frame.loader().documentLoader()) {
-        for (auto& resource : resources) {
+        for (auto& resource : fragmentAndResources.resources) {
             if (resource)
                 loader->addArchiveResource(resource.releaseNonNull());
         }
@@ -581,7 +566,7 @@ RefPtr<DocumentFragment> Editor::createFragmentAndAddResources(NSAttributedStrin
     if (!wasDeferringCallbacks)
         m_frame.page()->setDefersLoading(false);
     
-    return fragment;
+    return WTFMove(fragmentAndResources.fragment);
 }
 
 RefPtr<DocumentFragment> Editor::createFragmentForImageResourceAndAddResource(RefPtr<ArchiveResource>&& resource)
@@ -618,6 +603,153 @@ void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributed
         if (shouldInsertText(text, selectedRange().get(), EditorInsertActionPasted))
             pasteAsPlainText(text, false);
     }
+}
+
+void Editor::insertDictationPhrases(Vector<Vector<String>>&& dictationPhrases, RetainPtr<id> metadata)
+{
+    if (m_frame.selection().isNone())
+        return;
+
+    if (dictationPhrases.isEmpty())
+        return;
+
+    applyCommand(DictationCommandIOS::create(document(), WTFMove(dictationPhrases), WTFMove(metadata)));
+}
+
+void Editor::setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& dictationPhrases, RetainPtr<id> metadata, Element& element)
+{
+    // Clear the composition.
+    clear();
+
+    // Clear the Undo stack, since the operations that follow are not Undoable, and will corrupt the stack.
+    // Some day we could make them Undoable, and let callers clear the Undo stack explicitly if they wish.
+    clearUndoRedoOperations();
+
+    m_frame.selection().clear();
+
+    element.removeChildren();
+
+    if (dictationPhrases.isEmpty()) {
+        client()->respondToChangedContents();
+        return;
+    }
+
+    RefPtr<Range> context = document().createRange();
+    context->selectNodeContents(element);
+
+    StringBuilder dictationPhrasesBuilder;
+    for (auto& interpretations : dictationPhrases)
+        dictationPhrasesBuilder.append(interpretations[0]);
+
+    element.appendChild(createFragmentFromText(*context, dictationPhrasesBuilder.toString()));
+
+    // We need a layout in order to add markers below.
+    document().updateLayout();
+
+    if (!element.firstChild()->isTextNode()) {
+        // Shouldn't happen.
+        ASSERT(element.firstChild()->isTextNode());
+        return;
+    }
+
+    Text& textNode = downcast<Text>(*element.firstChild());
+    int previousDictationPhraseStart = 0;
+    for (auto& interpretations : dictationPhrases) {
+        int dictationPhraseLength = interpretations[0].length();
+        int dictationPhraseEnd = previousDictationPhraseStart + dictationPhraseLength;
+        if (interpretations.size() > 1) {
+            auto dictationPhraseRange = Range::create(document(), &textNode, previousDictationPhraseStart, &textNode, dictationPhraseEnd);
+            document().markers().addDictationPhraseWithAlternativesMarker(dictationPhraseRange.ptr(), interpretations);
+        }
+        previousDictationPhraseStart = dictationPhraseEnd;
+    }
+
+    auto resultRange = Range::create(document(), &textNode, 0, &textNode, textNode.length());
+    document().markers().addDictationResultMarker(resultRange.ptr(), metadata);
+
+    client()->respondToChangedContents();
+}
+
+void Editor::confirmMarkedText()
+{
+    // FIXME: This is a hacky workaround for the keyboard calling this method too late -
+    // after the selection and focus have already changed. See <rdar://problem/5975559>.
+    Element* focused = document().focusedElement();
+    Node* composition = compositionNode();
+    if (composition && focused && focused != composition && !composition->isDescendantOrShadowDescendantOf(focused)) {
+        cancelComposition();
+        document().setFocusedElement(focused);
+    } else
+        confirmComposition();
+}
+
+void Editor::setTextAsChildOfElement(const String& text, Element& element)
+{
+    // Clear the composition
+    clear();
+
+    // Clear the Undo stack, since the operations that follow are not Undoable, and will corrupt the stack.
+    // Some day we could make them Undoable, and let callers clear the Undo stack explicitly if they wish.
+    clearUndoRedoOperations();
+
+    // If the element is empty already and we're not adding text, we can early return and avoid clearing/setting
+    // a selection at [0, 0] and the expense involved in creation VisiblePositions.
+    if (!element.firstChild() && text.isEmpty())
+        return;
+
+    // As a side effect this function sets a caret selection after the inserted content. Much of what
+    // follows is more expensive if there is a selection, so clear it since it's going to change anyway.
+    m_frame.selection().clear();
+
+    // clear out all current children of element
+    element.removeChildren();
+
+    if (text.length()) {
+        // insert new text
+        // remove element from tree while doing it
+        // FIXME: The element we're inserting into is often the body element. It seems strange to be removing it
+        // (even if it is only temporary). ReplaceSelectionCommand doesn't bother doing this when it inserts
+        // content, why should we here?
+        RefPtr<Node> parent = element.parentNode();
+        RefPtr<Node> siblingAfter = element.nextSibling();
+        if (parent)
+            element.remove();
+
+        auto context = document().createRange();
+        context->selectNodeContents(element);
+        element.appendChild(createFragmentFromText(context, text));
+
+        // restore element to document
+        if (parent) {
+            if (siblingAfter)
+                parent->insertBefore(element, siblingAfter.get());
+            else
+                parent->appendChild(element);
+        }
+    }
+
+    // set the selection to the end
+    VisibleSelection selection;
+
+    Position pos = createLegacyEditingPosition(&element, element.countChildNodes());
+
+    VisiblePosition visiblePos(pos, VP_DEFAULT_AFFINITY);
+    if (visiblePos.isNull())
+        return;
+
+    selection.setBase(visiblePos);
+    selection.setExtent(visiblePos);
+
+    m_frame.selection().setSelection(selection);
+
+    client()->respondToChangedContents();
+}
+
+// If the selection is adjusted from UIKit without closing the typing, the typing command may
+// have a stale selection.
+void Editor::ensureLastEditCommandHasCurrentSelectionIfOpenForMoreTyping()
+{
+    TypingCommand::ensureLastEditCommandHasCurrentSelectionIfOpenForMoreTyping(&m_frame, m_frame.selection().selection());
 }
 
 } // namespace WebCore

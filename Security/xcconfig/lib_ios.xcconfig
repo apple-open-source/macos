@@ -1,0 +1,46 @@
+PRODUCT_NAME = $(TARGET_NAME)
+EXECUTABLE_PREFIX = lib
+MACH_O_TYPE = staticlib
+EXECUTABLE_EXTENSION = a
+
+CODE_SIGN_IDENTITY =
+
+HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR) $(PROJECT_DIR)/OSX/sec/ProjectHeaders $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX/sec/ipc $(PROJECT_DIR)/OSX/sectask $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/OSX/libsecurity_ssl $(PROJECT_DIR)/OSX/regressions $(PROJECT_DIR)/OSX/ibsecurity_keychain/libDER $(BUILT_PRODUCTS_DIR)/usr/local/include
+
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(inherited) $(PROJECT_DIR)/OSX/libsecurity_smime $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers
+
+HEADER_SEARCH_PATHS[sdk=embedded*] = $(inherited) $(PROJECT_DIR)/libsecurity_smime $(PROJECT_DIR)/OSX/sec/sectask
+
+// Turning off deprecations here is the worst hack. Enable whenever possible.
+WARNING_CFLAGS = -Wno-deprecated-declarations -Wglobal-constructors -Wmost -Wno-four-char-constants -Wno-unknown-pragmas $(inherited)
+
+OTHER_CFLAGS = -isystem$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders -iframework$(SDKROOT)/System/Library/PrivateFrameworks $(inherited)
+
+DEAD_CODE_STRIPPING = YES
+COPY_PHASE_STRIP = NO
+SKIP_INSTALL = YES
+COPY_PHASE_STRIP = NO
+
+ALWAYS_SEARCH_USER_PATHS = YES
+
+GCC_C_LANGUAGE_STANDARD = gnu99
+
+HEADERMAP_INCLUDES_FRAMEWORK_ENTRIES_FOR_ALL_PRODUCT_TYPES = NO
+
+GCC_SYMBOLS_PRIVATE_EXTERN = NO
+
+ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_32_64_BIT)
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
+
+// No executables are made, it can't know how
+// Therefore we shouldn't strip anything
+// if somehow we decide to, the default is debuggable.
+COPY_PHASE_STRIP = NO
+STRIP_STYLE = debugging
+STRIP_INSTALLED_PRODUCT = NO
+
+// We shadow the *error variable all over the place
+GCC_WARN_SHADOW = NO
+
+GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*] = $(inherited) SEC_IOS_ON_OSX=1
+GCC_PREPROCESSOR_DEFINITIONS[sdk=embeddedsimulator*] = $(inherited) NO_SERVER=1

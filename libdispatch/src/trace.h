@@ -198,12 +198,12 @@ _dispatch_trace_timer_function(dispatch_source_refs_t dr)
 
 DISPATCH_ALWAYS_INLINE
 static inline dispatch_trace_timer_params_t
-_dispatch_trace_timer_params(uintptr_t ident,
+_dispatch_trace_timer_params(dispatch_clock_t clock,
 		struct dispatch_timer_source_s *values, uint64_t deadline,
 		dispatch_trace_timer_params_t params)
 {
-	#define _dispatch_trace_time2nano3(t) (DISPATCH_TIMER_KIND(ident) \
-			== DISPATCH_TIMER_KIND_MACH ? _dispatch_time_mach2nano(t) : (t))
+	#define _dispatch_trace_time2nano3(t) \
+			(clock == DISPATCH_CLOCK_MACH ? _dispatch_time_mach2nano(t) : (t))
 	#define _dispatch_trace_time2nano2(v, t) ({ uint64_t _t = (t); \
 			(v) >= INT64_MAX ? -1ll : (int64_t)_dispatch_trace_time2nano3(_t);})
 	#define _dispatch_trace_time2nano(v) ({ uint64_t _t; \
@@ -212,9 +212,7 @@ _dispatch_trace_timer_params(uintptr_t ident,
 	if (deadline) {
 		params->deadline = (int64_t)deadline;
 	} else {
-		uint64_t now = (DISPATCH_TIMER_KIND(ident) ==
-				DISPATCH_TIMER_KIND_MACH ? _dispatch_absolute_time() :
-				 _dispatch_get_nanoseconds());
+		uint64_t now = _dispatch_time_now(clock);
 		params->deadline = _dispatch_trace_time2nano2(values->target,
 				values->target < now ? 0 : values->target - now);
 	}
@@ -232,13 +230,12 @@ _dispatch_trace_timer_configure_enabled(void)
 
 DISPATCH_ALWAYS_INLINE
 static inline void
-_dispatch_trace_timer_configure(dispatch_source_t ds, uintptr_t ident,
+_dispatch_trace_timer_configure(dispatch_source_t ds, dispatch_clock_t clock,
 		struct dispatch_timer_source_s *values)
 {
 	struct dispatch_trace_timer_params_s params;
 	DISPATCH_TIMER_CONFIGURE(ds, _dispatch_trace_timer_function(ds->ds_refs),
-			_dispatch_trace_timer_params(ident, values, 0,
-			&params));
+			_dispatch_trace_timer_params(clock, values, 0, &params));
 }
 
 DISPATCH_ALWAYS_INLINE
@@ -248,10 +245,11 @@ _dispatch_trace_timer_program(dispatch_source_refs_t dr, uint64_t deadline)
 	if (slowpath(DISPATCH_TIMER_PROGRAM_ENABLED())) {
 		if (deadline && dr) {
 			dispatch_source_t ds = _dispatch_source_from_refs(dr);
+			dispatch_clock_t clock = DISPATCH_TIMER_CLOCK(ds->ds_ident_hack);
 			struct dispatch_trace_timer_params_s params;
 			DISPATCH_TIMER_PROGRAM(ds, _dispatch_trace_timer_function(dr),
-					_dispatch_trace_timer_params(ds->ds_ident_hack,
-					&ds_timer(dr), deadline, &params));
+					_dispatch_trace_timer_params(clock, &ds_timer(dr),
+					deadline, &params));
 		}
 	}
 }
@@ -284,8 +282,8 @@ _dispatch_trace_timer_fire(dispatch_source_refs_t dr, unsigned long data,
 #else
 
 #define _dispatch_trace_timer_configure_enabled() false
-#define _dispatch_trace_timer_configure(ds, ident, values) \
-		do { (void)(ds); (void)(ident); (void)(values); } while(0)
+#define _dispatch_trace_timer_configure(ds, clock, values) \
+		do { (void)(ds); (void)(clock); (void)(values); } while(0)
 #define _dispatch_trace_timer_program(dr, deadline) \
 		do { (void)(dr); (void)(deadline); } while(0)
 #define _dispatch_trace_timer_wake(dr) \

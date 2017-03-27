@@ -16,6 +16,7 @@
 #define umac_update umac128_update
 #define umac_final umac128_final
 #define umac_delete umac128_delete
+#define umac_ctx umac128_ctx
 
 
 #include "umac.c"

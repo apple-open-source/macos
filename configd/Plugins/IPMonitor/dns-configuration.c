@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -263,18 +263,27 @@ add_supplemental(CFMutableArrayRef	resolvers,
 	CFIndex		i;
 	CFIndex		n_domains;
 	CFArrayRef	orders;
+	CFArrayRef	servers;
 
 	domains = CFDictionaryGetValue(dns, kSCPropNetDNSSupplementalMatchDomains);
 	n_domains = isA_CFArray(domains) ? CFArrayGetCount(domains) : 0;
 	if (n_domains == 0) {
+		// if no supplemental match domains
 		return;
 	}
 
 	orders = CFDictionaryGetValue(dns, kSCPropNetDNSSupplementalMatchOrders);
 	if (orders != NULL) {
 		if (!isA_CFArray(orders) || (n_domains != CFArrayGetCount(orders))) {
+			// if supplemental match orders... but too many/not enough
 			return;
 		}
+	}
+
+	servers = CFDictionaryGetValue(dns, kSCPropNetDNSServerAddresses);
+	if (!isA_CFArray(servers) || (CFArrayGetCount(servers) == 0)) {
+		// if no DNS server addresses
+		return;
 	}
 
 	/*
@@ -894,6 +903,7 @@ add_scoped_resolvers(CFMutableArrayRef	scoped,
 		CFArrayRef		searchDomains;
 		CFDictionaryRef		service;
 		CFStringRef		serviceID;
+		CFArrayRef		servers;
 
 		serviceID = CFArrayGetValueAtIndex(order, i);
 		service = CFDictionaryGetValue(services, serviceID);
@@ -905,6 +915,12 @@ add_scoped_resolvers(CFMutableArrayRef	scoped,
 		dns = CFDictionaryGetValue(service, kSCEntNetDNS);
 		if (!isA_CFDictionary(dns)) {
 			// if no DNS
+			continue;
+		}
+
+		servers = CFDictionaryGetValue(dns, kSCPropNetDNSServerAddresses);
+		if (!isA_CFArray(servers) || (CFArrayGetCount(servers) == 0)) {
+			// if no DNS server addresses
 			continue;
 		}
 
@@ -1527,6 +1543,16 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 	add_private_resolvers(resolvers, privateResolvers);
 
 	// add the "default" resolver
+
+	if (defaultResolver != NULL) {
+		CFArrayRef	servers;
+
+		servers = CFDictionaryGetValue(defaultResolver, kSCPropNetDNSServerAddresses);
+		if (!isA_CFArray(servers) || (CFArrayGetCount(servers) == 0)) {
+			// if no DNS server addresses
+			defaultResolver = NULL;
+		}
+	}
 
 	add_default_resolver(resolvers, defaultResolver, &myOrderAdded, &mySearchDomains);
 

@@ -845,7 +845,7 @@ bool query_destroy(Query *q, CFErrorRef *error) {
 
 bool query_notify_and_destroy(Query *q, bool ok, CFErrorRef *error) {
     if (ok && !q->q_error && (q->q_sync_changed || (q->q_changed && !SecMUSRIsSingleUserView(q->q_musrView)))) {
-        SecKeychainChanged(true);
+        SecKeychainChanged();
     }
     return query_destroy(q, error) && ok;
 }

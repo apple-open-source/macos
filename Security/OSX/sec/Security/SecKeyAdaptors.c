@@ -138,7 +138,7 @@ static void PerformWithCFDataBuffer(CFIndex size, void (^operation)(uint8_t *buf
     });
 }
 
-static CFDataRef SecKeyMessageToDigestAdaptor(SecKeyOperationContext *context, CFDataRef message, CFDataRef in2,
+static CF_RETURNS_RETAINED CFDataRef SecKeyMessageToDigestAdaptor(SecKeyOperationContext *context, CFDataRef message, CFDataRef in2,
                                               const struct ccdigest_info *di, CFErrorRef *error) {
     if (context->mode == kSecKeyOperationModeCheckIfSupported) {
         return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
@@ -277,8 +277,8 @@ PKCS1v15_EMSA_SIGN_ADAPTOR(MD5, seckey_ccoid_md5)
 
 #undef PKCS1v15_EMSA_SIGN_ADAPTOR
 
-static CFTypeRef SecKeyAlgorithmAdaptorBigEndianToCCUnit(SecKeyOperationContext *context,
-                                                         CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+static CFTypeRef SecKeyAlgorithmAdaptorCopyBigEndianToCCUnit(SecKeyOperationContext *context,
+                                                             CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     if (context->mode == kSecKeyOperationModeCheckIfSupported) {
         return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
     }
@@ -293,8 +293,8 @@ static CFTypeRef SecKeyAlgorithmAdaptorBigEndianToCCUnit(SecKeyOperationContext 
     return result;
 }
 
-static CFTypeRef SecKeyAlgorithmAdaptorCCUnitToBigEndian(SecKeyOperationContext *context,
-                                                         CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+static CFTypeRef SecKeyAlgorithmAdaptorCopyCCUnitToBigEndian(SecKeyOperationContext *context,
+                                                             CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     if (context->mode == kSecKeyOperationModeCheckIfSupported) {
         return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
     }
@@ -312,21 +312,21 @@ static CFTypeRef SecKeyAlgorithmAdaptorCCUnitToBigEndian(SecKeyOperationContext 
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureRaw(SecKeyOperationContext *context,
                                                                              CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSASignatureRawCCUnit);
-    return SecKeyAlgorithmAdaptorBigEndianToCCUnit(context, in1, in2, error);
+    return SecKeyAlgorithmAdaptorCopyBigEndianToCCUnit(context, in1, in2, error);
 }
 
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_SignVerify_RSASignatureRawCCUnit(SecKeyOperationContext *context,
                                                                                    CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSASignatureRaw);
-    return SecKeyAlgorithmAdaptorCCUnitToBigEndian(context, in1, in2, error);
+    return SecKeyAlgorithmAdaptorCopyCCUnitToBigEndian(context, in1, in2, error);
 }
 
 static bool SecKeyVerifyBadSignature(CFErrorRef *error) {
     return SecError(errSecVerifyFailed, error, CFSTR("RSA signature verification failed, no match"));
 }
 
-static CFTypeRef SecKeyRSAVerifyAdaptor(SecKeyOperationContext *context, CFTypeRef signature, CFErrorRef *error,
-                                        Boolean (^verifyBlock)(CFDataRef decrypted)) {
+static CFTypeRef SecKeyRSAVerifyAdaptorCopyResult(SecKeyOperationContext *context, CFTypeRef signature, CFErrorRef *error,
+                                                  Boolean (^verifyBlock)(CFDataRef decrypted)) {
     CFTypeRef result = NULL;
     context->operation = kSecKeyOperationTypeDecrypt;
     CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSAEncryptionRaw);
@@ -344,7 +344,7 @@ static CFTypeRef SecKeyRSAVerifyAdaptor(SecKeyOperationContext *context, CFTypeR
 
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureRaw(SecKeyOperationContext *context,
                                                                          CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
-    return SecKeyRSAVerifyAdaptor(context, in2, error, ^Boolean(CFDataRef decrypted) {
+    return SecKeyRSAVerifyAdaptorCopyResult(context, in2, error, ^Boolean(CFDataRef decrypted) {
         // Skip zero-padding from the beginning of the decrypted signature.
         const UInt8 *data = CFDataGetBytePtr(decrypted);
         CFIndex length = CFDataGetLength(decrypted);
@@ -360,7 +360,7 @@ static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureRaw(SecKeyO
 #define PKCS1v15_EMSA_VERIFY_ADAPTOR(name, oid) \
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureDigestPKCS1v15 ## name( \
         SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) { \
-    return SecKeyRSAVerifyAdaptor(context, in2, error, ^Boolean(CFDataRef decrypted) { \
+    return SecKeyRSAVerifyAdaptorCopyResult(context, in2, error, ^Boolean(CFDataRef decrypted) { \
         return ccrsa_emsa_pkcs1v15_verify(CFDataGetLength(decrypted), \
                                           (uint8_t *)CFDataGetBytePtr(decrypted), \
                                           CFDataGetLength(in1), CFDataGetBytePtr(in1), oid) == 0; \
@@ -380,13 +380,13 @@ PKCS1v15_EMSA_VERIFY_ADAPTOR(MD5, seckey_ccoid_md5)
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_EncryptDecrypt_RSAEncryptionRaw(SecKeyOperationContext *context,
                                                                                   CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit);
-    return SecKeyAlgorithmAdaptorBigEndianToCCUnit(context, in1, in2, error);
+    return SecKeyAlgorithmAdaptorCopyBigEndianToCCUnit(context, in1, in2, error);
 }
 
 static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_EncryptDecrypt_RSAEncryptionRawCCUnit(SecKeyOperationContext *context,
                                                                                         CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     CFArrayAppendValue(context->algorithm, kSecKeyAlgorithmRSAEncryptionRaw);
-    return SecKeyAlgorithmAdaptorCCUnitToBigEndian(context, in1, in2, error);
+    return SecKeyAlgorithmAdaptorCopyCCUnitToBigEndian(context, in1, in2, error);
 }
 
 static CFTypeRef SecKeyRSACopyEncryptedWithPadding(SecKeyOperationContext *context, const struct ccdigest_info *di,

@@ -4,12 +4,12 @@
 # as well as the gap between the number of fbt entry and return probes,
 # both as a raw probe numbers and as a percentage
 
-ENTRY_PROBES=`dtrace -ln 'fbt:::entry' | wc -l | awk '{print $1}'`
+ENTRY_PROBES=`dtrace -xnolibs -ln 'fbt:::entry' | wc -l | awk '{print $1}'`
 status=$?
 if [ $status != 0 ]; then
 	exit $status
 fi
-RETURN_PROBES=`dtrace -ln 'fbt:::return' | wc -l | awk '{print $1}'`
+RETURN_PROBES=`dtrace -xnolibs -ln 'fbt:::return' | wc -l | awk '{print $1}'`
 if [ $status != 0 ]; then
 	exit $status
 fi
@@ -19,6 +19,11 @@ fi
 
 GAP=`expr $ENTRY_PROBES - $RETURN_PROBES`
 PERCENT_RETURN=`awk "BEGIN { print $RETURN_PROBES / $ENTRY_PROBES * 100}"`
+
+
+if [ -z $PERFDATA_FILE ]; then
+	PERFDATA_FILE='/dev/fd/1'
+fi
 
 echo "{
 	\"version\": \"1.0\",
@@ -50,3 +55,11 @@ echo "{
 	}
 }"> $PERFDATA_FILE
 
+# Fail the test if the number of fbt probes without return fail under 80%
+MIN_PERCENTAGE=80
+
+awk "BEGIN { if ($PERCENT_RETURN < $MIN_PERCENTAGE) { exit(1) } }"
+
+if [ $? -eq 1 ]; then
+	exit $MIN_PERCENTAGE ;
+fi

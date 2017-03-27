@@ -39,6 +39,11 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/param.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
+
+
+#include <APFS/APFS.h>
 
 #include "enums.h"
 #include "structs.h"
@@ -54,11 +59,13 @@ enum {
 
 static int isOFLabel(const char *data, int labelsize);
 static int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);
+static int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, struct clarg args[]);
+
 
 int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	
     int ret;
-    int isHFS, shouldBless;
+    int isHFS, isAPFS, shouldBless;
 	
     uint32_t folderXid = 0;                   // The directory ID specified by folderXpath
     
@@ -232,7 +239,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 							   actargs[kbootefi].argument);
 		}
 		
-        if(actargs[kfile].present && bootEFIdata) {
+        if (actargs[kfile].present && bootEFIdata) {
             
             // check to see if needed
             CFDataRef oldEFIdata = NULL;
@@ -272,237 +279,374 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
 		return 1;
     }
+    
+    ret = BLIsMountAPFS(context, actargs[kmount].argument, &isAPFS);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
+        return 1;
+    }
 
-    if(0 != statfs(actargs[kmount].argument, &sb)) {
+    if(0 != blsustatfs(actargs[kmount].argument, &sb)) {
         blesscontextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
                            actargs[kmount].argument);
         return 1;	    
     }
     
-    
-    if(isHFS && shouldBless) {
-		uint32_t oldwords[8];
-		int useX = 1;
-		uint32_t openfolder = 0;
-		uint32_t bootfile = 0;
-		uint32_t alternateosid = 0; /* aliased with folder9 */
+    if (isAPFS && actargs[ksetboot].present) {
+        char        pathBuf[MAXPATHLEN];
+        CFDataRef   apfsDriverData;
+        char        wholeDiskBSD[1024];
+        int         unit;
         
-		ret = BLGetVolumeFinderInfo(context, actargs[kmount].argument, oldwords);
-		if(ret) {
-			blesscontextprintf(context, kBLLogLevelError,  "Error getting old Finder info words for %s\n", actargs[kmount].argument );
-			return 1;
-		}
-		
-		if(!actargs[kfolder].present && !actargs[kfolder9].present) {
-			// if no blessed folder, preserve what's there already
-			actargs[ksaveX].present = 1;
-		}
-		
-		if(actargs[ksaveX].present) {
-			folderXid = oldwords[5];
-			blesscontextprintf(context, kBLLogLevelVerbose,  "Saved folder X\n" );
-		}
-		
-		/* always save boot file */
-		bootfile = oldwords[1];
-		alternateosid = oldwords[3];
-		
-		/* bless! bless */
-		
-		/* First get any directory IDs we need */
-		if(actargs[kfolder].present) {
-			ret = BLGetFileID(context, actargs[kfolder].argument, &folderXid);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError,  "Error while getting directory ID of %s\n", actargs[kfolder].argument );
-			} else {
-				blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
-								   folderXid, actargs[kfolder].argument );
-			}
-		}
-		
-		if(actargs[kfolder9].present) {
-			ret = BLGetFileID(context, actargs[kfolder9].argument, &alternateosid);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError,  "Error while getting directory ID of %s\n", actargs[kfolder9].argument );
-			} else {
-				blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
-								   alternateosid, actargs[kfolder9].argument );
-			}
-		}
-
-		if(actargs[kfile].present) {
-			ret = BLGetFileID(context, actargs[kfile].argument, &bootfile);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError,  "Error while getting file ID of %s. Ignoring...\n", actargs[kfile].argument );
-				bootfile = 0;
-			} else {
-				struct stat checkForFile;
-				
-				ret = lstat(actargs[kfile].argument, &checkForFile);
-				if(ret || !S_ISREG(checkForFile.st_mode)) {
-					blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );				
-					bootfile = 0;
-				} else {
-					blesscontextprintf(context, kBLLogLevelVerbose,  "Got file ID of %u for %s\n",
-									   bootfile, actargs[kfile].argument );
-				}
-			}			
-			
-		} else {
-            // no file given. we should try to verify the existing booter
-            if(bootfile) {
-                ret = BLLookupFileIDOnMount(context, actargs[kmount].argument, bootfile, actargs[kfile].argument);
+        // We need to embed the APFS driver in the container.
+        sscanf(sb.f_mntfromname + 5, "disk%d", &unit);
+        snprintf(wholeDiskBSD, sizeof wholeDiskBSD, "disk%d", unit);
+        if (!actargs[kapfsdriver].present) {
+            snprintf(pathBuf, sizeof pathBuf, "%s/%s", actargs[kmount].argument, kBL_PATH_I386_APFS_EFI);
+            ret = BLLoadFile(context, pathBuf, 0, &apfsDriverData);
+        } else {
+            ret = BLLoadFile(context, actargs[kapfsdriver].argument, 0, &apfsDriverData);
+        }
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError,  "Could not load apfs.efi data from %s\n",
+                               pathBuf);
+            return 1;
+        }
+        ret = APFSContainerEFIEmbed(wholeDiskBSD, (const char *)CFDataGetBytePtr(apfsDriverData), CFDataGetLength(apfsDriverData));
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError, "Could not embed APFS driver in %s - error #%d\n",
+                               wholeDiskBSD, ret);
+            return 1;
+        }
+        CFRelease(apfsDriverData);
+    }
+    
+    
+    if (shouldBless) {
+        if (isHFS) {
+            uint32_t oldwords[8];
+            int useX = 1;
+            uint32_t openfolder = 0;
+            uint32_t bootfile = 0;
+            uint32_t alternateosid = 0; /* aliased with folder9 */
+            
+            ret = BLGetVolumeFinderInfo(context, actargs[kmount].argument, oldwords);
+            if(ret) {
+                blesscontextprintf(context, kBLLogLevelError,  "Error getting old Finder info words for %s\n", actargs[kmount].argument );
+                return 1;
+            }
+            
+            if(!actargs[kfolder].present && !actargs[kfolder9].present) {
+                // if no blessed folder, preserve what's there already
+                actargs[ksaveX].present = 1;
+            }
+            
+            if(actargs[ksaveX].present) {
+                folderXid = oldwords[5];
+                blesscontextprintf(context, kBLLogLevelVerbose,  "Saved folder X\n" );
+            }
+            
+            /* always save boot file */
+            bootfile = oldwords[1];
+            alternateosid = oldwords[3];
+            
+            /* bless! bless */
+            
+            /* First get any directory IDs we need */
+            if(actargs[kfolder].present) {
+                ret = BLGetFileID(context, actargs[kfolder].argument, &folderXid);
                 if(ret) {
-                    blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI blessed file ID %u. Zeroing...\n",
-                                       bootfile );                    
+                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting directory ID of %s\n", actargs[kfolder].argument );
+                } else {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
+                                       folderXid, actargs[kfolder].argument );
+                }
+            }
+            
+            if(actargs[kfolder9].present) {
+                ret = BLGetFileID(context, actargs[kfolder9].argument, &alternateosid);
+                if(ret) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting directory ID of %s\n", actargs[kfolder9].argument );
+                } else {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
+                                       alternateosid, actargs[kfolder9].argument );
+                }
+            }
+            
+            if(actargs[kfile].present) {
+                ret = BLGetFileID(context, actargs[kfile].argument, &bootfile);
+                if(ret) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting file ID of %s. Ignoring...\n", actargs[kfile].argument );
                     bootfile = 0;
                 } else {
-					struct stat checkForFile;
-
-					ret = lstat(actargs[kfile].argument, &checkForFile);
-					if(ret || !S_ISREG(checkForFile.st_mode)) {
-						blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );				
-						bootfile = 0;
-					} else {						
-						blesscontextprintf(context, kBLLogLevelVerbose,
-										   "Preserving EFI blessed file ID %u for %s\n",
-										   bootfile, actargs[kfile].argument );                    
-					}
+                    struct stat checkForFile;
+                    
+                    ret = lstat(actargs[kfile].argument, &checkForFile);
+                    if(ret || !S_ISREG(checkForFile.st_mode)) {
+                        blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
+                        bootfile = 0;
+                    } else {
+                        blesscontextprintf(context, kBLLogLevelVerbose,  "Got file ID of %u for %s\n",
+                                           bootfile, actargs[kfile].argument );
+                    }
                 }
+                
+            } else {
+                // no file given. we should try to verify the existing booter
+                if(bootfile) {
+                    ret = BLLookupFileIDOnMount(context, actargs[kmount].argument, bootfile, actargs[kfile].argument);
+                    if(ret) {
+                        blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI blessed file ID %u. Zeroing...\n",
+                                           bootfile );
+                        bootfile = 0;
+                    } else {
+                        struct stat checkForFile;
+                        
+                        ret = lstat(actargs[kfile].argument, &checkForFile);
+                        if(ret || !S_ISREG(checkForFile.st_mode)) {
+                            blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
+                            bootfile = 0;
+                        } else {
+                            blesscontextprintf(context, kBLLogLevelVerbose,
+                                               "Preserving EFI blessed file ID %u for %s\n",
+                                               bootfile, actargs[kfile].argument );
+                        }
+                    }
+                }
+                
             }
             
-        }
-
-		if(actargs[kalternateos].present) {
-			ret = BLGetFileID(context, actargs[kalternateos].argument, &alternateosid);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError,  "Error while getting file ID of %s. Ignoring...\n", actargs[kalternateos].argument );
-				alternateosid = 0;
-			} else {
-				struct stat checkForFile;
-				
-				ret = lstat(actargs[kalternateos].argument, &checkForFile);
-				if(ret || (!S_ISREG(checkForFile.st_mode) && !S_ISDIR(checkForFile.st_mode))) {
-					blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file or directory. Ignoring...\n", actargs[kalternateos].argument );				
-					alternateosid = 0;
-				} else {
-					blesscontextprintf(context, kBLLogLevelVerbose,  "Got file/directory ID of %u for %s\n",
-									   alternateosid, actargs[kalternateos].argument );
-				}
-			}			
-			
-		} else {
-            // no file/directory given. we should try to verify the existing ID
-            if(alternateosid) {
-                ret = BLLookupFileIDOnMount(context, actargs[kmount].argument, alternateosid, actargs[kalternateos].argument);
+            if(actargs[kalternateos].present) {
+                ret = BLGetFileID(context, actargs[kalternateos].argument, &alternateosid);
                 if(ret) {
-                    blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI alternate OS file/dir ID %u. Zeroing...\n",
-                                       alternateosid );                    
+                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting file ID of %s. Ignoring...\n", actargs[kalternateos].argument );
                     alternateosid = 0;
                 } else {
-					struct stat checkForFile;
-					
-					ret = lstat(actargs[kalternateos].argument, &checkForFile);
-					if(ret || (!S_ISREG(checkForFile.st_mode) && !S_ISDIR(checkForFile.st_mode))) {
-						blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kalternateos].argument );				
-						alternateosid = 0;
-					} else {						
-						blesscontextprintf(context, kBLLogLevelVerbose,
-										   "Preserving EFI alternate OS file/dir ID %u for %s\n",
-										   alternateosid, actargs[kalternateos].argument );                    
-					}
+                    struct stat checkForFile;
+                    
+                    ret = lstat(actargs[kalternateos].argument, &checkForFile);
+                    if(ret || (!S_ISREG(checkForFile.st_mode) && !S_ISDIR(checkForFile.st_mode))) {
+                        blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file or directory. Ignoring...\n", actargs[kalternateos].argument );
+                        alternateosid = 0;
+                    } else {
+                        blesscontextprintf(context, kBLLogLevelVerbose,  "Got file/directory ID of %u for %s\n",
+                                           alternateosid, actargs[kalternateos].argument );
+                    }
+                }
+                
+            } else {
+                // no file/directory given. we should try to verify the existing ID
+                if(alternateosid) {
+                    ret = BLLookupFileIDOnMount(context, actargs[kmount].argument, alternateosid, actargs[kalternateos].argument);
+                    if(ret) {
+                        blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI alternate OS file/dir ID %u. Zeroing...\n",
+                                           alternateosid );
+                        alternateosid = 0;
+                    } else {
+                        struct stat checkForFile;
+                        
+                        ret = lstat(actargs[kalternateos].argument, &checkForFile);
+                        if(ret || (!S_ISREG(checkForFile.st_mode) && !S_ISDIR(checkForFile.st_mode))) {
+                            blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kalternateos].argument );
+                            alternateosid = 0;
+                        } else {
+                            blesscontextprintf(context, kBLLogLevelVerbose,
+                                               "Preserving EFI alternate OS file/dir ID %u for %s\n",
+                                               alternateosid, actargs[kalternateos].argument );
+                        }
+                    }
+                }
+                
+            }
+            
+            if(actargs[kopenfolder].present) {
+                char openmount[kMaxArgLength];
+                
+                openmount[0] = '\0';
+                
+                ret = BLGetCommonMountPoint(context, actargs[kopenfolder].argument,
+                                            actargs[kmount].argument, openmount);
+                
+                if(ret || strcmp(actargs[kmount].argument, openmount)) {
+                    // if there's an error with the openfolder, or it's
+                    // not on the target volume, abort
+                    blesscontextprintf(context, kBLLogLevelError,  "Error determining mountpoint of %s\n", actargs[kopenfolder].argument );
+                }
+                
+                ret = BLGetFileID(context, actargs[kopenfolder].argument, &openfolder);
+                if(ret) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Error while get directory ID of %s\n", actargs[kopenfolder].argument );
+                } else {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
+                                       openfolder, actargs[kopenfolder].argument );
                 }
             }
             
-        }
-		
-		if(actargs[kopenfolder].present) {
-			char openmount[kMaxArgLength];
-			
-			openmount[0] = '\0';
-			
-			ret = BLGetCommonMountPoint(context, actargs[kopenfolder].argument,
-										actargs[kmount].argument, openmount);
-			
-			if(ret || strcmp(actargs[kmount].argument, openmount)) {
-				// if there's an error with the openfolder, or it's
-				// not on the target volume, abort
-				blesscontextprintf(context, kBLLogLevelError,  "Error determining mountpoint of %s\n", actargs[kopenfolder].argument );
-			}
-			
-			ret = BLGetFileID(context, actargs[kopenfolder].argument, &openfolder);
-			if(ret) {
-				blesscontextprintf(context, kBLLogLevelError,  "Error while get directory ID of %s\n", actargs[kopenfolder].argument );
-			} else {
-				blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
-								   openfolder, actargs[kopenfolder].argument );
-			}
-		}
-		
-		if(actargs[kuse9].present) {
-			useX = 0;
-		}
-		
-		/* If either directory was not specified, the dirID
-			* variables will be 0, so we can use that to initialize
-			* the FI fields */
-		
-		/* Set Finder info words 3 & 5 + 2 + 1*/
-		oldwords[1] = bootfile;
-		oldwords[2] = openfolder;
-		oldwords[3] = alternateosid;
-		oldwords[5] = folderXid;
-		
-        // reserved1 returns the f_fssubtype attribute. Right now, 0 == HFS+,
-        // 1 == HFS+J. Anything else is either HFS plain, or some form
-        // of HFSX. These filesystems we don't want blessed, because we don't
-        // want future versions of OF to list them as bootable, but rather
-        // prefer the Apple_Boot partition
-        //
-        // For EFI-based systems, it's OK to set finderinfo[0], and indeed
-        // a better user experience so that the EFI label shows up
-        
-        if(actargs[ksetboot].present &&
-           (preboot == kBLPreBootEnvType_OpenFirmware) &&
+            if(actargs[kuse9].present) {
+                useX = 0;
+            }
+            
+            /* If either directory was not specified, the dirID
+             * variables will be 0, so we can use that to initialize
+             * the FI fields */
+            
+            /* Set Finder info words 3 & 5 + 2 + 1*/
+            oldwords[1] = bootfile;
+            oldwords[2] = openfolder;
+            oldwords[3] = alternateosid;
+            oldwords[5] = folderXid;
+            
+            // reserved1 returns the f_fssubtype attribute. Right now, 0 == HFS+,
+            // 1 == HFS+J. Anything else is either HFS plain, or some form
+            // of HFSX. These filesystems we don't want blessed, because we don't
+            // want future versions of OF to list them as bootable, but rather
+            // prefer the Apple_Boot partition
+            //
+            // For EFI-based systems, it's OK to set finderinfo[0], and indeed
+            // a better user experience so that the EFI label shows up
+            
+            if(actargs[ksetboot].present &&
+               (preboot == kBLPreBootEnvType_OpenFirmware) &&
 #if _DARWIN_FEATURE_64_BIT_INODE
-           (sb.f_fssubtype & ~1)
+               (sb.f_fssubtype & ~1)
 #else
-           (sb.f_reserved1 & ~1)
+               (sb.f_reserved1 & ~1)
 #endif
-           ) {
-            blesscontextprintf(context, kBLLogLevelVerbose,  "%s is not HFS+ or Journaled HFS+. Not setting finderinfo[0]...\n", actargs[kmount].argument );
-            oldwords[0] = 0;
-        } else {
-            if(!folderXid || !useX) {
-                /* The 9 folder is what we really want */
-                oldwords[0] = alternateosid;
+               ) {
+                blesscontextprintf(context, kBLLogLevelVerbose,  "%s is not HFS+ or Journaled HFS+. Not setting finderinfo[0]...\n", actargs[kmount].argument );
+                oldwords[0] = 0;
             } else {
-                /* X */
-                oldwords[0] = folderXid;
+                if(!folderXid || !useX) {
+                    /* The 9 folder is what we really want */
+                    oldwords[0] = alternateosid;
+                } else {
+                    /* X */
+                    oldwords[0] = folderXid;
+                }
+            }
+            
+            blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[0] = %d\n", oldwords[0] );
+            blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[1] = %d\n", oldwords[1] );
+            blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[2] = %d\n", oldwords[2] );
+            blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[3] = %d\n", oldwords[3] );
+            blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[5] = %d\n", oldwords[5] );
+            
+            
+            if(geteuid() != 0 && geteuid() != sb.f_owner) {
+                blesscontextprintf(context, kBLLogLevelError,  "Authorization required\n" );
+                return 1;
+            }
+            
+            ret = BLSetVolumeFinderInfo(context,  actargs[kmount].argument, oldwords);
+            if(ret) {
+                blesscontextprintf(context, kBLLogLevelError,  "Can't set Finder info fields for volume mounted at %s: %s\n", actargs[kmount].argument , strerror(errno));
+                return 2;
+            }
+            
+        } else if (isAPFS) {
+            uint64_t oldWords[2] = { 0, 0 };
+            uint64_t folderInum = 0;
+            uint64_t fileInum = 0;
+            
+            ret = BLGetAPFSBlessData(context, actargs[kmount].argument, oldWords);
+            if (ret && ret != ENOENT) {
+                blesscontextprintf(context, kBLLogLevelError,  "Error getting bless data for %s\n", actargs[kmount].argument);
+                return 1;
+            }
+
+            /* bless! bless */
+            
+            /* First get any directory IDs we need */
+            if (actargs[kfolder].present) {
+                ret = BLGetAPFSInodeNum(context, actargs[kfolder].argument, &folderInum);
+                if (ret) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting inum of %s\n", actargs[kfolder].argument);
+                } else {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Got inum of %llu for %s\n",
+                                       folderInum, actargs[kfolder].argument );
+                }
+            }
+            
+            if (actargs[kfile].present) {
+                ret = BLGetAPFSInodeNum(context, actargs[kfile].argument, &fileInum);
+                if (ret) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Error while getting inum of %s. Ignoring...\n", actargs[kfile].argument );
+                    fileInum = 0;
+                } else {
+                    struct stat checkForFile;
+                    
+                    ret = lstat(actargs[kfile].argument, &checkForFile);
+                    if (ret || !S_ISREG(checkForFile.st_mode)) {
+                        blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
+                        fileInum = 0;
+                    } else {
+                        blesscontextprintf(context, kBLLogLevelVerbose,  "Got inum of %llu for %s\n",
+                                           fileInum, actargs[kfile].argument);
+                    }
+                }
+                
+            } else {
+                // no file given. we should try to verify the existing booter
+                if (oldWords[0]) {
+                    ret = BLLookupFileIDOnMount64(context, actargs[kmount].argument, oldWords[0], actargs[kfile].argument, sizeof actargs[kfile].argument);
+                    if (ret) {
+                        blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI blessed file ID %llu. Zeroing...\n",
+                                           oldWords[0] );
+                        oldWords[0] = 0;
+                    } else {
+                        struct stat checkForFile;
+                        
+                        ret = lstat(actargs[kfile].argument, &checkForFile);
+                        if(ret || !S_ISREG(checkForFile.st_mode)) {
+                            blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kfile].argument );
+                            oldWords[0] = 0;
+                        } else {
+                            blesscontextprintf(context, kBLLogLevelVerbose,
+                                               "Preserving EFI blessed file ID %llu for %s\n",
+                                               oldWords[0], actargs[kfile].argument );
+                        }
+                    }
+                }
+                
+            }
+            
+            
+            // reserved1 returns the f_fssubtype attribute. Right now, 0 == HFS+,
+            // 1 == HFS+J. Anything else is either HFS plain, or some form
+            // of HFSX. These filesystems we don't want blessed, because we don't
+            // want future versions of OF to list them as bootable, but rather
+            // prefer the Apple_Boot partition
+            //
+            // For EFI-based systems, it's OK to set finderinfo[0], and indeed
+            // a better user experience so that the EFI label shows up
+            oldWords[0] = fileInum;
+            oldWords[1] = folderInum;
+            
+            blesscontextprintf(context, kBLLogLevelVerbose,  "blessed file = %lld\n", oldWords[0]);
+            blesscontextprintf(context, kBLLogLevelVerbose,  "blessed folder = %lld\n", oldWords[1]);
+            
+            
+            if (geteuid() != 0 && geteuid() != sb.f_owner) {
+                blesscontextprintf(context, kBLLogLevelError,  "Authorization required\n" );
+                return 1;
+            }
+            
+            ret = BLSetAPFSBlessData(context,  actargs[kmount].argument, oldWords);
+            if (ret) {
+                blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for volume mounted at %s: %s\n", actargs[kmount].argument , strerror(errno));
+                return 2;
+            }
+            
+            ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, actargs);
+            if (ret) {
+                blesscontextprintf(context, kBLLogLevelError,  "Couldn't bless the APFS preboot volume for volume mounted at %s: %s\n",
+                                   actargs[kmount].argument, strerror(errno));
+                return 2;
             }
         }
-		
-		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[0] = %d\n", oldwords[0] );
-		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[1] = %d\n", oldwords[1] );
-		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[2] = %d\n", oldwords[2] );
-		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[3] = %d\n", oldwords[3] );
-		blesscontextprintf(context, kBLLogLevelVerbose,  "finderinfo[5] = %d\n", oldwords[5] );
-		
-		
-		if(geteuid() != 0 && geteuid() != sb.f_owner) {
-		    blesscontextprintf(context, kBLLogLevelError,  "Authorization required\n" );
-			return 1;
-		}
-		
-		ret = BLSetVolumeFinderInfo(context,  actargs[kmount].argument, oldwords);
-		if(ret) {
-			blesscontextprintf(context, kBLLogLevelError,  "Can't set Finder info fields for volume mounted at %s: %s\n", actargs[kmount].argument , strerror(errno));
-			return 2;
-		}
-		
     }
-	
-	if(actargs[klabel].present||actargs[klabelfile].present) {
+    
+	if (actargs[klabel].present||actargs[klabelfile].present) {
 		int isLabel = 0;
 		
 		if(actargs[klabelfile].present) {
@@ -560,7 +704,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 									   actargs[koptions].present ? actargs[koptions].argument : NULL);
 
             } else {
-                ret = setefifilepath(context, ( !shouldBless && actargs[kfile].present ?
+                ret = setefifilepath(context, ( (!shouldBless || isAPFS) && actargs[kfile].present ?
 											actargs[kfile].argument :
 											actargs[kmount].argument),
                                  actargs[knextonly].present,
@@ -636,6 +780,153 @@ static int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labe
         } else {
             blesscontextprintf(context, kBLLogLevelVerbose,  "Invisibility set for %s\n", path);
         }
+    }
+    return ret;
+}
+
+
+
+static int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, struct clarg args[])
+{
+    int             ret;
+    io_service_t    rootMedia = IO_OBJECT_NULL;
+    CFStringRef     rootUUID = NULL;
+    CFDictionaryRef booterDict = NULL;
+    CFArrayRef      prebootVols;
+    CFStringRef     prebootVol;
+    char            prebootBSD[MAXPATHLEN];
+    int             mntsize;
+    int             i;
+    struct statfs   *mnts;
+    char            prebootMountPoint[MAXPATHLEN];
+    char            prebootFolderPath[MAXPATHLEN];
+    bool            mustUnmount = false;
+    uint64_t        blessIDs[2];
+    CFDataRef       booterData;
+    struct stat     existingStat;
+    
+    // First find the volume UUID
+    rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, rootBSD));
+    if (!rootMedia) {
+        ret = 1;
+        goto exit;
+    }
+    rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+    if (!rootUUID) {
+        ret = 2;
+        goto exit;
+    }
+    
+    // Now let's get the BSD name of the preboot volume.
+    ret = BLCreateBooterInformationDictionary(context, rootBSD, &booterDict);
+    if (ret) {
+        ret = 3;
+        goto exit;
+    }
+    prebootVols = CFDictionaryGetValue(booterDict, kBLAPFSPrebootVolumesKey);
+    if (!prebootVols || !CFArrayGetCount(prebootVols)) {
+        ret = 4;
+        goto exit;
+    }
+    prebootVol = CFArrayGetValueAtIndex(prebootVols, 0);
+    if (CFGetTypeID(prebootVol) != CFStringGetTypeID()) {
+        ret = 4;
+        goto exit;
+    }
+    CFStringGetCString(prebootVol, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
+    
+    // Check if the preboot volume is mounted.
+    mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+    if (!mntsize) {
+        ret = 5;
+        goto exit;
+    }
+    for (i = 0; i < mntsize; i++) {
+        if (strcmp(mnts[i].f_mntfromname + 5, prebootBSD) == 0) break;
+    }
+    if (i < mntsize) {
+        strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
+    } else {
+        // The preboot volume isn't mounted right now.  We'll have to mount it.
+        ret = MountPrebootVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint);
+        if (ret) goto exit;
+        mustUnmount = true;
+    }
+    
+    // Find the appropriate UUID folder
+    snprintf(prebootFolderPath, sizeof prebootFolderPath, "%s/", prebootMountPoint);
+    CFStringGetCString(rootUUID, prebootFolderPath + strlen(prebootFolderPath),
+                       sizeof prebootFolderPath - strlen(prebootFolderPath), kCFStringEncodingUTF8);
+    strlcat(prebootFolderPath, "/System/Library/CoreServices", sizeof prebootFolderPath);
+    ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[1]);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError, "Preboot folder path \"%s\" doesn't exist.\n", prebootFolderPath);
+        ret = 6;
+        goto exit;
+    }
+    strlcat(prebootFolderPath, "/boot.efi", sizeof prebootFolderPath);
+    if (args[kbootefi].present) {
+        // The booter got written.  We'll have to rewrite it to the preboot volume.
+        ret = BLLoadFile(context, args[kbootefi].argument, 0, &booterData);
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load booter data from %s\n",
+                               args[kbootefi].argument);
+        }
+        
+        if (booterData) {
+            // check to see if needed
+            CFDataRef oldEFIdata = NULL;
+            
+            ret = lstat(prebootFolderPath, &existingStat);
+            
+            if (ret == 0 && S_ISREG(existingStat.st_mode)) {
+                ret = BLLoadFile(context, prebootFolderPath, 0, &oldEFIdata);
+            }
+            if ((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, booterData)) {
+                blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
+                                   prebootFolderPath);
+            } else {
+                ret = BLCreateFile(context, booterData, prebootFolderPath, 1, 0, 0);
+                if (ret) {
+                    blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", prebootFolderPath);
+                    ret = 7;
+                    goto exit;
+                } else {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi created successfully at %s\n",
+                                       prebootFolderPath);
+                }
+            }
+            if (oldEFIdata) CFRelease(oldEFIdata);
+        } else {
+            blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
+        }
+    } else {
+        ret = lstat(prebootFolderPath, &existingStat);
+        if (ret) {
+            blesscontextprintf(context, kBLLogLevelError, "Could not access boot.efi file at %s\n",
+                               prebootFolderPath);
+            ret = errno;
+            goto exit;
+        }
+    }
+    ret = BLGetAPFSInodeNum(context, prebootFolderPath, &blessIDs[0]);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError, "Preboot booter path \"%s\" doesn't exist.", prebootFolderPath);
+        ret = 6;
+        goto exit;
+    }
+    ret = BLSetAPFSBlessData(context,  prebootMountPoint, blessIDs);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for preboot volume: %s\n", strerror(errno));
+        return 2;
+    }
+    
+exit:
+    if (rootMedia) IOObjectRelease(rootMedia);
+    if (rootUUID) CFRelease(rootUUID);
+    if (booterDict) CFRelease(booterDict);
+    if (mustUnmount) {
+        UnmountPrebootVolume(context, prebootMountPoint);
     }
     return ret;
 }

@@ -94,6 +94,10 @@
 #import <WebCore/Geolocation.h>
 #endif
 
+#if ENABLE(POINTER_LOCK)
+#import <WebCore/PointerLockController.h>
+#endif
+
 #if PLATFORM(IOS)
 #import <WebCore/WAKClipView.h>
 #import <WebCore/WAKWindow.h>
@@ -706,6 +710,34 @@ std::unique_ptr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserCl
     // FIXME: Implement <input type='color'> for WK1 (Bug 119094).
     ASSERT_NOT_REACHED();
     return nullptr;
+}
+#endif
+
+#if ENABLE(POINTER_LOCK)
+bool WebChromeClient::requestPointerLock()
+{
+#if PLATFORM(MAC)
+    if (![m_webView page])
+        return false;
+
+    CGDisplayHideCursor(CGMainDisplayID());
+    CGAssociateMouseAndMouseCursorPosition(false);
+    [m_webView page]->pointerLockController().didAcquirePointerLock();
+    
+    return true;
+#else
+    return false;
+#endif
+}
+
+void WebChromeClient::requestPointerUnlock()
+{
+#if PLATFORM(MAC)
+    CGAssociateMouseAndMouseCursorPosition(true);
+    CGDisplayShowCursor(CGMainDisplayID());
+    if ([m_webView page])
+        [m_webView page]->pointerLockController().didLosePointerLock();
+#endif
 }
 #endif
 

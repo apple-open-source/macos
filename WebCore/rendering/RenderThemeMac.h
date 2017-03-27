@@ -108,6 +108,7 @@ protected:
     // Media controls
     String mediaControlsStyleSheet() override;
     String mediaControlsScript() override;
+    String mediaControlsBase64StringForIconAndPlatform(const String&, const String&) override;
 #endif
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -244,7 +245,9 @@ private:
 
     RetainPtr<WebCoreRenderThemeNotificationObserver> m_notificationObserver;
 
+    String m_legacyMediaControlsScript;
     String m_mediaControlsScript;
+    String m_legacyMediaControlsStyleSheet;
     String m_mediaControlsStyleSheet;
 };
 

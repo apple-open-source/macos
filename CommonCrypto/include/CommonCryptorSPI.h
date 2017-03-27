@@ -25,7 +25,6 @@
 #define _CC_CryptorSPI_H_
 
 #include <sys/types.h>
-#include <sys/param.h>
 #include <stdint.h>
 
 #include <string.h>
@@ -41,6 +40,10 @@
 extern "C" {
 #endif
 
+#if defined(_WIN32)
+    //remove after rdar://problem/28144944
+    int timingsafe_bcmp(const void *b1, const void *b2, size_t n);
+#endif
 /*
 	This is an SPI header.  It includes some work in progress implementation notes that
 	will be removed when this is promoted to an API set.

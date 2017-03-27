@@ -49,26 +49,15 @@
     _proxy = proxy;
 
     [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(kvsStoreChanged:)
+                                             selector:@selector(kvsStoreChangedAsync:)
                                                  name:NSUbiquitousKeyValueStoreDidChangeExternallyNotification
                                                object:nil];
 
 }
 
 - (void)setObject:(id)obj forKey:(NSString*)key {
-    NSUbiquitousKeyValueStore *store = [self cloudStore];
-    if (store)
-    {
-        id value = [store objectForKey:key];
-        if (value)
-            secdebug("kvsdebug", "%@ key %@ changed: %@ to: %@", self, key, value, obj);
-        else
-            secdebug("kvsdebug", "%@ key %@ initialized to: %@", self, key, obj);
-        [store setObject:obj forKey:key];
-        [self pushWrites];
-    } else {
-        secerror("Can't get kvs store, key: %@ not set to: %@", key, obj);
-    }
+    secdebug("kvsdebug", "%@ key %@ set to: %@ from: %@", self, key, obj, [self.cloudStore objectForKey:key]);
+    [self.cloudStore setObject:obj forKey:key];
 }
 
 - (NSDictionary<NSString *, id>*) copyAsDictionary {
@@ -97,6 +86,15 @@
 
 - (void)pushWrites {
     [[self cloudStore] synchronize];
+}
+
+// Runs on the same thread that posted the notification, and that thread _may_ be the
+// kdkvsproxy_queue (see 30470419). Avoid deadlock by bouncing through global queue.
+- (void)kvsStoreChangedAsync:(NSNotification *)notification
+{
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        [self kvsStoreChanged:notification];
+    });
 }
 
 - (void) kvsStoreChanged:(NSNotification *)notification {

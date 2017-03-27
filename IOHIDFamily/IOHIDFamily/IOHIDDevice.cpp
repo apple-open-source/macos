@@ -53,6 +53,8 @@
 #include "IOHIPointing.h"
 #endif
 
+#include <IOKit/hidsystem/IOHIDShared.h>
+
 //===========================================================================
 // IOHIDAsyncReportQueue class
 
@@ -780,8 +782,7 @@ bool IOHIDDevice::handleOpen(IOService      *client,
 
         if ( _clientSet->containsObject(client) )
         {
-            HIDLogDebug("%s: multiple opens from client",
-                 getName());
+            HIDLogDebug("%s: multiple opens from client", getName());
             accept = true;
             break;
         }
@@ -806,7 +807,6 @@ bool IOHIDDevice::handleOpen(IOService      *client,
                 pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
 #endif
         }
-
         accept = true;
     }
     while (false);
@@ -820,7 +820,7 @@ bool IOHIDDevice::handleOpen(IOService      *client,
 //---------------------------------------------------------------------------
 // Handle a client close on the interface.
 
-void IOHIDDevice::handleClose(IOService * client, IOOptionBits options __unused)
+void IOHIDDevice::handleClose(IOService * client, IOOptionBits options)
 {
     // Remove the object from the client OSSet.
 
@@ -924,12 +924,17 @@ IOReturn IOHIDDevice::newUserClientInternal( task_t          owningTask,
 
 IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argument )
 {
-    if ((kIOMessageDeviceSignaledWakeup == type) && _performWakeTickle)
+    if ((type == kIOMessageDeviceSignaledWakeup) && _performWakeTickle)
     {
         IOHIDSystemActivityTickle(NX_HARDWARE_TICKLE, this); // not a real event. tickle is not maskable.
         return kIOReturnSuccess;
     }
-
+    if (type == kIOHIDMessageOpenedByEventSystem) {
+        bool msgArg = (argument == kOSBooleanTrue);
+        setProperty(kIOHIDDeviceOpenedByEventSystemKey, msgArg ? kOSBooleanTrue : kOSBooleanFalse);
+        messageClients(type, (void *)(uintptr_t)msgArg);
+        return kIOReturnSuccess;
+    }
     return super::message(type, provider, argument);
 }
 

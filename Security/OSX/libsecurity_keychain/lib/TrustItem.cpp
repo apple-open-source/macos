@@ -41,7 +41,7 @@ namespace KeychainCore {
 // Construct a UserTrustItem from attributes and initial content
 //
 UserTrustItem::UserTrustItem(Certificate *cert, Policy *policy, const TrustData &trustData) :
-	ItemImpl(CSSM_DL_DB_RECORD_USER_TRUST,
+	ItemImpl((SecItemClass)CSSM_DL_DB_RECORD_USER_TRUST,
 		reinterpret_cast<SecKeychainAttributeList *>(NULL),
 		UInt32(sizeof(trustData)),
 		reinterpret_cast<const void *>(&trustData)),

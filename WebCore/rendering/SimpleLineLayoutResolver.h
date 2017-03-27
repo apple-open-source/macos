@@ -23,14 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SimpleLineLayoutResolver_h
-#define SimpleLineLayoutResolver_h
+#pragma once
 
 #include "LayoutRect.h"
 #include "RenderBlockFlow.h"
 #include "SimpleLineLayoutFlowContents.h"
 #include "SimpleLineLayoutFunctions.h"
-#include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -291,5 +289,3 @@ inline LineResolver lineResolver(const RenderBlockFlow& flow, const Layout& layo
 
 }
 }
-
-#endif

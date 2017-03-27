@@ -38,11 +38,14 @@ CFURLRef SecCopyURLForFileInKeychainDirectory(CFStringRef fileName);
 CFURLRef SecCopyURLForFileInUserCacheDirectory(CFStringRef fileName);
 CFURLRef SecCopyURLForFileInPreferencesDirectory(CFStringRef fileName);
 CFURLRef SecCopyURLForFileInManagedPreferencesDirectory(CFStringRef fileName);
+CFURLRef SecCopyURLForFileInRevocationInfoDirectory(CFStringRef fileName);
 
 void WithPathInKeychainDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
+void WithPathInRevocationInfoDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 
-void SetCustomHomeURL(const char* path);
+void SetCustomHomePath(const char* path);
 void SetCustomHomeURLString(CFStringRef path);
+void SetCustomHomeURL(CFURLRef url);
 
 __END_DECLS
 

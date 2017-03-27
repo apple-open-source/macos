@@ -108,7 +108,8 @@ static int testErrorsSize = 0;
 static int nbError = 0;
 static int nbFatal = 0;
 
-static void test_log(const char *msg, ...) {
+static void LIBXML_ATTR_FORMAT(1,2)
+test_log(const char *msg, ...) {
     va_list args;
     if (logfile != NULL) {
         fprintf(logfile, "\n------------\n");

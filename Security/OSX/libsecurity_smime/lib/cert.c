@@ -488,12 +488,15 @@ SecCertificateRef CERT_FindCertBySubjectKeyID (CFTypeRef keychainOrArray,
 }
 
 static SecIdentityRef
-CERT_FindIdentityByCertificate (CFTypeRef keychainOrArray, SecCertificateRef certificate)
+CERT_FindIdentityByCertificate (CFTypeRef keychainOrArray, SecCertificateRef CF_CONSUMED certificate)
 {
     SecIdentityRef  identity = NULL;
     SecIdentityCreateWithCertificate(keychainOrArray, certificate, &identity);
     if (!identity)
 	PORT_SetError(SEC_ERROR_NOT_A_RECIPIENT);
+    if (certificate) {
+        CFRelease(certificate);
+    }
 
     return identity;
 }

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef B3ValueRep_h
-#define B3ValueRep_h
+#pragma once
 
 #if ENABLE(B3_JIT)
 
@@ -79,7 +78,7 @@ public:
         // As an input representation, this forces a particular register and states that
         // the register is used late. This means that the register is used after the result
         // is defined (i.e, the result will interfere with this as an input).
-        // It's not valid for this to be used as a result kind.
+        // It's not a valid output representation.
         LateRegister,
 
         // As an output representation, this tells us what stack slot B3 picked. It's not a valid
@@ -287,6 +286,3 @@ void printInternal(PrintStream&, JSC::B3::ValueRep::Kind);
 } // namespace WTF
 
 #endif // ENABLE(B3_JIT)
-
-#endif // B3ValueRep_h
-

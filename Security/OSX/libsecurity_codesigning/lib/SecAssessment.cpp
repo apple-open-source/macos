@@ -468,7 +468,7 @@ CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
 	traceUpdate(target, context, result);
 	return result.yield();
 
-	END_CSAPI_ERRORS1(false)
+	END_CSAPI_ERRORS1(NULL)
 }
 
 

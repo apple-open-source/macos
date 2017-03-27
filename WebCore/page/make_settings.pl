@@ -24,6 +24,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use strict;
+use FindBin;
+use lib "$FindBin::Bin/../bindings/scripts";
 
 use InFilesCompiler;
 
@@ -368,7 +370,7 @@ sub generateInternalSettingsIdlFile($)
         my $type = $parsedItems{$settingName}{"type"};
         my $idlType = $webcoreTypeToIdlType{$type};
         my $setterFunctionName = setterFunctionName($settingName);
-        print $file "    void $setterFunctionName(in $idlType $settingName);\n";
+        print $file "    void $setterFunctionName($idlType $settingName);\n";
     };
 
     enumerateParsedItems($file, $parsedItemsRef, \&writeIdlSetter);
@@ -387,8 +389,7 @@ sub generateInternalSettingsHeaderFile($)
     print $file $InCompiler->license();
 
     print $file <<EOF;
-#ifndef InternalSettingsGenerated_h
-#define InternalSettingsGenerated_h
+#pragma once
 
 #include "Supplementable.h"
 #include <wtf/RefCounted.h>
@@ -438,7 +439,6 @@ EOF
 
     print $file "};\n\n";
     print $file "} // namespace WebCore\n";
-    print $file "#endif // InternalSettingsGenerated_h\n";
 
     close $file;
 }

@@ -30,8 +30,7 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef InspectorTimelineAgent_h
-#define InspectorTimelineAgent_h
+#pragma once
 
 #include "InspectorWebAgentBase.h"
 #include "LayoutRect.h"
@@ -112,7 +111,7 @@ public:
     void startFromConsole(JSC::ExecState*, const String& title);
     void stopFromConsole(JSC::ExecState*, const String& title);
 
-    // InspectorInstrumentation callbacks.
+    // InspectorInstrumentation
     void didInstallTimer(int timerId, std::chrono::milliseconds timeout, bool singleShot, Frame*);
     void didRemoveTimer(int timerId, Frame*);
     void willFireTimer(int timerId, Frame*);
@@ -125,11 +124,11 @@ public:
     void didEvaluateScript(Frame&);
     void didInvalidateLayout(Frame&);
     void willLayout(Frame&);
-    void didLayout(RenderObject*);
+    void didLayout(RenderObject&);
     void willComposite(Frame&);
     void didComposite();
     void willPaint(Frame&);
-    void didPaint(RenderObject*, const LayoutRect&);
+    void didPaint(RenderObject&, const LayoutRect&);
     void willRecalculateStyle(Frame*);
     void didRecalculateStyle();
     void didScheduleStyleRecalculation(Frame*);
@@ -236,5 +235,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // !defined(InspectorTimelineAgent_h)

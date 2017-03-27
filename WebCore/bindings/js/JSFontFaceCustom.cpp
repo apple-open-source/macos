@@ -29,7 +29,6 @@
 #include "CSSFontSelector.h"
 #include "CSSValue.h"
 #include "CSSValueList.h"
-#include "Dictionary.h"
 #include "ExceptionCode.h"
 #include "JSDOMConstructor.h"
 
@@ -39,11 +38,11 @@ JSC::JSValue JSFontFace::loaded(JSC::ExecState& state) const
 {
     if (!m_loaded) {
         if (!wrapped().promise()) {
-            DeferredWrapper promise(&state, globalObject(), JSC::JSPromiseDeferred::create(&state, globalObject()));
-            m_loaded.set(state.vm(), this, promise.promise());
+            auto promise = createDeferredPromise(state, domWindow());
+            m_loaded.set(state.vm(), this, promise->promise());
             wrapped().registerLoaded(WTFMove(promise));
         } else
-            m_loaded.set(state.vm(), this, wrapped().promise().value().deferredWrapper().promise());
+            m_loaded.set(state.vm(), this, wrapped().promise().value().promise());
     }
     return m_loaded.get();
 }

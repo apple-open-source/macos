@@ -29,8 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ScriptCallFrame_h
-#define ScriptCallFrame_h
+#pragma once
 
 #include "DebuggerPrimitives.h"
 #include "InspectorProtocolObjects.h"
@@ -51,6 +50,7 @@ public:
     JSC::SourceID sourceID() const { return m_sourceID; }
 
     bool isEqual(const ScriptCallFrame&) const;
+    bool isNative() const;
 
     Ref<Inspector::Protocol::Console::CallFrame> buildInspectorObject() const;
 
@@ -63,5 +63,3 @@ private:
 };
 
 } // namespace Inspector
-
-#endif // ScriptCallFrame_h

@@ -22,8 +22,7 @@
  *
  */
 
-#ifndef TreeWalker_h
-#define TreeWalker_h
+#pragma once
 
 #include "NodeFilter.h"
 #include "ScriptWrappable.h"
@@ -31,8 +30,6 @@
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
-
-    typedef int ExceptionCode;
 
     class TreeWalker : public ScriptWrappable, public RefCounted<TreeWalker>, public NodeIteratorBase {
     public:
@@ -44,15 +41,15 @@ namespace WebCore {
         Node& currentNode() { return m_current.get(); }
         const Node& currentNode() const { return m_current.get(); }
 
-        void setCurrentNode(Node&);
+        WEBCORE_EXPORT void setCurrentNode(Node&);
 
-        Node* parentNode();
-        Node* firstChild();
-        Node* lastChild();
-        Node* previousSibling();
-        Node* nextSibling();
-        Node* previousNode();
-        Node* nextNode();
+        WEBCORE_EXPORT Node* parentNode();
+        WEBCORE_EXPORT Node* firstChild();
+        WEBCORE_EXPORT Node* lastChild();
+        WEBCORE_EXPORT Node* previousSibling();
+        WEBCORE_EXPORT Node* nextSibling();
+        WEBCORE_EXPORT Node* previousNode();
+        WEBCORE_EXPORT Node* nextNode();
 
     private:
         TreeWalker(Node&, unsigned long whatToShow, RefPtr<NodeFilter>&&);
@@ -65,5 +62,3 @@ namespace WebCore {
     };
 
 } // namespace WebCore
-
-#endif // TreeWalker_h

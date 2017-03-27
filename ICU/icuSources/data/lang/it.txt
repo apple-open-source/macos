@@ -609,7 +609,7 @@ it{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wolof"}
-        wuu{"wu"}
+        wuu{"shanghainese"}
         xal{"kalmyk"}
         xh{"xhosa"}
         xmf{"mengrelio"}

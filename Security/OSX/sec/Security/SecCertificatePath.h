@@ -51,7 +51,7 @@ SecCertificatePathRef SecCertificatePathCreate(SecCertificatePathRef path,
 SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path, CFErrorRef *error);
 
 /* Create a new certificate path from a CFArray of datas. */
-SecCertificatePathRef SecCertificatPathCreateDeserialized(CFArrayRef certificates, CFErrorRef *error);
+SecCertificatePathRef SecCertificatePathCreateDeserialized(CFArrayRef certificates, CFErrorRef *error);
 
 /* Create an array of CFDataRefs from a certificate path. */
 xpc_object_t SecCertificatePathCopyXPCArray(SecCertificatePathRef path, CFErrorRef *error);

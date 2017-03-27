@@ -138,7 +138,7 @@ int secd_01_items(int argc, char *const *argv)
 
     /* Reset keybag and custom $HOME */
     SecItemServerResetKeychainKeybag();
-    SetCustomHomeURL(NULL);
+    SetCustomHomePath(NULL);
     SecKeychainDbReset(NULL);
 
     

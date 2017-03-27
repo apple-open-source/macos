@@ -15,6 +15,7 @@ static void tests(void)
 
         NSData *emcsKey = SecEMCSCreateDerivedEMCSKey(idmsData, @"1234", NULL);
         ok(emcsKey, "emcs key");
+        if (!emcsKey) @throw @"emacsKey missing";
 
         /*
          * change password

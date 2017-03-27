@@ -28,9 +28,10 @@ struct IONotificationPort
 {
     mach_port_t		masterPort;
     mach_port_t		wakePort;
-    CFMachPortRef   cfmachPort;
+    CFMachPortRef	cfmachPort;
     CFRunLoopSourceRef	source;
     dispatch_source_t	dispatchSource;
+    int32_t			refcount;
 };
 typedef struct IONotificationPort IONotificationPort;
 #endif

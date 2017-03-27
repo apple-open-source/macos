@@ -23,8 +23,8 @@
 #ifndef	_RSA_DSA_SIGNATURE_H_
 #define _RSA_DSA_SIGNATURE_H_
 
-#include <openssl/rsa.h>
-#include <openssl/dsa.h>
+#include <openssl/rsa_legacy.h>
+#include <openssl/dsa_legacy.h>
 #include <RawSigner.h>
 #include <AppleCSPSession.h>
 

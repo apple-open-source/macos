@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef HTMLAppletElement_h
-#define HTMLAppletElement_h
+#pragma once
 
 #include "HTMLPlugInImageElement.h"
 
@@ -35,16 +34,15 @@ private:
     HTMLAppletElement(const QualifiedName&, Document&, bool createdByParser);
 
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    bool isURLAttribute(const Attribute&) const final;
     
     bool rendererIsNeeded(const RenderStyle&) final;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
     RenderWidget* renderWidgetLoadingPlugin() const final;
-    void updateWidget(PluginCreationOption) final;
+    void updateWidget(CreatePlugins) final;
 
     bool canEmbedJava() const;
 };
 
-}
-
-#endif
+} // namespace WebCore

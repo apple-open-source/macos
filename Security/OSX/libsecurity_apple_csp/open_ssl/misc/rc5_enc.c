@@ -75,7 +75,7 @@
  */
 
 #include <stdio.h>
-#include <openssl/rc5.h>
+#include <openssl/rc5_legacy.h>
 #include "rc5_locl.h"
 
 #ifndef	_OPENSSL_APPLE_CDSA_

@@ -32,7 +32,7 @@
 
 #include "SecTranslocateDANotification.hpp"
 #include "SecTranslocateShared.hpp"
-#include "SectranslocateUtilities.hpp"
+#include "SecTranslocateUtilities.hpp"
 
 #define DA_FRAMEWORK_PATH "/System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration"
 

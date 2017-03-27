@@ -73,7 +73,7 @@ void WKKeyValueStorageManagerGetKeyValueStorageOrigins(WKKeyValueStorageManagerR
         Vector<RefPtr<API::Object>> webSecurityOrigins;
         webSecurityOrigins.reserveInitialCapacity(securityOrigins.size());
         for (auto& origin : securityOrigins)
-            webSecurityOrigins.uncheckedAppend(API::SecurityOrigin::create(*origin));
+            webSecurityOrigins.uncheckedAppend(API::SecurityOrigin::create(origin.securityOrigin()));
 
         callback(toAPI(API::Array::create(WTFMove(webSecurityOrigins)).ptr()), nullptr, context);
     });
@@ -97,13 +97,13 @@ void WKKeyValueStorageManagerGetStorageDetailsByOrigin(WKKeyValueStorageManagerR
         for (const auto& originDetails : storageDetails) {
             HashMap<String, RefPtr<API::Object>> detailsMap;
 
-            RefPtr<API::Object> origin = API::SecurityOrigin::create(WebCore::SecurityOrigin::createFromDatabaseIdentifier(originDetails.originIdentifier));
+            RefPtr<API::Object> origin = API::SecurityOrigin::create(WebCore::SecurityOriginData::fromDatabaseIdentifier(originDetails.originIdentifier)->securityOrigin());
 
             detailsMap.set(toImpl(WKKeyValueStorageManagerGetOriginKey())->string(), origin);
             if (originDetails.creationTime)
-                detailsMap.set(toImpl(WKKeyValueStorageManagerGetCreationTimeKey())->string(), API::Double::create(originDetails.creationTime.valueOr(0)));
+                detailsMap.set(toImpl(WKKeyValueStorageManagerGetCreationTimeKey())->string(), API::Double::create(originDetails.creationTime.value_or(0)));
             if (originDetails.modificationTime)
-                detailsMap.set(toImpl(WKKeyValueStorageManagerGetModificationTimeKey())->string(), API::Double::create(originDetails.modificationTime.valueOr(0)));
+                detailsMap.set(toImpl(WKKeyValueStorageManagerGetModificationTimeKey())->string(), API::Double::create(originDetails.modificationTime.value_or(0)));
 
             result.uncheckedAppend(API::Dictionary::create(WTFMove(detailsMap)));
         }
@@ -118,7 +118,7 @@ void WKKeyValueStorageManagerDeleteEntriesForOrigin(WKKeyValueStorageManagerRef 
     if (!storageManager)
         return;
 
-    storageManager->deleteLocalStorageEntriesForOrigin(toImpl(origin)->securityOrigin());
+    storageManager->deleteLocalStorageEntriesForOrigin(WebCore::SecurityOriginData::fromSecurityOrigin(toImpl(origin)->securityOrigin()));
 }
 
 void WKKeyValueStorageManagerDeleteAllEntries(WKKeyValueStorageManagerRef keyValueStorageManager)

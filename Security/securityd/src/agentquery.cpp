@@ -24,6 +24,9 @@
 //
 // passphrases - canonical code to obtain passphrases
 //
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
+
 #include "agentquery.h"
 #include "ccaudit_extensions.h"
 
@@ -222,12 +225,22 @@ SecurityAgentXPCQuery::inferHints(Process &thisProcess)
     pid_t clientPid = thisProcess.pid();
     uid_t clientUid = thisProcess.uid();
     string guestPath = thisProcess.getPath();
+    Boolean ignoreSession = TRUE;
 
 	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_TYPE, AuthValueOverlay(sizeof(type), &type)));
 	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_PATH, AuthValueOverlay(guestPath)));
 	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_PID, AuthValueOverlay(sizeof(clientPid), &clientPid)));
 	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_UID, AuthValueOverlay(sizeof(clientUid), &clientUid)));
 
+    /*
+     * If its loginwindow that's asking, override the loginwindow shield detection
+     * up front so that it can trigger SecurityAgent dialogs (like password change)
+     * for when the OD password and keychain password is out of sync.
+     */
+
+    if (guestPath == "/System/Library/CoreServices/loginwindow.app") {
+        clientHints.insert(AuthItemRef(AGENT_HINT_IGNORE_SESSION, AuthValueOverlay(sizeof(ignoreSession), &ignoreSession)));
+    }
 
 	mClientHints.insert(clientHints.begin(), clientHints.end());
 
@@ -486,7 +499,7 @@ QueryKeychainUse::QueryKeychainUse(bool needPass, const Database *db)
 Reason QueryKeychainUse::queryUser (const char *database, const char *description, AclAuthorization action)
 {
     Reason reason = SecurityAgent::noReason;
-    int retryCount = 0;
+    uint32_t retryCount = 0;
 	OSStatus status;
 	AuthItemSet hints, context;
 

@@ -111,11 +111,11 @@ typedef SecTrustResultType(*SecureDownloadTrustEvaluateCallback)
 	@function SecureDownloadCreateWithTicket
 	@abstract Create a SecureDownloadRef for use during the Secure Download process.
 	@param ticket The download ticket.
-	@param setupCallback Called before trust is verified for each signer of the ticket.
+	@param setup Called before trust is verified for each signer of the ticket.
 						 This allows the user to modify the SecTrustRef if needed
 						 (see the SecTrust documentation).  Returns a SecureDownloadTrustCallbackResult (see).
 	@param setupContext User defined.  Passed as a parameter to the setupCallback.
-	@param evaluateCallback Called after SecTrustEvaluate has been called for a
+	@param evaluate Called after SecTrustEvaluate has been called for a
 							signer if the result was not trusted. This allows
 							the developer to query the user as to whether or not
 							to trust the signer.  Returns a SecTrustResultType
@@ -160,7 +160,6 @@ OSStatus SecureDownloadCopyName (SecureDownloadRef downloadRef, CFStringRef* nam
 	@function SecureDownloadCopyCreationDate
 	@abstract Return the date the downlooad ticket was created.
 	@param downloadRef A SecureDownloadRef instance.
-	@param name On output, the creation date.
 	@result A result code.
 */
 
@@ -170,7 +169,7 @@ OSStatus SecureDownloadCopyCreationDate (SecureDownloadRef downloadRef, CFDateRe
 	@function SecureDownloadGetDownloadSize
 	@abstract Return the size of the expected download.
 	@param downloadRef A SecureDownloadRef instance.
-	@param size On output, the size of the download.
+	@param downloadSize On output, the size of the download.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
 

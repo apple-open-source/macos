@@ -27,8 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#ifndef RenderNamedFlowFragment_h
-#define RenderNamedFlowFragment_h
+#pragma once
 
 #include "RenderRegion.h"
 
@@ -79,7 +78,7 @@ public:
     RenderLayerModelObject& layerOwner() const { return downcast<RenderLayerModelObject>(*parent()); }
 
     bool hasCustomRegionStyle() const { return m_hasCustomRegionStyle; }
-    void clearObjectStyleInRegion(const RenderObject*);
+    void clearObjectStyleInRegion(const RenderElement&);
 
     void setRegionObjectsRegionStyle();
     void restoreRegionObjectsOriginalStyle();
@@ -125,7 +124,7 @@ private:
 
     std::unique_ptr<RenderStyle> computeStyleInRegion(RenderElement&, const RenderStyle& parentStyle) const;
     void computeChildrenStyleInRegion(RenderElement&);
-    void setObjectStyleInRegion(RenderObject*, std::unique_ptr<RenderStyle>, bool objectRegionStyleCached);
+    void setRendererStyleInRegion(RenderElement&, std::unique_ptr<RenderStyle>, bool objectRegionStyleCached);
 
     void checkRegionStyle();
     void setHasCustomRegionStyle(bool hasCustomRegionStyle) { m_hasCustomRegionStyle = hasCustomRegionStyle; }
@@ -153,8 +152,8 @@ private:
         bool cached;
     };
 
-    typedef HashMap<const RenderObject*, ObjectRegionStyleInfo > RenderObjectRegionStyleMap;
-    RenderObjectRegionStyleMap m_renderObjectRegionStyle;
+    using RendererRegionStyleMap = HashMap<const RenderElement*, ObjectRegionStyleInfo>;
+    RendererRegionStyleMap m_rendererRegionStyle;
 
     bool m_hasCustomRegionStyle : 1;
     bool m_hasAutoLogicalHeight : 1;
@@ -166,5 +165,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderNamedFlowFragment, isRenderNamedFlowFragment())
-
-#endif // RenderNamedFlowFragment_h

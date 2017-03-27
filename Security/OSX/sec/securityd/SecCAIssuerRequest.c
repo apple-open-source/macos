@@ -103,8 +103,8 @@ static bool SecCAIssuerRequestIssue(SecCAIssuerRequestRef request) {
 /* Releases parent unconditionally, and return a CFArrayRef containing
    parent if the normalized subject of parent matches the normalized issuer
    of certificate. */
-static CFArrayRef SecCAIssuerConvertToParents(SecCertificateRef certificate,
-    SecCertificateRef parent) {
+static CF_RETURNS_RETAINED CFArrayRef SecCAIssuerConvertToParents(SecCertificateRef certificate,
+    SecCertificateRef CF_CONSUMED parent) {
     CFDataRef nic = SecCertificateGetNormalizedIssuerContent(certificate);
     CFArrayRef parents = NULL;
     if (parent) {
@@ -139,8 +139,9 @@ static void SecCAIssuerRequestCompleted(asynchttp_t *http,
         if (!parent) {
             CFArrayRef certificates = NULL;
             certificates = SecCMSCertificatesOnlyMessageCopyCertificates(data);
+            /* @@@ Technically these can have more than one certificate */
             if (certificates && CFArrayGetCount(certificates) == 1) {
-                parent = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(certificates, 0));
+                parent = CFRetainSafe((SecCertificateRef)CFArrayGetValueAtIndex(certificates, 0));
             }
             CFReleaseNull(certificates);
         }

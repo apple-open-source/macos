@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013, 2015-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -311,7 +311,7 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 	}
 
 	// add real interfaces that aren't part of a bond or bridge
-	interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface();
+	interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface(FALSE);
 	if (interfaces != NULL) {
 		addAvailableInterfaces(available, interfaces, excluded);
 		CFRelease(interfaces);

@@ -28,7 +28,7 @@
 #include "ResourceResponseBase.h"
 #include <wtf/RetainPtr.h>
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
 #include "CFNetworkSPI.h"
 #endif
 
@@ -43,7 +43,7 @@ public:
     {
     }
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
     ResourceResponse(CFURLResponseRef cfResponse)
         : m_initLevel(Uninitialized)
         , m_cfResponse(cfResponse)
@@ -84,7 +84,7 @@ public:
          */
     }
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
     WEBCORE_EXPORT CFURLResponseRef cfURLResponse() const;
 #endif
 #if PLATFORM(COCOA)
@@ -117,7 +117,7 @@ private:
     bool m_isQuickLook { false };
 #endif
 
-#if USE(CFNETWORK)
+#if USE(CFURLCONNECTION)
     mutable RetainPtr<CFURLResponseRef> m_cfResponse;
 #endif
 #if PLATFORM(COCOA)

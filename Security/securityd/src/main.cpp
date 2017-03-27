@@ -28,7 +28,6 @@
 #include <securityd_client/ucsp.h>
 
 #include "server.h"
-#include "entropy.h"
 #include "session.h"
 #include "notifications.h"
 #include "pcscmonitor.h"
@@ -87,7 +86,7 @@ int main(int argc, char *argv[])
 	// program arguments (preset to defaults)
 	bool debugMode = false;
 	const char *bootstrapName = NULL;
-	const char* messagingName = SECURITY_MESSAGES_NAME;
+	const char* messagingName = SharedMemoryCommon::kDefaultSecurityMessagesName;
 	bool doFork = false;
 	bool reExecute = false;
 	int workerTimeout = 0;
@@ -95,7 +94,6 @@ int main(int argc, char *argv[])
 	bool waitForClients = true;
     bool mdsIsInstalled = false;
 	const char *tokenCacheDir = "/var/db/TokenCache";
-    const char *entropyFile = "/var/db/SystemEntropyCache";
 	const char *smartCardOptions = getenv("SMARTCARDS");
 	uint32_t keychainAclDefault = CSSM_ACL_KEYCHAIN_PROMPT_INVALID | CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED;
 	unsigned int verbose = 0;
@@ -119,7 +117,7 @@ int main(int argc, char *argv[])
 			debugMode = true;
 			break;
         case 'E':
-            entropyFile = optarg;
+            /* was entropyFile, kept to preserve ABI */
             break;
 		case 'i':
 			keychainAclDefault &= ~CSSM_ACL_KEYCHAIN_PROMPT_INVALID;
@@ -254,13 +252,6 @@ int main(int argc, char *argv[])
 	server.waitForClients(waitForClients);
 	server.verbosity(verbose);
     
-	// add the RNG seed timer
-# if defined(NDEBUG)
-    EntropyManager entropy(server, entropyFile);
-# else
-    if (getuid() == 0) new EntropyManager(server, entropyFile);
-# endif
-
 	// create a smartcard monitor to manage external token devices
 	gPCSC = new PCSCMonitor(server, tokenCacheDir, scOptions(smartCardOptions));
     
@@ -275,8 +266,10 @@ int main(int argc, char *argv[])
     server.loadCssm(mdsIsInstalled);
     
 	// create the shared memory notification hub
+#ifndef __clang_analyzer__
 	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
-	
+#endif // __clang_analyzer__
+
 	// okay, we're ready to roll
     secnotice("SS", "Entering service as %s", (char*)bootstrapName);
 	Syslog::notice("Entering service");

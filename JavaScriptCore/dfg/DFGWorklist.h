@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,13 +23,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef DFGWorklist_h
-#define DFGWorklist_h
-
-#if ENABLE(DFG_JIT)
+#pragma once
 
 #include "DFGPlan.h"
 #include "DFGThreadData.h"
+#include <wtf/AutomaticThread.h>
 #include <wtf/Condition.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
@@ -41,6 +39,8 @@ namespace JSC {
 class SlotVisitor;
 
 namespace DFG {
+
+#if ENABLE(DFG_JIT)
 
 class Worklist : public RefCounted<Worklist> {
 public:
@@ -57,7 +57,8 @@ public:
     // worklist->completeAllReadyPlansForVM(vm);
     void completeAllPlansForVM(VM&);
 
-    void rememberCodeBlocks(VM&);
+    template<typename Func>
+    void iterateCodeBlocksForGC(VM&, const Func&);
 
     void waitUntilAllPlansForVMAreReady(VM&);
     State completeAllReadyPlansForVM(VM&, CompilationKey = CompilationKey());
@@ -76,11 +77,16 @@ public:
     void visitWeakReferences(SlotVisitor&);
     void removeDeadPlans(VM&);
     
+    void removeNonCompilingPlansForVM(VM&);
+    
     void dump(PrintStream&) const;
     
 private:
     Worklist(CString worklistName);
     void finishCreation(unsigned numberOfThreads, int);
+    
+    class ThreadBody;
+    friend class ThreadBody;
     
     void runThread(ThreadData*);
     static void threadFunction(void* argument);
@@ -107,8 +113,8 @@ private:
 
     Lock m_suspensionLock;
     
-    mutable Lock m_lock;
-    Condition m_planEnqueued;
+    Box<Lock> m_lock;
+    RefPtr<AutomaticThreadCondition> m_planEnqueued;
     Condition m_planCompiled;
     
     Vector<std::unique_ptr<ThreadData>> m_threads;
@@ -116,18 +122,30 @@ private:
 };
 
 // For DFGMode compilations.
-Worklist* ensureGlobalDFGWorklist();
+Worklist& ensureGlobalDFGWorklist();
 Worklist* existingGlobalDFGWorklistOrNull();
 
 // For FTLMode and FTLForOSREntryMode compilations.
-Worklist* ensureGlobalFTLWorklist();
+Worklist& ensureGlobalFTLWorklist();
 Worklist* existingGlobalFTLWorklistOrNull();
 
-Worklist* ensureGlobalWorklistFor(CompilationMode);
+Worklist& ensureGlobalWorklistFor(CompilationMode);
 
 // Simplify doing things for all worklists.
 inline unsigned numberOfWorklists() { return 2; }
-inline Worklist* worklistForIndexOrNull(unsigned index)
+inline Worklist& ensureWorklistForIndex(unsigned index)
+{
+    switch (index) {
+    case 0:
+        return ensureGlobalDFGWorklist();
+    case 1:
+        return ensureGlobalFTLWorklist();
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+        return ensureGlobalDFGWorklist();
+    }
+}
+inline Worklist* existingWorklistForIndexOrNull(unsigned index)
 {
     switch (index) {
     case 0:
@@ -139,13 +157,20 @@ inline Worklist* worklistForIndexOrNull(unsigned index)
         return 0;
     }
 }
-
-void completeAllPlansForVM(VM&);
-void rememberCodeBlocks(VM&);
-
-} } // namespace JSC::DFG
+inline Worklist& existingWorklistForIndex(unsigned index)
+{
+    Worklist* result = existingWorklistForIndexOrNull(index);
+    RELEASE_ASSERT(result);
+    return *result;
+}
 
 #endif // ENABLE(DFG_JIT)
 
-#endif // DFGWorklist_h
+void completeAllPlansForVM(VM&);
+void markCodeBlocks(VM&, SlotVisitor&);
+
+template<typename Func>
+void iterateCodeBlocksForGC(VM&, const Func&);
+
+} } // namespace JSC::DFG
 

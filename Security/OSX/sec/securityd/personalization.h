@@ -24,6 +24,7 @@
 #ifndef _SECURITY_PERSONALIZATION_H_
 #define _SECURITY_PERSONALIZATION_H_
 
+#include <libDER/libDER.h>
 #include <Security/Security.h>
 #include <sys/cdefs.h>
 

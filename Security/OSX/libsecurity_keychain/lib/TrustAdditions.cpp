@@ -80,18 +80,18 @@ static const char *X509ANCHORS_SYSTEM_PATH = "/System/Library/Keychains/X509Anch
 //
 // Static functions
 //
-static CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString);
+static CFArrayRef CF_RETURNS_RETAINED _allowedRootCertificatesForOidString(CFStringRef oidString);
 static CSSM_DATA_PTR _copyFieldDataForOid(CSSM_OID_PTR oid, CSSM_DATA_PTR cert, CSSM_CL_HANDLE clHandle);
-static CFStringRef _decimalStringForOid(CSSM_OID_PTR oid);
-static CFDictionaryRef _evCAOidDict();
+static CFStringRef CF_RETURNS_RETAINED _decimalStringForOid(CSSM_OID_PTR oid);
+static CFDictionaryRef CF_RETURNS_RETAINED _evCAOidDict();
 static void _freeFieldData(CSSM_DATA_PTR value, CSSM_OID_PTR oid, CSSM_CL_HANDLE clHandle);
-static CFStringRef _oidStringForCertificatePolicies(const CE_CertPolicies *certPolicies);
+static CFStringRef CF_RETURNS_RETAINED _oidStringForCertificatePolicies(const CE_CertPolicies *certPolicies);
 static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificateRef certificate);
 static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertificateRef certificate);
 
 // utility function to safely release (and clear) the given CFTypeRef variable.
 //
-static void SafeCFRelease(void *cfTypeRefPtr)
+static void SafeCFRelease(void * CF_CONSUMED cfTypeRefPtr)
 {
 	CFTypeRef *obj = (CFTypeRef *)cfTypeRefPtr;
 	if (obj && *obj) {
@@ -554,7 +554,7 @@ static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertif
 // for the given EV OID (a hex string); caller must release the array
 //
 static
-CFArrayRef _possibleRootCertificatesForOidString(CFStringRef oidString)
+CFArrayRef CF_RETURNS_RETAINED _possibleRootCertificatesForOidString(CFStringRef oidString)
 {
 	StLock<Mutex> _(SecTrustKeychainsGetMutex());
 
@@ -648,19 +648,15 @@ CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString)
 		CFIndex idx, count = CFArrayGetCount(possibleRootCertificates);
 		for (idx=0; idx<count; idx++) {
 			SecCertificateRef cert = (SecCertificateRef) CFArrayGetValueAtIndex(possibleRootCertificates, idx);
-#if SECTRUST_OSX
 			/* Need a unified SecCertificateRef instance to hand to SecTrustSettingsCertHashStrFromCert */
 			SecCertificateRef certRef = SecCertificateCreateFromItemImplInstance(cert);
-#else
-			SecCertificateRef certRef = (SecCertificateRef)((cert) ? CFRetain(cert) : NULL);
-#endif
 			CFStringRef hashStr = SecTrustSettingsCertHashStrFromCert(certRef);
 			if (hashStr) {
 				bool foundMatch = false;
 				bool foundAny = false;
 				CSSM_RETURN *errors = NULL;
 				uint32 errorCount = 0;
-				SecTrustSettingsDomain foundDomain = 0;
+				SecTrustSettingsDomain foundDomain = kSecTrustSettingsDomainUser;
 				SecTrustSettingsResult result = kSecTrustSettingsResultInvalid;
 				OSStatus status = SecTrustSettingsEvaluateCert(
 					hashStr,		/* certHashStr */
@@ -1207,7 +1203,7 @@ static void _freeFieldData(CSSM_DATA_PTR value, CSSM_OID_PTR oid, CSSM_CL_HANDLE
 
 static ModuleNexus<Mutex> gOidStringForCertificatePoliciesMutex;
 
-static CFStringRef _oidStringForCertificatePolicies(const CE_CertPolicies *certPolicies)
+static CFStringRef CF_RETURNS_RETAINED _oidStringForCertificatePolicies(const CE_CertPolicies *certPolicies)
 {
 	StLock<Mutex> _(gOidStringForCertificatePoliciesMutex());
 

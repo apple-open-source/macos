@@ -34,6 +34,7 @@
 #import "InteractionInformationAtPosition.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NavigationState.h"
+#import "StringUtilities.h"
 #import "UIKitSPI.h"
 #import "ViewSnapshotStore.h"
 #import "WKContentView.h"
@@ -51,6 +52,7 @@
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/TextIndicator.h>
+#import <WebCore/ValidationBubble.h>
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_webView->_page->process().connection())
 
@@ -456,10 +458,6 @@ void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext&)
 {
 }
 
-void PageClientImpl::willEnterAcceleratedCompositingMode()
-{
-}
-
 void PageClientImpl::setAcceleratedCompositingRootLayer(LayerOrView *rootLayer)
 {
     [m_contentView _setAcceleratedCompositingRootView:rootLayer];
@@ -745,6 +743,16 @@ WebCore::UserInterfaceLayoutDirection PageClientImpl::userInterfaceLayoutDirecti
     if (!m_webView)
         return WebCore::UserInterfaceLayoutDirection::LTR;
     return ([UIView userInterfaceLayoutDirectionForSemanticContentAttribute:[m_webView semanticContentAttribute]] == UIUserInterfaceLayoutDirectionLeftToRight) ? WebCore::UserInterfaceLayoutDirection::LTR : WebCore::UserInterfaceLayoutDirection::RTL;
+}
+
+Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& message)
+{
+    return ValidationBubble::create(m_contentView, message);
+}
+
+void PageClientImpl::handleActiveNowPlayingSessionInfoResponse(bool hasActiveSession, const String& title, double duration, double elapsedTime)
+{
+    [m_webView _handleActiveNowPlayingSessionInfoResponse:hasActiveSession title:nsStringFromWebCoreString(title) duration:duration elapsedTime:elapsedTime];
 }
 
 } // namespace WebKit

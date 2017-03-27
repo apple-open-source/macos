@@ -628,9 +628,9 @@ public:
     ~Vector()
     {
         if (m_size)
-            shrink(0);
+            TypeOperations::destruct(begin(), end());
 
-        asanSetBufferSizeToFullCapacity();
+        asanSetBufferSizeToFullCapacity(0);
     }
 
     Vector(const Vector&);
@@ -722,6 +722,7 @@ public:
     void append(ValueType&& value) { append<ValueType>(std::forward<ValueType>(value)); }
     template<typename U> void append(U&&);
     template<typename... Args> void constructAndAppend(Args&&...);
+    template<typename... Args> bool tryConstructAndAppend(Args&&...);
 
     void uncheckedAppend(ValueType&& value) { uncheckedAppend<ValueType>(std::forward<ValueType>(value)); }
     template<typename U> void uncheckedAppend(U&&);
@@ -785,9 +786,12 @@ private:
     template<typename U> U* expandCapacity(size_t newMinCapacity, U*); 
     template<typename U> void appendSlowCase(U&&);
     template<typename... Args> void constructAndAppendSlowCase(Args&&...);
+    template<typename... Args> bool tryConstructAndAppendSlowCase(Args&&...);
 
     void asanSetInitialBufferSizeTo(size_t);
-    void asanSetBufferSizeToFullCapacity();
+    void asanSetBufferSizeToFullCapacity(size_t);
+    void asanSetBufferSizeToFullCapacity() { asanSetBufferSizeToFullCapacity(size()); }
+
     void asanBufferSizeWillChangeTo(size_t);
 
     using Base::m_size;
@@ -1054,14 +1058,16 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::asanSetInit
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::asanSetBufferSizeToFullCapacity()
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::asanSetBufferSizeToFullCapacity(size_t size)
 {
 #if ASAN_ENABLED
     if (!buffer())
         return;
 
     // ASan requires that the annotation is returned to its initial state before deallocation.
-    __sanitizer_annotate_contiguous_container(buffer(), endOfBuffer(), buffer() + size(), endOfBuffer());
+    __sanitizer_annotate_contiguous_container(buffer(), endOfBuffer(), buffer() + size, endOfBuffer());
+#else
+    UNUSED_PARAM(size);
 #endif
 }
 
@@ -1225,6 +1231,19 @@ ALWAYS_INLINE void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::cons
     constructAndAppendSlowCase(std::forward<Args>(args)...);
 }
 
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> template<typename... Args>
+ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity>::tryConstructAndAppend(Args&&... args)
+{
+    if (size() != capacity()) {
+        asanBufferSizeWillChangeTo(m_size + 1);
+        new (NotNull, end()) T(std::forward<Args>(args)...);
+        ++m_size;
+        return true;
+    }
+    
+    return tryConstructAndAppendSlowCase(std::forward<Args>(args)...);
+}
+
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> template<typename U>
 void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::appendSlowCase(U&& value)
 {
@@ -1250,6 +1269,21 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::constructAndAppend
     asanBufferSizeWillChangeTo(m_size + 1);
     new (NotNull, end()) T(std::forward<Args>(args)...);
     ++m_size;
+}
+
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> template<typename... Args>
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity>::tryConstructAndAppendSlowCase(Args&&... args)
+{
+    ASSERT(size() == capacity());
+    
+    if (UNLIKELY(!tryExpandCapacity(size() + 1)))
+        return false;
+    ASSERT(begin());
+    
+    asanBufferSizeWillChangeTo(m_size + 1);
+    new (NotNull, end()) T(std::forward<Args>(args)...);
+    ++m_size;
+    return true;
 }
 
 // This version of append saves a branch in the case where you know that the

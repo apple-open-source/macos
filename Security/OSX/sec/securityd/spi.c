@@ -34,6 +34,7 @@
 #include <securityd/SOSCloudCircleServer.h>
 #include <securityd/SecOTRRemote.h>
 #include <securityd/SecLogSettingsServer.h>
+#include <securityd/personalization.h>
 
 #include <CoreFoundation/CFXPCBridge.h>
 #include "utilities/iOSforOSX.h"
@@ -61,6 +62,7 @@ static struct securityd spi = {
 #if TRUSTD_SERVER || TARGET_OS_IPHONE
     /* Local trust evaluation only occurs in trustd and iOS securityd */
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
+    .sec_device_is_internal                 = SecIsDeviceInternal,
 #endif
 #if !TRUSTD_SERVER
     /* Trustd must xpc to secd to use these. */
@@ -113,6 +115,7 @@ static struct securityd spi = {
     .soscc_CopyConcurringPeerInfo           = SOSCCCopyConcurringPeerPeerInfo_Server,
     .ota_CopyEscrowCertificates             = SecOTAPKICopyCurrentEscrowCertificates,
     .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
+    .soscc_ProcessSyncWithPeers             = SOSCCProcessSyncWithPeers_Server,
     .soscc_ProcessSyncWithAllPeers          = SOSCCProcessSyncWithAllPeers_Server,
     .soscc_EnsurePeerRegistration           = SOSCCProcessEnsurePeerRegistration_Server,
     .sec_roll_keys                          = _SecServerRollKeysGlue,
@@ -149,8 +152,14 @@ static struct securityd spi = {
     .sec_delete_items_with_access_groups    = _SecItemServerDeleteAllWithAccessGroups,
     .soscc_IsThisDeviceLastBackup           = SOSCCkSecXPCOpIsThisDeviceLastBackup_Server,
     .soscc_requestSyncWithPeerOverKVS       = SOSCCRequestSyncWithPeerOverKVS_Server,
-    .soscc_requestSyncWithPeerOverIDS       = SOSCCRequestSyncWithPeerOverIDS_Server,
+    .soscc_requestSyncWithPeerOverKVSIDOnly = SOSCCRequestSyncWithPeerOverKVSUsingIDOnly_Server,
     .soscc_SOSCCPeersHaveViewsEnabled       = SOSCCPeersHaveViewsEnabled_Server,
+    .socc_clearPeerMessageKeyInKVS          = SOSCCClearPeerMessageKeyInKVS_Server,
+    .soscc_RegisterRecoveryPublicKey        = SOSCCRegisterRecoveryPublicKey_Server,
+    .soscc_CopyRecoveryPublicKey            = SOSCCCopyRecoveryPublicKey_Server,
+    .soscc_CopyBackupInformation            = SOSCCCopyBackupInformation_Server,
+    .soscc_SOSCCMessageFromPeerIsPending    = SOSCCMessageFromPeerIsPending_Server,
+    .soscc_SOSCCSendToPeerIsPending         = SOSCCSendToPeerIsPending_Server,
 
 #endif /* !TRUSTD_SERVER */
 };
@@ -160,7 +169,7 @@ void securityd_init_server(void) {
     SecPolicyServerInitalize();
 }
 
-void securityd_init(char* home_path) {
+void securityd_init(CFURLRef home_path) {
     if (home_path)
         SetCustomHomeURL(home_path);
 

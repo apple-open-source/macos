@@ -30,7 +30,7 @@
 #pragma mark - platform macros
 
 DISPATCH_ENUM(dispatch_lock_options, uint32_t,
-		DLOCK_LOCK_NONE 			= 0x00000000,
+		DLOCK_LOCK_NONE				= 0x00000000,
 		DLOCK_LOCK_DATA_CONTENTION  = 0x00010000,
 );
 
@@ -160,10 +160,6 @@ _dispatch_lock_has_failed_trylock(dispatch_lock lock_value)
 #endif
 #endif // HAVE_UL_UNFAIR_LOCK
 
-#ifndef DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK
-#define DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK (!HAVE_UL_COMPARE_AND_WAIT && !HAVE_FUTEX)
-#endif
-
 #ifndef HAVE_FUTEX
 #ifdef __linux__
 #define HAVE_FUTEX 1
@@ -172,72 +168,75 @@ _dispatch_lock_has_failed_trylock(dispatch_lock lock_value)
 #endif
 #endif // HAVE_FUTEX
 
-#if USE_MACH_SEM
-#define DISPATCH_SEMAPHORE_VERIFY_KR(x) do { \
-		if (unlikely((x) == KERN_INVALID_NAME)) { \
-			DISPATCH_CLIENT_CRASH((x), "Use-after-free of dispatch_semaphore_t"); \
-		} else if (unlikely(x)) { \
-			DISPATCH_INTERNAL_CRASH((x), "mach semaphore API failure"); \
-		} \
-	} while (0)
-#define DISPATCH_GROUP_VERIFY_KR(x) do { \
-		if (unlikely((x) == KERN_INVALID_NAME)) { \
-			DISPATCH_CLIENT_CRASH((x), "Use-after-free of dispatch_group_t"); \
-		} else if (unlikely(x)) { \
-			DISPATCH_INTERNAL_CRASH((x), "mach semaphore API failure"); \
-		} \
-	} while (0)
-#elif USE_POSIX_SEM
-#define DISPATCH_SEMAPHORE_VERIFY_RET(x) do { \
-		if (unlikely((x) == -1)) { \
-			DISPATCH_INTERNAL_CRASH(errno, "POSIX semaphore API failure"); \
-		} \
-	} while (0)
-#endif
+#pragma mark - semaphores
 
-#pragma mark - compare and wait
-
-DISPATCH_NOT_TAIL_CALLED
-void _dispatch_wait_on_address(uint32_t volatile *address, uint32_t value,
-		dispatch_lock_options_t flags);
-void _dispatch_wake_by_address(uint32_t volatile *address);
-
-#pragma mark - thread event
-/**
- * @typedef dispatch_thread_event_t
- *
- * @abstract
- * Dispatch Thread Events are used for one-time synchronization between threads.
- *
- * @discussion
- * Dispatch Thread Events are cheap synchronization points used when a thread
- * needs to block until a certain event has happened. Dispatch Thread Event
- * must be initialized and destroyed with _dispatch_thread_event_init() and
- * _dispatch_thread_event_destroy().
- *
- * A Dispatch Thread Event must be waited on and signaled exactly once between
- * initialization and destruction. These objects are simpler than semaphores
- * and do not support being signaled and waited on an arbitrary number of times.
- *
- * This locking primitive has no notion of ownership
- */
-typedef struct dispatch_thread_event_s {
-#if DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK
-	union {
-		semaphore_t dte_semaphore;
-		uint32_t dte_value;
-	};
-#elif HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
-	// 1 means signalled but not waited on yet
-	// UINT32_MAX means waited on, but not signalled yet
-	// 0 is the initial and final state
-	uint32_t dte_value;
-#elif USE_POSIX_SEM
-	sem_t dte_sem;
+#ifndef DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK
+#if TARGET_OS_MAC
+#define DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK (!HAVE_UL_COMPARE_AND_WAIT)
 #else
-#  error define dispatch_thread_event_s for your platform
+#define DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK 0
 #endif
-} dispatch_thread_event_s, *dispatch_thread_event_t;
+#endif
+
+#if USE_MACH_SEM
+
+typedef semaphore_t _os_semaphore_t;
+#define _OS_SEM_POLICY_FIFO  SYNC_POLICY_FIFO
+#define _OS_SEM_POLICY_LIFO  SYNC_POLICY_LIFO
+#define _OS_SEM_TIMEOUT() KERN_OPERATION_TIMED_OUT
+
+#define _os_semaphore_init(sema, policy) (void)(*(sema) = MACH_PORT_NULL)
+#define _os_semaphore_is_created(sema)   (*(sema) != MACH_PORT_NULL)
+void _os_semaphore_create_slow(_os_semaphore_t *sema, int policy);
+
+#elif USE_POSIX_SEM
+
+typedef sem_t _os_semaphore_t;
+#define _OS_SEM_POLICY_FIFO 0
+#define _OS_SEM_POLICY_LIFO 0
+#define _OS_SEM_TIMEOUT() ((errno) = ETIMEDOUT, -1)
+
+void _os_semaphore_init(_os_semaphore_t *sema, int policy);
+#define _os_semaphore_is_created(sema) 1
+#define _os_semaphore_create_slow(sema, policy) ((void)0)
+
+#elif USE_WIN32_SEM
+
+typedef HANDLE _os_semaphore_t;
+#define _OS_SEM_POLICY_FIFO 0
+#define _OS_SEM_POLICY_LIFO 0
+#define _OS_SEM_TIMEOUT() ((errno) = ETIMEDOUT, -1)
+
+#define _os_semaphore_init(sema, policy) (void)(*(sema) = 0)
+#define _os_semaphore_is_created(sema)   (*(sema) != 0)
+void _os_semaphore_create_slow(_os_semaphore_t *sema, int policy);
+
+#else
+#error "port has to implement _os_semaphore_t"
+#endif
+
+void _os_semaphore_dispose_slow(_os_semaphore_t *sema);
+void _os_semaphore_signal(_os_semaphore_t *sema, long count);
+void _os_semaphore_wait(_os_semaphore_t *sema);
+bool _os_semaphore_timedwait(_os_semaphore_t *sema, dispatch_time_t timeout);
+
+DISPATCH_ALWAYS_INLINE
+static inline void
+_os_semaphore_create(_os_semaphore_t *sema, int policy)
+{
+	if (!_os_semaphore_is_created(sema)) {
+		_os_semaphore_create_slow(sema, policy);
+	}
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline void
+_os_semaphore_dispose(_os_semaphore_t *sema)
+{
+	if (_os_semaphore_is_created(sema)) {
+		_os_semaphore_dispose_slow(sema);
+	}
+}
 
 #if DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK
 semaphore_t _dispatch_thread_semaphore_create(void);
@@ -269,6 +268,49 @@ _dispatch_put_thread_semaphore(semaphore_t sema)
 }
 #endif
 
+
+#pragma mark - compare and wait
+
+DISPATCH_NOT_TAIL_CALLED
+void _dispatch_wait_on_address(uint32_t volatile *address, uint32_t value,
+		dispatch_lock_options_t flags);
+void _dispatch_wake_by_address(uint32_t volatile *address);
+
+#pragma mark - thread event
+/**
+ * @typedef dispatch_thread_event_t
+ *
+ * @abstract
+ * Dispatch Thread Events are used for one-time synchronization between threads.
+ *
+ * @discussion
+ * Dispatch Thread Events are cheap synchronization points used when a thread
+ * needs to block until a certain event has happened. Dispatch Thread Event
+ * must be initialized and destroyed with _dispatch_thread_event_init() and
+ * _dispatch_thread_event_destroy().
+ *
+ * A Dispatch Thread Event must be waited on and signaled exactly once between
+ * initialization and destruction. These objects are simpler than semaphores
+ * and do not support being signaled and waited on an arbitrary number of times.
+ *
+ * This locking primitive has no notion of ownership
+ */
+typedef struct dispatch_thread_event_s {
+#if DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK
+	union {
+		_os_semaphore_t dte_sema;
+		uint32_t dte_value;
+	};
+#elif HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
+	// 1 means signalled but not waited on yet
+	// UINT32_MAX means waited on, but not signalled yet
+	// 0 is the initial and final state
+	uint32_t dte_value;
+#else
+	_os_semaphore_t dte_sema;
+#endif
+} dispatch_thread_event_s, *dispatch_thread_event_t;
+
 DISPATCH_NOT_TAIL_CALLED
 void _dispatch_thread_event_wait_slow(dispatch_thread_event_t);
 void _dispatch_thread_event_signal_slow(dispatch_thread_event_t);
@@ -279,15 +321,14 @@ _dispatch_thread_event_init(dispatch_thread_event_t dte)
 {
 #if DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK
 	if (DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK) {
-		dte->dte_semaphore = _dispatch_get_thread_semaphore();
+		dte->dte_sema = _dispatch_get_thread_semaphore();
 		return;
 	}
 #endif
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
 	dte->dte_value = 0;
-#elif USE_POSIX_SEM
-	int rc = sem_init(&dte->dte_sem, 0, 0);
-	DISPATCH_SEMAPHORE_VERIFY_RET(rc);
+#else
+	_os_semaphore_init(&dte->dte_sema, _OS_SEM_POLICY_FIFO);
 #endif
 }
 
@@ -308,7 +349,7 @@ _dispatch_thread_event_signal(dispatch_thread_event_t dte)
 		// waiters do the validation
 		return;
 	}
-#elif USE_POSIX_SEM
+#else
 	// fallthrough
 #endif
 	_dispatch_thread_event_signal_slow(dte);
@@ -331,7 +372,7 @@ _dispatch_thread_event_wait(dispatch_thread_event_t dte)
 		// for any other value, go to the slowpath which checks it's not corrupt
 		return;
 	}
-#elif USE_POSIX_SEM
+#else
 	// fallthrough
 #endif
 	_dispatch_thread_event_wait_slow(dte);
@@ -343,16 +384,15 @@ _dispatch_thread_event_destroy(dispatch_thread_event_t dte)
 {
 #if DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK
 	if (DISPATCH_LOCK_USE_SEMAPHORE_FALLBACK) {
-		_dispatch_put_thread_semaphore(dte->dte_semaphore);
+		_dispatch_put_thread_semaphore(dte->dte_sema);
 		return;
 	}
 #endif
 #if HAVE_UL_COMPARE_AND_WAIT || HAVE_FUTEX
 	// nothing to do
 	dispatch_assert(dte->dte_value == 0);
-#elif USE_POSIX_SEM
-	int rc = sem_destroy(&dte->dte_sem);
-	DISPATCH_SEMAPHORE_VERIFY_RET(rc);
+#else
+	_os_semaphore_dispose(&dte->dte_sema);
 #endif
 }
 

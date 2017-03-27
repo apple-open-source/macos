@@ -116,7 +116,9 @@ SecCmsMessageDestroy(SecCmsMessageRef cmsg)
 
     SecCmsContentInfoDestroy(&(cmsg->contentInfo));
 
-    PORT_FreeArena (cmsg->poolp, PR_FALSE);	/* XXX clear it? */
+    if (cmsg->poolp) {
+        PORT_FreeArena (cmsg->poolp, PR_TRUE);
+    }
 }
 
 /*

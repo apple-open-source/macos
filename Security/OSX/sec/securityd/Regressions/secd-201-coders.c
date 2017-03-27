@@ -41,7 +41,6 @@
 #include <Security/SecureObjectSync/SOSUserKeygen.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
 #include <Security/SecureObjectSync/SOSEnginePriv.h>
-#include "SOSCloudKeychainLogging.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -60,7 +59,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 182;
+static int kTestTestCount = 124;
 
 static void TestSOSEngineDoOnQueue(SOSEngineRef engine, dispatch_block_t action)
 {
@@ -104,10 +103,9 @@ static void ids_test_sync(SOSAccountRef alice_account, SOSAccountRef bob_account
                    SOSPeerInfoShouldUseIDSMessageFragmentation(SOSFullPeerInfoGetPeerInfo(alice_account->my_identity), peer)){
                     secnotice("IDS Transport","Syncing with IDS capable peers using IDS!");
 
-                    CFMutableDictionaryRef circleToIdsId = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-                    CFMutableArrayRef ids = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-                    CFArrayAppendValue(ids, SOSPeerInfoGetPeerID(peer));
-                    CFDictionaryAddValue(circleToIdsId, SOSCircleGetName(alice_account->trusted_circle), ids);
+                    CFMutableSetRef ids = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+                    CFSetAddValue(ids, SOSPeerInfoGetPeerID(peer));
+
                     SOSEngineRef alice_engine = SOSTransportMessageGetEngine(alice_account->ids_message_transport);
 
                     //testing loading and saving coders
@@ -126,7 +124,7 @@ static void ids_test_sync(SOSAccountRef alice_account, SOSAccountRef bob_account
                     compareCoders(beforeCoders, alice_engine->coders);
 
                     //syncing with all peers
-                    SyncingCompletedOverIDS = SOSTransportMessageSyncWithPeers(alice_account->ids_message_transport, circleToIdsId, &localError);
+                    SyncingCompletedOverIDS = SOSTransportMessageSyncWithPeers(alice_account->ids_message_transport, ids, &localError);
 
                     //testing load after sync with all peers
                     CFMutableDictionaryRef codersAfterSyncBeforeLoad = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(alice_engine->coders), alice_engine->coders);
@@ -137,7 +135,6 @@ static void ids_test_sync(SOSAccountRef alice_account, SOSAccountRef bob_account
 
                     CFReleaseNull(codersAfterSyncBeforeLoad);
                     CFReleaseNull(beforeCoders);
-                    CFReleaseNull(circleToIdsId);
                     CFReleaseNull(ids);
                 }
             }
@@ -151,10 +148,9 @@ static void ids_test_sync(SOSAccountRef alice_account, SOSAccountRef bob_account
                    SOSPeerInfoShouldUseIDSMessageFragmentation(SOSFullPeerInfoGetPeerInfo(bob_account->my_identity), peer)){
                     secnotice("IDS Transport","Syncing with IDS capable peers using IDS!");
 
-                    CFMutableDictionaryRef circleToIdsId = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-                    CFMutableArrayRef ids = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-                    CFArrayAppendValue(ids, SOSPeerInfoGetPeerID(peer));
-                    CFDictionaryAddValue(circleToIdsId, SOSCircleGetName(bob_account->trusted_circle), ids);
+                    CFMutableSetRef ids = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+                    CFSetAddValue(ids, SOSPeerInfoGetPeerID(peer));
+
                     SOSEngineRef bob_engine = SOSTransportMessageGetEngine(bob_account->ids_message_transport);
 
                     //testing loading and saving coders
@@ -172,7 +168,7 @@ static void ids_test_sync(SOSAccountRef alice_account, SOSAccountRef bob_account
 
                     compareCoders(beforeCoders, bob_engine->coders);
 
-                    SyncingCompletedOverIDS &= SOSTransportMessageSyncWithPeers(bob_account->ids_message_transport, circleToIdsId, &localError);
+                    SyncingCompletedOverIDS &= SOSTransportMessageSyncWithPeers(bob_account->ids_message_transport, ids, &localError);
 
                     //testing load after sync with all peers
                     CFMutableDictionaryRef codersAfterSyncBeforeLoad = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(bob_engine->coders), bob_engine->coders);
@@ -182,7 +178,6 @@ static void ids_test_sync(SOSAccountRef alice_account, SOSAccountRef bob_account
                     compareCoders(codersAfterSyncBeforeLoad, bob_engine->coders);
                     CFReleaseNull(codersAfterSyncBeforeLoad);
                     CFReleaseNull(beforeCoders);
-                    CFReleaseNull(circleToIdsId);
                     CFReleaseNull(ids);
                 }
             }
@@ -302,6 +297,7 @@ static void tests(void)
         SOSFullPeerInfoUpdateTransportType(alice_account->my_identity, SOSTransportMessageTypeIDSV2, &localError);
         SOSFullPeerInfoUpdateTransportPreference(alice_account->my_identity, kCFBooleanFalse, &localError);
         SOSFullPeerInfoUpdateTransportFragmentationPreference(alice_account->my_identity, kCFBooleanTrue, &localError);
+        SOSFullPeerInfoUpdateTransportAckModelPreference(alice_account->my_identity, kCFBooleanTrue, &localError);
 
         return SOSCircleHasPeer(circle, SOSFullPeerInfoGetPeerInfo(alice_account->my_identity), NULL);
     });
@@ -316,6 +312,7 @@ static void tests(void)
         SOSFullPeerInfoUpdateTransportType(bob_account->my_identity, SOSTransportMessageTypeIDSV2, &localError);
         SOSFullPeerInfoUpdateTransportPreference(bob_account->my_identity, kCFBooleanFalse, &localError);
         SOSFullPeerInfoUpdateTransportFragmentationPreference(bob_account->my_identity, kCFBooleanTrue, &localError);
+        SOSFullPeerInfoUpdateTransportAckModelPreference(bob_account->my_identity, kCFBooleanTrue, &localError);
 
         return SOSCircleHasPeer(circle, SOSFullPeerInfoGetPeerInfo(bob_account->my_identity), NULL);
     });
@@ -333,18 +330,18 @@ static void tests(void)
 
     SOSTransportMessageIDSTestSetName(alice_account->ids_message_transport, CFSTR("Alice Account"));
     ok(SOSTransportMessageIDSTestGetName(alice_account->ids_message_transport) != NULL, "retrieved getting account name");
-    ok(SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(alice_account, &error) != false, "device ID from IDSKeychainSyncingProxy");
+    ok(SOSAccountRetrieveDeviceIDFromKeychainSyncingOverIDSProxy(alice_account, &error) != false, "device ID from KeychainSyncingOverIDSProxy");
 
     SOSTransportMessageIDSTestSetName(bob_account->ids_message_transport, CFSTR("Bob Account"));
     ok(SOSTransportMessageIDSTestGetName(bob_account->ids_message_transport) != NULL, "retrieved getting account name");
-    ok(SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(bob_account, &error) != false, "device ID from IDSKeychainSyncingProxy");
+    ok(SOSAccountRetrieveDeviceIDFromKeychainSyncingOverIDSProxy(bob_account, &error) != false, "device ID from KeychainSyncingOverIDSProxy");
 
 
-    ok(SOSAccountSetMyDSID(alice_account, CFSTR("Alice"),&error), "Setting IDS device ID");
+    ok(SOSAccountSetMyDSID_wTxn(alice_account, CFSTR("Alice"),&error), "Setting IDS device ID");
     CFStringRef alice_dsid = SOSAccountCopyDeviceID(alice_account, &error);
     ok(CFEqualSafe(alice_dsid, CFSTR("Alice")), "Getting IDS device ID");
 
-    ok(SOSAccountSetMyDSID(bob_account, CFSTR("Bob"),&error), "Setting IDS device ID");
+    ok(SOSAccountSetMyDSID_wTxn(bob_account, CFSTR("Bob"),&error), "Setting IDS device ID");
     CFStringRef bob_dsid = SOSAccountCopyDeviceID(bob_account, &error);
     ok(CFEqualSafe(bob_dsid, CFSTR("Bob")), "Getting IDS device ID");
 
@@ -363,7 +360,7 @@ static void tests(void)
     CFArrayRemoveAllValues(message_transports);
     CFReleaseNull(alice_account);
     CFReleaseNull(bob_account);
-
+    CFReleaseNull(changes);
 }
 
 int secd_201_coders(int argc, char *const *argv)

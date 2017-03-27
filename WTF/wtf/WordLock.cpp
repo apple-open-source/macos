@@ -26,8 +26,6 @@
 #include "config.h"
 #include "WordLock.h"
 
-#include "DataLog.h"
-#include "StringPrintStream.h"
 #include "ThreadSpecific.h"
 #include "ThreadingPrimitives.h"
 #include <condition_variable>
@@ -61,7 +59,7 @@ struct ThreadData {
     ThreadData* queueTail { nullptr };
 };
 
-ThreadSpecific<ThreadData>* threadData;
+ThreadSpecific<ThreadData, CanBeGCThread::True>* threadData;
 
 ThreadData* myThreadData()
 {
@@ -69,7 +67,7 @@ ThreadData* myThreadData()
     std::call_once(
         initializeOnce,
         [] {
-            threadData = new ThreadSpecific<ThreadData>();
+            threadData = new ThreadSpecific<ThreadData, CanBeGCThread::True>();
         });
 
     return *threadData;

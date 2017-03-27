@@ -342,8 +342,8 @@ inline CFStringRef makeCFString(CFDataRef data, CFStringEncoding encoding = kCFS
 //
 // Create CFURL objects from various sources
 //
-CFURLRef makeCFURL(const char *s, bool isDirectory = false, CFURLRef base = NULL);
-CFURLRef makeCFURL(CFStringRef s, bool isDirectory = false, CFURLRef base = NULL);
+CFURLRef CF_RETURNS_RETAINED makeCFURL(const char *s, bool isDirectory = false, CFURLRef base = NULL);
+CFURLRef CF_RETURNS_RETAINED makeCFURL(CFStringRef s, bool isDirectory = false, CFURLRef base = NULL);
 
 inline CFURLRef makeCFURL(const string &s, bool isDirectory = false, CFURLRef base = NULL)
 {
@@ -475,10 +475,10 @@ private:
 //
 // Make CFDictionaries from stuff
 //
-CFDictionaryRef makeCFDictionary(unsigned count, ...);					// key/value pairs
-CFMutableDictionaryRef makeCFMutableDictionary();						// empty
-CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...);	// (count) key/value pairs
-CFMutableDictionaryRef makeCFMutableDictionary(CFDictionaryRef dict);	// copy of dictionary
+CFDictionaryRef makeCFDictionary(unsigned count, ...) CF_RETURNS_RETAINED;					// key/value pairs
+CFMutableDictionaryRef makeCFMutableDictionary() CF_RETURNS_RETAINED;						// empty
+CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...) CF_RETURNS_RETAINED;	// (count) key/value pairs
+CFMutableDictionaryRef makeCFMutableDictionary(CFDictionaryRef dict) CF_RETURNS_RETAINED;	// copy of dictionary
 
 CFDictionaryRef makeCFDictionaryFrom(CFDataRef data) CF_RETURNS_RETAINED;// interpret plist form
 CFDictionaryRef makeCFDictionaryFrom(const void *data, size_t length) CF_RETURNS_RETAINED; // ditto
@@ -556,11 +556,11 @@ void cfDictionaryApplyBlock(CFDictionaryRef source, CFDictionaryApplierBlock blo
 //
 // CFURLAccess wrappers for specific purposes
 //
-CFDataRef cfLoadFile(CFURLRef url);
-CFDataRef cfLoadFile(int fd, size_t bytes);
-inline CFDataRef cfLoadFile(CFStringRef path) { return cfLoadFile(CFTempURL(path)); }
-inline CFDataRef cfLoadFile(const std::string &path) { return cfLoadFile(CFTempURL(path)); }
-inline CFDataRef cfLoadFile(const char *path) { return cfLoadFile(CFTempURL(path)); }
+CFDataRef CF_RETURNS_RETAINED cfLoadFile(CFURLRef url);
+CFDataRef CF_RETURNS_RETAINED cfLoadFile(int fd, size_t bytes);
+inline CFDataRef CF_RETURNS_RETAINED cfLoadFile(CFStringRef path) { return cfLoadFile(CFTempURL(path)); }
+inline CFDataRef CF_RETURNS_RETAINED cfLoadFile(const std::string &path) { return cfLoadFile(CFTempURL(path)); }
+inline CFDataRef CF_RETURNS_RETAINED cfLoadFile(const char *path) { return cfLoadFile(CFTempURL(path)); }
 
 
 //
@@ -623,7 +623,7 @@ CFToVector<VectorBase, CFRefType, convert>::CFToVector(CFArrayRef arrayRef)
 // Make CFArrays from stuff.
 //
 template <class Iterator, class Generator>
-inline CFArrayRef makeCFArrayFrom(const Generator &generate, Iterator first, Iterator last)
+inline CFArrayRef CF_RETURNS_RETAINED makeCFArrayFrom(const Generator &generate, Iterator first, Iterator last)
 {
 	// how many elements?
 	size_t size = distance(first, last);

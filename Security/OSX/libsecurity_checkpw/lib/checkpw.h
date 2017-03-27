@@ -38,7 +38,7 @@ enum {
 
 	checks a username/password combination.
 
-	@param username (input) username as a UTF8 string
+	@param userName (input) username as a UTF8 string
 	@param password (input) password as a UTF8 string
 
 	@result CHECKPW_SUCCESS username/password correct

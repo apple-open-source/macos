@@ -47,6 +47,8 @@
 #include <os/activity.h>
 #include <notify.h>
 
+#include <sys/stat.h>
+
 static CFDataRef client_data_data_to_data_error_request(enum SecXPCOperation op, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
     __block CFDataRef result = NULL;
     securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
@@ -286,7 +288,9 @@ static bool SecKeychainWithBackupFile(CFStringRef backupName, CFErrorRef *error,
         secdebug("backup", "Receiving file for %@ failed, %d", backupName, errno);
         return SecCheckErrno(!backup, error, CFSTR("fdopen"));
     } else {
-        secdebug("backup", "Receiving file for %@ with fd %d of size %llu", backupName, fd, lseek(fd, 0, SEEK_END));
+        struct stat sb;
+        fstat(fd, &sb);
+        secdebug("backup", "Receiving file for %@ with fd %d of size %llu", backupName, fd, sb.st_size);
     }
 
     with(backup);

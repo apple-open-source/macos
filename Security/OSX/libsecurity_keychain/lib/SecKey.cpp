@@ -32,6 +32,7 @@
 #include <Security/SecAsn1Types.h>
 #include <Security/SecAsn1Coder.h>
 #include <security_keychain/KeyItem.h>
+#include <security_utilities/casts.h>
 #include <CommonCrypto/CommonKeyDerivation.h>
 
 #include "SecBridge.h"
@@ -162,7 +163,7 @@ SecCDSAKeyGetAlgorithmId(SecKeyRef key) {
 static CFDataRef SecCDSAKeyCopyPublicKeyDataFromSubjectInfo(CFDataRef pubKeyInfo) {
     // First of all, consider x509 format and try to strip SubjPubKey envelope.  If it fails, do not panic
     // and export data as is.
-    DERItem keyItem = { (DERByte *)CFDataGetBytePtr(pubKeyInfo), CFDataGetLength(pubKeyInfo) }, pubKeyItem;
+    DERItem keyItem = { (DERByte *)CFDataGetBytePtr(pubKeyInfo), int_cast<CFIndex, DERSize>(CFDataGetLength(pubKeyInfo)) }, pubKeyItem;
     DERByte numUnused;
     DERSubjPubKeyInfo subjPubKey;
     if (DERParseSequence(&keyItem, DERNumSubjPubKeyInfoItemSpecs,
@@ -177,7 +178,7 @@ static CFDataRef SecCDSAKeyCopyPublicKeyDataFromSubjectInfo(CFDataRef pubKeyInfo
 
 static CFDataRef SecCDSAKeyCopyPublicKeyDataWithSubjectInfo(CSSM_ALGORITHMS algorithm, uint32 keySizeInBits, CFDataRef pubKeyInfo) {
     // First check, whether X509 pubkeyinfo is already present.  If not, add it according to the key type.
-    DERItem keyItem = { (DERByte *)CFDataGetBytePtr(pubKeyInfo), CFDataGetLength(pubKeyInfo) };
+    DERItem keyItem = { (DERByte *)CFDataGetBytePtr(pubKeyInfo), int_cast<CFIndex, DERSize>(CFDataGetLength(pubKeyInfo)) };
     DERSubjPubKeyInfo subjPubKey;
     if (DERParseSequence(&keyItem, DERNumSubjPubKeyInfoItemSpecs,
                          DERSubjPubKeyInfoItemSpecs,
@@ -215,10 +216,10 @@ static CFDataRef SecCDSAKeyCopyPublicKeyDataWithSubjectInfo(CSSM_ALGORITHMS algo
             subjPubKey.algId.length = sizeof(oidECsecp256);
         } else if (keySizeInBits == 384) {
             subjPubKey.algId.data = const_cast<DERByte *>(oidECsecp384);
-            subjPubKey.algId.length = sizeof(oidECsecp256);
+            subjPubKey.algId.length = sizeof(oidECsecp384);
         } if (keySizeInBits == 521) {
             subjPubKey.algId.data = const_cast<DERByte *>(oidECsecp521);
-            subjPubKey.algId.length = sizeof(oidECsecp256);
+            subjPubKey.algId.length = sizeof(oidECsecp521);
         }
     }
     DERSize size = DERLengthOfEncodedSequence(ASN1_CONSTR_SEQUENCE, &subjPubKey,
@@ -249,7 +250,7 @@ static OSStatus SecCDSAKeyCopyPublicBytes(SecKeyRef key, CFDataRef *serializatio
                     CFRef<CFDataRef> privKeyData;
                     result = SecItemExport(key, kSecFormatOpenSSL, 0, NULL, privKeyData.take());
                     if (result == errSecSuccess) {
-                        DERItem keyItem = { (DERByte *)CFDataGetBytePtr(privKeyData), CFDataGetLength(privKeyData) };
+                        DERItem keyItem = { (DERByte *)CFDataGetBytePtr(privKeyData), int_cast<CFIndex, DERSize>(CFDataGetLength(privKeyData)) };
                         DERRSAKeyPair keyPair;
                         if (DERParseSequence(&keyItem, DERNumRSAKeyPairItemSpecs, DERRSAKeyPairItemSpecs,
                                              &keyPair, sizeof(keyPair)) == DR_Success) {
@@ -347,7 +348,7 @@ SecCDSAKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
             MacOSError::check(SecItemExport(key, kSecFormatOpenSSL, 0, NULL, keyData.take()));
             if (header.keyClass() == CSSM_KEYCLASS_PRIVATE_KEY) {
                 // Convert DER format into x9.63 format, which is expected for exported key.
-                DERItem keyItem = { (DERByte *)CFDataGetBytePtr(keyData), CFDataGetLength(keyData) };
+                DERItem keyItem = { (DERByte *)CFDataGetBytePtr(keyData), int_cast<CFIndex, DERSize>(CFDataGetLength(keyData)) };
                 DERECPrivateKey privateKey;
                 DERECPrivateKeyPublicKey privateKeyPublicKey;
                 DERByte numUnused;
@@ -517,7 +518,9 @@ static SecKeyRef SecCDSAKeyCopyPublicKey(SecKeyRef privateKey) {
             Item publicKey = key->keychain()->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, uniqueId);
             result = reinterpret_cast<SecKeyRef>(publicKey->handle());
         }
-    } else if (key->publicKey()) {
+    }
+
+    if (result == NULL && key->publicKey()) {
         KeyItem *publicKey = new KeyItem(key->publicKey());
         result = reinterpret_cast<SecKeyRef>(publicKey->handle());
     }
@@ -2023,7 +2026,9 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
     } else if(CFEqual(algorithmDictValue, kSecAttrPRFHmacAlgSHA512)) {
         algorithm = kCCPRFHmacAlgSHA512;
     } else {
-        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidAlgorithmParms, NULL);
+        if(error) {
+            *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidAlgorithmParms, NULL);
+        }
         goto errOut;
     }
 
@@ -2040,7 +2045,9 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
         retval =  SecKeyCreateFromData(parameters, keyData, error);
         CFRelease(keyData);
     } else {
-        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInternalError, NULL);
+        if(error) {
+            *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInternalError, NULL);
+        }
     }
 
 errOut:
@@ -2053,13 +2060,17 @@ errOut:
 CFDataRef
 SecKeyWrapSymmetric(SecKeyRef keyToWrap, SecKeyRef wrappingKey, CFDictionaryRef parameters, CFErrorRef *error)
 {
-    *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecUnimplemented, NULL);
+    if(error) {
+        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecUnimplemented, NULL);
+    }
     return NULL;
 }
 
 SecKeyRef
 SecKeyUnwrapSymmetric(CFDataRef *keyToUnwrap, SecKeyRef unwrappingKey, CFDictionaryRef parameters, CFErrorRef *error)
 {
-    *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecUnimplemented, NULL);
+    if(error) {
+        *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecUnimplemented, NULL);
+    }
     return NULL;
 }

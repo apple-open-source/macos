@@ -58,7 +58,6 @@
 #include "DocumentLoader.h"
 #include "DocumentType.h"
 #include "ElementChildIterator.h"
-#include "ExceptionCode.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -75,7 +74,6 @@
 #include "JSDOMBinding.h"
 #include "Page.h"
 #include "ScriptController.h"
-#include "Settings.h"
 #include "StyleResolver.h"
 #include <wtf/text/CString.h>
 
@@ -105,38 +103,6 @@ int HTMLDocument::height()
     updateLayoutIgnorePendingStylesheets();
     FrameView* frameView = view();
     return frameView ? frameView->contentsHeight() : 0;
-}
-
-const AtomicString& HTMLDocument::dir() const
-{
-    auto* documentElement = this->documentElement();
-    if (!is<HTMLHtmlElement>(documentElement))
-        return nullAtom;
-    return downcast<HTMLHtmlElement>(*documentElement).dir();
-}
-
-void HTMLDocument::setDir(const AtomicString& value)
-{
-    auto* documentElement = this->documentElement();
-    if (is<HTMLHtmlElement>(documentElement))
-        downcast<HTMLHtmlElement>(*documentElement).setDir(value);
-}
-
-String HTMLDocument::designMode() const
-{
-    return inDesignMode() ? ASCIILiteral("on") : ASCIILiteral("off");
-}
-
-void HTMLDocument::setDesignMode(const String& value)
-{
-    InheritedBool mode;
-    if (equalLettersIgnoringASCIICase(value, "on"))
-        mode = on;
-    else if (equalLettersIgnoringASCIICase(value, "off"))
-        mode = off;
-    else
-        mode = inherit;
-    Document::setDesignMode(mode);
 }
 
 const AtomicString& HTMLDocument::bgColor() const

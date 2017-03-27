@@ -28,8 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FileReaderLoader_h
-#define FileReaderLoader_h
+#pragma once
 
 #include "BlobResourceHandle.h"
 #include "FileError.h"
@@ -69,10 +68,10 @@ public:
     void cancel();
 
     // ThreadableLoaderClient
-    virtual void didReceiveResponse(unsigned long, const ResourceResponse&);
-    virtual void didReceiveData(const char*, int);
-    virtual void didFinishLoading(unsigned long, double);
-    virtual void didFail(const ResourceError&);
+    void didReceiveResponse(unsigned long, const ResourceResponse&) override;
+    void didReceiveData(const char*, int) override;
+    void didFinishLoading(unsigned long, double) override;
+    void didFail(const ResourceError&) override;
 
     String stringResult();
     RefPtr<JSC::ArrayBuffer> arrayBufferResult() const;
@@ -120,5 +119,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // FileReaderLoader_h

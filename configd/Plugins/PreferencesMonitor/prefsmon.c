@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010, 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2012-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -60,7 +60,8 @@ static SCDynamicStoreRef	store			= NULL;
 /* InterfaceNamer[.plugin] monitoring globals */
 Boolean				haveConfiguration	= FALSE;
 static CFStringRef		namerKey		= NULL;
-static CFArrayRef		preconfigured		= NULL;
+static CFMutableArrayRef	preconfigured_names	= NULL;		// of CFStringRef (BSD name)
+static CFMutableArrayRef	preconfigured_interfaces= NULL;		// of SCNetworkInterfaceRef
 
 /* KernelEventMonitor[.plugin] monitoring globals */
 static CFStringRef		interfacesKey		= NULL;
@@ -408,40 +409,20 @@ static void
 storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {
 	CFDictionaryRef	dict;
-	CFArrayRef	interfaces	= NULL;
 	Boolean		quiet		= FALSE;
 	Boolean		timeout		= FALSE;
 	Boolean		updated		= FALSE;
 
 	/*
-	 * Capture/process KernelEventMonitor[.bundle] info
-	 * 1. get list of active network interfaces
-	 */
-	dict = SCDynamicStoreCopyValue(store, interfacesKey);
-	if (dict != NULL) {
-		if (isA_CFDictionary(dict)) {
-			interfaces = CFDictionaryGetValue(dict, kSCPropNetInterfaces);
-			interfaces = isA_CFArray(interfaces);
-			if (interfaces != NULL) {
-				CFRetain(interfaces);
-			}
-		}
-
-		CFRelease(dict);
-	}
-
-	/*
 	 * Capture/process InterfaceNamer[.bundle] info
 	 * 1. check if IORegistry "quiet", "timeout"
-	 * 2. get list of named pre-configured interfaces
-	 * 3. merge list of active interfaces (from KEV) with the
-	 *    list of preconfigured interfaces.
+	 * 2. update list of named pre-configured interfaces
 	 */
 	dict = SCDynamicStoreCopyValue(store, namerKey);
 	if (dict != NULL) {
 		if (isA_CFDictionary(dict)) {
-			CFArrayRef		cur_preconfigured;
-			CFMutableArrayRef	new_preconfigured	= NULL;
+			CFIndex		n;
+			CFArrayRef	preconfigured;
 
 			if (CFDictionaryContainsKey(dict, kInterfaceNamerKey_Quiet)) {
 				quiet = TRUE;
@@ -450,54 +431,80 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 				timeout = TRUE;
 			}
 
-			cur_preconfigured = CFDictionaryGetValue(dict, kInterfaceNamerKey_PreConfiguredInterfaces);
-			cur_preconfigured = isA_CFArray(cur_preconfigured);
-			if ((cur_preconfigured != NULL) && (interfaces != NULL)) {
-				CFIndex		i;
-				CFIndex		n;
-				CFRange		r	= CFRangeMake(0, CFArrayGetCount(interfaces));
+			preconfigured = CFDictionaryGetValue(dict, kInterfaceNamerKey_PreConfiguredInterfaces);
+			preconfigured = isA_CFArray(preconfigured);
 
-				n = CFArrayGetCount(cur_preconfigured);
-				for (i = 0; i < n; i++) {
-					CFStringRef	bsdName;
+			n = (preconfigured != NULL) ? CFArrayGetCount(preconfigured) : 0;
+			for (CFIndex i = 0; i < n; i++) {
+				CFStringRef		bsdName	 = CFArrayGetValueAtIndex(preconfigured, i);
+				SCNetworkInterfaceRef	interface;
+				CFRange			range;
 
-					bsdName = CFArrayGetValueAtIndex(cur_preconfigured, i);
-					if (!CFArrayContainsValue(interfaces, r, bsdName)) {
-						// if interface not currently active
-						continue;
+				range.location = 0;
+				range.length   = (preconfigured_names != NULL) ? CFArrayGetCount(preconfigured_names) : 0;
+				if ((range.length > 0) &&
+				    CFArrayContainsValue(preconfigured_names, range, bsdName)) {
+					// if we already know about this interface
+					continue;
+				}
+
+				for (int retry = 0; retry < 10; retry++) {
+					if (retry != 0) {
+						// add short delay (before retry)
+						usleep(20 * 1000);	// 20ms
 					}
 
-					if (new_preconfigured == NULL) {
-						new_preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+					interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
+					if (interface == NULL) {
+						SC_log(LOG_ERR, "could not create network interface for %@", bsdName);
+					} else if (_SCNetworkInterfaceGetIOPath(interface) == NULL) {
+						SC_log(LOG_ERR, "could not get IOPath for %@", bsdName);
+						CFRelease(interface);
+						interface = NULL;
 					}
-					CFArrayAppendValue(new_preconfigured, bsdName);
-				}
-			}
 
-			if (!_SC_CFEqual(preconfigured, new_preconfigured)) {
-				SC_log(LOG_INFO, "pre-configured interface list changed");
+					if (interface != NULL) {
+						// if we have an interface
+						break;
+					}
+				}
 
-				if (preconfigured != NULL) {
-					CFRelease(preconfigured);
+				if (interface == NULL) {
+					// if SCNetworkInterface not [currently] available
+					continue;
 				}
-				if (new_preconfigured != NULL) {
-					CFRetain(new_preconfigured);
+
+				// keep track of the interface name (quicker than having to iterate the list
+				// of SCNetworkInterfaces, extract the name, and compare).
+				if (preconfigured_names == NULL) {
+					preconfigured_names = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 				}
-				preconfigured = new_preconfigured;
+				CFArrayAppendValue(preconfigured_names, bsdName);
+
+				if (preconfigured_interfaces == NULL) {
+					preconfigured_interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+				}
+				CFArrayAppendValue(preconfigured_interfaces, interface);
+				CFRelease(interface);
 
 				updated = TRUE;
 			}
 
-			if (new_preconfigured != NULL) {
-				CFRelease(new_preconfigured);
+			if (updated) {
+				CFStringRef	interfaces	= CFSTR("<empty>");
+
+				// report [new] pre-configured interfaces
+				if (preconfigured_names != NULL) {
+					interfaces = CFStringCreateByCombiningStrings(NULL, preconfigured_names, CFSTR(","));
+				} else {
+					CFRetain(interfaces);
+				}
+				SC_log(LOG_INFO, "pre-configured interface list changed: %@", interfaces);
+				CFRelease(interfaces);
 			}
 		}
 
 		CFRelease(dict);
-	}
-
-	if (interfaces != NULL) {
-		CFRelease(interfaces);
 	}
 
 	if (!haveConfiguration && (quiet || timeout)) {
@@ -736,7 +743,7 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 	SCNetworkSetRef	set;
 	Boolean		updated	= FALSE;
 
-	range.length = (preconfigured != NULL) ? CFArrayGetCount(preconfigured) : 0;
+	range.length = (preconfigured_names != NULL) ? CFArrayGetCount(preconfigured_names) : 0;
 	if (range.length == 0) {
 		// if no [preconfigured] interfaces
 		return;
@@ -748,10 +755,10 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 		CFArrayRef	services;
 
 		/*
-		 * Check for (and remove) and network services associated with
+		 * Check for (and remove) any network services associated with
 		 * a pre-configured interface from the prefs.
 		 */
-		services = SCNetworkSetCopyServices(set);
+		services = SCNetworkServiceCopyAll(prefs);
 		if (services != NULL) {
 			CFIndex		n;
 
@@ -775,14 +782,18 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 					continue;
 				}
 
-				if (!CFArrayContainsValue(preconfigured, range, bsdName)) {
+				if (!CFArrayContainsValue(preconfigured_names, range, bsdName)) {
 					// if not preconfigured
 					continue;
 				}
 
 				// remove [preconfigured] network service from the prefs
 				SC_log(LOG_NOTICE, "removing network service for %@", bsdName);
-				SCNetworkServiceRemove(service);
+				ok = SCNetworkServiceRemove(service);
+				if (!ok) {
+					SC_log(LOG_ERR, "SCNetworkServiceRemove() failed: %s",
+					       SCErrorString(SCError()));
+				}
 				updated = TRUE;
 			}
 
@@ -794,7 +805,7 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 			ok = SCPreferencesCommitChanges(prefs);
 			if (!ok) {
 				if (SCError() != EROFS) {
-					SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s",
+					SC_log(LOG_ERR, "SCPreferencesCommitChanges() failed: %s",
 					       SCErrorString(SCError()));
 				}
 			}
@@ -803,28 +814,18 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 		/*
 		 * Now, add a new network service for each pre-configured interface
 		 */
+		range.length = (preconfigured_interfaces != NULL) ? CFArrayGetCount(preconfigured_interfaces) : 0;
 		for (CFIndex i = 0; i < range.length; i++) {
 			CFStringRef		bsdName;
-			SCNetworkInterfaceRef	interface;
+			SCNetworkInterfaceRef	interface	= CFArrayGetValueAtIndex(preconfigured_interfaces, i);
 			SCNetworkServiceRef	service;
 
-			bsdName = CFArrayGetValueAtIndex(preconfigured, i);
-			interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeNoVirtualInterfaces);
-			if (interface == NULL) {
-				SC_log(LOG_ERR, "could not create network interface for %@", bsdName);
-				continue;
-			}
-
-			if (_SCNetworkInterfaceGetIOPath(interface) == NULL) {
-				// if no [real] interface exists
-				CFRelease(interface);
-				continue;
-			}
-
+			bsdName = SCNetworkInterfaceGetBSDName(interface);
 			ok = SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface);
-			CFRelease(interface);
 			if (!ok) {
-				SC_log(LOG_ERR, "could not create network service for %@", bsdName);
+				SC_log(LOG_ERR, "could not establish network service for %@: %s",
+				       bsdName,
+				       SCErrorString(SCError()));
 				continue;
 			}
 

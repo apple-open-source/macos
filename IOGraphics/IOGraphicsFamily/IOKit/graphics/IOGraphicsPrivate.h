@@ -169,13 +169,14 @@ inline void bzero_nc( void * p, UInt32 l )              { bzero( p, l ); }
 extern uint32_t gIOGDebugFlags;
 enum
 {
-	kIOGDbgLidOpen         = 0x00000001,
-	kIOGDbgVBLThrottle     = 0x00000002,
-	kIOGDbgK59Mode         = 0x00000004,
-	kIOGDbgDumbPanic       = 0x00000008,
-	kIOGDbgVBLDrift        = 0x00000010,
-	kIOGDbgForceBrightness = 0x00000020,
-	kIOGDbgFades           = 0x00000040,
+    kIOGDbgLidOpen         = 0x00000001,
+    kIOGDbgVBLThrottle     = 0x00000002,
+    kIOGDbgK59Mode         = 0x00000004,
+    kIOGDbgDumbPanic       = 0x00000008,
+    kIOGDbgVBLDrift        = 0x00000010,
+    kIOGDbgForceBrightness = 0x00000020,
+    kIOGDbgFades           = 0x00000040,
+    kIOGDbgFBRange         = 0x00000080,
 };
 
 #ifndef kIOScreenLockStateKey

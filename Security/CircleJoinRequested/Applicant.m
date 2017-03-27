@@ -56,23 +56,18 @@
 	switch (self.applicantUIState) {
 		case ApplicantWaiting:
 			return @"Waiting";
-			break;
-			
+
 		case ApplicantOnScreen:
 			return @"OnScreen";
-			break;
-			
+
 		case ApplicantRejected:
 			return @"Rejected";
-			break;
-			
+
 		case ApplicantAccepted:
 			return @"Accepted";
-			break;
-			
+
 		default:
 			return [NSString stringWithFormat:@"UnknownState#%d", self.applicantUIState];
-			break;
 	}
 }
 

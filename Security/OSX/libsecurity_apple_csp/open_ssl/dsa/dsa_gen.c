@@ -93,8 +93,8 @@
 #include <time.h>
 #include "cryptlib.h"
 #include <openssl/sha.h>
-#include <openssl/bn.h>
-#include <openssl/dsa.h>
+#include <openssl/bn_legacy.h>
+#include <openssl/dsa_legacy.h>
 #include <openssl/rand.h>
 
 DSA *DSA_generate_parameters(int bits, unsigned char *seed_in, int seed_len,

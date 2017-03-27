@@ -22,8 +22,8 @@
 #ifndef	_RSA_DSA_UTILS_H_
 #define _RSA_DSA_UTILS_H_
 
-#include <openssl/rsa.h>
-#include <openssl/dsa.h>
+#include <openssl/rsa_legacy.h>
+#include <openssl/dsa_legacy.h>
 #include <AppleCSPSession.h>
 #include <security_cdsa_utilities/context.h>
 

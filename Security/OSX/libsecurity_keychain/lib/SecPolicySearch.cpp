@@ -71,11 +71,6 @@ SecPolicySearchCopyNext(
 	RequiredParam(policyRef);
 	SecPointer<Policy> policy;
 
-#if !SECTRUST_OSX
-	if (!PolicyCursor::required(searchRef)->next(policy))
-		return errSecPolicyNotFound;
-	*policyRef = policy->handle();
-#else
 	/* bridge to support API functionality */
 	CFStringRef oidStr = NULL;
 	PolicyCursor *policyCursor = PolicyCursor::required(searchRef);
@@ -105,7 +100,6 @@ SecPolicySearchCopyNext(
 	} else {
 		__secapiresult = errSecPolicyNotFound;
 	}
-#endif
 
 	END_SECAPI
 }

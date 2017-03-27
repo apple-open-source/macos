@@ -126,6 +126,24 @@ os_release(void *obj)
 	return objc_release(obj);
 }
 
+void
+_os_object_atfork_prepare(void)
+{
+	return _objc_atfork_prepare();
+}
+
+void
+_os_object_atfork_parent(void)
+{
+	return _objc_atfork_parent();
+}
+
+void
+_os_object_atfork_child(void)
+{
+	return _objc_atfork_child();
+}
+
 #pragma mark -
 #pragma mark _os_object
 

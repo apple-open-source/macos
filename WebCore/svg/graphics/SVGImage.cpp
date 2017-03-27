@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2008, 2009, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2009, 2015-2016 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 #include "SVGImage.h"
 
 #include "Chrome.h"
+#include "CommonVM.h"
 #include "DOMWindow.h"
 #include "DocumentLoader.h"
 #include "ElementIterator.h"
@@ -54,6 +55,11 @@
 #include <runtime/JSCInlines.h>
 #include <runtime/JSLock.h>
 
+#if USE(DIRECT2D)
+#include "COMPtr.h"
+#include <d2d1.h>
+#endif
+
 namespace WebCore {
 
 SVGImage::SVGImage(ImageObserver& observer, const URL& url)
@@ -78,7 +84,7 @@ inline SVGSVGElement* SVGImage::rootElement() const
 {
     if (!m_page)
         return nullptr;
-    return downcast<SVGDocument>(*m_page->mainFrame().document()).rootElement();
+    return SVGDocument::rootElement(*m_page->mainFrame().document());
 }
 
 bool SVGImage::hasSingleSecurityOrigin() const
@@ -187,7 +193,7 @@ void SVGImage::drawForContainer(GraphicsContext& context, const FloatSize contai
 #if USE(CAIRO)
 // Passes ownership of the native image to the caller so NativeImagePtr needs
 // to be a smart pointer type.
-NativeImagePtr SVGImage::nativeImageForCurrentFrame()
+NativeImagePtr SVGImage::nativeImageForCurrentFrame(const GraphicsContext*)
 {
     if (!m_page)
         return nullptr;
@@ -201,6 +207,33 @@ NativeImagePtr SVGImage::nativeImageForCurrentFrame()
 
     // FIXME: WK(Bug 113657): We should use DontCopyBackingStore here.
     return buffer->copyImage(CopyBackingStore)->nativeImageForCurrentFrame();
+}
+#endif
+
+#if USE(DIRECT2D)
+NativeImagePtr SVGImage::nativeImage(const GraphicsContext* targetContext)
+{
+    ASSERT(targetContext);
+    if (!m_page || !targetContext)
+        return nullptr;
+
+    auto platformContext = targetContext->platformContext();
+    ASSERT(platformContext);
+
+    // Draw the SVG into a bitmap.
+    COMPtr<ID2D1BitmapRenderTarget> nativeImageTarget;
+    HRESULT hr = platformContext->CreateCompatibleRenderTarget(IntSize(rect().size()), &nativeImageTarget);
+    ASSERT(SUCCEEDED(hr));
+
+    GraphicsContext localContext(nativeImageTarget.get());
+
+    draw(localContext, rect(), rect(), CompositeSourceOver, BlendModeNormal, ImageOrientationDescription());
+
+    COMPtr<ID2D1Bitmap> nativeImage;
+    hr = nativeImageTarget->GetBitmap(&nativeImage);
+    ASSERT(SUCCEEDED(hr));
+
+    return nativeImage;
 }
 #endif
 
@@ -237,7 +270,7 @@ void SVGImage::drawPatternForContainer(GraphicsContext& context, const FloatSize
     unscaledPatternTransform.scale(1 / imageBufferScale.width(), 1 / imageBufferScale.height());
 
     context.setDrawLuminanceMask(false);
-    image->drawPattern(context, scaledSrcRect, unscaledPatternTransform, phase, spacing, compositeOp, dstRect, blendMode);
+    image->drawPattern(context, dstRect, scaledSrcRect, unscaledPatternTransform, phase, spacing, compositeOp, blendMode);
 }
 
 void SVGImage::draw(GraphicsContext& context, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator compositeOp, BlendMode blendMode, ImageOrientationDescription)
@@ -327,7 +360,7 @@ void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrin
 
     intrinsicWidth = rootElement->intrinsicWidth();
     intrinsicHeight = rootElement->intrinsicHeight();
-    if (rootElement->preserveAspectRatio().align() == SVGPreserveAspectRatio::SVG_PRESERVEASPECTRATIO_NONE)
+    if (rootElement->preserveAspectRatio().align() == SVGPreserveAspectRatioValue::SVG_PRESERVEASPECTRATIO_NONE)
         return;
 
     intrinsicRatio = rootElement->viewBox().size();
@@ -335,8 +368,7 @@ void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrin
         intrinsicRatio = FloatSize(floatValueForLength(intrinsicWidth, 0), floatValueForLength(intrinsicHeight, 0));
 }
 
-// FIXME: support catchUpIfNecessary.
-void SVGImage::startAnimation(CatchUpAnimation)
+void SVGImage::startAnimation()
 {
     SVGSVGElement* rootElement = this->rootElement();
     if (!rootElement)
@@ -366,7 +398,7 @@ void SVGImage::reportApproximateMemoryCost() const
     for (Node* node = document; node; node = NodeTraversal::next(*node))
         decodedImageMemoryCost += node->approximateMemoryCost();
 
-    JSC::VM& vm = JSDOMWindowBase::commonVM();
+    JSC::VM& vm = commonVM();
     JSC::JSLockHolder lock(vm);
     // FIXME: Adopt reportExtraMemoryVisited, and switch to reportExtraMemoryAllocated.
     // https://bugs.webkit.org/show_bug.cgi?id=142595
@@ -395,6 +427,7 @@ bool SVGImage::dataChanged(bool allDataReceived)
         m_page->settings().setMediaEnabled(false);
         m_page->settings().setScriptEnabled(false);
         m_page->settings().setPluginsEnabled(false);
+        m_page->settings().setAcceleratedCompositingEnabled(false);
 
         Frame& frame = m_page->mainFrame();
         frame.setView(FrameView::create(frame));
@@ -421,7 +454,7 @@ bool SVGImage::dataChanged(bool allDataReceived)
 
 String SVGImage::filenameExtension() const
 {
-    return "svg";
+    return ASCIILiteral("svg");
 }
 
 bool isInSVGImage(const Element* element)

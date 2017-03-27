@@ -121,12 +121,21 @@ Vector<String> FontCache::systemFontFamilies()
     return fontFamilies;
 }
 
+Ref<Font> FontCache::lastResortFallbackFontForEveryCharacter(const FontDescription& fontDescription)
+{
+    return lastResortFallbackFont(fontDescription);
+}
+
 Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescription)
 {
     // We want to return a fallback font here, otherwise the logic preventing FontConfig
     // matches for non-fallback fonts might return 0. See isFallbackFontAllowed.
     static AtomicString timesStr("serif");
-    return *fontForFamily(fontDescription, timesStr);
+    if (RefPtr<Font> font = fontForFamily(fontDescription, timesStr))
+        return *font;
+
+    // This could be reached due to improperly-installed or misconfigured fontconfig.
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 Vector<FontTraitsMask> FontCache::getTraitsInFamily(const AtomicString&)

@@ -33,7 +33,7 @@ enum SOSCoderUnwrapStatus{
     SOSCoderUnwrapHandled = 2
 };
 
-bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef circle_id, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error);
+bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error);
 
 enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef coder, CFStringRef peer_id, CFDataRef codedMessage, CFDataRef *decodedMessage, bool *forceSave, CFErrorRef *error);
 

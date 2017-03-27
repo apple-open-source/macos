@@ -549,6 +549,7 @@ static int TestSignAndVerifyDataWithIdentity(SecIdentityRef identity)
 	OSStatus verifyResult=0;
 	SecPolicyRef policy = SecPolicyCreateBasicX509();
 	status = CMSDecoderCopySignerStatus(decoder, 0, policy, false, &signerStatus, NULL, &verifyResult);
+    CFReleaseNull(policy);
     ok_status(status, "%s: CMSDecoderCopySignerStatus", testName);
 	if (status) {
 		fprintf(stderr, "Unable to copy signer status: error %d\n", (int)status);
@@ -602,6 +603,8 @@ static int Test()
 	ok_status(SecCertificateAddToKeychain(goodLeaf, goodKeychain), "%s: SecCertificateAddToKeychain (goodLeaf)", testName);
 	ok_status(SecCertificateAddToKeychain(badLeaf, badKeychain), "%s: SecCertificateAddToKeychain (badLeaf)", testName);
 
+    CFReleaseNull(root);
+
 	/* import P12 container */
 	{
 		CFDataRef p12DataRef = CFDataCreateWithBytesNoCopy(NULL, TestIdentity_p12,
@@ -627,6 +630,7 @@ static int Test()
 		};
 		status = SecItemImport(p12DataRef,
 			NULL, &format, &itemType, flags, &keyParams, goodKeychain, &items);
+        CFReleaseNull(p12DataRef);
         ok_status(status, "%s: SecItemImport", testName);
 
 		CFRelease(keyUsagesArray);
@@ -666,6 +670,7 @@ static int Test()
 	}
 	if (items) CFRelease(items);
 
+    ok(identity, "Have an identity");
 	status = SecIdentityCopyPrivateKey(identity, &privateKey);
     ok_status(status, "%s: SecItentityCopyPrivateKey", testName);
 
@@ -673,10 +678,13 @@ static int Test()
 	if (verbose) {
 		fprintf(stdout, "### cert 1 ###\n");
 	}
+    CFReleaseNull(identity);
+
 	identity = SecIdentityCreate(kCFAllocatorDefault, goodLeaf, privateKey);
+    CFReleaseNull(goodLeaf);
 
 	if (status) {
-		identity = NULL;
+        CFReleaseNull(identity);
 	}
 	if (!identity) {
 		fprintf(stderr, "Failed to create identity #1: error %d\n", (int)status);
@@ -690,6 +698,7 @@ static int Test()
 		fprintf(stdout, "### cert 2 ###\n");
 	}
 	identity = SecIdentityCreate(kCFAllocatorDefault, badLeaf, privateKey);
+    CFReleaseNull(badLeaf);
 	if (status) {
 		identity = NULL;
 	}
@@ -719,7 +728,7 @@ static int Test()
 
 int kc_28_cert_sign(int argc, char *const *argv)
 {
-    plan_tests(31);
+    plan_tests(32);
     initializeKeychainTests(__FUNCTION__);
 
     verbose = test_verbose;

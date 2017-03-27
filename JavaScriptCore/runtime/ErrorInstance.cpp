@@ -26,7 +26,7 @@
 #include "JSScope.h"
 #include "JSCInlines.h"
 #include "JSGlobalObjectFunctions.h"
-#include <wtf/Vector.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace JSC {
 
@@ -37,6 +37,15 @@ const ClassInfo ErrorInstance::s_info = { "Error", &JSNonFinalObject::s_info, 0,
 ErrorInstance::ErrorInstance(VM& vm, Structure* structure)
     : JSNonFinalObject(vm, structure)
 {
+}
+
+ErrorInstance* ErrorInstance::create(ExecState* state, Structure* structure, JSValue message, SourceAppender appender, RuntimeType type, bool useCurrentFrame)
+{
+    VM& vm = state->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    String messageString = message.isUndefined() ? String() : message.toWTFString(state);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+    return create(state, vm, structure, messageString, appender, type, useCurrentFrame);
 }
 
 static void appendSourceToError(CallFrame* callFrame, ErrorInstance* exception, unsigned bytecodeOffset)
@@ -158,6 +167,7 @@ void ErrorInstance::finishCreation(ExecState* exec, VM& vm, const String& messag
 String ErrorInstance::sanitizedToString(ExecState* exec)
 {
     VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue nameValue;
     auto namePropertName = vm.propertyNames->name;
@@ -177,15 +187,14 @@ String ErrorInstance::sanitizedToString(ExecState* exec)
         }
         currentObj = obj->getPrototypeDirect();
     }
-    ASSERT(!vm.exception());
+    ASSERT(!scope.exception());
 
     String nameString;
     if (!nameValue)
         nameString = ASCIILiteral("Error");
     else {
-        nameString = nameValue.toString(exec)->value(exec);
-        if (vm.exception())
-            return String();
+        nameString = nameValue.toWTFString(exec);
+        RETURN_IF_EXCEPTION(scope, String());
     }
 
     JSValue messageValue;
@@ -193,15 +202,14 @@ String ErrorInstance::sanitizedToString(ExecState* exec)
     PropertySlot messageSlot(this, PropertySlot::InternalMethodType::VMInquiry);
     if (JSObject::getOwnPropertySlot(this, exec, messagePropertName, messageSlot) && messageSlot.isValue())
         messageValue = messageSlot.getValue(exec, messagePropertName);
-    ASSERT(!vm.exception());
+    ASSERT(!scope.exception());
 
     String messageString;
     if (!messageValue)
         messageString = String();
     else {
-        messageString = messageValue.toString(exec)->value(exec);
-        if (vm.exception())
-            return String();
+        messageString = messageValue.toWTFString(exec);
+        RETURN_IF_EXCEPTION(scope, String());
     }
 
     if (!nameString.length())
@@ -212,7 +220,7 @@ String ErrorInstance::sanitizedToString(ExecState* exec)
 
     StringBuilder builder;
     builder.append(nameString);
-    builder.append(": ");
+    builder.appendLiteral(": ");
     builder.append(messageString);
     return builder.toString();
 }

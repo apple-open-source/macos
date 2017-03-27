@@ -42,6 +42,9 @@ namespace WebCore {
 RuntimeEnabledFeatures::RuntimeEnabledFeatures()
 {
     reset();
+#if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
+    m_isMediaStreamEnabled = false;
+#endif
 }
 
 void RuntimeEnabledFeatures::reset()
@@ -63,9 +66,6 @@ void RuntimeEnabledFeatures::reset()
 #endif
 #if ENABLE(INDEXED_DATABASE_IN_WORKERS)
     m_isIndexedDBWorkersEnabled = true;
-#endif
-#if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
-    m_isMediaStreamEnabled = false;
 #endif
 #if ENABLE(WEB_RTC)
     m_isPeerConnectionEnabled = true;
@@ -100,9 +100,6 @@ void RuntimeEnabledFeatures::reset()
 #if ENABLE(FONT_LOAD_EVENTS)
     m_isFontLoadEventsEnabled = true;
 #endif
-#if ENABLE(GAMEPAD)
-    m_areGamepadsEnabled = false;
-#endif
 #if ENABLE(CSS_ANIMATIONS_LEVEL_2)
     m_areAnimationTriggersEnabled = false;
 #endif
@@ -112,7 +109,9 @@ void RuntimeEnabledFeatures::reset()
 #if ENABLE(CSS_GRID_LAYOUT)
     m_cssGridLayoutEnabled = true;
 #endif
-
+#if ENABLE(INTERSECTION_OBSERVER)
+    m_intersectionObserverEnabled = false;
+#endif
 }
 
 RuntimeEnabledFeatures& RuntimeEnabledFeatures::sharedFeatures()

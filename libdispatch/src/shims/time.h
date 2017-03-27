@@ -40,7 +40,11 @@ sleep(unsigned int seconds)
 }
 #endif
 
-uint64_t _dispatch_get_nanoseconds(void);
+typedef enum {
+	DISPATCH_CLOCK_WALL,
+	DISPATCH_CLOCK_MACH,
+#define DISPATCH_CLOCK_COUNT  (DISPATCH_CLOCK_MACH + 1)
+} dispatch_clock_t;
 
 #if defined(__i386__) || defined(__x86_64__) || !HAVE_MACH_ABSOLUTE_TIME
 // x86 currently implements mach time in nanoseconds
@@ -106,36 +110,94 @@ _dispatch_time_nano2mach(uint64_t nsec)
 }
 #endif
 
+/* XXXRW: Some kind of overflow detection needed? */
+#define _dispatch_timespec_to_nano(ts) \
+		((uint64_t)(ts).tv_sec * NSEC_PER_SEC + (uint64_t)(ts).tv_nsec)
+#define _dispatch_timeval_to_nano(tv) \
+		((uint64_t)(tv).tv_sec * NSEC_PER_SEC + \
+				(uint64_t)(tv).tv_usec * NSEC_PER_USEC)
+
+static inline uint64_t
+_dispatch_get_nanoseconds(void)
+{
+	dispatch_static_assert(sizeof(NSEC_PER_SEC) == 8);
+	dispatch_static_assert(sizeof(USEC_PER_SEC) == 8);
+
+#if TARGET_OS_MAC && DISPATCH_HOST_SUPPORTS_OSX(101200)
+	return clock_gettime_nsec_np(CLOCK_REALTIME);
+#elif HAVE_DECL_CLOCK_REALTIME
+	struct timespec ts;
+	dispatch_assume_zero(clock_gettime(CLOCK_REALTIME, &ts));
+	return _dispatch_timespec_to_nano(ts);
+#elif TARGET_OS_WIN32
+	// FILETIME is 100-nanosecond intervals since January 1, 1601 (UTC).
+	FILETIME ft;
+	ULARGE_INTEGER li;
+	GetSystemTimeAsFileTime(&ft);
+	li.LowPart = ft.dwLowDateTime;
+	li.HighPart = ft.dwHighDateTime;
+	return li.QuadPart * 100ull;
+#else
+	struct timeval tv;
+	dispatch_assert_zero(gettimeofday(&tv, NULL));
+	return _dispatch_timeval_to_nano(tv);
+#endif
+}
+
 static inline uint64_t
 _dispatch_absolute_time(void)
 {
 #if HAVE_MACH_ABSOLUTE_TIME
 	return mach_absolute_time();
+#elif HAVE_DECL_CLOCK_UPTIME && !defined(__linux__)
+	struct timespec ts;
+	dispatch_assume_zero(clock_gettime(CLOCK_UPTIME, &ts));
+	return _dispatch_timespec_to_nano(ts);
+#elif HAVE_DECL_CLOCK_MONOTONIC
+	struct timespec ts;
+	dispatch_assume_zero(clock_gettime(CLOCK_MONOTONIC, &ts));
+	return _dispatch_timespec_to_nano(ts);
 #elif TARGET_OS_WIN32
 	LARGE_INTEGER now;
 	return QueryPerformanceCounter(&now) ? now.QuadPart : 0;
 #else
-	struct timespec ts;
-	int ret;
-
-#if HAVE_DECL_CLOCK_UPTIME
-	ret = clock_gettime(CLOCK_UPTIME, &ts);
-#elif HAVE_DECL_CLOCK_MONOTONIC
-	ret = clock_gettime(CLOCK_MONOTONIC, &ts);
-#else
-#error "clock_gettime: no supported absolute time clock"
+#error platform needs to implement _dispatch_absolute_time()
 #endif
-	(void)dispatch_assume_zero(ret);
-
-	/* XXXRW: Some kind of overflow detection needed? */
-	return (ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec);
-#endif // HAVE_MACH_ABSOLUTE_TIME
 }
 
+DISPATCH_ALWAYS_INLINE
 static inline uint64_t
 _dispatch_approximate_time(void)
 {
 	return _dispatch_absolute_time();
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline uint64_t
+_dispatch_time_now(dispatch_clock_t clock)
+{
+	switch (clock) {
+	case DISPATCH_CLOCK_MACH:
+		return _dispatch_absolute_time();
+	case DISPATCH_CLOCK_WALL:
+		return _dispatch_get_nanoseconds();
+	}
+	__builtin_unreachable();
+}
+
+typedef struct {
+	uint64_t nows[DISPATCH_CLOCK_COUNT];
+} dispatch_clock_now_cache_s, *dispatch_clock_now_cache_t;
+
+DISPATCH_ALWAYS_INLINE
+static inline uint64_t
+_dispatch_time_now_cached(dispatch_clock_t clock,
+		dispatch_clock_now_cache_t cache)
+{
+	if (likely(cache->nows[clock])) {
+		return cache->nows[clock];
+	}
+	return cache->nows[clock] = _dispatch_time_now(clock);
 }
 
 #endif // __DISPATCH_SHIMS_TIME__

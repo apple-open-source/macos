@@ -196,16 +196,7 @@ SOSRingRef SOSAccountCopyRingNamed(SOSAccountRef a, CFStringRef ringName, CFErro
     return found;
 }
 
-CFStringRef SOSAccountGetMyPeerID(SOSAccountRef a) {
-    SOSFullPeerInfoRef fpi = SOSAccountGetMyFullPeerInfo(a);
-    require_quiet(fpi, errOut);
-    SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
-    require_quiet(pi, errOut);
-    return SOSPeerInfoGetPeerID(pi);
-errOut:
-    return NULL;
-}
-
+/* Unused? */
 SOSRingRef SOSAccountRingCreateForName(SOSAccountRef a, CFStringRef ringName, CFErrorRef *error) {
     ringDefPtr rdef = getRingDef(ringName);
     if(!rdef) return NULL;
@@ -241,6 +232,8 @@ bool SOSAccountUpdateRing(SOSAccountRef account, SOSRingRef newRing, CFErrorRef 
     return SOSAccountHandleUpdateRing(account, newRing, true, error);
 }
 
+
+/* Unused? */
 bool SOSAccountModifyRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef* error, bool (^action)(SOSRingRef ring)) {
     bool success = false;
 
@@ -257,6 +250,7 @@ fail:
     return success;
 }
 
+/* Unused? */
 CFDataRef SOSAccountRingCopyPayload(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error) {
     SOSRingRef ring = SOSAccountCopyRing(account, ringName, error);
     CFDataRef payload = SOSRingGetPayload(ring, error);
@@ -265,6 +259,7 @@ CFDataRef SOSAccountRingCopyPayload(SOSAccountRef account, CFStringRef ringName,
     return retval;
 }
 
+/* Unused? */
 SOSRingRef SOSAccountRingCopyWithPayload(SOSAccountRef account, CFStringRef ringName, CFDataRef payload, CFErrorRef *error) {
     SOSRingRef ring = SOSAccountCopyRing(account, ringName, error);
     require_quiet(ring, errOut);
@@ -308,4 +303,29 @@ errOut:
     CFReleaseNull(ringList);
     return retval;
 }
+
+
+bool SOSAccountUpdateNamedRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error,
+                                      SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
+                                      SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error)) {
+    bool result = false;
+    SOSRingRef found = SOSAccountCopyRing(account, ringName, error);
+    SOSRingRef newRing = NULL;
+    if(!found) {
+        found = create(ringName, error);
+    }
+    require_quiet(found, errOut);
+    newRing = copyModified(found, error);
+    CFReleaseNull(found);
+    
+    require_quiet(newRing, errOut);
+    
+    result = SOSAccountHandleUpdateRing(account, newRing, true, error);
+    
+errOut:
+    CFReleaseNull(found);
+    CFReleaseNull(newRing);
+    return result;
+}
+
 

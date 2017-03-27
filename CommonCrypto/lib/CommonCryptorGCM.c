@@ -24,8 +24,8 @@
 // #define COMMON_GCM_FUNCTIONS
 #include "ccMemory.h"
 #include "ccdebug.h"
-#include "CommonCryptor.h"
-#include "CommonCryptorSPI.h"
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonCryptorSPI.h>
 #include "CommonCryptorPriv.h"
 #include <corecrypto/ccn.h>
 
@@ -55,7 +55,7 @@
  */
 
 #define CCCryptorGCMprologue()   CCCryptor *cryptor = getRealCryptor(cryptorRef, 0); \
-CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n"); \
+CC_DEBUG_LOG("Entering\n"); \
 if(!cryptor) return kCCParamError;
 
 static inline CCCryptorStatus translate_err_code(int err)
@@ -192,7 +192,7 @@ CCCryptorStatus CCCryptorGCM(CCOperation op,				/* kCCEncrypt, kCCDecrypt */
     CCCryptorRef cryptorRef;
     CCCryptorStatus retval;
     
-    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Op: %d Cipher: %d\n", op, alg);
+    CC_DEBUG_LOG("Entering Op: %d Cipher: %d\n", op, alg);
 
     retval = CCCryptorCreateWithMode(op, kCCModeGCM, alg, 0, NULL, key, keyLength,
                                          NULL, 0, 0, 0, &cryptorRef);

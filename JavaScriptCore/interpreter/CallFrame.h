@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2007-2008, 2011, 2013-2016 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -20,8 +20,7 @@
  *
  */
 
-#ifndef CallFrame_h
-#define CallFrame_h
+#pragma once
 
 #include "AbstractPC.h"
 #include "MacroAssemblerCodeRef.h"
@@ -58,6 +57,7 @@ namespace JSC  {
 #endif
 
         explicit operator bool() const { return m_bits != UINT_MAX; }
+        bool operator==(const CallSiteIndex& other) const { return m_bits == other.m_bits; }
         
         inline uint32_t bits() const { return m_bits; }
 
@@ -87,9 +87,11 @@ namespace JSC  {
         static const int headerSizeInRegisters = CallFrameSlot::argumentCount + 1;
 
         JSValue calleeAsValue() const { return this[CallFrameSlot::callee].jsValue(); }
-        JSObject* callee() const { return this[CallFrameSlot::callee].object(); }
+        JSObject* jsCallee() const { return this[CallFrameSlot::callee].object(); }
+        JSCell* callee() const { return this[CallFrameSlot::callee].unboxedCell(); }
         SUPPRESS_ASAN JSValue unsafeCallee() const { return this[CallFrameSlot::callee].asanUnsafeJSValue(); }
         CodeBlock* codeBlock() const { return this[CallFrameSlot::codeBlock].Register::codeBlock(); }
+        CodeBlock** addressOfCodeBlock() const { return bitwise_cast<CodeBlock**>(this + CallFrameSlot::codeBlock); }
         SUPPRESS_ASAN CodeBlock* unsafeCodeBlock() const { return this[CallFrameSlot::codeBlock].Register::asanUnsafeCodeBlock(); }
         JSScope* scope(int scopeRegisterOffset) const
         {
@@ -115,17 +117,9 @@ namespace JSC  {
         // pointer, so these are inefficient, and should be used sparingly in new code.
         // But they're used in many places in legacy code, so they're not going away any time soon.
 
-        void clearException() { vm().clearException(); }
-
-        Exception* exception() const { return vm().exception(); }
-        bool hadException() const { return !!vm().exception(); }
-
-        Exception* lastException() const { return vm().lastException(); }
-        void clearLastException() { vm().clearLastException(); }
-
         AtomicStringTable* atomicStringTable() const { return vm().atomicStringTable(); }
         const CommonIdentifiers& propertyNames() const { return *vm().propertyNames; }
-        const MarkedArgumentBuffer& emptyList() const { return *vm().emptyList; }
+        const ArgList& emptyList() const { return *vm().emptyList; }
         Interpreter* interpreter() { return vm().interpreter; }
         Heap* heap() { return &vm().heap; }
 
@@ -210,6 +204,7 @@ namespace JSC  {
         // arguments(0) will not fetch the 'this' value. To get/set 'this',
         // use thisValue() and setThisValue() below.
 
+        JSValue* addressOfArgumentsStart() const { return bitwise_cast<JSValue*>(this + argumentOffset(0)); }
         JSValue argument(size_t argument)
         {
             if (argument >= argumentCount())
@@ -301,5 +296,3 @@ namespace JSC  {
     };
 
 } // namespace JSC
-
-#endif // CallFrame_h

@@ -18,13 +18,11 @@
  *
  */
 
-#ifndef ErrorInstance_h
-#define ErrorInstance_h
+#pragma once
 
-#include "Interpreter.h"
+#include "JSObject.h"
 #include "RuntimeType.h"
 #include "SourceProvider.h"
-#include <wtf/Vector.h>
 
 namespace JSC {
 
@@ -51,10 +49,7 @@ public:
         return instance;
     }
 
-    static ErrorInstance* create(ExecState* exec, Structure* structure, JSValue message, SourceAppender appender = nullptr, RuntimeType type = TypeNothing, bool useCurrentFrame = true)
-    {
-        return create(exec, exec->vm(), structure, message.isUndefined() ? String() : message.toString(exec)->value(exec), appender, type, useCurrentFrame);
-    }
+    static ErrorInstance* create(ExecState*, Structure*, JSValue message, SourceAppender = nullptr, RuntimeType = TypeNothing, bool useCurrentFrame = true);
 
     static void addErrorInfo(ExecState*, VM&, JSObject*, bool = true);
 
@@ -78,5 +73,3 @@ protected:
 };
 
 } // namespace JSC
-
-#endif // ErrorInstance_h

@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef CSSCursorImageValue_h
-#define CSSCursorImageValue_h
+#pragma once
 
 #include "CSSImageValue.h"
 #include "IntPoint.h"
@@ -32,7 +31,7 @@ class Element;
 class SVGCursorElement;
 class SVGElement;
 
-class CSSCursorImageValue : public CSSValue {
+class CSSCursorImageValue final : public CSSValue {
 public:
     static Ref<CSSCursorImageValue> create(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot)
     {
@@ -52,9 +51,7 @@ public:
 
     String customCSSText() const;
 
-    SVGCursorElement* updateCursorElement(const Document&);
-    StyleImage* cachedImage(CachedResourceLoader&, const ResourceLoaderOptions&);
-    StyleImage* cachedOrPendingImage(const Document&);
+    std::pair<CachedImage*, float> loadImage(CachedResourceLoader&, const ResourceLoaderOptions&);
 
     void removeReferencedElement(SVGElement*);
 
@@ -66,23 +63,16 @@ public:
 private:
     CSSCursorImageValue(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot);
 
-    void detachPendingImage();
+    SVGCursorElement* updateCursorElement(const Document&);
 
-    bool isSVGCursor() const;
-    String cachedImageURL();
-    void clearCachedImage();
-
+    URL m_originalURL;
     Ref<CSSValue> m_imageValue;
 
     bool m_hasHotSpot;
     IntPoint m_hotSpot;
-    RefPtr<StyleImage> m_image;
-    bool m_isImageValid { false };
     HashSet<SVGCursorElement*> m_cursorElements;
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCursorImageValue, isCursorImageValue())
-
-#endif // CSSCursorImageValue_h

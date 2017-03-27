@@ -29,6 +29,7 @@
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFString.h>
 #include <errno.h>
+#include <utilities/SecCFRelease.h>
 
 
 namespace Security {
@@ -38,14 +39,15 @@ namespace Network {
 //
 // Turn a CFStringRef into an STL string and release the incoming CFStringRef
 //
-static string mkstr(CFStringRef str)
+static string mkstr(CFStringRef CF_CONSUMED str)
 {
     if (!str)
         return "";
     char buffer[2048];
-    if (CFStringGetCString(str, buffer, sizeof(buffer), kCFStringEncodingUTF8))
+    if (CFStringGetCString(str, buffer, sizeof(buffer), kCFStringEncodingUTF8)) {
+        CFReleaseSafe(str);
         return buffer;
-    else
+    } else
         UnixError::throwMe(EINVAL);
 }
 
@@ -84,7 +86,7 @@ URL::~URL()
 //
 URL::operator string() const
 {
-    return mkstr(CFURLGetString(ref));
+    return mkstr(CFRetainSafe(CFURLGetString(ref)));
 }
 
 string URL::scheme() const

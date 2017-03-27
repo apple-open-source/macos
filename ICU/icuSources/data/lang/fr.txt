@@ -531,6 +531,7 @@ fr{
         was{"washo"}
         wbp{"warlpiri"}
         wo{"wolof"}
+        wuu{"shanghaïen"}
         xal{"kalmouk"}
         xh{"xhosa"}
         xog{"soga"}

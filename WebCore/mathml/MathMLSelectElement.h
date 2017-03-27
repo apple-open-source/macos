@@ -26,11 +26,12 @@
 #pragma once
 
 #if ENABLE(MATHML)
-#include "MathMLInlineContainerElement.h"
+
+#include "MathMLRowElement.h"
 
 namespace WebCore {
 
-class MathMLSelectElement final : public MathMLInlineContainerElement {
+class MathMLSelectElement final : public MathMLRowElement {
 public:
     static Ref<MathMLSelectElement> create(const QualifiedName& tagName, Document&);
     static bool isMathMLEncoding(const AtomicString& value);
@@ -46,7 +47,7 @@ private:
     void finishParsingChildren() final;
     void childrenChanged(const ChildChange&) final;
     void attributeChanged(const QualifiedName&, const AtomicString& oldValue, const AtomicString& newValue, AttributeModificationReason = ModifiedDirectly) final;
-    void defaultEventHandler(Event*) final;
+    void defaultEventHandler(Event&) final;
     bool willRespondToMouseClickEvents() final;
 
     void toggle();

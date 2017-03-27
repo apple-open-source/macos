@@ -203,24 +203,13 @@ static void dumpCircleInfo()
     printPeerInfos("    Concur", ^(CFErrorRef *error) { return SOSCCCopyConcurringPeerPeerInfo(error); });
     printPeerInfos("Applicants", ^(CFErrorRef *error) { return SOSCCCopyApplicantPeerInfo(error); });
 
-    confirmedDigests = SOSCCCopyEngineState(&error);
-    if(confirmedDigests)
-    {
-        count = 0;
-        CFArrayForEach(confirmedDigests, ^(const void *value) {
-            count++;
-            if(count % 2 != 0)
-                printmsg(CFSTR("%@"), value);
-
-            if(count % 2 == 0) {
-                CFStringRef hexDigest = CFDataCopyHexString(value);
-                printmsg(CFSTR(" %@\n"), hexDigest);
-                CFReleaseSafe(hexDigest);
-            }
-        });
-    }
-    else
+    if (!SOSCCForEachEngineStateAsString(&error, ^(CFStringRef oneStateString) {
+        printmsg(CFSTR("%@\n"), oneStateString);
+    })) {
         printmsg(CFSTR("No engine peers: %@\n"), error);
+    }
+
+    CFReleaseNull(error);
     CFReleaseNull(confirmedDigests);
 }
 
@@ -309,7 +298,6 @@ static CFTypeRef getObjectsFromCloud(CFArrayRef keysToGet, dispatch_queue_t proc
         if (error)
         {
             secerror("SOSCloudKeychainGetObjectsFromCloud returned error: %@", error);
-            //       CFRelease(*error);
         }
         dispatch_group_leave(dgroup);
         secinfo("sync", "SOSCloudKeychainGetObjectsFromCloud block exit: %@", object);
@@ -666,12 +654,13 @@ static bool dumpMyPeer(CFErrorRef *error) {
         CFStringRef serialNumber = SOSPeerInfoV2DictionaryCopyString(myPeer, sSerialNumberKey);
         CFBooleanRef preferIDS = SOSPeerInfoV2DictionaryCopyBoolean(myPeer, sPreferIDS);
         CFBooleanRef preferIDSFragmentation = SOSPeerInfoV2DictionaryCopyBoolean(myPeer, sPreferIDSFragmentation);
+        CFBooleanRef preferIDSACKModel = SOSPeerInfoV2DictionaryCopyBoolean(myPeer, sPreferIDSACKModel);
         CFStringRef transportType = SOSPeerInfoV2DictionaryCopyString(myPeer, sTransportType);
         CFStringRef idsDeviceID = SOSPeerInfoV2DictionaryCopyString(myPeer, sDeviceID);
         CFMutableSetRef properties = SOSPeerInfoV2DictionaryCopySet(myPeer, sSecurityPropertiesKey);
         
-        printmsg(CFSTR("Serial#: %@   PrefIDS#: %@   PrefFragmentation#: %@   transportType#: %@   idsDeviceID#: %@\n"),
-                 serialNumber, preferIDS, preferIDSFragmentation, transportType, idsDeviceID);
+        printmsg(CFSTR("Serial#: %@   PrefIDS#: %@   PrefFragmentation#: %@   PrefACK#: %@   transportType#: %@   idsDeviceID#: %@\n"),
+                 serialNumber, preferIDS, preferIDSFragmentation, preferIDSACKModel, transportType, idsDeviceID);
         dumpStringSet(CFSTR("             Views: "), views);
         dumpStringSet(CFSTR("SecurityProperties: "), properties);
         
@@ -779,7 +768,6 @@ keychain_sync(int argc, char * const *argv)
 	 "    -e     enable (join/create circle)"
 	 "    -i     info (current status)"
 	 "    -m     dump my peer"
-	 "    -S     schedule sync with all peers"
 	 "
 	 "Account/Circle Management"
 	 "    -a     accept all applicants"
@@ -810,7 +798,7 @@ keychain_sync(int argc, char * const *argv)
 	 "    -p     retrieve IDS device id"
 	 "    -x     ping all devices in an IDS account"
 	 "    -w     check IDS availability"
-	 "    -z     retrieve IDS id through IDSKeychainSyncingProxy"
+	 "    -z     retrieve IDS id through KeychainSyncingOverIDSProxy"
 	 "
 	 "Password"
 	 "    -P     [label:]password  set password (optionally for a given label) for sync"
@@ -834,14 +822,13 @@ keychain_sync(int argc, char * const *argv)
      "    -H     Set escrow record.\n"
      "    -J     Get the escrow record.\n"
      "    -M     Check peer availability.\n"
-
      */
 	int ch, result = 0;
     CFErrorRef error = NULL;
     bool hadError = false;
-    setOutputTo(NULL, NULL);
+    SOSLogSetOutputTo(NULL, NULL);
 
-    while ((ch = getopt(argc, argv, "ab:deg:hikl:mopq:rsSv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UWX:VY01234")) != -1)
+    while ((ch = getopt(argc, argv, "ab:deg:hikl:mopq:rSv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UWX:VY01234")) != -1)
         switch  (ch) {
 		case 'l':
 		{
@@ -1043,14 +1030,6 @@ keychain_sync(int argc, char * const *argv)
             break;
         }
 
-        case 's':
-		#if TARGET_OS_EMBEDDED
-			SOSCloudKeychainRequestSyncWithAllPeers(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
-		#else
-			fprintf(outFile, "not exported yet...\n");
-		#endif
-			break;
-			
 		case 'E':
 		{
 			fprintf(outFile, "Ensuring Fresh Parameters\n");
@@ -1071,6 +1050,7 @@ keychain_sync(int argc, char * const *argv)
 			fprintf(outFile, "Applying to Ring\n");
 			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
 			hadError = SOSCCApplyToARing(ringName, &error);
+            CFReleaseNull(ringName);
 			break;
 		}
 		case 'B':
@@ -1078,6 +1058,7 @@ keychain_sync(int argc, char * const *argv)
 			fprintf(outFile, "Withdrawing from Ring\n");
 			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
 			hadError = SOSCCWithdrawlFromARing(ringName, &error);
+            CFReleaseNull(ringName);
 			break;
 		}
 		case 'F':
@@ -1085,6 +1066,7 @@ keychain_sync(int argc, char * const *argv)
 			fprintf(outFile, "Status of this device in the Ring\n");
 			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
 			hadError = SOSCCRingStatus(ringName, &error);
+            CFReleaseNull(ringName);
 			break;
 		}
 		case 'G':
@@ -1092,6 +1074,7 @@ keychain_sync(int argc, char * const *argv)
 			fprintf(outFile, "Enabling Ring\n");
 			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
 			hadError = SOSCCEnableRing(ringName, &error);
+            CFReleaseNull(ringName);
 			break;
 		}
         case 'H':
@@ -1232,8 +1215,7 @@ keychain_sync(int argc, char * const *argv)
         case 'Y':
             hadError = dumpYetToSync(&error);
             break;
-                
-		case '?':
+        case '?':
 		default:
 			return 2; /* Return 2 triggers usage message. */
 	}

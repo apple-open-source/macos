@@ -29,7 +29,10 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <new>
 #include "threading.h"
+
+#if( __cplusplus <= 201103L)
 #include <stdatomic.h>
+#endif
 
 namespace Security {
 

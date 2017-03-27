@@ -147,18 +147,9 @@ enum {
 @property(retain) NSString *client_name;
 @property(retain) NSString *path;
 @property(retain) NSBundle *bundle;
--(void)dealloc;
 @end
-@implementation Client
 
--(void)dealloc
-{
-    [_client release];
-    [_client_name  release];
-    [_path release];
-    [_bundle release];
-    [super dealloc];
-}
+@implementation Client
 @end
 
 static Client *identify_client(pid_t pid)
@@ -173,7 +164,6 @@ static Client *identify_client(pid_t pid)
 #if TARGET_OS_IPHONE
 	if (proc_pidpath(pid, path_buf, sizeof(path_buf)) <= 0) {
 		secnotice("swcagent", "Refusing client without path (pid %d)", pid);
-		[client release];
 		return nil;
 	}
 #else
@@ -189,12 +179,11 @@ static Client *identify_client(pid_t pid)
 	if (!(client.path = [NSString stringWithUTF8String:path_buf]) ||
 	    !(path_url = [NSURL fileURLWithPath:client.path])) {
 		secnotice("swcagent", "Refusing client without path (pid %d)", pid);
-		[client release];
 		return nil;
 	}
 
 	NSURL *bundle_url;
-	if ((bundle_url = (NSURL *)_CFBundleCopyBundleURLForExecutableURL((__bridge CFURLRef)path_url)) &&
+	if ((bundle_url = CFBridgingRelease(_CFBundleCopyBundleURLForExecutableURL((__bridge CFURLRef)path_url))) &&
 	    (client.bundle = [NSBundle bundleWithURL:bundle_url]) &&
 	    (client.client = [client.bundle bundleIdentifier])) {
 		client.client_type = CLIENT_TYPE_BUNDLE_IDENTIFIER;
@@ -210,8 +199,6 @@ static Client *identify_client(pid_t pid)
 	} else {
 #if TARGET_OS_IPHONE
 		secnotice("swcagent", "Refusing client without bundle identifier (%s)", path_buf);
-		[client release];
-		[bundle_url release];
 		return nil;
 #else
 		client.client_type = CLIENT_TYPE_EXECUTABLE_PATH;
@@ -233,8 +220,7 @@ static Client *identify_client(pid_t pid)
 #endif
 	}
 
-	[bundle_url release];
-	return client;
+    return client;
 }
 
 struct __SecTask {
@@ -776,43 +762,36 @@ static void swca_xpc_dictionary_handler(const xpc_connection_t connection, xpc_o
 
     if (replyMessage) {
         xpc_connection_send_message(connection, replyMessage);
-        xpc_release(replyMessage);
-    }
-    if (xpcError) {
-        xpc_release(xpcError);
     }
     CFReleaseSafe(error);
     CFReleaseSafe(accessGroups);
-    [client release];
 }
+
+static xpc_connection_t swclistener = NULL;
 
 static void swca_xpc_init()
 {
     secdebug("swcagent_xpc", "start");
 
-    xpc_connection_t listener = xpc_connection_create_mach_service(kSWCAXPCServiceName, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
-    if (!listener) {
+    swclistener = xpc_connection_create_mach_service(kSWCAXPCServiceName, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
+    if (!swclistener) {
         seccritical("swcagent failed to register xpc listener, exiting");
         abort();
     }
 
-    xpc_connection_set_event_handler(listener, ^(xpc_object_t connection) {
+    xpc_connection_set_event_handler(swclistener, ^(xpc_object_t connection) {
         if (xpc_get_type(connection) == XPC_TYPE_CONNECTION) {
             xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
                 if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
-                    xpc_retain(connection);
-                    xpc_retain(event);
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                         swca_xpc_dictionary_handler(connection, event);
-                        xpc_release(event);
-                        xpc_release(connection);
                     });
                 }
             });
             xpc_connection_resume(connection);
         }
     });
-    xpc_connection_resume(listener);
+    xpc_connection_resume(swclistener);
 }
 
 int main(int argc, char *argv[])
@@ -828,7 +807,6 @@ int main(int argc, char *argv[])
         swca_xpc_init();
         dispatch_main();
     }
-    return 0;
 }
 
 /* vi:set ts=4 sw=4 et: */
