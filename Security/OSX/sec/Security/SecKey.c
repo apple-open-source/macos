@@ -166,7 +166,7 @@ static CFStringRef SecKeyCopyDescription(CFTypeRef cf) {
 static void SecKeyDestroy(CFTypeRef cf) {
     SecKeyRef key = (SecKeyRef)cf;
 #if !TARGET_OS_IPHONE
-    CFReleaseSafe(key->cdsaKey);
+    CFReleaseNull(key->cdsaKey);
 #endif
     if (key->key_class->destroy)
         key->key_class->destroy(key);

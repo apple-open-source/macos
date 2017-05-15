@@ -500,6 +500,7 @@
 		18F7F67914D77F4400F88A12 /* NtlmGenerator.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C999BA10AB5F0BB0010451D /* NtlmGenerator.c */; };
 		18F7F67A14D77F4400F88A12 /* ntlmBlobPriv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C999BA30AB5F0BB0010451D /* ntlmBlobPriv.c */; };
 		18F7F67C14D77F5000F88A12 /* SecTask.c in Sources */ = {isa = PBXBuildFile; fileRef = 107226D00D91DB32003CF14F /* SecTask.c */; };
+		24CBF8751E9D4E6100F09F0E /* kc-44-secrecoverypassword.c in Sources */ = {isa = PBXBuildFile; fileRef = 24CBF8731E9D4E4500F09F0E /* kc-44-secrecoverypassword.c */; };
 		433E519E1B66D5F600482618 /* AppSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 433E519D1B66D5F600482618 /* AppSupport.framework */; };
 		4381603A1B4DCE8F00C54D58 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E71F3E3016EA69A900FAF9B4 /* SystemConfiguration.framework */; };
 		4381603B1B4DCEFF00C54D58 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
@@ -7106,6 +7107,7 @@
 		18351B8F14CB65870097860E /* SecBase64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecBase64.h; sourceTree = "<group>"; };
 		2281820D17B4686C0067C9C9 /* BackgroundTaskAgent.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundTaskAgent.framework; path = System/Library/PrivateFrameworks/BackgroundTaskAgent.framework; sourceTree = SDKROOT; };
 		22C002A31AC9D33100B3469E /* OTAPKIAssetTool.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = OTAPKIAssetTool.xcconfig; sourceTree = "<group>"; };
+		24CBF8731E9D4E4500F09F0E /* kc-44-secrecoverypassword.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-44-secrecoverypassword.c"; path = "regressions/kc-44-secrecoverypassword.c"; sourceTree = "<group>"; };
 		433E519D1B66D5F600482618 /* AppSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSupport.framework; path = System/Library/PrivateFrameworks/AppSupport.framework; sourceTree = SDKROOT; };
 		4381690C1B4EDCBD00C54D58 /* SOSCCAuthPlugin.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SOSCCAuthPlugin.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		4381690F1B4EDCBD00C54D58 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -14622,6 +14624,7 @@
 				DCB3446C1D8A35270054D16E /* kc-41-sececkey.m */,
 				DCB3446D1D8A35270054D16E /* kc-43-seckey-interop.m */,
 				DCB3446E1D8A35270054D16E /* kc-42-trust-revocation.c */,
+				24CBF8731E9D4E4500F09F0E /* kc-44-secrecoverypassword.c */,
 				DCB3446F1D8A35270054D16E /* si-20-sectrust-provisioning.c */,
 				DCB344701D8A35270054D16E /* si-20-sectrust-provisioning.h */,
 				DCB344711D8A35270054D16E /* si-33-keychain-backup.c */,
@@ -23802,6 +23805,7 @@
 			files = (
 				DCB3447A1D8A35270054D16E /* kc-01-keychain-creation.c in Sources */,
 				DCB3447B1D8A35270054D16E /* kc-02-unlock-noui.c in Sources */,
+				24CBF8751E9D4E6100F09F0E /* kc-44-secrecoverypassword.c in Sources */,
 				DCB3447D1D8A35270054D16E /* kc-03-keychain-list.c in Sources */,
 				DCB3447C1D8A35270054D16E /* kc-03-status.c in Sources */,
 				DCB3447E1D8A35270054D16E /* kc-04-is-valid.c in Sources */,

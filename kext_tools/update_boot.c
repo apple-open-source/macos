@@ -561,11 +561,13 @@ updateBootHelpers(struct updatingVol *up)
         if (up->doBooters && (result = ucopyBooters(up))) {                
             goto bootfail;      // .old still active
         }
-        // If Recovery OS was available, we could swap these two and leave
-        // the Recovery OS blessed until RPS and new booters were activated.
+        // If we blessed the Recovery OS in ucopyRPS(), there's likely only
+        // one RPS dir, the new one, and this activateBooters() is the
+        // last step before the final F_FULLFSYNC in activateRPS().
         if (up->doBooters && (result = activateBooters(up))) { // committed
             goto bootfail;
         }
+
         // 10.x.n+1 booters remain compatible 10.x.n kernels?? (power outage!)
         if (up->doRPS && (result = activateRPS(up))) {         // complete
             goto bootfail;
@@ -1191,7 +1193,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
 
     // request actual helper updates
     if ((opres = updateBootHelpers(&up))) {
-        // the root volume gets -all-loaded, so if ENOSPC, try without
+        // if we hit ENOSPC for the current root volume, try a smaller cache
         if (opres == ENOSPC && strcmp(up.caches->root, "/") == 0) {
             OSKextLog(NULL, kOSKextLogWarningLevel,
                       "Out of space in helper for '/', trying w/o -all-loaded");
@@ -1643,6 +1645,12 @@ blessRecovery(struct updatingVol *up)
     if ((result = sBLSetBootFinderInfo(up, vinfo))) {
         OSKextLog(NULL, up->warnLogSpec,
                  "Warning: found recovery booter but couldn't bless it.");
+    }
+
+    // flush everything in this helper partition to disk
+    if ((result = fcntl(up->curbootfd, F_FULLFSYNC))) {
+        LOGERRxlate(up, "fcntl(helper, F_FULLFSYNC)", NULL, result);
+        goto finish;
     }
 
 finish:
@@ -2426,9 +2434,18 @@ ucopyRPS(struct updatingVol *up)
         // we're going to copy into the currently-inactive directory
         pathcpy(up->dstdir, prevRPS);
         erdir = prevRPS;
+        // if we can bless a Recovery OS, remove current files to free up space
+        if (blessRecovery(up) == 0) {
+            if ((bsderr = eraseRPS(up, curRPS)) && errno != ENOENT) {
+                LOGERRxlate(up, curRPS, "couldn't free up space", bsderr);
+            }
+            // re-bless booters at the end
+            // (This also copies them, but they're small compared to RPS.)
+            up->doBooters = true;
+        }
     }
 
-    // we expect to have removed it and eraseRPS() doesn't mind it missing
+    // remove any stray target directory
     if ((bsderr = eraseRPS(up, up->dstdir))) {
         rval = bsderr; goto finish;     // error logged by function
     }

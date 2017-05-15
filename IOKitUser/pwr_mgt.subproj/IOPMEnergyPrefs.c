@@ -26,6 +26,9 @@
 
 #include "IOSystemConfiguration.h"
 #include <CoreFoundation/CoreFoundation.h>
+#if !TARGET_OS_IPHONE
+#include <IOKit/platform/IOPlatformSupportPrivate.h>
+#endif
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
 #include <IOKit/ps/IOPowerSources.h>
@@ -85,7 +88,8 @@ PMSettingDescriptorStruct defaultSettings[] =
     {kIOPMWakeOnACChangeKey,                            0,   0,  0},
     {kIOPMWakeOnClamshellKey,                           1,   1,  1},
     {kIOPMWakeOnLANKey,                                 1,   0,  0},
-    {kIOPMWakeOnRingKey,                                1,   0,  0}
+    {kIOPMWakeOnRingKey,                                1,   0,  0},
+    {kIOPMTCPKeepAlivePrefKey,                          1,   1,  1},
 };
 
 static const int kPMSettingsCount = sizeof(defaultSettings)/sizeof(PMSettingDescriptorStruct);
@@ -933,6 +937,15 @@ bool IOPMFeatureIsAvailable(CFStringRef PMFeature, CFStringRef power_source)
         {
             return_this_value = 1;
         }
+    }
+    else if (CFEqual(PMFeature, CFSTR(kIOPMTCPKeepAlivePrefKey)))
+    {
+        CFTypeRef tcpka = kCFBooleanFalse;
+        IOPlatformCopyFeatureDefault(kIOPlatformTCPKeepAliveDuringSleep, &tcpka);
+        if (tcpka == kCFBooleanTrue)
+            return_this_value = 1;
+        else
+            return_this_value = 0;
 #endif
     }
     else
@@ -1324,7 +1337,16 @@ void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs)
                    {
                        CFDictionaryRemoveValue(this_profile, (CFStringRef)dict_keys[dict_count]);
                    }
-#endif /* !TARGET_OS_IPHONE */
+                }
+                else if (CFEqual((CFStringRef)dict_keys[dict_count], CFSTR(kIOPMTCPKeepAlivePrefKey)))
+                {
+                    CFTypeRef tcpka = kCFBooleanFalse;
+                    IOPlatformCopyFeatureDefault(kIOPlatformTCPKeepAliveDuringSleep, &tcpka);
+                    if (tcpka == kCFBooleanFalse) {
+                        CFDictionaryRemoveValue(this_profile,
+                                                (CFStringRef)dict_keys[dict_count]);
+                    }
+#endif /* TARGET_OS_OSX */
                 }
                 else if( !IOPMFeatureIsAvailableWithSupportedTable((CFStringRef)dict_keys[dict_count],
                                     (CFStringRef)profile_keys[profile_count], _supportedCached) )

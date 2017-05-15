@@ -1,4 +1,632 @@
-2017-03-14  Matthew Hanson  <matthew_hanson@apple.com>
+2017-04-16  Jason Marcell  <jmarcell@apple.com>
+
+        Roll out r211294 vi 215335. rdar://problem/31512298
+
+2017-04-12  Myles C. Maxfield  <mmaxfield@apple.com>
+
+     [Cocoa] Prepare ComplexTextController for unit testing
+     https://bugs.webkit.org/show_bug.cgi?id=167493
+
+     Reviewed by Dean Jackson.
+
+     ComplexTextController has three phases:
+     1. Interrogate Core Text about some text
+     2. Compute layout advances and paint advances from the information retrieved from
+     Core Text
+     3. Iterate through the layout advances or paint advances.
+
+     This patch tests phases 2 and 3 by chopping ComplexTextController between
+     phases 1 and 2, and injecting foreign metrics from a unit test. These metrics
+     have been gathered from real-world uses; however, a layout test is not appropriate
+     because the fonts which produced these metrics are not licensed appropriately.
+     The tests can enforce the correct behavior by using ComplexTextController's
+     public API.
+
+     This is in preparation for https://bugs.webkit.org/show_bug.cgi?id=166013.
+     However, the fix for that bug is quite large, so I've split out this smaller piece
+     to ease the reviewing burden. The tests I've added are disabled for now (because
+     they fail), but will be enabled by the fix to that bug.
+
+     No new tests because there is no behavior change.
+
+     * WebCore.xcodeproj/project.pbxproj:
+     * platform/graphics/FontCascade.h:
+     * platform/graphics/FontDescription.h:
+     * platform/graphics/mac/ComplexTextController.cpp:
+     (WebCore::ComplexTextController::ComplexTextController):
+     (WebCore::ComplexTextController::finishConstruction):
+     * platform/graphics/mac/ComplexTextController.h:
+     (WebCore::ComplexTextController::ComplexTextRun::createForTesting):
+     * platform/graphics/mac/ComplexTextControllerCoreText.mm:
+     (WebCore::ComplexTextController::ComplexTextRun::ComplexTextRun):
+
+2017-04-12  Myles C. Maxfield  <mmaxfield@apple.com>
+
+     REGRESSION(r211382): Complex text with justification erroneously overflows containers
+     https://bugs.webkit.org/show_bug.cgi?id=170399
+     <rdar://problem/31442008>
+
+     When we perform justification, we adjust glyphs' advances to add extra space between words.
+     ComplexTextController maintains an invariant where m_totalWidth is equal to the sum of these
+     advances. However, in RTL text, inserting extra justification space to the left of a glyph
+     would break that invariant, and would increase the advances of two glyphs instead of just
+     one. Then, when we go to draw the text, the sum of the advances is wider than m_totalWidth,
+     which means the glyphs would be drawn outside of their container.
+
+     This regressed in r211382 simply because of an oversight and because there were no tests for
+     this codepath.
+
+     Test: ComplexTextControllerTest.TotalWidthWithJustification
+
+     * platform/graphics/ComplexTextController.cpp:
+     (WebCore::ComplexTextController::adjustGlyphsAndAdvances):
+     * rendering/InlineBox.h:
+     (WebCore::InlineBox::InlineBox):
+
+2017-04-11  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick 214358. rdar://problem/31502340
+
+    2017-03-24  Alex Christensen  <achristensen@webkit.org>
+
+            REGRESSION: Content Blocker: Blocking "a[href*=randomString]" doesn't work
+            https://bugs.webkit.org/show_bug.cgi?id=169167
+
+            Reviewed by Simon Fraser.
+
+            When testing content extensions, we have always called an API function that internally
+            has called AtomicString::init somewhere before we start compiling the content extension.
+            On iOS, though, we call [_WKUserContentExtensionStore compileContentExtensionForIdentifier:...]
+            without having already called anything that calls AtomicString::init.  The new CSS parser is now
+            failing to parse some selectors because CSSSelectorParser::defaultNamespace is returning starAtom,
+            which is a null atomic string before AtomicString::init is called.
+
+            Covered by a new API test.
+
+            * contentextensions/ContentExtensionParser.cpp:
+            (WebCore::ContentExtensions::isValidCSSSelector):
+            (WebCore::ContentExtensions::loadAction):
+            (WebCore::ContentExtensions::isValidSelector): Deleted.
+            * contentextensions/ContentExtensionParser.h:
+            Call AtomicString::init before checking if a css selector is valid.
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214819. rdar://problem/31407633
+
+    2017-04-01  Simon Fraser  <simon.fraser@apple.com>
+
+            Clean up touch event handler registration when moving nodes between documents
+            https://bugs.webkit.org/show_bug.cgi?id=170384
+            rdar://problem/30816694
+
+            Reviewed by Chris Dumez.
+
+            Make sure that Node::didMoveToNewDocument() does the correct unregistration on the
+            old document, and registration on the new document for nodes with touch event listeners,
+            and gesture event listeners. Touch "handler" nodes (those for overflow and sliders) are
+            already correctly moved via renderer-related teardown.
+
+            Add assertions that fire when removal was not complete.
+
+            Use references in more places.
+
+            Tests: fast/events/touch/ios/gesture-node-move-between-documents.html
+                   fast/events/touch/ios/overflow-node-move-between-documents.html
+                   fast/events/touch/ios/slider-node-move-between-documents.html
+                   fast/events/touch/ios/touch-node-move-between-documents.html
+
+            * dom/EventNames.h:
+            (WebCore::EventNames::gestureEventNames):
+            * dom/Node.cpp:
+            (WebCore::Node::willBeDeletedFrom):
+            (WebCore::Node::didMoveToNewDocument):
+            (WebCore::tryAddEventListener):
+            (WebCore::tryRemoveEventListener):
+            * html/shadow/SliderThumbElement.cpp:
+            (WebCore::SliderThumbElement::registerForTouchEvents):
+            (WebCore::SliderThumbElement::unregisterForTouchEvents):
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::registerAsTouchEventListenerForScrolling):
+            (WebCore::RenderLayer::unregisterAsTouchEventListenerForScrolling):
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214703. rdar://problem/31407633
+
+    2017-03-31  Simon Fraser  <simon.fraser@apple.com>
+
+            Rename DOMWindow's m_touchEventListenerCount to m_touchAndGestureEventListenerCount
+            https://bugs.webkit.org/show_bug.cgi?id=170371
+
+            Reviewed by Tim Horton.
+
+            This count tracks touch and gesture event listeners, so name it appropriately.
+
+            * page/DOMWindow.cpp:
+            (WebCore::DOMWindow::addEventListener):
+            (WebCore::DOMWindow::removeEventListener):
+            (WebCore::DOMWindow::removeAllEventListeners):
+            * page/DOMWindow.h:
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214702. rdar://problem/31407633
+
+    2017-03-31  Simon Fraser  <simon.fraser@apple.com>
+
+            When destroying a Node, assert that it's been removed from all the touch handler maps
+            https://bugs.webkit.org/show_bug.cgi?id=170363
+            rdar://problem/31377469
+
+            Reviewed by Tim Horton.
+
+            Assert that the Node has been removed from the touch handler maps in all documents on destruction.
+
+            * dom/Document.h:
+            (WebCore::Document::hasTouchEventHandlers):
+            (WebCore::Document::touchEventTargetsContain):
+            * dom/Node.cpp:
+            (WebCore::Node::~Node):
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214649. rdar://problem/31407626
+
+    2017-03-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Ensure that Node::willBeDeletedFrom() always removes touch event handlers from the document
+            https://bugs.webkit.org/show_bug.cgi?id=170323
+            rdar://problem/23647630
+
+            Reviewed by Chris Dumez.
+
+            There are two instances where nodes are registered as touch event handlers without
+            having normal touch event listeners: slider thumb elements, and elements with overflow scrolling,
+            on iOS.
+
+            For such nodes, hasEventTargetData() will be false, but we want to ensure
+            that they are removed from the Document's touchEventHandler set, so move the
+            call to document.removeTouchEventHandler() outside of the conditional block.
+
+            This should be cheap in most cases when the touchEventHandler is empty.
+
+            * dom/Node.cpp:
+            (WebCore::Node::willBeDeletedFrom):
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214648. rdar://problem/31408453
+
+    2017-03-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Minor cleanup checking for gesture event names
+            https://bugs.webkit.org/show_bug.cgi?id=170319
+
+            Reviewed by Tim Horton.
+
+            Just use isGestureEventType() in a couple of places.
+
+            * dom/Node.cpp:
+            (WebCore::tryAddEventListener):
+            (WebCore::tryRemoveEventListener):
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214640. rdar://problem/31408453
+
+    2017-03-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Rename a touch event function, and new touch region test results
+            https://bugs.webkit.org/show_bug.cgi?id=170309
+            rdar://problem/31329520
+
+            Reviewed by Chris Dumez.
+
+            Adapt to a naming change in WebKitAdditions.
+
+            * dom/Document.cpp:
+            (WebCore::Document::removeAllEventListeners):
+            * page/FrameView.cpp:
+            (WebCore::FrameView::layout):
+            * rendering/RenderElement.cpp:
+            (WebCore::RenderElement::styleWillChange):
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::scrollTo):
+            (WebCore::RenderLayer::calculateClipRects):
+
+2017-03-31  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r214378. rdar://problem/31177657
+
+    2017-03-24  Brent Fulgham  <bfulgham@apple.com>
+
+            Handle recursive calls to ProcessingInstruction::checkStyleSheet
+            https://bugs.webkit.org/show_bug.cgi?id=169982
+            <rdar://problem/31083051>
+
+            Reviewed by Antti Koivisto.
+
+           See if we triggered a recursive load of the stylesheet during the 'beforeload'
+           event handler. If so, reset to a valid state before completing the load.
+
+           We should also check after 'beforeload' that we were not disconnected from (or
+           moved to a new) document.
+
+           I also looked for other cases of this pattern and fixed them, too.
+
+           Tests: fast/dom/beforeload/image-removed-during-before-load.html
+                   fast/dom/beforeload/recursive-css-pi-before-load.html
+                   fast/dom/beforeload/recursive-link-before-load.html
+                   fast/dom/beforeload/recursive-xsl-pi-before-load.html
+
+            * dom/ProcessingInstruction.cpp:
+            (WebCore::ProcessingInstruction::checkStyleSheet): Prevent recursive calls into
+            this function during 'beforeload' handling. Also, safely handle the case where
+            the element was disconnected in the 'beforeload' handler (similar to what
+            we do in HTMLLinkElement).
+            (WebCore::ProcessingInstruction::setCSSStyleSheet): Drive-by Fix: Protect the
+            current document to match what we do in setXSLStyleSheet.
+            * dom/ProcessingInstruction.h:
+            * html/HTMLLinkElement.cpp:
+            (WebCore::HTMLLinkElement::process): Prevent recursive calls into
+            this function during 'beforeload' handling.
+            * html/HTMLLinkElement.h:
+            * loader/ImageLoader.cpp:
+            (WebCore::ImageLoader::dispatchPendingBeforeLoadEvent): safely handle the case where
+            the element was disconnected in the 'beforeload' handler (similar to what
+            we do in HTMLLinkElement).
+
+2017-03-30  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214392. rdar://problem/31356105
+
+    2017-03-24  Daniel Bates  <dabates@apple.com>
+
+            media/restore-from-page-cache.html causes NoEventDispatchAssertion::isEventAllowedInMainThread() assertion failure
+            https://bugs.webkit.org/show_bug.cgi?id=170087
+            <rdar://problem/31254822>
+
+            Reviewed by Simon Fraser.
+
+            Reduce the scope of code that should never dispatch DOM events so as to allow updating contents size
+            after restoring a page from the page cache.
+
+            In r214014 we instantiate a NoEventDispatchAssertion in FrameLoader::commitProvisionalLoad()
+            around the call to CachedPage::restore() to assert when a DOM event is dispatched during
+            page restoration as such events can cause re-entrancy into the page cache. As it turns out
+            it is sufficient to ensure that no DOM events are dispatched after restoring all cached frames
+            as opposed to after CachedPage::restore() returns.
+
+            Also rename Document::enqueue{Pageshow, Popstate}Event() to dispatch{Pageshow, Popstate}Event(),
+            respectively, since they synchronously dispatch events :(. We hope in the future to make them
+            asynchronously dispatch events.
+
+            * dom/Document.cpp:
+            (WebCore::Document::implicitClose): Update for renaming.
+            (WebCore::Document::statePopped): Ditto.
+            (WebCore::Document::dispatchPageshowEvent): Renamed; formerly named enqueuePageshowEvent().
+            (WebCore::Document::dispatchPopstateEvent): Renamed; formerly named enqueuePopstateEvent().
+            (WebCore::Document::enqueuePageshowEvent): Deleted.
+            (WebCore::Document::enqueuePopstateEvent): Deleted.
+            * dom/Document.h:
+            * history/CachedPage.cpp:
+            (WebCore::firePageShowAndPopStateEvents): Moved logic from FrameLoader::didRestoreFromCachedPage() to here.
+            (WebCore::CachedPage::restore): Modified to call firePageShowAndPopStateEvents().
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::commitProvisionalLoad): Removed use of NoEventDispatchAssertion RAII object. We
+            will instantiate it in CachedPage::restore() with a smaller scope.
+            (WebCore::FrameLoader::didRestoreFromCachedPage): Deleted; moved logic from here to WebCore::firePageShowAndPopStateEvents().
+            * loader/FrameLoader.h:
+
+2017-03-30  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214599. rdar://problem/31356103
+
+    2017-03-29  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Disconnecting a HTMLObjectElement does not always unload its content document
+            https://bugs.webkit.org/show_bug.cgi?id=169606
+
+            Reviewed by Andy Estes.
+
+            When removing a node, we first disconnect all subframes then update the focused element as we remove each child.
+            However, when the removed element is a focused object element with a content document, removeFocusedNodeOfSubtree
+            can update the style tree synchronously inside Document::setFocusedElement, and reload the document.
+
+            Avoid this by instantiating a SubframeLoadingDisabler on the parent of the focused element.
+
+            Test: fast/dom/removing-focused-object-element.html
+
+            * dom/Document.cpp:
+            (WebCore::Document::removeFocusedNodeOfSubtree):
+
+2017-03-30  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214510. rdar://problem/31356107
+
+    2017-03-27  Brent Fulgham  <bfulgham@apple.com>
+
+            Only attach Attributes to a given element one time
+            https://bugs.webkit.org/show_bug.cgi?id=170125
+            <rdar://problem/31279676>
+
+            Reviewed by Chris Dumez.
+
+            Attach the attribute node to the Element before calling 'setAttributeInternal', since that method may cause
+            arbitrary JavaScript events to fire.
+
+            Test: fast/dom/Attr/only-attach-attr-once.html
+
+            * dom/Element.cpp:
+            (WebCore::Element::attachAttributeNodeIfNeeded): Added.
+            (WebCore::Element::setAttributeNode): Use new method. Revise to attach attribute before calling 'setAttributeInternal'.
+            (WebCore::Element::setAttributeNodeNS): Ditto.
+            * dom/Element.h:
+
+2017-03-30  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214086. rdar://problem/31356102
+
+    2017-03-16  Dean Jackson  <dino@apple.com>
+
+            WebGL: Improve index validation when using uint index values
+            https://bugs.webkit.org/show_bug.cgi?id=169798
+
+            Reviewed by Simon Fraser.
+
+            Make sure that we test index validation with the correct type.
+            Also stop using -1 in WebGLBuffer to indicate non-existant values.
+
+            Test: fast/canvas/webgl/draw-elements-out-of-bounds-uint-index.html
+
+            * html/canvas/WebGL2RenderingContext.cpp:
+            (WebCore::WebGL2RenderingContext::validateIndexArrayConservative): Use optional<> and
+            unsigned values.
+            * html/canvas/WebGLBuffer.cpp: Use unsigned for maxIndex (they can't be negative)
+            and optional<> to indicate unknown value.
+            (WebCore::WebGLBuffer::getCachedMaxIndex):
+            (WebCore::WebGLBuffer::setCachedMaxIndex):
+            * html/canvas/WebGLBuffer.h:
+            * html/canvas/WebGLRenderingContext.cpp:
+            (WebCore::WebGLRenderingContext::validateIndexArrayConservative): Use optional<> and
+            unsigned values.
+            * html/canvas/WebGLRenderingContextBase.cpp:
+            (WebCore::WebGLRenderingContextBase::validateVertexAttributes): No need to check if
+            an unsigned value is less than zero.
+
+2017-03-29  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214291. rdar://problem/30922110
+
+    2017-03-22  Jiewen Tan  <jiewen_tan@apple.com>
+
+            ASSERT_WITH_SECURITY_IMPLICATION hit when removing an <input type="range"> while dragging on iOS
+            https://bugs.webkit.org/show_bug.cgi?id=165535
+            <rdar://problem/29559749>
+
+            Reviewed by Ryosuke Niwa.
+
+            Utimately we should prevent SliderThumbElement::unregisterForTouchEvents() being called while
+            updating render tree. A quick fix for this is to move dispatchFormControlChangeEvent for input
+            from stopDragging up to the callers which really needs to dispatch this event, i.e., finishing
+            dragging the slider. It is clear that not every caller of stopDragging wants to
+            dispatchFormControlChangeEvent.
+
+            Test: fast/forms/range/range-remove-on-drag.html
+
+            * html/shadow/SliderThumbElement.cpp:
+            (WebCore::SliderThumbElement::stopDragging):
+            (WebCore::SliderThumbElement::defaultEventHandler):
+            (WebCore::SliderThumbElement::handleTouchEndAndCancel):
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214365. rdar://problem/30922115
+
+    2017-03-24  Daniel Bates  <dabates@apple.com>
+
+            Prevent new navigations during document unload
+            https://bugs.webkit.org/show_bug.cgi?id=169934
+            <rdar://problem/31247584>
+
+            Reviewed by Chris Dumez.
+
+            Similar to our policy of preventing new navigations from onbeforeunload handlers
+            we should prevent new navigations that are initiated during the document unload
+            process.
+
+            The significant part of this change is the instantiation of the RAII object NavigationDisabler
+            in Document::prepareForDestruction(). The rest of this change just renames class
+            NavigationDisablerForBeforeUnload to NavigationDisabler now that this RAII class is
+            used to prevent navigation from both onbeforeunload event handlers and when unloading
+            a document.
+
+            Test: fast/frames/frame-unload-navigate-and-setTimeout-assert-fail.html
+
+            * dom/Document.cpp:
+            (WebCore::Document::prepareForDestruction): Disable new navigations when disconnecting
+            subframes. Also assert that the document is not in the page cache before we fall off
+            the end of the function.
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::isNavigationAllowed): Update for renaming below.
+            (WebCore::FrameLoader::shouldClose): Ditto.
+            * loader/NavigationScheduler.cpp:
+            (WebCore::NavigationScheduler::shouldScheduleNavigation): Ditto.
+            * loader/NavigationScheduler.h:
+            (WebCore::NavigationDisabler::NavigationDisabler): Renamed class; formerly named NavigationDisablerForBeforeUnload.
+            (WebCore::NavigationDisabler::~NavigationDisabler): Ditto.
+            (WebCore::NavigationDisabler::isNavigationAllowed): Ditto.
+            (WebCore::NavigationDisablerForBeforeUnload::NavigationDisablerForBeforeUnload): Deleted.
+            (WebCore::NavigationDisablerForBeforeUnload::~NavigationDisablerForBeforeUnload): Deleted.
+            (WebCore::NavigationDisablerForBeforeUnload::isNavigationAllowed): Deleted.
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214194. rdar://problem/31101594
+
+    2017-03-20  Daniel Bates  <dabates@apple.com>
+
+            Prevent new navigations from onbeforeunload handler
+            https://bugs.webkit.org/show_bug.cgi?id=169891
+            <rdar://problem/31155736>
+
+            Reviewed by Ryosuke Niwa.
+
+            Ensure that all navigations initiated from an onbeforeunload handler are disallowed
+            regardless of how they were scheduled. Such navigations go against the expectation
+            of a user.
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::isNavigationAllowed): Added.
+            (WebCore::FrameLoader::loadURL): Modified code to call FrameLoader::isNavigationAllowed().
+            (WebCore::FrameLoader::loadWithDocumentLoader): Ditto.
+            (WebCore::FrameLoader::stopAllLoaders): Ditto.
+            * loader/FrameLoader.h:
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214237. rdar://problem/31178134
+
+    2017-03-21  Brady Eidson  <beidson@apple.com>
+
+            Disable all virtual tables.
+            <rdar://problem/31081972> and https://bugs.webkit.org/show_bug.cgi?id=169928
+
+            Reviewed by Jer Noble.
+
+            No new tests (Covered by changes to existing test).
+
+            * Modules/webdatabase/DatabaseAuthorizer.cpp:
+            (WebCore::DatabaseAuthorizer::createVTable):
+            (WebCore::DatabaseAuthorizer::dropVTable):
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214232. rdar://problem/30922105
+
+    2017-03-21  Zalan Bujtas  <zalan@apple.com>
+
+            Tear down descendant renderers when <slot>'s display value is set to no "contents".
+            https://bugs.webkit.org/show_bug.cgi?id=169921
+            <rdar://problem/30336417>
+
+            Reviewed by Antti Koivisto.
+
+            Since "display: contents" does not generate a renderer, when an element's display value is
+            changed to something other than "contents", we not only create a renderer but also reparent its descendant
+            subtree (e.g from slot's parent to the newly constructed slot renderer). During this reparenting, we
+            need to tear down the descendant subtree tree and build it up again to reflect the new rendering context.
+
+            Test: fast/shadow-dom/slot-with-continuation-descendants.html
+
+            * style/RenderTreeUpdater.cpp:
+            (WebCore::RenderTreeUpdater::updateElementRenderer):
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r211645. rdar://problem/30922105
+
+    2017-02-03  Chris Dumez  <cdumez@apple.com>
+
+            Fix bad assertion under HTMLTreeBuilder::processStartTagForInBody()
+            https://bugs.webkit.org/show_bug.cgi?id=167799
+            <rdar://problem/30237241>
+
+            Reviewed by Brent Fulgham.
+
+            Fix bad assertion under HTMLTreeBuilder::processStartTagForInBody() that was
+            expecting the root element to be an <html> element when parsing a <frameset>.
+            While this assertion is true in theory and as per the specification, it does
+            not hold in WebKit when parsing a DocumentFragment. This is because WebKit
+            has an optimization causing us to have a DocumentFragment as root element
+            when parsing a fragment. See the following constructor:
+            "HTMLTreeBuilder(HTMLDocumentParser&, DocumentFragment&, Element&, ParserContentPolicy, const HTMLParserOptions&)"
+
+            which has the following code:
+            """
+            // https://html.spec.whatwg.org/multipage/syntax.html#parsing-html-fragments
+            // For efficiency, we skip step 5 ("Let root be a new html element with no attributes") and instead use the DocumentFragment as a root node.
+            m_tree.openElements().pushRootNode(HTMLStackItem::create(fragment));
+            """
+
+            Update the assertion to expect a DocumentFragment as root element when parsing
+            a fragment, and keep expecting an <html> element otherwise.
+
+            Test: fast/parser/fragment-with-frameset-crash.html
+
+            * html/parser/HTMLTreeBuilder.cpp:
+            (WebCore::HTMLTreeBuilder::processStartTagForInBody):
+
+2017-03-22  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214125. rdar://problem/30921831
+
+    2017-03-17  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            Time channel attack on SVG Filters
+            https://bugs.webkit.org/show_bug.cgi?id=118689
+
+            Reviewed by Simon Fraser.
+
+            The time channel attack can happen if the attacker applies FEColorMatrix
+            or FEConvolveMatrix and provides a matrix which is filled with subnormal
+            floating point values. Performing floating-point operations on subnormals
+            is very expensive unless the pixel in the source graphics is black (or
+            zero). By measuring the time a filter takes to be applied, the attacker
+            can know whether the pixel he wants to steal from  an iframe is black or
+            white. By repeating the same process on all the pixels in the iframe, the
+            attacker can reconstruct the whole page of the iframe.
+
+            To fix this issue, the values in the matrices of these filters will clamped
+            to FLT_MIN. We do not want to consume too much time calculating filtered
+            pixels because of such tiny values. The difference between applying FLT_MIN
+            and applying a subnormal should not be even noticeable. Normalizing the
+            floating-point matrices should happen only at the beginning of the filter
+            platformApplySoftware().
+
+            * platform/graphics/filters/FEColorMatrix.cpp:
+            (WebCore::FEColorMatrix::platformApplySoftware):
+            * platform/graphics/filters/FEConvolveMatrix.cpp:
+            (WebCore::FEConvolveMatrix::fastSetInteriorPixels):
+            (WebCore::FEConvolveMatrix::fastSetOuterPixels):
+            (WebCore::FEConvolveMatrix::platformApplySoftware):
+            * platform/graphics/filters/FEConvolveMatrix.h:
+            * platform/graphics/filters/FilterEffect.h:
+            (WebCore::FilterEffect::normalizedFloats):
+
+2017-03-21  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214014. rdar://problem/30921815
+
+    2017-03-15  Daniel Bates  <dabates@apple.com>
+
+            Iteratively dispatch DOM events after restoring a cached page
+            https://bugs.webkit.org/show_bug.cgi?id=169703
+            <rdar://problem/31075903>
+
+            Reviewed by Brady Eidson.
+
+            Make dispatching of DOM events when restoring a page from the page cache symmetric with
+            dispatching of events when saving a page to the page cache.
+
+            * history/CachedFrame.cpp:
+            (WebCore::CachedFrameBase::restore): Move code to dispatch events from here to FrameLoader::didRestoreFromCachedPage().
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::commitProvisionalLoad): Ensure that no DOM events are dispatched during
+            restoration of a cached page. Call didRestoreFromCachedPage() after restoring the page to
+            dispatch DOM events on the restored frames.
+            (WebCore::FrameLoader::willRestoreFromCachedPage): Renamed; formerly named prepareForCachedPageRestore().
+            (WebCore::FrameLoader::didRestoreFromCachedPage): Added.
+            (WebCore::FrameLoader::prepareForCachedPageRestore): Renamed to willRestoreFromCachedPage().
+            * loader/FrameLoader.h:
+            * page/FrameTree.cpp:
+            (WebCore::FrameTree::traverseNextInPostOrderWithWrap): Returns the next Frame* in a post-order
+            traversal of the frame tree optionally wrapping around to the deepest first child in the tree.
+            (WebCore::FrameTree::deepFirstChild): Added.
+            * page/FrameTree.h:
+
+2017-03-20  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r213949. rdar://problem/31049771
 
@@ -15,7 +643,7 @@
             * Modules/applepay/ApplePaySession.cpp:
             (WebCore::convertAndValidate):
 
-2017-03-03  Matthew Hanson  <matthew_hanson@apple.com>
+2017-03-20  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r213253. rdar://problem/30773140
 
@@ -35,9 +663,170 @@
             * loader/PolicyChecker.cpp:
             (WebCore::PolicyChecker::checkNavigationPolicy):
 
-2017-03-03  Matthew Hanson  <matthew_hanson@apple.com>
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
 
-        Merge r213385. rdar://problem/30838985
+        Merge r214059. rdar://problem/31099341
+
+    2017-03-16  Zalan Bujtas  <zalan@apple.com>
+
+            Stay inside the continuation while searching for a candidate ancestor for insertion.
+            https://bugs.webkit.org/show_bug.cgi?id=169768
+            <rdar://problem/30959936>
+
+            Reviewed by David Hyatt.
+
+            Test: fast/inline/continuation-crash-with-anon-ancestors.html
+
+            * rendering/RenderInline.cpp:
+            (WebCore::RenderInline::addChildToContinuation):
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214023. rdar://problem/31091039
+
+    2017-03-15  Zalan Bujtas  <zalan@apple.com>
+
+            Do not reparent floating object until after intruding/overhanging dependency is cleared.
+            https://bugs.webkit.org/show_bug.cgi?id=169711
+            <rdar://problem/30959743>
+
+            Reviewed by Simon Fraser.
+
+            This patch ensures that we cleanup the m_floatingObjects for siblings before reparenting the fresh float.
+
+            Test: fast/block/float/inline-becomes-float-and-moves-around.html
+
+            * rendering/RenderBlockFlow.cpp:
+            (WebCore::RenderBlockFlow::styleDidChange):
+            * rendering/RenderElement.cpp:
+            (WebCore::RenderElement::styleDidChange):
+            * rendering/RenderElement.h:
+            (WebCore::RenderElement::noLongerAffectsParentBlock):
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213967. rdar://problem/30921827
+
+    2017-03-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            RenderElements should unregister for viewport visibility callbacks when they are destroyed
+            https://bugs.webkit.org/show_bug.cgi?id=169521
+            <rdar://problem/30959545>
+
+            Reviewed by Simon Fraser.
+
+            When registering a RenderElement for viewport visibility callbacks, we always need to make sure that it is unregistered
+            before it is destroyed. While we account for this in the destructor of RenderElement, we only unregister in the destructor
+            if we are already registered for visibility callbacks. In the call to RenderObject::willBeDestroyed(), we clear out rare
+            data, which holds RenderElement's viewport callback registration state, so upon entering the destructor of RenderElement,
+            we skip unregistration because RenderElement thinks that it is not registered.
+
+            We can mitigate this by unregistering the RenderElement earlier, in RenderElement::willBeDestroyed, prior to clearing out
+            the rare data. However, we'd ideally want to move the cleanup logic out of the destructor altogether and into willBeDestroyed
+            (see https://bugs.webkit.org/show_bug.cgi?id=169650).
+
+            Test: fast/media/video-element-in-details-collapse.html
+
+            * rendering/RenderElement.cpp:
+            (WebCore::RenderElement::willBeDestroyed):
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213897. rdar://problem/30921833
+
+    2017-03-13  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Make RepaintRegionAccumulator hold a WeakPtr to its root RenderView
+            https://bugs.webkit.org/show_bug.cgi?id=168480
+            <rdar://problem/30566976>
+
+            Reviewed by Antti Koivisto.
+
+            Implements two mitigations to prevent the symptoms of the bug from occurring (see the bugzilla for more details).
+
+            Test: editing/execCommand/show-modal-dialog-during-execCommand.html
+
+            * editing/EditorCommand.cpp:
+            (WebCore::Editor::Command::execute):
+
+            Do not allow edit commands to execute if the frame's document before and after layout differ (that is, edit commands
+            triggered by a certain document should not run on a different document).
+
+            * rendering/RenderView.cpp:
+            (WebCore::RenderView::RenderView):
+            (WebCore::RenderView::RepaintRegionAccumulator::RepaintRegionAccumulator):
+
+            Turns RepaintRegionAccumulator's reference to its root RenderView into a WeakPtr to gracefully handle the case
+            where its RenderView is destroyed before RepaintRegionAccumulator's destructor gets a chance to flush the
+            RenderView's repaint regions.
+
+            * rendering/RenderView.h:
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213833. rdar://problem/31092879
+
+    2017-03-13  Miguel Gomez  <magomez@igalia.com>
+
+            ImageDecoder can be deleted while the async decoder thread is still using it
+            https://bugs.webkit.org/show_bug.cgi?id=169199
+
+            Reviewed by Carlos Garcia Campos.
+
+            Make the image decoder used by ImageSource and ImageFrameCache into a RefPtr instead of
+            and unique_ptr, and pass a reference to the decoder thread. This ensures that the decoder
+            will stay alive as long as the decoding thread is processing frames. Also, stop the async
+            decoding queue if a new decoder is set to ImageFrameCache.
+
+            No new tests.
+
+            * platform/graphics/ImageFrameCache.cpp:
+            (WebCore::ImageFrameCache::setDecoder):
+            (WebCore::ImageFrameCache::decoder):
+            (WebCore::ImageFrameCache::startAsyncDecodingQueue):
+            (WebCore::ImageFrameCache::metadata):
+            * platform/graphics/ImageFrameCache.h:
+            (WebCore::ImageFrameCache::setDecoder): Deleted.
+            Moved to source file so we can keep the ImageDecoder forward declaration.
+            (WebCore::ImageFrameCache::decoder): Deleted.
+            Moved to source file so we can keep the ImageDecoder forward declaration.
+            * platform/graphics/ImageSource.h:
+            * platform/graphics/cg/ImageDecoderCG.h:
+            (WebCore::ImageDecoder::create):
+            * platform/graphics/win/ImageDecoderDirect2D.h:
+            (WebCore::ImageDecoder::create):
+            * platform/image-decoders/ImageDecoder.cpp:
+            (WebCore::ImageDecoder::create):
+            * platform/image-decoders/ImageDecoder.h:
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213501. rdar://problem/30921830
+
+    2017-03-06  Brent Fulgham  <bfulgham@apple.com>
+
+            Validate DOM after potentially destructive actions during parser insert operations
+            https://bugs.webkit.org/show_bug.cgi?id=169222
+            <rdar://problem/30689729>
+
+            Reviewed by Ryosuke Niwa.
+
+            Do not perform an insert operation if the next child's parent is no longer
+            part of the tree. This can happen if JavaScript runs during node removal
+            events and modifies the contents of the document.
+
+            This patch was inspired by a similar Blink change by Marius Mlynski:
+            <https://src.chromium.org/viewvc/blink?view=revision&revision=200690>
+
+            Tests: fast/parser/scriptexec-during-parserInsertBefore.html
+
+            * html/parser/HTMLConstructionSite.cpp:
+            (WebCore::executeReparentTask):
+            (WebCore::executeInsertAlreadyParsedChildTask):
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213385. rdar://problem/30921816
 
     2017-03-03  Sam Weinig  <sam@webkit.org>
 
@@ -53,94 +842,197 @@
             * Modules/applepay/ApplePaySession.cpp:
             (WebCore::convertAndValidate):
 
-2017-03-03  Matthew Hanson  <matthew_hanson@apple.com>
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
 
-        Rollout r213374. rdar://problem/30773140
+        Merge r213311. rdar://problem/30812769
 
-2017-03-03  Matthew Hanson  <matthew_hanson@apple.com>
+    2017-03-02  Chris Dumez  <cdumez@apple.com>
 
-        Merge r213253. rdar://problem/30773140
+            We should prevent load of subframes inserted during FrameTree deconstruction
+            https://bugs.webkit.org/show_bug.cgi?id=169095
 
-    2017-03-01  Chris Dumez  <cdumez@apple.com>
+            Reviewed by Brent Fulgham.
 
-            [WK2][!NETWORK_SESSION] Failure to download when using a download attribute with no value on an anchor
-            https://bugs.webkit.org/show_bug.cgi?id=169060
-            <rdar://problem/30773140>
+            When deconstructing the FrameTree, we fire the unload event in each subframe.
+            Such unload event handler may insert a new frame, we would previously load
+            such new frame which was unsafe as we would end up with an attached subframe
+            on a detached tree. To address the issue, we prevent new subframes from loading
+            while deconstructing the FrameTree and firing the unload events. This new
+            behavior is consistent with Chrome and should therefore be safe from a
+            compatibility standpoint.
 
-            Reviewed by Darin Adler.
+            Test: fast/frames/insert-frame-unload-handler.html
 
-            Make sure we never set the suggested filename to the empty string when
-            the download attribute is present but has no value.
+            * dom/ContainerNodeAlgorithms.cpp:
+            (WebCore::disconnectSubframes):
+            Update SubframeLoadingDisabler call site now that the constructor takes in
+            a pointer instead of a reference.
 
-            Test: http/tests/download/anchor-download-no-value.html
+            * html/HTMLFrameOwnerElement.h:
+            (WebCore::SubframeLoadingDisabler::SubframeLoadingDisabler):
+            (WebCore::SubframeLoadingDisabler::~SubframeLoadingDisabler):
+            Update SubframeLoadingDisabler constructor to take in a pointer instead
+            of a reference, for convenience.
 
-            * loader/PolicyChecker.cpp:
-            (WebCore::PolicyChecker::checkNavigationPolicy):
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::detachChildren):
+            Prevent loads in subframes while detaching the subframes. It would be unsafe
+            as we copy the list of frames before iterating to fire the unload events.
+            Therefore, newly inserted frames would not get unloaded.
 
 2017-03-02  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Rollout r212886. rdar://problem/30812601
+        Rollout r212893. rdar://problem/30812551
 
-2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
+2017-02-22  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Merge r213010. rdar://problem/30704432
+        rdar://problem/30657889
 
-    2017-02-26  Chris Dumez  <cdumez@apple.com>
+    2017-02-22  Filip Pizlo  <fpizlo@apple.com>
 
-            HitTestResult's linkSuggestedFilename should sanitize download attribute
-            https://bugs.webkit.org/show_bug.cgi?id=168856
-            <rdar://problem/30683109>
+            A:B testing should not be contingent upon RC_SEED_BUILD
 
-            Reviewed by Antti Koivisto.
+            Reviewed by Alexey Proskuryakov.
 
-            HitTestResult's linkSuggestedFilename should sanitize download attribute.
-            This is used by the context menu's "Download Linked File" & "Download Linked
-            File As..." actions.
+            * platform/SplitTestInitializer.cpp:
 
-            * rendering/HitTestResult.cpp:
-            (WebCore::HitTestResult::linkSuggestedFilename):
-            * rendering/HitTestResult.h:
+2017-03-01  Matthew Hanson  <matthew_hanson@apple.com>
 
-2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
+        Merge r213211. rdar://problem/30742143
 
-        Merge r212987. rdar://problem/30704432
+    2017-03-01  Per Arne Vollan  <pvollan@apple.com>
 
-    2017-02-24  Chris Dumez  <cdumez@apple.com>
+            [Win] Popup menus are too small in HiDPI mode.
+            https://bugs.webkit.org/show_bug.cgi?id=168965
 
-            Unreviewed, follow-up fix after r212972.
+            Reviewed by Brent Fulgham.
 
-            Fixes a few assertions on the debug build bots.
-            URL needs to be exactly the same as the parsed one given
-            that we are calling the ParsedURLString constructor.
+            Scale font with device scale factor.
 
-            * platform/network/ResourceResponseBase.cpp:
-            (WebCore::ResourceResponseBase::sanitizeSuggestedFilename):
+            * platform/win/PopupMenuWin.cpp:
+            (WebCore::PopupMenuWin::show):
+            (WebCore::PopupMenuWin::calculatePositionAndSize):
+            (WebCore::PopupMenuWin::paint):
+            * platform/win/PopupMenuWin.h:
 
-2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
+2017-02-24  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Merge r212972. rdar://problem/30704432
+        Merge r212822. rdar://problem/30682429
 
-    2017-02-24  Chris Dumez  <cdumez@apple.com>
+    2017-02-22  Per Arne Vollan  <pvollan@apple.com>
 
-            Download attribute should be sanitized before being used as suggested filename
-            https://bugs.webkit.org/show_bug.cgi?id=168839
-            <rdar://problem/30683109>
+            [Win] Crash under CACFLayerTreeHost::acceleratedCompositingAvailable().
+            https://bugs.webkit.org/show_bug.cgi?id=168711
 
-            Reviewed by Darin Adler.
+            Reviewed by Alex Christensen.
 
-            Sanitize Download attribute before using it as a suggested filename for the download.
-            We rely on ResourceResponse's sanitizing of the suggested filename to do so, which has
-            the benefit of being consistent with downloads without the download attribute.
+            Add null pointer check.
 
-            Tests: fast/dom/HTMLAnchorElement/anchor-file-blob-download-includes-doublequote.html
-                   fast/dom/HTMLAnchorElement/anchor-file-blob-download-includes-slashes.html
-                   fast/dom/HTMLAnchorElement/anchor-file-blob-download-includes-unicode.html
+            * platform/graphics/ca/win/CACFLayerTreeHost.cpp:
+            (WebCore::CACFLayerTreeHost::acceleratedCompositingAvailable):
 
-            * html/HTMLAnchorElement.cpp:
-            (WebCore::HTMLAnchorElement::handleClick):
-            * platform/network/ResourceResponseBase.cpp:
-            (WebCore::ResourceResponseBase::sanitizeSuggestedFilename):
-            * platform/network/ResourceResponseBase.h:
+2017-02-22  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r212828. rdar://problem/30636288
+
+    2017-02-21  Antti Koivisto  <antti@apple.com>
+
+            REGRESSION(r207669): Crash after mutating selector text
+            https://bugs.webkit.org/show_bug.cgi?id=168655
+            <rdar://problem/30632111>
+
+            Reviewed by Brent Fulgham.
+
+            Test: fast/css/selector-text-mutation-crash.html
+
+            * style/StyleScope.cpp:
+            (WebCore::Style::Scope::resolver):
+            (WebCore::Style::Scope::updateStyleResolver):
+
+            Protect against entering scheduleUpdate and wiping style resolver while updating it.
+            Extension stylesheets can trigger this.
+
+            (WebCore::Style::Scope::scheduleUpdate):
+
+            Clear the style resolver immediately if style sheet content changes. The resolver may
+            have data structures that point to the old sheet contents.
+
+            The resolver would get wiped anyway when the scheduled update actually occurs.
+
+            * style/StyleScope.h:
+
+2017-02-28  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r213078. rdar://problem/30704432
+
+    2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r213010. rdar://problem/30704432
+
+        2017-02-26  Chris Dumez  <cdumez@apple.com>
+
+                HitTestResult's linkSuggestedFilename should sanitize download attribute
+                https://bugs.webkit.org/show_bug.cgi?id=168856
+                <rdar://problem/30683109>
+
+                Reviewed by Antti Koivisto.
+
+                HitTestResult's linkSuggestedFilename should sanitize download attribute.
+                This is used by the context menu's "Download Linked File" & "Download Linked
+                File As..." actions.
+
+                * rendering/HitTestResult.cpp:
+                (WebCore::HitTestResult::linkSuggestedFilename):
+                * rendering/HitTestResult.h:
+
+2017-02-28  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r213077. rdar://problem/30704432
+
+    2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r212987. rdar://problem/30704432
+
+        2017-02-24  Chris Dumez  <cdumez@apple.com>
+
+                Unreviewed, follow-up fix after r212972.
+
+                Fixes a few assertions on the debug build bots.
+                URL needs to be exactly the same as the parsed one given
+                that we are calling the ParsedURLString constructor.
+
+                * platform/network/ResourceResponseBase.cpp:
+                (WebCore::ResourceResponseBase::sanitizeSuggestedFilename):
+
+2017-02-28  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r213076. rdar://problem/30704432
+
+    2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r212972. rdar://problem/30704432
+
+        2017-02-24  Chris Dumez  <cdumez@apple.com>
+
+                Download attribute should be sanitized before being used as suggested filename
+                https://bugs.webkit.org/show_bug.cgi?id=168839
+                <rdar://problem/30683109>
+
+                Reviewed by Darin Adler.
+
+                Sanitize Download attribute before using it as a suggested filename for the download.
+                We rely on ResourceResponse's sanitizing of the suggested filename to do so, which has
+                the benefit of being consistent with downloads without the download attribute.
+
+                Tests: fast/dom/HTMLAnchorElement/anchor-file-blob-download-includes-doublequote.html
+                       fast/dom/HTMLAnchorElement/anchor-file-blob-download-includes-slashes.html
+                       fast/dom/HTMLAnchorElement/anchor-file-blob-download-includes-unicode.html
+
+                * html/HTMLAnchorElement.cpp:
+                (WebCore::HTMLAnchorElement::handleClick):
+                * platform/network/ResourceResponseBase.cpp:
+                (WebCore::ResourceResponseBase::sanitizeSuggestedFilename):
+                * platform/network/ResourceResponseBase.h:
 
 2017-02-22  Brent Fulgham  <bfulgham@apple.com>
 
@@ -204,37 +1096,62 @@
 
 2017-02-22  Matthew Hanson  <matthew_hanson@apple.com>
 
-        rdar://problem/30657889
+        Merge r212730. rdar://problem/30515072
 
-    2017-02-22  Filip Pizlo  <fpizlo@apple.com>
+    2017-02-21  Per Arne Vollan  <pvollan@apple.com>
 
-            A:B testing should not be contingent upon RC_SEED_BUILD
+            [Win] WebView is not painting in accelerated compositing mode.
+            https://bugs.webkit.org/show_bug.cgi?id=168654
 
-            Reviewed by Alexey Proskuryakov.
+            Reviewed by Brent Fulgham.
 
-            * platform/SplitTestInitializer.cpp:
+            Initializing the uncommitted layer change flags to CoverageRectChanged in GraphicsLayerCA,
+            stops WebView painting in accelerated mode.
+
+            Covered by existing tests.
+
+            * platform/graphics/ca/GraphicsLayerCA.h:
 
 2017-02-22  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Merge r212773. rdar://problem/30640217
+        Merge r212831. rdar://problem/30628889
 
-    2017-02-21  Chris Dumez  <cdumez@apple.com>
+    2017-02-22  Per Arne Vollan  <pvollan@apple.com>
 
-            REGRESSION (203941): iAd Producer: Clicking buttons in Preview does not work
-            https://bugs.webkit.org/show_bug.cgi?id=168677
-            <rdar://problem/30640101>
+            [Win] Compile fix.
+            https://bugs.webkit.org/show_bug.cgi?id=168713
 
-            Reviewed by Ryosuke Niwa.
+            Reviewed by Brent Fulgham.
 
-            Add quirk to initMouseEvent to unbreak iAd Producer.
+            The include file <ANGLE/ShaderLang.h> is not found.
 
-            * dom/MouseEvent.cpp:
-            (WebCore::MouseEvent::initMouseEventQuirk):
-            * dom/MouseEvent.h:
-            * dom/MouseEvent.idl:
-            * platform/RuntimeApplicationChecks.h:
-            * platform/RuntimeApplicationChecks.mm:
-            (WebCore::MacApplication::isIADProducer):
+            * testing/Internals.cpp:
+
+2017-02-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r212819. rdar://problem/30640217
+
+    2017-02-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r212773. rdar://problem/30640217
+
+        2017-02-21  Chris Dumez  <cdumez@apple.com>
+
+                REGRESSION (203941): iAd Producer: Clicking buttons in Preview does not work
+                https://bugs.webkit.org/show_bug.cgi?id=168677
+                <rdar://problem/30640101>
+
+                Reviewed by Ryosuke Niwa.
+
+                Add quirk to initMouseEvent to unbreak iAd Producer.
+
+                * dom/MouseEvent.cpp:
+                (WebCore::MouseEvent::initMouseEventQuirk):
+                * dom/MouseEvent.h:
+                * dom/MouseEvent.idl:
+                * platform/RuntimeApplicationChecks.h:
+                * platform/RuntimeApplicationChecks.mm:
+                (WebCore::MacApplication::isIADProducer):
 
 2017-02-21  Matthew Hanson  <matthew_hanson@apple.com>
 

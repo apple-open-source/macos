@@ -1,0 +1,6 @@
+./test/valid/780228.xml:1: validity error : ID attribute xmlns of b is not valid must be #IMPLIED or #REQUIRED
+<!DOCTYPE b [ <!ATTLIST b xmlns ID "i"> ]>
+                                      ^
+./test/valid/780228.xml:3: parser error : Premature end of data in tag b line 2
+
+^

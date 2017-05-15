@@ -75,21 +75,6 @@
 
 static CFURLRef copyStripUserPassFromCFURL(CFURLRef in_url);
 
-/*
- * The session ref structure for webdav
- *
- * Note: According to Guy Harris, the first element of webdav_ctx does *NOT* have
- * to have the schema as a CFStringRef, despite comments in NFS and SMBs plugin.
- */
-struct webdav_ctx {
-    pthread_mutex_t mutex;
-    CFStringRef     ct_user;
-    CFStringRef     ct_pass;
-	CFStringRef     ct_proxy_user;
-	CFStringRef     ct_proxy_pass;
-	CFURLRef		ct_url;
-};
-
 struct runloopInfo {
     CFHTTPMessageRef message;
     CFStringRef user;
@@ -587,7 +572,8 @@ Return:
 #define WEBDAV_TEMPLATE "/tmp/webdav.XXXXXX"
 
 static int
-WebDAVMountURL(const char *url,
+WebDAVMountURL(struct webdav_ctx *session_ref,
+			   const char *url,
 			   const char *username,
 			   const char *password,
 			   const char *proxy_username,
@@ -670,7 +656,44 @@ WebDAVMountURL(const char *url,
 				write(fd, &be_len, sizeof be_len);
 				write(fd, &be_len, sizeof be_len);				
 			}
-			
+			CFIndex ssl_items;
+			if (session_ref->ct_sslproperties && (ssl_items = CFDictionaryGetCount(session_ref->ct_sslproperties))) {
+				syslog(LOG_DEBUG,"%s: SSL Properties (%ld)\n", __FUNCTION__, ssl_items);
+				CFErrorRef err;
+				CFArrayRef certArray = CFDictionaryGetValue(session_ref->ct_sslproperties, _kCFStreamSSLTrustedLeafCertificates);
+				CFArrayRef certs_data = SecCertificateArrayCreateCFDataArray(certArray);
+
+				CFDataRef data = CFPropertyListCreateData(kCFAllocatorDefault, certs_data, kCFPropertyListXMLFormat_v1_0, 0, &err);
+				if (data) {
+					CFIndex length = CFDataGetLength(data);
+					if (length) {
+						syslog(LOG_DEBUG,"%s: certs_data length=(%ld)", __FUNCTION__, length);
+						be_len = htonl(length);
+						if (write(fd, &be_len, sizeof be_len) > 0) {
+							if (write(fd, (uint8 *)CFDataGetBytePtr(data), length) > 0) {
+								syslog(LOG_DEBUG,"%s: certs_data write (%ld)", __FUNCTION__, length);
+							} else {
+								syslog(LOG_ERR,"%s: certs_data write ERROR", __FUNCTION__);
+							}
+						} else {
+							syslog(LOG_ERR,"%s: certs_data length write ERROR", __FUNCTION__);
+						}
+					} else {
+						syslog(LOG_ERR,"%s: certs_data (zero length)", __FUNCTION__);
+					}
+				} else if (err != NULL) {
+					CFStringRef error_cfstr = CFErrorCopyDescription(err);
+					syslog(LOG_ERR,"%s: CFPropertyListCreateData FAILED err(%ld) - %s", __FUNCTION__, CFErrorGetCode(err), CFStringGetCStringPtr(error_cfstr, kCFStringEncodingUTF8));
+					CFRelease(error_cfstr);
+					CFRelease(err);
+				}
+			} else {
+				be_len = 0;
+
+				// Write zeros for ssl properties len
+				write(fd, &be_len, sizeof be_len);
+			}
+
 			(void)fsync(fd);
 			/* fd will be closed by the mount_webdav that is execl()'ed
 			 in AttemptMount */
@@ -813,8 +836,17 @@ netfsError WebDAV_CreateSessionRef(void **out_SessionRef)
     
     /* zero out the region */
     memset(session_ref, '\0', sizeof(struct webdav_ctx));
-    if (pthread_mutex_init(&session_ref->mutex, NULL) == -1) {
+
+	session_ref->ct_sslproperties = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (session_ref->ct_sslproperties == NULL) {
+		syslog(LOG_ERR, "%s: CFDictionaryCreateMutable failed!", __FUNCTION__);
+		free(session_ref);
+		return ENOMEM;
+	}
+
+	if (pthread_mutex_init(&session_ref->mutex, NULL) == -1) {
 		syslog(LOG_ERR, "%s: pthread_mutex_init failed!", __FUNCTION__);
+		CFRelease(session_ref->ct_sslproperties);
 		free(session_ref);
 		return EINVAL;
     }
@@ -835,7 +867,8 @@ netfsError WebDAV_GetServerInfo(CFURLRef in_URL,
 								CFDictionaryRef in_GetInfoOptions,
 								CFDictionaryRef *out_ServerParms) 
 {
-#pragma unused(in_SessionRef, in_GetInfoOptions)
+#pragma unused(in_GetInfoOptions)
+	struct webdav_ctx *session_ref = in_SessionRef;
     CFMutableDictionaryRef mutableDict = NULL;
 	CFStringRef serverName = NULL;
 	CFMutableDictionaryRef proxyInfo;
@@ -886,7 +919,7 @@ netfsError WebDAV_GetServerInfo(CFURLRef in_URL,
 	// before passing to webdavlib
 	a_url = copyStripUserPassFromCFURL(in_URL);
 	
-	authStat = queryForProxy(a_url, proxyInfo, &error);
+	authStat = queryForProxy(session_ref, a_url, proxyInfo, &error);
 	CFReleaseNull(a_url);
 	
 	// All we care about is whether or not there is a proxy server in the path
@@ -951,7 +984,8 @@ netfsError WebDAV_ParseURL(CFURLRef in_URL, CFDictionaryRef *out_URLParms)
     CFStringRef pass = NULL;
     netfsError error = 0;
     
-    /* 
+	syslog(LOG_DEBUG, "%s: ", __FUNCTION__);
+   /*
      * If in_URL is NULL, there's not much to do, if out_URLParms is NULL,
      * this is a void function, so return.
      */
@@ -1216,7 +1250,8 @@ netfsError WebDAV_OpenSession(CFURLRef in_URL,
 	CFMutableDictionaryRef serverCredsDict;
 	CFURLRef a_url;
     
-    if (in_SessionRef == NULL) {
+	syslog(LOG_DEBUG, "%s: ", __FUNCTION__);
+   if (in_SessionRef == NULL) {
 		syslog(LOG_ERR, "%s: in_SessionRef is NULL!", __FUNCTION__);
 		return EINVAL;
     }
@@ -1342,7 +1377,7 @@ netfsError WebDAV_OpenSession(CFURLRef in_URL,
 		// before passing to webdavlib
 		a_url = copyStripUserPassFromCFURL(in_URL);
 		
-		authStat = connectToServer(a_url, serverCredsDict, FALSE, &error);
+		authStat = connectToServer(ctx, a_url, serverCredsDict, FALSE, &error);
 
 		CFReleaseNull(a_url);
 		
@@ -1536,7 +1571,8 @@ netfsError WebDAV_Mount(void *in_SessionRef,
 	/*
 	 * Do the work of mounting.
 	 */ 
-    error = WebDAVMountURL(url, username, password, proxy_username, proxy_password, mountpoint, sizeof(mountpoint), mntflags);
+	 // pass session_ref->ct_sslproperties for certs (ie _kCFStreamSSLTrustedLeafCertificates)
+    error = WebDAVMountURL(in_SessionRef, url, username, password, proxy_username, proxy_password, mountpoint, sizeof(mountpoint), mntflags);
     
 #if DEBUG_TRACE
     if (error)
@@ -1628,6 +1664,7 @@ netfsError WebDAV_CloseSession(void *in_SessionRef)
 	CFReleaseNull(ctx->ct_proxy_user);
 	CFReleaseNull(ctx->ct_proxy_pass);
 	CFReleaseNull(ctx->ct_url);
+	CFReleaseNull(ctx->ct_sslproperties);
 
 	free(in_SessionRef);
     return 0;

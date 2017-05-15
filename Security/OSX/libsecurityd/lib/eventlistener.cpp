@@ -125,6 +125,7 @@ static bool InitializeNotifications () {
 
                 // Send this event off to the listeners
                 {
+                    StLock<Mutex> lock (gNotificationLock ());
                     EventListenerList& eventList = gEventListeners();
 
                     // route the message to its destination

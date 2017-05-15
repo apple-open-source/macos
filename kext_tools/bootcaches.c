@@ -1984,7 +1984,7 @@ check_csfde(struct bootCaches *caches)
 
     // if we are on a unencrypted core storage volume don't update, 26592318
     if (caches->csfde_uuid && erStamp && !propStamp)
-	goto finish;
+        goto finish;
 
     // generally the timestamp advances, but != means out of date
     needsupdate = erStamp != propStamp;
@@ -2526,12 +2526,26 @@ rebuild_loccache(struct bootCaches *caches)
     time_t      validModTime = 0;
     int         fd = -1;
     struct timeval times[2];
-    
+    struct statfs  fsbuf;
+
     // prefsb.st_size = 0;  // Analyzer doesn't check get_locres_info(&prefsb)
     bzero(&prefsb, sizeof(prefsb)); // and doesn't know bzero sets st_size = 0
     if ((errnum = get_locres_info(caches, locRsrcDir, prefPath, &prefsb,
                                   locCacheDir, &validModTime))) {
         result = errnum; goto finish;   // error logged by function
+    }
+
+    errnum = fstatfs(caches->cachefd, &fsbuf);
+    if (errnum < 0) {
+        result = errno; LOGERRxlate(locCacheDir, NULL, result);
+        goto finish;
+    }
+    if (fsbuf.f_flags & MNT_NOSUID) {
+        result = errnum = 0;
+        OSKextLog(NULL, kOSKextLogWarningLevel,
+                  "Warning: not updating EFI login resources for nosuid '%s'",
+                  caches->root);
+        goto finish;
     }
 
     // empty out locCacheDir ...

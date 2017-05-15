@@ -1,3 +1,219 @@
+2017-04-14  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214637. rdar://problem/31615783
+
+    2017-03-30  Mark Lam  <mark.lam@apple.com>
+
+            IntlObject should not be using JSArray::initializeIndex().
+            https://bugs.webkit.org/show_bug.cgi?id=170302
+            <rdar://problem/31356918>
+
+            Reviewed by Saam Barati.
+
+            JSArray::initializeIndex() is only meant to be used with arrays created using
+            JSArray::tryCreateForInitializationPrivate() under very constrained conditions.
+
+            * runtime/IntlObject.cpp:
+            (JSC::canonicalizeLocaleList):
+            (JSC::intlObjectFuncGetCanonicalLocales):
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214684. rdar://problem/31402752
+
+    2017-03-31  Mark Lam  <mark.lam@apple.com>
+
+            Array.prototype.splice() should not be using JSArray::tryCreateForInitializationPrivate().
+            https://bugs.webkit.org/show_bug.cgi?id=170303
+            <rdar://problem/31358281>
+
+            Reviewed by Filip Pizlo.
+
+            This is because it needs to call getProperty() later to get the values for
+            initializing the array.  getProperty() can execute arbitrary code and potentially
+            trigger the GC.  This is not allowed for clients of JSArray::tryCreateForInitializationPrivate().
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::arrayProtoFuncSplice):
+            (JSC::copySplicedArrayElements): Deleted.
+
+2017-03-30  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214334. rdar://problem/31356106
+
+    2017-03-23  Mark Lam  <mark.lam@apple.com>
+
+            Array.prototype.splice behaves incorrectly when the VM is "having a bad time".
+            https://bugs.webkit.org/show_bug.cgi?id=170025
+            <rdar://problem/31228679>
+
+            Reviewed by Saam Barati.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::copySplicedArrayElements):
+            (JSC::arrayProtoFuncSplice):
+
+2017-03-29  Jason Marcell  <jmarcell@apple.com>
+
+        Rollout r214519. rdar://problem/30922106
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214240. rdar://problem/31178794
+
+    2017-03-21  Mark Lam  <mark.lam@apple.com>
+
+            The DFG Integer Check Combining phase should force an OSR exit for CheckInBounds on a negative constant min bound.
+            https://bugs.webkit.org/show_bug.cgi?id=169933
+            <rdar://problem/31105125>
+
+            Reviewed by Filip Pizlo and Geoffrey Garen.
+
+            Also fixed the bit-rotted RangeKey::dump() function.
+
+            * dfg/DFGIntegerCheckCombiningPhase.cpp:
+            (JSC::DFG::IntegerCheckCombiningPhase::handleBlock):
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214374. rdar://problem/31249971
+
+    2017-03-24  Mark Lam  <mark.lam@apple.com>
+
+            Array memcpy'ing fast paths should check if we're having a bad time if they cannot handle it.
+            https://bugs.webkit.org/show_bug.cgi?id=170064
+            <rdar://problem/31246098>
+
+            Reviewed by Geoffrey Garen.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::arrayProtoPrivateFuncConcatMemcpy):
+            * runtime/JSArray.cpp:
+            (JSC::JSArray::fastSlice):
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r212310. rdar://problem/30922106
+
+    2017-02-14  Mark Lam  <mark.lam@apple.com>
+
+            Add JSC_sweepSynchronously and fix JSC_useZombieMode options.
+            https://bugs.webkit.org/show_bug.cgi?id=168257
+            <rdar://problem/30451496>
+
+            Reviewed by Filip Pizlo.
+
+            JSC_useZombieMode now basically enables JSC_sweepSynchronously and
+            JSC_scribbleFreeCells, which together does the job of zombifying dead objects
+            immediately after a GC.
+
+            * heap/Heap.cpp:
+            (JSC::Heap::sweepSynchronously):
+            (JSC::Heap::collectAllGarbage):
+            (JSC::Heap::finalize):
+            (JSC::Heap::didFinishCollection):
+            (JSC::Zombify::visit): Deleted.
+            (JSC::Zombify::operator()): Deleted.
+            (JSC::Heap::zombifyDeadObjects): Deleted.
+            * heap/Heap.h:
+            (JSC::Heap::isZombified): Deleted.
+            * runtime/Options.cpp:
+            (JSC::recomputeDependentOptions):
+            * runtime/Options.h:
+
+2017-03-28  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213966. rdar://problem/31178551
+
+    2017-03-14  Mark Lam  <mark.lam@apple.com>
+
+            BytecodeGenerator should use the same function to determine if it needs to store the DerivedConstructor in an ArrowFunction lexical environment.
+            https://bugs.webkit.org/show_bug.cgi?id=169647
+            <rdar://problem/31051832>
+
+            Reviewed by Michael Saboff.
+
+            * bytecompiler/BytecodeGenerator.cpp:
+            (JSC::BytecodeGenerator::usesDerivedConstructorInArrowFunctionLexicalEnvironment):
+            (JSC::BytecodeGenerator::initializeArrowFunctionContextScopeIfNeeded):
+            (JSC::BytecodeGenerator::emitPutDerivedConstructorToArrowFunctionContextScope):
+            * bytecompiler/BytecodeGenerator.h:
+
+2017-03-17  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214079. rdar://problem/31116372
+
+    2017-03-16  Mark Lam  <mark.lam@apple.com>
+
+            Array concat operation should check for length overflows.
+            https://bugs.webkit.org/show_bug.cgi?id=169796
+            <rdar://problem/31095276>
+
+            Reviewed by Keith Miller.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::concatAppendOne):
+            (JSC::arrayProtoPrivateFuncConcatMemcpy):
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214071. rdar://problem/31077016
+
+    2017-03-16  Mark Lam  <mark.lam@apple.com>
+
+            The new array with spread operation needs to check for length overflows.
+            https://bugs.webkit.org/show_bug.cgi?id=169780
+            <rdar://problem/31072182>
+
+            Reviewed by Filip Pizlo.
+
+            * dfg/DFGOperations.cpp:
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::compileNewArrayWithSpread):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileNewArrayWithSpread):
+            * ftl/FTLOperations.cpp:
+            (JSC::FTL::operationMaterializeObjectInOSR):
+            * llint/LLIntSlowPaths.cpp:
+            * runtime/CommonSlowPaths.cpp:
+            (JSC::SLOW_PATH_DECL):
+            * runtime/JSGlobalObject.cpp:
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213742. rdar://problem/30921818
+
+    2017-03-10  Mark Lam  <mark.lam@apple.com>
+
+            JSC: BindingNode::bindValue doesn't increase the scope's reference count.
+            https://bugs.webkit.org/show_bug.cgi?id=168546
+            <rdar://problem/30589551>
+
+            Reviewed by Saam Barati.
+
+            We should protect the scope RegisterID with a RefPtr while it is still needed.
+
+            * bytecompiler/NodesCodegen.cpp:
+            (JSC::ForInNode::emitLoopHeader):
+            (JSC::ForOfNode::emitBytecode):
+            (JSC::BindingNode::bindValue):
+
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r213648. rdar://problem/30921824
+
+    2017-03-09  Filip Pizlo  <fpizlo@apple.com>
+
+            WebKit: JSC: JSObject::ensureLength doesn't check if ensureLengthSlow failed
+            https://bugs.webkit.org/show_bug.cgi?id=169215
+
+            Reviewed by Mark Lam.
+
+            This doesn't have a test because it would be a very complicated test.
+
+            * runtime/JSObject.h:
+            (JSC::JSObject::ensureLength): If ensureLengthSlow returns false, we need to return false.
+
 2017-02-23  Filip Pizlo  <fpizlo@apple.com>
 
         verifyEdges should not run in release
@@ -7,6 +223,61 @@
 
         * dfg/DFGAbstractInterpreterInlines.h:
         (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+
+2017-02-21  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r212692. rdar://problem/30635854
+
+    2017-02-20  Mark Lam  <mark.lam@apple.com>
+
+            [Re-landing] CachedCall should let GC know to keep its arguments alive.
+            https://bugs.webkit.org/show_bug.cgi?id=168567
+            <rdar://problem/30475767>
+
+            Reviewed by Saam Barati.
+
+            We fix this by having CachedCall use a MarkedArgumentBuffer to store its
+            arguments instead of a Vector.
+
+            Also declared CachedCall, MarkedArgumentBuffer, and ProtoCallFrame as
+            WTF_FORBID_HEAP_ALLOCATION because they rely on being stack allocated for
+            correctness.
+
+            Update: the original patch has a bug in MarkedArgumentBuffer::expandCapacity()
+            where it was copying and calling addMarkSet() on values in m_buffer beyond m_size
+            (up to m_capacity).  As a result, depending on the pre-existing values in
+            m_inlineBuffer, this may result in a computed Heap pointer that is wrong, and
+            subsequently, manifest as a crash.  This is likely to be the cause of the PLT
+            regression.
+
+            I don't have a new test for this fix because the issue relies on sufficiently bad
+            values randomly showing up in m_inlineBuffer when we do an ensureCapacity() which
+            calls expandCapacity().
+
+            * interpreter/CachedCall.h:
+            (JSC::CachedCall::CachedCall):
+            (JSC::CachedCall::call):
+            (JSC::CachedCall::clearArguments):
+            (JSC::CachedCall::appendArgument):
+            (JSC::CachedCall::setArgument): Deleted.
+            * interpreter/CallFrame.h:
+            (JSC::ExecState::emptyList):
+            * interpreter/Interpreter.cpp:
+            (JSC::Interpreter::prepareForRepeatCall):
+            * interpreter/Interpreter.h:
+            * interpreter/ProtoCallFrame.h:
+            * runtime/ArgList.cpp:
+            (JSC::MarkedArgumentBuffer::slowEnsureCapacity):
+            (JSC::MarkedArgumentBuffer::expandCapacity):
+            (JSC::MarkedArgumentBuffer::slowAppend):
+            * runtime/ArgList.h:
+            (JSC::MarkedArgumentBuffer::append):
+            (JSC::MarkedArgumentBuffer::ensureCapacity):
+            * runtime/StringPrototype.cpp:
+            (JSC::replaceUsingRegExpSearch):
+            * runtime/VM.cpp:
+            (JSC::VM::VM):
+            * runtime/VM.h:
 
 2017-02-23  Filip Pizlo  <fpizlo@apple.com>
 

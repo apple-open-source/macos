@@ -108,6 +108,7 @@
 #define ARG_MOTIONSENSOR    "sms"
 #define ARG_MOTIONSENSOR2   "ams"
 #define ARG_TTYKEEPAWAKE    "ttyskeepawake"
+#define ARG_TCPKEEPALIVE    "tcpkeepalive"
 #define ARG_GPU             "gpuswitch"
 #define ARG_NETAVAILABLE    "networkoversleep"
 #define ARG_DEEPSLEEP       "standby"
@@ -299,6 +300,7 @@ PMFeature all_features[] =
     { kIOHibernateModeKey,          ARG_HIBERNATEMODE },
     { kIOHibernateFileKey,          ARG_HIBERNATEFILE },
     { kIOPMAutoPowerOffEnabledKey,  ARG_AUTOPOWEROFF },
+    { kIOPMTCPKeepAlivePrefKey,     ARG_TCPKEEPALIVE },
     { kIOPMAutoPowerOffDelayKey,    ARG_AUTOPOWEROFFDELAY }     
 };
 
@@ -5402,6 +5404,23 @@ static int parseArgs(int argc,
             {            
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMTTYSPreventSleepKey), 
                                                 apply, true, kNoMultiplier, 
+                                                ac, battery, ups))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strncmp(argv[i], ARG_TCPKEEPALIVE, kMaxArgStringLength))
+            {
+                long val = -1;
+                val = strtol(argv[i+1], NULL, 0);
+                if (val == 0) {
+                    fprintf(stdout, "Warning: This option disables TCP Keep Alive mechanism when sytem is sleeping. "
+                            "This will result in some critical features like \'Find My Mac\' not to function properly.\n");
+                }
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMTCPKeepAlivePrefKey),
+                                                apply, true, kNoMultiplier,
                                                 ac, battery, ups))
                 {
                     ret = kParseBadArgs;

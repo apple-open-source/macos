@@ -261,6 +261,11 @@ IOUSBMassStorageClass::BulkOnlySendCBWPacket (
 
 	// Make sure our bulk out pipe is still valid before we try to use it.
 	require ( ( fBulkOutPipe != NULL ), Exit );
+
+	// Copy data from boCBW field into its IOBufferMemoryDescriptor buffer prior to write
+	bcopy ( &boRequestBlock->boCBW,
+		    fBulkOnlyCBWMemoryDescriptor->getBytesNoCopy ( ),
+		    kByteCountOfCBW );
 	
 	// Send the CBW to the device	
    	STATUS_LOG ( ( 6, "%s[%p]: BulkOnlySendCBWPacket sent", getName(), this ) );
@@ -402,9 +407,10 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		                UInt32					bufferSizeRemaining)
 {
 
-	IOReturn 		status = kIOReturnError;
-	bool			commandInProgress = false;
-	bool			abortCommand = false;
+	IOReturn					status				= kIOReturnError;
+	bool						commandInProgress	= false;
+	bool						abortCommand		= false;
+	IOBufferMemoryDescriptor *	bufferBOPhaseDesc	= NULL;
 
 
 	STATUS_LOG ( ( 4, "%s[%p]: BulkOnlyExecuteCommandCompletion Entered with boRequestBlock=%p currentState=%d resultingStatus=0x%x", getName(), this, boRequestBlock, boRequestBlock->currentState, resultingStatus ) );
@@ -787,6 +793,14 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		
 		case kBulkOnlyStatusReceived:
 		{
+			// Copy newly read data from separate IOBufferMemoryDescriptor buffer into boCSW
+			bufferBOPhaseDesc = OSDynamicCast(IOBufferMemoryDescriptor, boRequestBlock->boPhaseDesc);
+			require ( ( bufferBOPhaseDesc != NULL ), Exit );
+
+			bcopy ( bufferBOPhaseDesc->getBytesNoCopy ( ),
+				   &boRequestBlock->boCSW,
+				   kByteCountOfCSW );
+
    			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyStatusReceived returned %x cswTag=0x%08x", getName(), this, resultingStatus, boRequestBlock->boCSW.cswTag ) );
 			
 			// Bulk transfer is done, get the Command Status Wrapper from the device

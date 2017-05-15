@@ -1861,6 +1861,7 @@ agrps_client_to_error_request(enum SecXPCOperation op, CFArrayRef agrps, __unuse
 }
 
 bool SecItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, CFErrorRef *error) {
+#if 0
     os_activity_t trace_activity = os_activity_start("SecItemDeleteAllWithAccessGroups", OS_ACTIVITY_FLAG_DEFAULT);
 
     bool ok = SECURITYD_XPC(sec_delete_items_with_access_groups, agrps_client_to_error_request, accessGroups,
@@ -1868,6 +1869,11 @@ bool SecItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, CFErrorRef *error
 
     os_activity_end(trace_activity);
     return ok;
+#else
+    os_activity_t trace_activity = os_activity_start("SecItemDeleteAllWithAccessGroups", OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_end(trace_activity);
+    return true;
+#endif
 }
 
 OSStatus

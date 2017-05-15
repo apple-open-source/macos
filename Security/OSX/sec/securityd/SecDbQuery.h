@@ -134,6 +134,7 @@ typedef struct Query
     //trusted only certs and identities
     CFBooleanRef q_match_trusted_only;
 
+    CFIndex q_pairs_count;
     Pair q_pairs[];
 } Query;
 

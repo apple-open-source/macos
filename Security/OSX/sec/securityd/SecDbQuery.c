@@ -317,8 +317,13 @@ void query_add_attribute_with_desc(const SecDbAttr *desc, const void *value, Que
 
     if (desc->kind != kSecDbAccessControlAttr) {
         /* Record the new attr key, value in q_pairs. */
-        q->q_pairs[q->q_attr_end].key = desc->name;
-        q->q_pairs[q->q_attr_end++].value = attr;
+        if (q->q_attr_end + 1 < q->q_pairs_count) {
+            q->q_pairs[q->q_attr_end].key = desc->name;
+            q->q_pairs[q->q_attr_end++].value = attr;
+        } else {
+            SecError(errSecInternal, &q->q_error, CFSTR("q_pairs overflow"));
+            CFReleaseSafe(attr);
+        }
     } else {
         CFReleaseSafe(attr);
     }
@@ -898,6 +903,7 @@ Query *query_create(const SecDbClass *qclass,
         return NULL;
     }
 
+    q->q_pairs_count = key_count;
     q->q_musrView = (CFDataRef)CFRetain(musr);
     q->q_keybag = KEYBAG_DEVICE;
     q->q_class = qclass;

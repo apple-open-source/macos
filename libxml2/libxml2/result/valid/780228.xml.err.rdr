@@ -1,0 +1,7 @@
+./test/valid/780228.xml:1: validity error : ID attribute xmlns of b is not valid must be #IMPLIED or #REQUIRED
+<!DOCTYPE b [ <!ATTLIST b xmlns ID "i"> ]>
+                                      ^
+./test/valid/780228.xml:2: parser error : Extra content at the end of the document
+<b>
+   ^
+./test/valid/780228.xml : failed to parse

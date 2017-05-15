@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2012-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012-2017 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -177,14 +177,28 @@ static void
 SecDbDestroy(CFTypeRef value)
 {
     SecDbRef db = (SecDbRef)value;
-    CFReleaseSafe(db->connections);
-    CFReleaseSafe(db->db_path);
-    dispatch_release(db->queue);
-    dispatch_release(db->commitQueue);
-    dispatch_release(db->read_semaphore);
-    dispatch_release(db->write_semaphore);
-    if (db->opened)
+    CFReleaseNull(db->connections);
+    CFReleaseNull(db->db_path);
+    if (db->queue) {
+        dispatch_release(db->queue);
+        db->queue = NULL;
+    }
+    if (db->commitQueue) {
+        dispatch_release(db->commitQueue);
+        db->commitQueue = NULL;
+    }
+    if (db->read_semaphore) {
+        dispatch_release(db->read_semaphore);
+        db->read_semaphore = NULL;
+    }
+    if (db->write_semaphore) {
+        dispatch_release(db->write_semaphore);
+        db->write_semaphore = NULL;
+    }
+    if (db->opened) {
         Block_release(db->opened);
+        db->opened = NULL;
+    }
     CFReleaseNull(db->notifyPhase);
 }
 

@@ -219,4 +219,6 @@ time_t ISO8601ToTime(			/* <- time_t value; -1 if error */
 	const UInt8 *bytes,			/* -> pointer to bytes to parse */
 	CFIndex length);			/* -> number of bytes to parse */
 
+int certs_init(CFDataRef certs);
+
 #endif

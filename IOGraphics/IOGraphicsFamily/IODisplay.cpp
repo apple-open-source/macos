@@ -916,7 +916,7 @@ IOReturn IODisplay::setProperties( OSObject * properties )
                       gIODisplayParametersCommitKey, 0 );
 
     doIntegerSet( OSDynamicCast( OSDictionary, displayParams->getObject(gIODisplayParametersFlushKey)),
-                  gIODisplayParametersFlushKey, 0 );
+                 gIODisplayParametersFlushKey, 0 );
 
     framebuffer->fbUnlock();
 

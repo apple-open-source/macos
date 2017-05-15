@@ -87,14 +87,12 @@ struct callback_ctx {
 // function prototypes
 // enum WEBDAVLIBAuthStatus checkServerAuth(CFURLRef a_url);
 static void SecAddTrustedCerts(CFArrayRef certs, CFMutableDictionaryRef sslPropDict);
-static CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs);
-static CFDataRef SecCertificateCreateCFData(SecCertificateRef cert);
 static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error, CFURLRef a_url, CFMutableDictionaryRef sslPropDict);
 static enum WEBDAVLIBAuthStatus finalStatusFromStatusCode(struct callback_ctx *ctx, int *error);
 static int handleStreamError(struct callback_ctx *ctx, boolean_t *tryAgain, CFReadStreamRef rdStream, CFURLRef a_url);
 static int handleSSLErrors(struct callback_ctx *ctx, boolean_t *tryAgain, CFReadStreamRef rdStream, CFURLRef a_url);
-static enum WEBDAVLIBAuthStatus sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *result);
-static enum WEBDAVLIBAuthStatus sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDictionaryRef creds, int *result);
+static enum WEBDAVLIBAuthStatus sendOptionsRequest(struct webdav_ctx *session_ref, CFURLRef a_url, struct callback_ctx *ctx, int *result);
+static enum WEBDAVLIBAuthStatus sendOptionsRequestAuthenticated(struct webdav_ctx *session_ref, CFURLRef a_url, struct callback_ctx *ctx, CFDictionaryRef creds, int *result);
 static void applyCredentialsToRequest(struct callback_ctx *ctx, CFDictionaryRef creds, CFHTTPMessageRef request);
 static void checkServerAuth_handleStreamEvent(CFReadStreamRef stream, CFStreamEventType type, void *clientCallBackInfo);
 static int updateNetworkProxies(struct callback_ctx *ctx);
@@ -188,7 +186,7 @@ MallocNewCerts:
  *
  * Creates a CFDataRef from a SecCertificateRef.
  */
-static CFDataRef SecCertificateCreateCFData(SecCertificateRef cert)
+CFDataRef SecCertificateCreateCFData(SecCertificateRef cert)
 {
 	CFDataRef data;
 	
@@ -207,7 +205,7 @@ static CFDataRef SecCertificateCreateCFData(SecCertificateRef cert)
  *
  * Convert a CFArray[SecCertificate] to CFArray[CFData].
  */
-static CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs)
+CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs)
 {
 	CFMutableArrayRef array;
 	CFIndex count;
@@ -407,7 +405,7 @@ CFDictionaryCreateMutable:
 }
 /******************************************************************************/
 enum WEBDAVLIBAuthStatus
-queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
+queryForProxy(struct webdav_ctx *session_ref, CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
 {
 	enum WEBDAVLIBAuthStatus finalStatus;
 	int result;
@@ -416,7 +414,7 @@ queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
 	
 	initContext(&ctx);
 	
-	finalStatus = sendOptionsRequest(a_url, &ctx, &result);
+	finalStatus = sendOptionsRequest(session_ref, a_url, &ctx, &result);
 	*error = result;
 	
 	switch (finalStatus) {
@@ -428,7 +426,8 @@ queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
 			if(ctx.httpProxyEnabled == TRUE) {
 				// Return http proxy server info in proxyInfo dictionary
 				CFDictionarySetValue(proxyInfo, kWebDAVLibProxySchemeKey, CFSTR("http"));
-				CFDictionarySetValue(proxyInfo, kWebDAVLibProxyServerNameKey, ctx.httpProxyServer);
+				if (ctx.httpProxyServer != NULL)
+					CFDictionarySetValue(proxyInfo, kWebDAVLibProxyServerNameKey, ctx.httpProxyServer);
 
 				if (ctx.proxyRealm != NULL)
 					CFDictionarySetValue(proxyInfo, kWebDAVLibProxyRealmKey, ctx.proxyRealm);
@@ -443,7 +442,8 @@ queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
 			else {
 				// Return https proxy server info in proxyInfo dictionary
 				CFDictionarySetValue(proxyInfo, kWebDAVLibProxySchemeKey, CFSTR("https"));
-				CFDictionarySetValue(proxyInfo, kWebDAVLibProxyServerNameKey, ctx.httpsProxyServer);
+				if (ctx.httpsProxyServer != NULL)
+					CFDictionarySetValue(proxyInfo, kWebDAVLibProxyServerNameKey, ctx.httpsProxyServer);
 				
 				if (ctx.proxyRealm != NULL)
 					CFDictionarySetValue(proxyInfo, kWebDAVLibProxyRealmKey, ctx.proxyRealm);
@@ -473,7 +473,7 @@ queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
 }
 
 enum WEBDAVLIBAuthStatus
-connectToServer(CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLogin, int *error)	
+connectToServer(struct webdav_ctx *session_ref, CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLogin, int *error)
 {	
 	enum WEBDAVLIBAuthStatus finalStatus;
 	int result;
@@ -485,7 +485,7 @@ connectToServer(CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLo
 	// remember if caller wants credentials to be sent securely
 	ctx.requireSecureLogin = requireSecureLogin;
 
-	finalStatus = sendOptionsRequestAuthenticated(a_url, &ctx, creds, &result);
+	finalStatus = sendOptionsRequestAuthenticated(session_ref, a_url, &ctx, creds, &result);
 	*error = result;
 	
 	switch (finalStatus) {
@@ -514,10 +514,10 @@ connectToServer(CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLo
 	
 
 static enum WEBDAVLIBAuthStatus
-sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
+sendOptionsRequest(struct webdav_ctx *session_ref, CFURLRef a_url, struct callback_ctx *ctx, int *err)
 {
 	CFHTTPMessageRef message;
-	CFReadStreamRef rdStream;
+	CFReadStreamRef rdStream = NULL;
 	CFURLRef myURL;
 	CFStringRef urlStr;
 	boolean_t done, tryAgain;
@@ -537,6 +537,14 @@ sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
 	// update proxy information
 	updateNetworkProxies(ctx);
 	
+	if (session_ref->ct_sslproperties) {
+		ctx->sslPropDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, session_ref->ct_sslproperties);
+		if (ctx->sslPropDict == NULL) {
+			syslog(LOG_DEBUG, "%s: (ctx->sslPropDict) CFDictionaryCreateMutableCopy failed", __FUNCTION__);
+		} else {
+			syslog(LOG_DEBUG, "%s: (ctx->sslPropDict) UPDATED", __FUNCTION__);
+		}
+	}
 	done = FALSE;
 	while (done == FALSE) {		
 		// create a CFHTTP message object
@@ -551,13 +559,38 @@ sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
 		ctx->status = CheckAuthInprogress;
 
 		// apply http/https proxy properties
-		if (ctx->sslPropDict != NULL)
-			CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPProxy, ctx->sslPropDict);
-		
+		if(CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPUseSystemProxySettings, kCFBooleanTrue)) {
+			syslog(LOG_DEBUG, "%s: kCFStreamPropertyHTTPUseSystemProxySettings ENABLED", __FUNCTION__);
+		} else {
+			syslog(LOG_DEBUG, "%s: kCFStreamPropertyHTTPUseSystemProxySettings ERROR", __FUNCTION__);
+		}
 		// apply SSL properties
-		if (ctx->sslPropDict != NULL)
-			CFReadStreamSetProperty(rdStream, kCFStreamPropertySSLSettings, ctx->sslPropDict);
-		
+		if (ctx->sslPropDict && CFDictionaryGetCount(ctx->sslPropDict)) {
+			if (CFReadStreamSetProperty(rdStream, kCFStreamPropertySSLSettings, ctx->sslPropDict)) {
+				syslog(LOG_DEBUG, "%s: kCFStreamPropertySSLSettings", __FUNCTION__);
+				CFIndex ssl_items;
+				if ((ssl_items = CFDictionaryGetCount(ctx->sslPropDict)) != 0 ) {
+					syslog(LOG_DEBUG,"%s: SSL Properties (%ld)\n", __FUNCTION__, ssl_items);
+				}
+			} else {
+				syslog(LOG_ERR, "%s: CFReadStreamSetProperty FAILED property (kCFStreamPropertySSLSettings)", __FUNCTION__);
+			}
+			if (session_ref->ct_sslproperties != NULL) {
+				CFRelease(session_ref->ct_sslproperties);
+				session_ref->ct_sslproperties = NULL;
+				syslog(LOG_DEBUG, "%s: ct_sslproperties copy current SSL Properties", __FUNCTION__);
+				session_ref->ct_sslproperties = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, ctx->sslPropDict);
+				if (session_ref->ct_sslproperties == NULL) {
+					syslog(LOG_DEBUG, "%s: (ct_sslproperties) CFDictionaryCreateMutableCopy failed", __FUNCTION__);
+				} else {
+					syslog(LOG_DEBUG, "%s: (ct_sslproperties) UPDATED", __FUNCTION__);
+				}
+			} else {
+				syslog(LOG_ERR, "%s: cannot store SSL Properties in webdav session ref", __FUNCTION__);
+			}
+		} else {
+			syslog(LOG_DEBUG, "%s: kCFStreamPropertySSLSettings [NOT SET]", __FUNCTION__);
+		}
 		// Set up the callback and schedule
 		CFReadStreamSetClient(rdStream,
 							  kCFStreamEventHasBytesAvailable | kCFStreamEventEndEncountered | kCFStreamEventErrorOccurred,
@@ -575,6 +608,7 @@ sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
 		if (ctx->status == CheckAuthCallbackDone) {
 			// We received an http status code
 			finalStatus = finalStatusFromStatusCode(ctx, err);
+			syslog(LOG_ERR, "%s: finalStatus(%d)", __FUNCTION__, finalStatus);
 			
 			if (finalStatus == WEBDAVLIB_ProxyAuth) {
 				// create an authentication object so we can fetch the realm
@@ -642,7 +676,7 @@ sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
 }
 
 static enum WEBDAVLIBAuthStatus
-sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDictionaryRef creds, int *err)
+sendOptionsRequestAuthenticated(struct webdav_ctx *session_ref, CFURLRef a_url, struct callback_ctx *ctx, CFDictionaryRef creds, int *err)
 {
 	CFHTTPMessageRef message;
 	CFReadStreamRef rdStream;
@@ -665,7 +699,16 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 		
 	// update proxy information
 	updateNetworkProxies(ctx);
-		
+
+	if (session_ref->ct_sslproperties) {
+		ctx->sslPropDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, session_ref->ct_sslproperties);
+		if (ctx->sslPropDict == NULL) {
+			syslog(LOG_DEBUG, "%s: (ctx->sslPropDict) CFDictionaryCreateMutableCopy failed", __FUNCTION__);
+		} else {
+			syslog(LOG_DEBUG, "%s: (ctx->sslPropDict) UPDATED", __FUNCTION__);
+		}
+	}
+
 	done = FALSE;
 	while (done == FALSE) {		
 		// create a CFHTTP message object
@@ -683,13 +726,35 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 		ctx->status = CheckAuthInprogress;
 			
 		// apply http/https proxy properties
-		if (ctx->sslPropDict != NULL)
-			CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPProxy, ctx->sslPropDict);
+		if(CFReadStreamSetProperty(rdStream, kCFStreamPropertyHTTPUseSystemProxySettings, kCFBooleanTrue)) {
+			syslog(LOG_DEBUG, "%s: kCFStreamPropertyHTTPUseSystemProxySettings ENABLED", __FUNCTION__);
 			
+		} else {
+			syslog(LOG_DEBUG, "%s: kCFStreamPropertyHTTPUseSystemProxySettings ERROR", __FUNCTION__);
+		}
 		// apply SSL properties
-		if (ctx->sslPropDict != NULL)
-			CFReadStreamSetProperty(rdStream, kCFStreamPropertySSLSettings, ctx->sslPropDict);
-			
+		if (ctx->sslPropDict && CFDictionaryGetCount(ctx->sslPropDict)) {
+			if (CFReadStreamSetProperty(rdStream, kCFStreamPropertySSLSettings, ctx->sslPropDict)) {
+				syslog(LOG_DEBUG, "%s: kCFStreamPropertySSLSettings", __FUNCTION__);
+			} else {
+				syslog(LOG_ERR, "%s: CFReadStreamSetProperty FAILED property (kCFStreamPropertySSLSettings)", __FUNCTION__);
+			}
+			if (session_ref->ct_sslproperties != NULL) {
+				CFRelease(session_ref->ct_sslproperties);
+				session_ref->ct_sslproperties = NULL;
+				syslog(LOG_DEBUG, "%s: ct_sslproperties copy current SSL Properties", __FUNCTION__);
+				session_ref->ct_sslproperties = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, ctx->sslPropDict);
+				if (session_ref->ct_sslproperties == NULL) {
+					syslog(LOG_DEBUG, "%s: (ct_sslproperties) CFDictionaryCreateMutableCopy failed", __FUNCTION__);
+				} else {
+					syslog(LOG_DEBUG, "%s: (ct_sslproperties) UPDATED", __FUNCTION__);
+				}
+			} else {
+				syslog(LOG_ERR, "%s: cannot store SSL Properties in webdav session ref", __FUNCTION__);
+			}
+		} else {
+			syslog(LOG_DEBUG, "%s: kCFStreamPropertySSLSettings [NOT SET]", __FUNCTION__);
+		}
 		// Set up the callback and schedule
 		CFReadStreamSetClient(rdStream,
 								kCFStreamEventHasBytesAvailable | kCFStreamEventEndEncountered | kCFStreamEventErrorOccurred,
@@ -972,7 +1037,6 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 	
 	if (myURL != NULL)
 		CFRelease(myURL);
-	
 	return (finalStatus);
 }
 
@@ -1342,6 +1406,8 @@ static int updateNetworkProxies(struct callback_ctx *ctx)
 				}
 			}
 		}
+	} else {
+		syslog(LOG_DEBUG, "%s: NO Proxy configured\n", __FUNCTION__);
 	}
 }
 

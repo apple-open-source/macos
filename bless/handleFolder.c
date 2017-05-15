@@ -254,7 +254,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 				blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
                 actargs[kfile].argument );
             } else {
-                ret = BLCreateFile(context, bootEFIdata, actargs[kfile].argument, 1, 0, 0);
+                ret = BLCreateFile(context, bootEFIdata, actargs[kfile].argument, 0, 0, 0);
                 if(ret) {
                     blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", actargs[kfile].argument );
                     return 2;
@@ -804,6 +804,18 @@ static int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, struct 
     uint64_t        blessIDs[2];
     CFDataRef       booterData;
     struct stat     existingStat;
+    uint16_t        role;
+    
+    // Is this already a preboot or recovery volume?
+    if (APFSVolumeRole(rootBSD, &role, NULL)) {
+        ret = 8;
+        goto exit;
+    }
+    if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+        // Nothing to do here.  See ya.
+        ret = 0;
+        goto exit;
+    }
     
     // First find the volume UUID
     rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, rootBSD));
@@ -886,7 +898,7 @@ static int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, struct 
                 blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
                                    prebootFolderPath);
             } else {
-                ret = BLCreateFile(context, booterData, prebootFolderPath, 1, 0, 0);
+                ret = BLCreateFile(context, booterData, prebootFolderPath, 0, 0, 0);
                 if (ret) {
                     blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", prebootFolderPath);
                     ret = 7;

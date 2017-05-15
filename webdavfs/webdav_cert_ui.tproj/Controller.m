@@ -134,11 +134,11 @@ CFDataArrayCreateSecCertificateArray(CFArrayRef certs)
     CFMutableArrayRef array;
     CFIndex count;
     int i;
-    
+
 	count = CFArrayGetCount(certs);
     array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
 	require(array != NULL, CFArrayCreateMutable);
-	
+
 	for (i = 0; i < count; ++i)
 	{
 		SecCertificateRef cert;
@@ -146,23 +146,23 @@ CFDataArrayCreateSecCertificateArray(CFArrayRef certs)
 
 		data = isA_CFData((CFDataRef)CFArrayGetValueAtIndex(certs, i));
 		require(data != NULL, isA_CFData);
-		
+
 		cert = CFDataCreateSecCertificate(data);
 		require(cert != NULL, CFDataCreateSecCertificate);
-		
+
 		CFArrayAppendValue(array, cert);
 		CFRelease(cert);
 	}
-	
+
 	return (array);
-	
+
 	/* error cases handled here */
 
 CFDataCreateSecCertificate:
 isA_CFData:
 
     CFRelease(array);
-	
+
 CFArrayCreateMutable:
 
     return (NULL);

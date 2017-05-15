@@ -2465,7 +2465,7 @@ IOReturn IONDRVFramebuffer::setGammaTable(
 
 IOReturn IONDRVFramebuffer::setGammaTable(
                                           UInt32 channelCount, UInt32 dataCount,
-                                          UInt32 dataWidth, void * data, bool /*syncToVBL*/ )
+                                          UInt32 dataWidth, void * data, bool syncToVBL )
 {
     IOReturn            err;
     VDClutBehavior      clutSetting;
@@ -2488,15 +2488,21 @@ IOReturn IONDRVFramebuffer::setGammaTable(
     }
 
     table->gVersion     = 0;
-    table->gType        = 0;
+    table->gType        = static_cast<short>(syncToVBL);
     table->gFormulaSize = 0;
     table->gChanCnt     = channelCount;
     table->gDataCnt     = dataCount;
     table->gDataWidth   = dataWidth;
 
     gammaRec.csGTable = (Ptr) table;
-    err = _doControl( this, cscSetGamma, &gammaRec );
 
+    // Attempt with syncToVBL case, if that fails fall back to legacy (gType == 0) and retry.
+    err = _doControl( this, cscSetGamma, &gammaRec );
+    if ((kIOReturnSuccess != err) && (0 != table->gType))
+    {
+        table->gType        = 0;
+        err = _doControl( this, cscSetGamma, &gammaRec );
+    }
     if (kIOReturnSuccess != err)
         DEBG(thisName, " cscSetGamma(%d, %d, %d) set: %d\n",
                 (uint32_t) channelCount, (uint32_t) dataCount, (uint32_t) dataWidth, err);

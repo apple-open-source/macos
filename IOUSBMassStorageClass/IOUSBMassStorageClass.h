@@ -185,20 +185,20 @@ protected:
     struct ExpansionData
 	{
 #endif // EMBEDDED
-		bool					fResetInProgress;
-		OSSet *					fClients;
-		IOUSBPipe *				fPotentiallyStalledPipe;
-		bool					fUseUSBResetNotBOReset;
-		bool					fAbortCurrentSCSITaskInProgress;
-		IOMemoryDescriptor *	fCBIMemoryDescriptor;
-		IOMemoryDescriptor *	fBulkOnlyCBWMemoryDescriptor;
-		IOMemoryDescriptor *	fBulkOnlyCSWMemoryDescriptor;
-        bool                    fDeviceAttached;
-		bool                    fWaitingForReconfigurationMessage;
-		bool					fTerminating;
-        bool                    fKnownCSWTagMismatchIssues;
-        bool                    fPortSuspendResumeForPMEnabled;
-        bool                    fPortIsSuspended;
+		bool						fResetInProgress;
+		OSSet *						fClients;
+		IOUSBPipe *					fPotentiallyStalledPipe;
+		bool						fUseUSBResetNotBOReset;
+		bool						fAbortCurrentSCSITaskInProgress;
+		IOBufferMemoryDescriptor *	fCBIMemoryDescriptor;
+		IOBufferMemoryDescriptor *	fBulkOnlyCBWMemoryDescriptor;
+		IOBufferMemoryDescriptor *	fBulkOnlyCSWMemoryDescriptor;
+        bool						fDeviceAttached;
+		bool						fWaitingForReconfigurationMessage;
+		bool						fTerminating;
+        bool						fKnownCSWTagMismatchIssues;
+        bool						fPortSuspendResumeForPMEnabled;
+        bool						fPortIsSuspended;
 #ifndef EMBEDDED
 		bool					fRequiresResetOnResume;
 		bool					fAutonomousSpinDownWorkAround;
@@ -285,19 +285,19 @@ protected:
 	virtual bool    		SendSCSICommand( 	
 								SCSITaskIdentifier 		request, 
 								SCSIServiceResponse *	serviceResponse,
-								SCSITaskStatus		*	taskStatus );
+								SCSITaskStatus		*	taskStatus ) APPLE_KEXT_OVERRIDE;
 
 	// The AbortSCSICommand function will abort the indicated SCSITask object,
 	// if it is possible and the SCSITask has not already completed.
-    virtual SCSIServiceResponse    	AbortSCSICommand( SCSITaskIdentifier abortTask );
+    virtual SCSIServiceResponse    	AbortSCSICommand( SCSITaskIdentifier abortTask ) APPLE_KEXT_OVERRIDE;
 
 	virtual bool					IsProtocolServiceSupported( 
 										SCSIProtocolFeature 	feature, 
-										void * 					serviceValue );
+										void * 					serviceValue ) APPLE_KEXT_OVERRIDE;
 
 	virtual bool					HandleProtocolServiceFeature( 
 										SCSIProtocolFeature 	feature, 
-										void * 					serviceValue );
+										void * 					serviceValue ) APPLE_KEXT_OVERRIDE;
  
 	// Methods for retrieving and setting the object for the Interface
 	IOUSBInterface *		GetInterfaceReference( void );
@@ -464,32 +464,32 @@ protected:
 	
 public:
 
-    bool				init( OSDictionary * 	propTable );
-    virtual bool		start( IOService *	 	provider );
-    virtual void 		stop( IOService * 		provider );
-	virtual void		free( void );
-	virtual	IOReturn	message( UInt32 type, IOService * provider, void * argument = 0 );
+    bool				init( OSDictionary * 	propTable ) APPLE_KEXT_OVERRIDE;
+    virtual bool		start( IOService *	 	provider ) APPLE_KEXT_OVERRIDE;
+    virtual void 		stop( IOService * 		provider ) APPLE_KEXT_OVERRIDE;
+	virtual void		free( void ) APPLE_KEXT_OVERRIDE;
+	virtual	IOReturn	message( UInt32 type, IOService * provider, void * argument = 0 ) APPLE_KEXT_OVERRIDE;
 	
 	virtual bool        willTerminate(  IOService *     provider, 
-                                        IOOptionBits    options );
+                                        IOOptionBits    options ) APPLE_KEXT_OVERRIDE;
 										
 	virtual bool        didTerminate(	IOService *     provider, 
                                         IOOptionBits    options, 
-										bool *			defer );
+										bool *			defer ) APPLE_KEXT_OVERRIDE;
                                         
 	virtual bool		handleOpen( IOService *		client,
 									IOOptionBits	options,
-									void *			arg );
+									void *			arg ) APPLE_KEXT_OVERRIDE;
 	
 	virtual void		handleClose( IOService *	client,
-									 IOOptionBits	options );
+									 IOOptionBits	options ) APPLE_KEXT_OVERRIDE;
 	
-	virtual bool		handleIsOpen(  const IOService * client ) const;
+	virtual bool		handleIsOpen(  const IOService * client ) const APPLE_KEXT_OVERRIDE;
 	
-	virtual IOReturn	HandlePowerOn( void );
+	virtual IOReturn	HandlePowerOn( void ) APPLE_KEXT_OVERRIDE;
 	
 #ifndef EMBEDDED
-	virtual void		systemWillShutdown ( IOOptionBits specifier );
+	virtual void		systemWillShutdown ( IOOptionBits specifier ) APPLE_KEXT_OVERRIDE;
 #endif // EMBEDDED
 	
 protected:

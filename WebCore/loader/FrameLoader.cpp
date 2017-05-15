@@ -1192,6 +1192,11 @@ static ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicyToApply(Frame& s
     return propagatedPolicy;
 }
 
+bool FrameLoader::isNavigationAllowed() const
+{
+    return m_pageDismissalEventBeingDispatched == PageDismissalType::None && NavigationDisabler::isNavigationAllowed();
+}
+
 void FrameLoader::loadURL(const FrameLoadRequest& frameLoadRequest, const String& referrer, FrameLoadType newLoadType, Event* event, PassRefPtr<FormState> prpFormState)
 {
     if (m_inStopAllLoaders)
@@ -1232,7 +1237,7 @@ void FrameLoader::loadURL(const FrameLoadRequest& frameLoadRequest, const String
         return;
     }
 
-    if (m_pageDismissalEventBeingDispatched != PageDismissalType::None)
+    if (!isNavigationAllowed())
         return;
 
     NavigationAction action(request, newLoadType, isFormSubmission, event, frameLoadRequest.shouldOpenExternalURLsPolicy(), frameLoadRequest.downloadAttribute());
@@ -1429,7 +1434,7 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     ASSERT(m_frame.view());
 
-    if (m_pageDismissalEventBeingDispatched != PageDismissalType::None)
+    if (!isNavigationAllowed())
         return;
 
     if (m_frame.document())
@@ -1616,7 +1621,7 @@ void FrameLoader::reload(bool endToEndReload, bool contentBlockersEnabled)
 void FrameLoader::stopAllLoaders(ClearProvisionalItemPolicy clearProvisionalItemPolicy)
 {
     ASSERT(!m_frame.document() || m_frame.document()->pageCacheState() != Document::InPageCache);
-    if (m_pageDismissalEventBeingDispatched != PageDismissalType::None)
+    if (!isNavigationAllowed())
         return;
 
     // If this method is called from within this method, infinite recursion can occur (3442218). Avoid this.
@@ -1817,7 +1822,7 @@ void FrameLoader::commitProvisionalLoad()
         // commit to happen before any changes to viewport arguments and dealing with this there is difficult.
         m_frame.page()->chrome().setDispatchViewportDataDidChangeSuppressed(true);
 #endif
-        prepareForCachedPageRestore();
+        willRestoreFromCachedPage();
 
         // Start request for the main resource and dispatch didReceiveResponse before the load is committed for
         // consistency with all other loads. See https://bugs.webkit.org/show_bug.cgi?id=150927.
@@ -1833,6 +1838,7 @@ void FrameLoader::commitProvisionalLoad()
         cachedPage->restore(*m_frame.page());
 
         dispatchDidCommitLoad(hasInsecureContent);
+
 #if PLATFORM(IOS)
         m_frame.page()->chrome().setDispatchViewportDataDidChangeSuppressed(false);
         m_frame.page()->chrome().dispatchViewportPropertiesDidChange(m_frame.page()->viewportArguments());
@@ -2058,7 +2064,7 @@ void FrameLoader::closeOldDataSources()
     m_client.setMainFrameDocumentReady(false); // stop giving out the actual DOMDocument to observers
 }
 
-void FrameLoader::prepareForCachedPageRestore()
+void FrameLoader::willRestoreFromCachedPage()
 {
     ASSERT(!m_frame.tree().parent());
     ASSERT(m_frame.page());
@@ -2440,6 +2446,11 @@ void FrameLoader::detachChildren()
     // this event is being fired in its subframes:
     // https://html.spec.whatwg.org/multipage/browsers.html#unload-a-document
     IgnoreOpensDuringUnloadCountIncrementer ignoreOpensDuringUnloadCountIncrementer(m_frame.document());
+
+    // Any subframe inserted by unload event handlers executed in the loop below will not get unloaded
+    // because we create a copy of the subframes list before looping. Therefore, it would be unsafe to
+    // allow loading of subframes at this point.
+    SubframeLoadingDisabler subframeLoadingDisabler(m_frame.document());
 
     Vector<Ref<Frame>, 16> childrenToDetach;
     childrenToDetach.reserveInitialCapacity(m_frame.tree().childCount());
@@ -2904,7 +2915,7 @@ bool FrameLoader::shouldClose()
 
     bool shouldClose = false;
     {
-        NavigationDisablerForBeforeUnload navigationDisabler;
+        NavigationDisabler navigationDisabler;
         size_t i;
 
         for (i = 0; i < targetFrames.size(); i++) {

@@ -277,13 +277,7 @@ OSStatus ntlmHostName(
 	unsigned char **flat,			// mallocd and RETURNED
 	unsigned *flatLen)				// RETURNED
 {
-	char hostname[MAXHOSTNAMELEN];
-	if(gethostname(hostname, MAXHOSTNAMELEN)) {
-		#ifndef NDEBUG
-		perror("gethostname");
-		#endif
-		return errSecInternalComponent;
-	}
+	char hostname[] = "WORKSTATION";
 	size_t len = strlen(hostname);
 	if(unicode) {
 		/* quickie "little endian unicode" conversion */

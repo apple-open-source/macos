@@ -70,15 +70,15 @@ protected:
 	};
 	
 	// ---- Methods for controlling the current state of device support ----
-	virtual bool		InitializeDeviceSupport( void );
-	virtual void 		StartDeviceSupport ( void );
-	virtual void		SuspendDeviceSupport( void );
-	virtual void		ResumeDeviceSupport( void );
-	virtual void 		StopDeviceSupport ( void );
-	virtual void		TerminateDeviceSupport( void );
+	virtual bool		InitializeDeviceSupport( void ) APPLE_KEXT_OVERRIDE;
+	virtual void 		StartDeviceSupport ( void ) APPLE_KEXT_OVERRIDE;
+	virtual void		SuspendDeviceSupport( void ) APPLE_KEXT_OVERRIDE;
+	virtual void		ResumeDeviceSupport( void ) APPLE_KEXT_OVERRIDE;
+	virtual void 		StopDeviceSupport ( void ) APPLE_KEXT_OVERRIDE;
+	virtual void		TerminateDeviceSupport( void ) APPLE_KEXT_OVERRIDE;
 
 	// ---- Methods used for misc  ----
-	virtual bool		ClearNotReadyStatus( void );
+	virtual bool		ClearNotReadyStatus( void ) APPLE_KEXT_OVERRIDE;
 	virtual void 		CreateStorageServiceNub( void );
 	virtual bool		DetermineDeviceCharacteristics( void );
 
@@ -99,12 +99,12 @@ protected:
 	virtual void		PollForMediaRemoval( void );
 	
 	// ---- Methods used for power managment ----
-	virtual UInt32		GetInitialPowerState ( void );
-	virtual void 		InitializePowerManagement ( IOService * provider );
-	virtual void		HandlePowerChange ( void );
-	virtual void		HandleCheckPowerState ( void );
-	virtual void		TicklePowerManager ( void );
-	virtual UInt32		GetNumberOfPowerStateTransitions ( void );
+	virtual UInt32		GetInitialPowerState ( void ) APPLE_KEXT_OVERRIDE;
+	virtual void 		InitializePowerManagement ( IOService * provider ) APPLE_KEXT_OVERRIDE;
+	virtual void		HandlePowerChange ( void ) APPLE_KEXT_OVERRIDE;
+	virtual void		HandleCheckPowerState ( void ) APPLE_KEXT_OVERRIDE;
+	virtual void		TicklePowerManager ( void ) APPLE_KEXT_OVERRIDE;
+	virtual UInt32		GetNumberOfPowerStateTransitions ( void ) APPLE_KEXT_OVERRIDE;
 
 	// ---- Methods used for handling medium characteristics ----
     virtual void		SetMediumCharacteristics( 
@@ -179,9 +179,9 @@ public:
 	virtual bool		ReportMediumWriteProtection( void );
         
 	// Methods for getting device information strings
-	virtual char *		GetVendorString( void );
-	virtual char *		GetProductString( void );
-	virtual char *		GetRevisionString( void );
+	virtual char *		GetVendorString( void ) APPLE_KEXT_OVERRIDE;
+	virtual char *		GetProductString( void ) APPLE_KEXT_OVERRIDE;
+	virtual char *		GetRevisionString( void ) APPLE_KEXT_OVERRIDE;
 	OSDictionary *		GetProtocolCharacteristicsDictionary ( void );
 	OSDictionary *		GetDeviceCharacteristicsDictionary ( void );	
 	
@@ -348,8 +348,8 @@ class IOUSBMassStorageUFISubclass : public IOUSBMassStorageClass
     OSDeclareDefaultStructors(IOUSBMassStorageUFISubclass)
 
 protected:
-	virtual	bool		BeginProvidedServices( void );
-	virtual	bool		EndProvidedServices( void );
+	virtual	bool		BeginProvidedServices( void ) APPLE_KEXT_OVERRIDE;
+	virtual	bool		EndProvidedServices( void ) APPLE_KEXT_OVERRIDE;
 };
 
 #endif //_IOKIT_IOUSBMASSSTORAGEUFISUBCLASS_H

@@ -335,24 +335,32 @@ static void SecPathBuilderDestroy(SecPathBuilderRef builder) {
     secdebug("alloc", "%p", builder);
     dispatch_release_null(builder->queue);
     if (builder->anchorSource) {
-        SecMemoryCertificateSourceDestroy(builder->anchorSource); }
+        SecMemoryCertificateSourceDestroy(builder->anchorSource);
+        builder->anchorSource = NULL;
+    }
     if (builder->certificateSource) {
-        SecMemoryCertificateSourceDestroy(builder->certificateSource); }
+        SecMemoryCertificateSourceDestroy(builder->certificateSource);
+        builder->certificateSource = NULL;
+    }
     if (builder->itemCertificateSource) {
-        SecItemCertificateSourceDestroy(builder->itemCertificateSource); }
+        SecItemCertificateSourceDestroy(builder->itemCertificateSource);
+        builder->itemCertificateSource = NULL;
+    }
     if (builder->appleAnchorSource) {
-        SecMemoryCertificateSourceDestroy(builder->appleAnchorSource); }
-	CFReleaseSafe(builder->clientAuditToken);
-	CFReleaseSafe(builder->anchorSources);
-	CFReleaseSafe(builder->parentSources);
-	CFReleaseSafe(builder->allPaths);
-	CFReleaseSafe(builder->partialPaths);
-	CFReleaseSafe(builder->rejectedPaths);
-	CFReleaseSafe(builder->candidatePaths);
-	CFReleaseSafe(builder->leafDetails);
-    CFReleaseSafe(builder->ocspResponses);
-    CFReleaseSafe(builder->signedCertificateTimestamps);
-    CFReleaseSafe(builder->trustedLogs);
+        SecMemoryCertificateSourceDestroy(builder->appleAnchorSource);
+        builder->appleAnchorSource = NULL;
+    }
+	CFReleaseNull(builder->clientAuditToken);
+	CFReleaseNull(builder->anchorSources);
+	CFReleaseNull(builder->parentSources);
+	CFReleaseNull(builder->allPaths);
+	CFReleaseNull(builder->partialPaths);
+	CFReleaseNull(builder->rejectedPaths);
+	CFReleaseNull(builder->candidatePaths);
+	CFReleaseNull(builder->leafDetails);
+    CFReleaseNull(builder->ocspResponses);
+    CFReleaseNull(builder->signedCertificateTimestamps);
+    CFReleaseNull(builder->trustedLogs);
 
     SecPVCDelete(&builder->path);
 }

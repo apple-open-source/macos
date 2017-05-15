@@ -255,6 +255,7 @@ Thread::~Thread()
 
 void Thread::run()
 {
+    pthread_t pt;
     pthread_attr_t ptattrs;
     int err, ntries = 10;       // 10 is arbitrary
 
@@ -263,7 +264,7 @@ void Thread::run()
     {
         syslog(LOG_ERR, "error %d setting thread detach state", err);
     }
-    while ((err = pthread_create(&self.mIdent, &ptattrs, runner, this) && 
+    while ((err = pthread_create(&pt, &ptattrs, runner, this) &&
            --ntries))
     {
         syslog(LOG_ERR, "pthread_create() error %d", err);
@@ -274,7 +275,7 @@ void Thread::run()
         syslog(LOG_ERR, "too many failed pthread_create() attempts");
     }
     else
-        secinfo("thread", "%p created", self.mIdent);
+        secinfo("thread", "%p created", pt);
 }
 
 void *Thread::runner(void *arg)
@@ -283,9 +284,9 @@ void *Thread::runner(void *arg)
         // otherwise it will crash if something underneath throws.
     {
         Thread *me = static_cast<Thread *>(arg);
-        secinfo("thread", "%p starting", me->self.mIdent);
+        secinfo("thread", "%p starting", pthread_self());
         me->action();
-        secinfo("thread", "%p terminating", me->self.mIdent);
+        secinfo("thread", "%p terminating", pthread_self());
         delete me;
         return NULL;
     }

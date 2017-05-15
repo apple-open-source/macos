@@ -1718,7 +1718,11 @@ IOReturn IOFramebuffer::extSetGammaTable(
 
     // <rdar://problem/23114787> Integer overflow in IOFramebuffer::extSetGammaTable
     // <rdar://problem/23814363> IOFramebuffer::extSetGammaTable integer overflow when calculating dataLen
-    if ((channelCount > 3) || (dataCount > 1024) || (0 == dataWidth) || (dataWidth > 16))
+    // <rdar://problem/30805056> PanicTracer: 42 panics at IOFramebuffer::updateGammaTable does not check correct length on fast path.
+    //     Only allow a channelCount of 3, otherwise fast path may panic.
+    if ((channelCount != 3)
+    || (0 == dataCount) || (dataCount > 1024)
+    || (0 == dataWidth) || (dataWidth > 16))
         return kIOReturnBadArgument;
 
     if ((err = inst->extEntry(true)))
@@ -1736,7 +1740,10 @@ IOReturn IOFramebuffer::extSetGammaTable(
     }
 
     if (!inst->__private->rawGammaData)
+    {
         err = kIOReturnNoMemory;
+        inst->__private->rawGammaDataLen = 0;
+    }
     else
     {
         inst->__private->rawGammaChannelCount = channelCount;
@@ -1808,33 +1815,35 @@ IOReturn IOFramebuffer::updateGammaTable(
     UInt8 *     table = NULL;
     bool        needAlloc;
     bool        gammaHaveScale = ((1 << 16) != __private->gammaScale[0])
-                                || ((1 << 16) != __private->gammaScale[1])
-                                || ((1 << 16) != __private->gammaScale[2])
-                                || ((1 << 16) != __private->gammaScale[3]);
-	const uint32_t * adjustParams = NULL;
-	const uint32_t * adjustNext   = NULL;
-	uint32_t         gammaThresh;
-	uint32_t         gammaAdjust;
+        || ((1 << 16) != __private->gammaScale[1])
+        || ((1 << 16) != __private->gammaScale[2])
+        || ((1 << 16) != __private->gammaScale[3]);
+    const uint32_t * adjustParams = NULL;
+    const uint32_t * adjustNext   = NULL;
+    uint32_t         gammaThresh;
+    uint32_t         gammaAdjust;
 
-	if (GAMMA_ADJ && gIOGraphicsControl && (__private->desiredGammaDataWidth <= 8))
-	{
-		static const uint32_t _params[]  = { 138, 3, 256, 4 }; 
-		adjustParams = &_params[0];
-	}
-	else
-	{
-		gammaThresh = -1U;
-		gammaAdjust = 0;
-	}
+    if (GAMMA_ADJ && gIOGraphicsControl && (__private->desiredGammaDataWidth <= 8))
+    {
+        static const uint32_t _params[]  = { 138, 3, 256, 4 };
+        adjustParams = &_params[0];
+    }
+    else
+    {
+        gammaThresh = -1U;
+        gammaAdjust = 0;
+    }
     do
     {
         if (!__private->online)
         {
-			DEBG1(thisName, " offline updateGammaTable\n");
-			err = kIOReturnOffline;
+            DEBG1(thisName, " offline updateGammaTable\n");
+            err = kIOReturnOffline;
             break;
-		}
+        }
         if (dataWidth != 16)
+            break;
+        if (channelCount != 3)
             break;
 
         if (!__private->desiredGammaDataWidth)
@@ -1842,7 +1851,7 @@ IOReturn IOFramebuffer::updateGammaTable(
             __private->desiredGammaDataWidth = dataWidth;
             __private->desiredGammaDataCount = srcDataCount;
         }
-    
+
         dataCount = __private->desiredGammaDataCount;
         dataLen   = (__private->desiredGammaDataWidth + 7) / 8;
         dataLen  *= dataCount * channelCount;
@@ -1856,9 +1865,9 @@ IOReturn IOFramebuffer::updateGammaTable(
             {
                 IODelete(table, UInt8, __private->gammaDataLen);
                 __private->gammaData = NULL;
+                __private->gammaDataLen = 0;
                 needAlloc = true;
             }
-            __private->gammaDataLen = 0;
             __private->gammaNeedSet = false;
         }
 
@@ -1873,42 +1882,15 @@ IOReturn IOFramebuffer::updateGammaTable(
             __private->gammaData = table;
         }
 
-        __private->gammaChannelCount = channelCount;
-        __private->gammaDataCount    = dataCount;
-    
         table += __private->gammaHeaderSize;
-   
         tryWidth = __private->desiredGammaDataWidth;
 
-#if 0
-		OSData * ddata;
-		if (data)
-		{
-			ddata = OSData::withBytes((void *)data, srcDataCount*channelCount*sizeof(UInt16));
-			if (ddata)
-			{
-				setProperty("GammaIn", ddata);
-				ddata->release();
-			}
-		}
-        ddata = OSData::withBytesNoCopy(table, dataLen - __private->gammaHeaderSize);
-		if (ddata)
-		{
-			setProperty("GammaOut", ddata);
-			ddata->release();
-		}
-#endif
-
-        if ((__private->desiredGammaDataCount == srcDataCount)
-          && (tryWidth == dataWidth)
-          && !gammaHaveScale
-          && data
-          && !adjustParams) {
-            const auto len = dataLen - __private->gammaHeaderSize;
-            if (len > __private->rawGammaDataLen)
-                panic("Wrong gamma data len, about to take a page fault");
-            bcopy(data, table, len);
-        } else {
+        if (!gammaHaveScale && data && !adjustParams
+        &&  (__private->desiredGammaDataCount == srcDataCount)
+        &&  (__private->desiredGammaDataWidth == dataWidth))
+            bcopy(data, table, dataLen - __private->gammaHeaderSize);
+        else
+        {
             uint32_t pin, pt5, in, out, channel, idx, maxSrc, maxDst, interpCount;
             int64_t value, value2;
 
@@ -1921,44 +1903,44 @@ IOReturn IOFramebuffer::updateGammaTable(
             maxSrc = (srcDataCount - 1);
             maxDst = (__private->desiredGammaDataCount - 1);
             if ((srcDataCount < __private->desiredGammaDataCount)
-             && (0 == (__private->desiredGammaDataCount % srcDataCount)))
+                    && (0 == (__private->desiredGammaDataCount % srcDataCount)))
                 interpCount = __private->desiredGammaDataCount / srcDataCount;
             else
                 interpCount = 0;
 
             for (out = 0, channel = 0; channel < channelCount; channel++)
             {
-				if (adjustParams)
-				{
-					gammaThresh = 0;
-					adjustNext = adjustParams;
-				}
+                if (adjustParams)
+                {
+                    gammaThresh = 0;
+                    adjustNext = adjustParams;
+                }
                 for (idx = 0; idx <= maxDst; idx++)
                 {
-					if (idx >= gammaThresh)
-					{
-						gammaThresh = *adjustNext++;
-						gammaAdjust = *adjustNext++;
-					}
-					if (channelData)
-					{
-						in = ((idx * maxSrc) + (idx ? (idx - 1) : 0)) / maxDst;
-						value = (channelData[in] /*+ pt5*/);
-						if (interpCount && (in < maxSrc))
-						{
-							value2 = (channelData[in+1] /*+ pt5*/);
-							value += ((value2 - value) * (idx % interpCount) + (interpCount - 1)) / interpCount;
-						}
-					}
-					else
-					    value = (idx * ((1 << dataWidth) - 1)) / maxDst; 
+                    if (idx >= gammaThresh)
+                    {
+                        gammaThresh = *adjustNext++;
+                        gammaAdjust = *adjustNext++;
+                    }
+                    if (channelData)
+                    {
+                        in = ((idx * maxSrc) + (idx ? (idx - 1) : 0)) / maxDst;
+                        value = (channelData[in] /*+ pt5*/);
+                        if (interpCount && (in < maxSrc))
+                        {
+                            value2 = (channelData[in+1] /*+ pt5*/);
+                            value += ((value2 - value) * (idx % interpCount) + (interpCount - 1)) / interpCount;
+                        }
+                    }
+                    else
+                        value = (idx * ((1 << dataWidth) - 1)) / maxDst;
                     if (gammaHaveScale)
                     {
                         value = ((value * __private->gammaScale[channel] * __private->gammaScale[3]) + (1U << 31));
                     }
                     value = (value >> (dataWidth - tryWidth));
-					if (value)
-						value += gammaAdjust;
+                    if (value)
+                        value += gammaAdjust;
                     if (value > pin)
                         value = pin;
 
@@ -1971,34 +1953,56 @@ IOReturn IOFramebuffer::updateGammaTable(
                 if (channelData) channelData += srcDataCount;
             }
         }
-        __private->gammaDataWidth = tryWidth;
-        __private->gammaDataLen   = dataLen;
-        __private->gammaSyncType  = syncType;
+        __private->gammaChannelCount = channelCount;
+        __private->gammaDataCount    = dataCount;
+        __private->gammaDataLen      = dataLen;
+        __private->gammaDataWidth    = tryWidth;
+        __private->gammaSyncType     = syncType;
 
         if (ASYNC_GAMMA && !immediate)
         {
             if (__private->vblThrottle && __private->deferredCLUTSetTimerEvent)
-			{
-				AbsoluteTime deadline;
-				getTimeOfVBL(&deadline, 1);
-				__private->deferredCLUTSetTimerEvent->wakeAtTime(deadline);
-				__private->gammaNeedSet = true;
-				err = kIOReturnSuccess;
-			}
-			else if (__private->deferredCLUTSetEvent)
-			{
-				__private->gammaNeedSet = true;
-				err = kIOReturnSuccess;
-			}
-		}
-		if (!__private->gammaNeedSet)
+            {
+                AbsoluteTime deadline;
+                getTimeOfVBL(&deadline, 1);
+                __private->deferredCLUTSetTimerEvent->wakeAtTime(deadline);
+                __private->gammaNeedSet = true;
+                err = kIOReturnSuccess;
+            }
+            else if (__private->deferredCLUTSetEvent)
+            {
+                __private->gammaNeedSet = true;
+                err = kIOReturnSuccess;
+            }
+        }
+#if 0
+        OSData * ddata;
+        if (data)
+        {
+            ddata = OSData::withBytes((void *)data, srcDataCount*channelCount*sizeof(UInt16));
+            if (ddata)
+            {
+                setProperty("GammaIn", ddata);
+                ddata->release();
+            }
+        }
+        ddata = OSData::withBytesNoCopy(table, dataLen - __private->gammaHeaderSize);
+        if (ddata)
+        {
+            setProperty("GammaOut", ddata);
+            ddata->release();
+        }
+#endif
+
+        if (!__private->gammaNeedSet)
         {
             // If CD sent us a sync request, try with new, else fallback.
             if (kIOFBSetGammaSyncNotSpecified != __private->gammaSyncType)
             {
-                err = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount,
-                                    __private->gammaDataWidth, __private->gammaData,
-                                    (kIOFBSetGammaSyncNoSync == __private->gammaSyncType) ? false : true );
+                err = setGammaTable(
+                        __private->gammaChannelCount, __private->gammaDataCount,
+                        __private->gammaDataWidth, __private->gammaData,
+                        (kIOFBSetGammaSyncNoSync == __private->gammaSyncType) ? false : true );
             }
             else
             {
@@ -2007,8 +2011,9 @@ IOReturn IOFramebuffer::updateGammaTable(
 
             if (kIOReturnUnsupported == err)
             {
-                err = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount,
-                                    __private->gammaDataWidth, __private->gammaData );
+                err = setGammaTable(
+                        __private->gammaChannelCount, __private->gammaDataCount,
+                        __private->gammaDataWidth, __private->gammaData );
             }
             updateCursorForCLUTSet();
         }
@@ -3376,29 +3381,9 @@ void IOFramebuffer::getBoundingRect( IOGBounds ** bounds )
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 IOReturn IOFramebuffer::getNotificationSemaphore(
-    IOSelect interruptType, semaphore_t * semaphore )
+    IOSelect /*interruptType*/, semaphore_t * /*semaphore*/ )
 {
-    kern_return_t       kr;
-    semaphore_t         sema;
-
-    if (interruptType != kIOFBVBLInterruptType)
-        return (kIOReturnUnsupported);
-
-    if (!haveVBLService)
-        return (kIOReturnNoResources);
-
-    if (MACH_PORT_NULL == vblSemaphore)
-    {
-        kr = semaphore_create(kernel_task, &sema, SYNC_POLICY_FIFO, 0);
-        if (kr == KERN_SUCCESS)
-            vblSemaphore = sema;
-    }
-    else
-        kr = KERN_SUCCESS;
-
-    if (kr == KERN_SUCCESS)
-        *semaphore = vblSemaphore;
-
+    kern_return_t       kr = kIOReturnUnsupported;
     return (kr);
 }
 
@@ -4859,10 +4844,19 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		}
 		else
 		{
-			AbsoluteTime deadline;
-			clock_interval_to_deadline(kIOFBClamshellEnableDelayMS, kMillisecondScale, &deadline );
-			thread_call_enter1_delayed(gIOFBClamshellCallout,
-										(thread_call_param_t) kIOFBEventEnableClamshell, deadline );
+            // <rdar://problem/30168104> Disconnecting DisplayPort Adapter isn't locking the MacBook
+            // Removing the 15 second delay introduced:
+            // <rdar://problem/31205784> J80a: Internal panel doesn't light when opening lid after rebooting in closed clamshell with NON-DDC VGA
+            // <rdar://problem/30312042> Underrun on booting with J130/J130a with closed clamshell and T240
+            // <rdar://problem/31367833> J79a/T240: screen keep black when boot up under closed clamshell mode
+            // <rdar://problem/31410643> IG IOFB crashes on Wake on J130A/16F46 when booted in Clamshell mode with T240 connected
+            // <rdar://problem/31413646> J130/Evolution: Unit doesn't boot to desktop on closed clamshell (with T240) reboot intermittently, goes to sleep in boot process
+            // <rdar://problem/31351644> [Reg]Unable to light up T240 in Fletcher 2047 in closed clamshell
+            // Therefore reverted back to the original implementation:
+            AbsoluteTime deadline;
+            clock_interval_to_deadline(kIOFBClamshellEnableDelayMS, kMillisecondScale, &deadline );
+            thread_call_enter1_delayed(gIOFBClamshellCallout,
+                                       (thread_call_param_t) kIOFBEventEnableClamshell, deadline );
 		}
 	}
 

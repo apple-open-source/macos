@@ -21,13 +21,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
+#include <dlfcn.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
 
 #include "bless.h"
 #include "bless_private.h"
+
+#define kAPFS_FRAMEWORK_PATH    "/System/Library/PrivateFrameworks/APFS.framework/APFS"
+#define APFS_VOL_ROLE_RECOVERY	0x0004
+#define APFS_VOL_ROLE_PREBOOT	0x0010
+
 
 // public entry points (bless.h)
 kern_return_t
@@ -251,34 +256,59 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
     } else {
         contextprintf(context, kBLLogLevelVerbose, "Checking if disk is complex (if it is associated with booter partitions)\n");
         
-        ret = BLCreateBooterInformationDictionary(context, newBSDName,
-                                                  &dict);
-        if(ret) {
+        ret = BLCreateBooterInformationDictionary(context, newBSDName, &dict);
+        if (ret) {
             return 1;
         }
         
+        // Check for APFS preboot volume
         array = CFDictionaryGetValue(dict, kBLAPFSPrebootVolumesKey);
         if (array && CFArrayGetCount(array) > 0) {
             io_registry_entry_t rootMedia;
             CFStringRef         rootUUID;
+            uint16_t            role;
+            void                *frameworkHandle;
+            OSStatus            (*volumeRoleFn)(const char *disk, UInt16 *getrole, const UInt16 *setrole);
+            bool                substitute = true;
             
-            firstVolume = CFArrayGetValueAtIndex(array, 0);
-            rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, newBSDName));
-            if (!rootMedia) {
-                CFRelease(dict);
-                return 2;
+            // First check if we need to substitute or not. If installer or someone blesses
+            // a folder inside the preboot or recovery volume, we don't want to substitute
+            frameworkHandle = dlopen(kAPFS_FRAMEWORK_PATH, RTLD_LAZY | RTLD_LOCAL);
+            if (frameworkHandle) {
+                volumeRoleFn = dlsym(frameworkHandle, "APFSVolumeRole");
+                if (volumeRoleFn) {
+                    if (volumeRoleFn(newBSDName, &role, NULL)) {
+                        CFRelease(dict);
+                        dlclose(frameworkHandle);
+                        return 2;
+                    }
+                    if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+                        substitute = false;
+                    }
+                }
+                dlclose(frameworkHandle);
             }
-            rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
-            IOObjectRelease(rootMedia);
-            if (!rootUUID) {
-                CFRelease(dict);
-                return 2;
+
+            if (substitute) {
+                firstVolume = CFArrayGetValueAtIndex(array, 0);
+                CFStringGetCString(firstVolume, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
+                
+                rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, newBSDName));
+                if (!rootMedia) {
+                    CFRelease(dict);
+                    return 2;
+                }
+                rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+                IOObjectRelease(rootMedia);
+                if (!rootUUID) {
+                    CFRelease(dict);
+                    return 2;
+                }
+                contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
+                strlcpy(partialPath, "/", sizeof partialPath);
+                CFStringGetCString(rootUUID, partialPath + strlen(partialPath), sizeof partialPath - strlen(partialPath), kCFStringEncodingUTF8);
+                strlcat(partialPath, "/System/Library/CoreServices/boot.efi", sizeof partialPath);
             }
-            CFStringGetCString(firstVolume, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
-            contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
-            strlcpy(partialPath, "/", sizeof partialPath);
-            CFStringGetCString(rootUUID, partialPath + strlen(partialPath), sizeof partialPath - strlen(partialPath), kCFStringEncodingUTF8);
-            strlcat(partialPath, "/System/Library/CoreServices/boot.efi", sizeof partialPath);
         }
         
         // check to see if there's a booter partition. If so, use it
@@ -321,7 +351,7 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
     // we have the real entity we want to boot from: whether the "direct" disk, an actual underlying
     // boot helper disk, or ElTorito offset information. create EFI boot settings depending on case.
     
-    if(firstBooter || firstData) {
+    if (firstBooter || firstData) {
         // so this is probably a RAID. Validate that we were passed a mountpoint
         if(0 != strncmp(sb.f_mntonname, path, MAXPATHLEN)) {
             contextprintf(context, kBLLogLevelError,  "--file not supported for %s\n" ,
@@ -333,7 +363,7 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
                                                     optionalData,
                                                     &xmlString,
                                                     shortForm);
-    } else if(isUEFIDisc) {
+    } else if (isUEFIDisc) {
         ret = BLCreateEFIXMLRepresentationForElToritoEntry(context,
                                                            newBSDName,
                                                            uefiDiscBootEntry,

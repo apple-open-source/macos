@@ -85,7 +85,7 @@
 #define HAVE_NETINET_IF_ETHER_H 1
 
 /* Define to 1 if you have the <net/if_pflog.h> header file. */
-/* #undef HAVE_NET_IF_PFLOG_H */
+#define HAVE_NET_IF_PFLOG_H 1
 
 /* Define to 1 if you have the <net/pfvar.h> header file. */
 #define HAVE_NET_PFVAR_H 1

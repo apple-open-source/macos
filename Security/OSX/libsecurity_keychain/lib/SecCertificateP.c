@@ -232,24 +232,27 @@ static CFStringRef SecCertificateCopyDescription(CFTypeRef cf) {
 
 static void SecCertificateDestroy(CFTypeRef cf) {
     SecCertificateRefP certificate = (SecCertificateRefP)cf;
-    if (certificate->_certificatePolicies.policies)
+    if (certificate->_certificatePolicies.policies) {
         free(certificate->_certificatePolicies.policies);
-    CFReleaseSafe(certificate->_policyMappings);
-    CFReleaseSafe(certificate->_crlDistributionPoints);
-    CFReleaseSafe(certificate->_ocspResponders);
-    CFReleaseSafe(certificate->_caIssuers);
+        certificate->_certificatePolicies.policies = NULL;
+    }
+    CFReleaseNull(certificate->_policyMappings);
+    CFReleaseNull(certificate->_crlDistributionPoints);
+    CFReleaseNull(certificate->_ocspResponders);
+    CFReleaseNull(certificate->_caIssuers);
     if (certificate->_extensions) {
         free(certificate->_extensions);
+        certificate->_extensions = NULL;
     }
-    CFReleaseSafe(certificate->_pubKey);
-    CFReleaseSafe(certificate->_der_data);
-    CFReleaseSafe(certificate->_properties);
-    CFReleaseSafe(certificate->_serialNumber);
-    CFReleaseSafe(certificate->_normalizedIssuer);
-    CFReleaseSafe(certificate->_normalizedSubject);
-    CFReleaseSafe(certificate->_authorityKeyID);
-    CFReleaseSafe(certificate->_subjectKeyID);
-    CFReleaseSafe(certificate->_sha1Digest);
+    CFReleaseNull(certificate->_pubKey);
+    CFReleaseNull(certificate->_der_data);
+    CFReleaseNull(certificate->_properties);
+    CFReleaseNull(certificate->_serialNumber);
+    CFReleaseNull(certificate->_normalizedIssuer);
+    CFReleaseNull(certificate->_normalizedSubject);
+    CFReleaseNull(certificate->_authorityKeyID);
+    CFReleaseNull(certificate->_subjectKeyID);
+    CFReleaseNull(certificate->_sha1Digest);
 }
 
 static Boolean SecCertificateEqual(CFTypeRef cf1, CFTypeRef cf2) {
@@ -1124,7 +1127,7 @@ static void SecCertificateRegisterClass(void) {
 
 /* Given the contents of an X.501 Name return the contents of a normalized
    X.501 name. */
-CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
+static CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
 	const DERItem *x501name) {
     CFMutableDataRef result = CFDataCreateMutable(allocator, x501name->length);
     CFIndex length = x501name->length;
@@ -1305,6 +1308,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
             atvTagLocation += atvTLLength + atvContentLength;
             atvTag = atvSeq.nextItem;
 		}
+        require_quiet(drtn == DR_EndOfSequence, badDER);
         rdnTagLocation += rdnTLLength + rdnContentLength;
         rdnTag = rdnSeq.nextItem;
 	}
@@ -1639,7 +1643,7 @@ const UInt8 *SecCertificateGetBytePtrP(SecCertificateRefP certificate) {
 /* Oids longer than this are considered invalid. */
 #define MAX_OID_SIZE				32
 
-CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator,
+static CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator,
     const DERItem *oid) {
 
 	if (oid->length == 0) {
@@ -1805,7 +1809,7 @@ static inline SInt32 parseDecimalPair(const DERByte **p) {
 /* Decode a choice of UTCTime or GeneralizedTime to a CFAbsoluteTime. Return
    true if the date was valid and properly decoded, also return the result in
    absTime.  Return false otherwise. */
-CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
+static CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
     size_t length) {
 	check(bytes);
 	if (length == 0)
@@ -2887,6 +2891,7 @@ static void appendCertificatePolicies(CFMutableArrayRef properties,
                     &pqi.qualifier);
             }
         }
+        require_quiet(drtn == DR_EndOfSequence, badDER);
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
 	return;

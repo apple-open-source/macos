@@ -465,18 +465,21 @@ IOUSBMassStorageClass::start ( IOService * provider )
 	        request.direction = kUSBIn;
  			fInterruptPipe = GetInterfaceReference ( )->FindNextPipe ( NULL, &request, true );
 
-	        STATUS_LOG ( ( 7, "%s[%p]: find interrupt pipe", getName ( ), this ) );
-	        require_nonzero ( fInterruptPipe, AbortStart );
-			
-			fCBIMemoryDescriptor = IOMemoryDescriptor::withAddress (
-											&fCBICommandRequestBlock.cbiGetStatusBuffer, 
-											kUSBStorageAutoStatusSize, 
-											kIODirectionIn );
-            require_nonzero ( fCBIMemoryDescriptor, AbortStart );
+			STATUS_LOG ( ( 7, "%s[%p]: find interrupt pipe", getName ( ), this ) );
+			require_nonzero ( fInterruptPipe, AbortStart );
 
-            result = fCBIMemoryDescriptor->prepare ( );
-            require_success ( result, AbortStart );
-            
+			fCBIMemoryDescriptor = IOBufferMemoryDescriptor::withOptions ( kIODirectionIn,
+																		   round_page(kUSBStorageAutoStatusSize),
+																		   PAGE_SIZE );
+			require_nonzero ( fCBIMemoryDescriptor, AbortStart );
+			fCBIMemoryDescriptor->setLength ( kUSBStorageAutoStatusSize );
+
+			bzero(fCBIMemoryDescriptor->getBytesNoCopy ( ),
+				  fCBIMemoryDescriptor->getCapacity ( ) );
+
+			result = fCBIMemoryDescriptor->prepare ( );
+			require_success ( result, AbortStart );
+
 	    }
     	break;
     	
@@ -491,29 +494,35 @@ IOUSBMassStorageClass::start ( IOService * provider )
 			RecordUSBTimeStamp ( UMC_TRACE ( kBODeviceDetected ),
 								 ( uintptr_t ) this, NULL, NULL, NULL );
             
-            // Allocate the memory descriptor needed to send the CBW out.
-            fBulkOnlyCBWMemoryDescriptor = IOMemoryDescriptor::withAddress ( 
-                                                &fBulkOnlyCommandRequestBlock.boCBW, 
-                                                kByteCountOfCBW, 
-                                                kIODirectionOut );
-            require_nonzero ( fBulkOnlyCBWMemoryDescriptor, AbortStart );
-            
-            result = fBulkOnlyCBWMemoryDescriptor->prepare ( );
-            require_success ( result, AbortStart );
-            
-            // Allocate the memory descriptor needed to retrieve the CSW.
-            fBulkOnlyCSWMemoryDescriptor = IOMemoryDescriptor::withAddress ( 
-                                                &fBulkOnlyCommandRequestBlock.boCSW, 
-                                                kByteCountOfCSW, 
-                                                kIODirectionIn );
-            require_nonzero ( fBulkOnlyCSWMemoryDescriptor, AbortStart );
+			// Allocate the memory descriptor needed to send the CBW out.
+			fBulkOnlyCBWMemoryDescriptor = IOBufferMemoryDescriptor::withOptions ( kIODirectionOut,
+																				   round_page(kByteCountOfCBW),
+																				   PAGE_SIZE);
+			require_nonzero ( fBulkOnlyCBWMemoryDescriptor, AbortStart );
+			fBulkOnlyCBWMemoryDescriptor->setLength ( kByteCountOfCBW );
 
-            result = fBulkOnlyCSWMemoryDescriptor->prepare ( );
-            require_success ( result, AbortStart );
-            
+			bzero(fBulkOnlyCBWMemoryDescriptor->getBytesNoCopy ( ),
+				  fBulkOnlyCBWMemoryDescriptor->getCapacity ( ) );
+
+			result = fBulkOnlyCBWMemoryDescriptor->prepare ( );
+			require_success ( result, AbortStart );
+
+			// Allocate the memory descriptor needed to retrieve the CSW.
+			fBulkOnlyCSWMemoryDescriptor = IOBufferMemoryDescriptor::withOptions ( kIODirectionIn,
+																				   round_page(kByteCountOfCSW),
+																				   PAGE_SIZE );
+			require_nonzero ( fBulkOnlyCSWMemoryDescriptor, AbortStart );
+			fBulkOnlyCSWMemoryDescriptor->setLength ( kByteCountOfCSW );
+
+			bzero(fBulkOnlyCSWMemoryDescriptor->getBytesNoCopy ( ),
+				  fBulkOnlyCSWMemoryDescriptor->getCapacity ( ) );
+
+			result = fBulkOnlyCSWMemoryDescriptor->prepare ( );
+			require_success ( result, AbortStart );
+
 	    }
 	    break;
-	    
+
 	    default:
 	    {
             

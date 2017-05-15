@@ -38,6 +38,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/debugging.h>
 
 CFStringRef kSecRecVersionNumber = CFSTR("SRVersionNumber");
 CFStringRef kSecRecQuestions = CFSTR("SRQuestions");
@@ -261,23 +262,41 @@ encryptString(SecKeyRef wrapKey, CFDataRef iv, CFStringRef str)
 	CFDataRef retval = NULL;
  	CFErrorRef error = NULL;
     CFDataRef inputString = CFStringCreateExternalRepresentation(kCFAllocatorDefault, str, kCFStringEncodingMacRoman, 0xff);
+    SecTransformRef encrypt = NULL;
+    SecTransformRef encode = NULL;
+    SecTransformRef group = NULL;
 
- 	SecTransformRef encryptTrans = SecEncryptTransformCreate(wrapKey, &error);
-    if(error == NULL) {
-		SecTransformRef group = SecTransformCreateGroupTransform();
-		
-        SecTransformSetAttribute(encryptTrans, kSecEncryptionMode, kSecModeCBCKey, &error);
-        if(error == NULL) SecTransformSetAttribute(encryptTrans, kSecPaddingKey, kSecPaddingPKCS7Key, &error);
-        if(error == NULL) SecTransformSetAttribute(encryptTrans, kSecTransformInputAttributeName, inputString, &error);
-        if(error == NULL) SecTransformSetAttribute(encryptTrans, kSecIVKey, iv, &error);
-		SecTransformRef encodeTrans = SecEncodeTransformCreate(kSecBase64Encoding, &error);
-		SecTransformConnectTransforms(encryptTrans, kSecTransformOutputAttributeName, encodeTrans, kSecTransformInputAttributeName, group, &error);
-		CFRelease(encodeTrans);  
-		CFRelease(encryptTrans);
-		if(error == NULL) retval = SecTransformExecute(group, &error);
-        if(error != NULL) secDebug(ASL_LEVEL_ERR, "Failed to encrypt recovery password\n", NULL);
-        CFRelease(group);
+    encrypt = SecEncryptTransformCreate(wrapKey, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(encrypt, kSecEncryptionMode, kSecModeCBCKey, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(encrypt, kSecPaddingKey, kSecPaddingPKCS7Key, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(encrypt, kSecTransformInputAttributeName, inputString, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(encrypt, kSecIVKey, iv, &error);
+    if (error) goto out;
+    
+    encode = SecEncodeTransformCreate(kSecBase64Encoding, &error);
+    if (error) goto out;
+    
+    group = SecTransformCreateGroupTransform();
+    SecTransformConnectTransforms(encrypt, kSecTransformOutputAttributeName, encode, kSecTransformInputAttributeName, group, &error);
+    if (error) goto out;
+    retval = SecTransformExecute(group, &error);
+    if (error) goto out;
+    
+out:
+    if (error) {
+        secerror("Failed to encrypt recovery password: %@", error);
     }
+    
+    CFReleaseNull(error);
+    CFReleaseNull(inputString);
+    CFReleaseNull(encrypt);
+    CFReleaseNull(encode);
+    CFReleaseNull(group);
+    
     return retval;
 }
 
@@ -287,28 +306,43 @@ decryptString(SecKeyRef wrapKey, CFDataRef iv, CFDataRef wrappedPassword)
 {
 	CFStringRef retval = NULL;
 	CFDataRef retData = NULL;
- 	CFErrorRef error = NULL;
+    CFErrorRef error = NULL;
+    SecTransformRef decode = NULL;
+    SecTransformRef decrypt = NULL;
+    SecTransformRef group = NULL;
 
-	SecTransformRef decryptTrans = SecDecryptTransformCreate(wrapKey, &error);
-    if(error == NULL) {
-  		SecTransformRef group = SecTransformCreateGroupTransform();
-      
-		SecTransformRef decodeTrans = SecDecodeTransformCreate(kSecBase64Encoding, &error);
-  		if(error == NULL) SecTransformSetAttribute(decodeTrans, kSecTransformInputAttributeName, wrappedPassword, &error);
-        
-		if(error == NULL) SecTransformSetAttribute(decryptTrans, kSecEncryptionMode, kSecModeCBCKey, &error);
- 		if(error == NULL) SecTransformSetAttribute(decryptTrans, kSecPaddingKey, kSecPaddingPKCS7Key, &error);
-		if(error == NULL) SecTransformSetAttribute(decryptTrans, kSecIVKey, iv, &error);
- 		SecTransformConnectTransforms(decodeTrans, kSecTransformOutputAttributeName, decryptTrans, kSecTransformInputAttributeName, group, &error);
-		CFRelease(decodeTrans);  
-		CFRelease(decryptTrans);
-        if(error == NULL) retData =  SecTransformExecute(group, &error);
-        
-        if(error == NULL) retval = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, retData, kCFStringEncodingMacRoman);
-        else secDebug(ASL_LEVEL_ERR, "Failed to decrypt recovery password\n", NULL);
-        CFRelease(group);
+    decode = SecDecodeTransformCreate(kSecBase64Encoding, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(decode, kSecTransformInputAttributeName, wrappedPassword, &error);
+    if (error) goto out;
+    
+    decrypt = SecDecryptTransformCreate(wrapKey, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(decrypt, kSecEncryptionMode, kSecModeCBCKey, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(decrypt, kSecPaddingKey, kSecPaddingPKCS7Key, &error);
+    if (error) goto out;
+    SecTransformSetAttribute(decrypt, kSecIVKey, iv, &error);
+    if (error) goto out;
+    
+    group = SecTransformCreateGroupTransform();
+    SecTransformConnectTransforms(decode, kSecTransformOutputAttributeName, decrypt, kSecTransformInputAttributeName, group, &error);
+    if (error) goto out;
+    retData =  SecTransformExecute(group, &error);
+    if (error) goto out;
+    retval = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, retData, kCFStringEncodingMacRoman);
+    
+out:
+    if (error) {
+        secerror("Failed to decrypt recovery password: %@", error);
     }
-    CFReleaseNull(decryptTrans);
+    
+    CFReleaseNull(retData);
+    CFReleaseNull(error);
+    CFReleaseNull(decode);
+    CFReleaseNull(decrypt);
+    CFReleaseNull(group);
+    
     return retval;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -513,39 +513,18 @@ static Boolean __DARequestMount( DARequestRef request )
 
         if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
         {
-            if ( DARequestGetUserUID( request ) )
+            CFTypeRef mountpoint;
+
+            mountpoint = DARequestGetArgument2( request );
+
+            if ( mountpoint )
             {
-                CFTypeRef mountpoint;
-
-                mountpoint = DARequestGetArgument2( request );
-
-                if ( mountpoint )
+                if ( DARequestGetUserUID( request ) )
                 {
-                    mountpoint = CFURLCreateWithString( kCFAllocatorDefault, mountpoint, NULL );
-                }
-
-                if ( mountpoint )
-                {
-                    char * path;
-
-                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
-
-                    if ( path )
+                    if ( DARequestGetUserUID( request ) != DADiskGetUserUID( disk ) )
                     {
-                        struct stat st;
-
-                        if ( stat( path, &st ) == 0 )
-                        {
-                            if ( st.st_uid != DARequestGetUserUID( request ) )
-                            {
-                                status = kDAReturnNotPermitted;
-                            }
-                        }
-
-                        free( path );
+                        status = kDAReturnNotPermitted;
                     }
-
-                    CFRelease( mountpoint );
                 }
             }
         }

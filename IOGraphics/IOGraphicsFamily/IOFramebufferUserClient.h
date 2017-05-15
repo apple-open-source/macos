@@ -50,8 +50,6 @@ public:
                                         IOExternalMethodDispatch * dispatch, OSObject * target, void * reference );
 
     virtual IOReturn registerNotificationPort( mach_port_t, UInt32, UInt32 );
-    virtual IOReturn getNotificationSemaphore( UInt32 interruptType,
-                                               semaphore_t * semaphore );
 
     virtual IOReturn connectClient( IOUserClient * other );
 
@@ -84,9 +82,6 @@ public:
 
     virtual IOReturn clientMemoryForType( UInt32 type,
         IOOptionBits * options, IOMemoryDescriptor ** memory );
-
-    virtual IOReturn getNotificationSemaphore( UInt32 notification_type,
-                                    semaphore_t * semaphore );
 
     // others
     static IOFramebufferSharedUserClient * withTask( task_t owningTask );

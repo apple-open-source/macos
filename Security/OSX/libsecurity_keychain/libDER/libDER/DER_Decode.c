@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2017 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,7 +64,7 @@ DERReturn DERDecodeItem(
                         const DERItem        *der,                        /* data to decode */
                         DERDecodedInfo        *decoded)                /* RETURNED */
 {
-    return DERDecodeItemPartialBuffer(der, decoded, false);
+    return DERDecodeItemPartialBufferGetLength(der, decoded, NULL);
 }
 
 /*
@@ -79,6 +79,11 @@ DERReturn DERDecodeItem(
  *
  * No malloc or copy of the contents is performed; the returned
  * content->content.data is a pointer into the incoming der data.
+ *
+ * WARNING: Using a partial buffer can return a DERDecodedInfo object with
+ * a length larger than the buffer.  It is recommended to instead use
+ * DERDecodeItemPartialBufferGetLength if you need partial buffers.
+ *
  */
 DERReturn DERDecodeItemPartialBuffer(
 	const DERItem	*der,			/* data to decode */
@@ -161,6 +166,114 @@ DERReturn DERDecodeItemPartialBuffer(
         }
         decoded->content.data = derPtr;
         decoded->content.length = len1;
+    }
+
+    return DR_Success;
+}
+
+/*
+ * Same as above, but returns a DERDecodedInfo with a length no larger than the buffer.
+ * The actual encoded length can be retrieved from encodedLength parameter.
+ * encodedLength can be NULL to achieve the same behavior as DERDecodeItemPartialBuffer,
+ * with allowPartialBuffer=false
+ *
+ * NOTE: The DERDecoded length will never be larger than the input buffer.
+ * This is a key difference from DERDecodeItemPartialBuffer which could return invalid length.
+ *
+ */
+DERReturn DERDecodeItemPartialBufferGetLength(
+    const DERItem	*der,			/* data to decode */
+    DERDecodedInfo	*decoded,       /* RETURNED */
+    DERSize         *encodedLength)
+{
+    DERByte tag1;			/* first tag byte */
+    DERByte len1;			/* first length byte */
+    DERTag tagNumber;       /* tag number without class and method bits */
+    DERByte *derPtr = der->data;
+    DERSize derLen = der->length;
+
+    /* The tag decoding below is fully BER complient.  We support a max tag
+     value of 2 ^ ((sizeof(DERTag) * 8) - 3) - 1 so for tag size 1 byte we
+     support tag values from 0 - 0x1F.  For tag size 2 tag values
+     from 0 - 0x1FFF and for tag size 4 values from 0 - 0x1FFFFFFF. */
+    if(derLen < 2) {
+        return DR_DecodeError;
+    }
+    /* Grab the first byte of the tag. */
+    tag1 = *derPtr++;
+    derLen--;
+    tagNumber = tag1 & 0x1F;
+    if(tagNumber == 0x1F) {
+#ifdef DER_MULTIBYTE_TAGS
+        /* Long tag form: bit 8 of each octet shall be set to one unless it is
+         the last octet of the tag */
+        const DERTag overflowMask = ((DERTag)0x7F << (sizeof(DERTag) * 8 - 7));
+        DERByte tagByte;
+        tagNumber = 0;
+        if (*derPtr == 0x80 || *derPtr < 0x1F)
+            return DR_DecodeError;
+        do {
+            if(derLen < 2 || (tagNumber & overflowMask) != 0) {
+                return DR_DecodeError;
+            }
+            tagByte = *derPtr++;
+            derLen--;
+            tagNumber = (tagNumber << 7) | (tagByte & 0x7F);
+        } while((tagByte & 0x80) != 0);
+
+        /* Check for any of the top 3 reserved bits being set. */
+        if ((tagNumber & (overflowMask << 4)) != 0)
+#endif
+            return DR_DecodeError;
+    }
+    /* Returned tag, top 3 bits are class/method remaining bits are number. */
+    decoded->tag = ((DERTag)(tag1 & 0xE0) << ((sizeof(DERTag) - 1) * 8)) | tagNumber;
+
+    /* Tag decoding above ensured we have at least one more input byte left. */
+    len1 = *derPtr++;
+    derLen--;
+    if(len1 & 0x80) {
+        /* long length form - first byte is length of length */
+        DERSize longLen = 0;	/* long form length */
+        unsigned dex;
+
+        len1 &= 0x7f;
+        if((len1 > sizeof(DERSize)) || (len1 > derLen) || len1 == 0 || *derPtr == 0) {
+            /* no can do */
+            return DR_DecodeError;
+        }
+        for(dex=0; dex<len1; dex++) {
+            longLen <<= 8;
+            longLen |= *derPtr++;
+            derLen--;
+        }
+        if(longLen > derLen && !encodedLength) {
+            /* not enough data left for this encoding */
+            return DR_DecodeError;
+        }
+        if (longLen<derLen) {
+            derLen = longLen;
+        }
+        decoded->content.data = derPtr;
+        decoded->content.length = derLen;
+        if (encodedLength) {
+            *encodedLength = longLen;
+        }
+    }
+    else {
+        /* short length form, len1 is the length */
+        if(len1 > derLen && !encodedLength) {
+            /* not enough data left for this encoding */
+            return DR_DecodeError;
+        }
+        if (len1<derLen) {
+            derLen=len1;
+        }
+        decoded->content.data = derPtr;
+        decoded->content.length = derLen;
+        if (encodedLength) {
+            *encodedLength = len1;
+        }
     }
 
     return DR_Success;

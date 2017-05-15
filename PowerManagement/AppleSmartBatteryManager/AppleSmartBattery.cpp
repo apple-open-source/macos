@@ -550,7 +550,7 @@ bool AppleSmartBattery::pollBatteryState(int type)
      *  kUserVis        = 4
      */
 
-    if (fPollingNow && (fMachinePath <= type) && !fRebootPolling) {
+    if (fPollingNow && (fMachinePath <= type)) {
         /* We're already in the middle of a poll for a superset of 
          * the requested battery data.
          */
@@ -587,7 +587,6 @@ void AppleSmartBattery::handleBatteryInserted(void)
     BM_LOG1("SmartBattery: battery inserted!\n");
 
     clearBatteryState(false);
-    fRebootPolling = true;
     pollBatteryState(kBoot);
     return;
 }

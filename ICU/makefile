@@ -733,13 +733,13 @@ DATA_LOOKUP_DIR=/usr/share/icu/
 DATA_LOOKUP_DIR_BUILDHOST=/usr/share/icu/
 
 # Timezone data file(s)
-# ICU will look for /var/db/timezone/icutz/icutz44l.dat
+# ICU will look for /var/db/icutz/icutz44l.dat
 # If directory or file is not present, the timesone data in
 # current data file e.g. /usr/share/icu/icudt56l.dat will be used.
 # Currently we are not conditionalizing the definition of
 # TZDATA_LOOKUP_DIR as in
 #	ifeq "$(BUILD_TYPE)" "DEVICE"
-#		TZDATA_LOOKUP_DIR = /var/db/timezone/icutz
+#		TZDATA_LOOKUP_DIR = /var/db/icutz
 #	else
 #	...
 # since the code stats the path for TZDATA_LOOKUP_DIR and does
@@ -747,7 +747,7 @@ DATA_LOOKUP_DIR_BUILDHOST=/usr/share/icu/
 # as TZDATA_LOOKUP_DIR = /usr/share/icutz when not needed...
 # TZDATA_LOOKUP_DIR is passed to compiler as U_TIMEZONE_FILES_DIR
 # TZDATA_PACKAGE is passed to compiler as U_TIMEZONE_PACKAGE
-TZDATA_LOOKUP_DIR = /var/db/timezone/icutz
+TZDATA_LOOKUP_DIR = /var/db/icutz
 TZDATA_PACKAGE = icutz44l
 TZDATA_FORMAT_STRING = "44l"
 TZDATA_FORMAT_FILE = icutzformat.txt

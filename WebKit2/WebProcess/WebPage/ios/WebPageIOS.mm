@@ -1265,8 +1265,16 @@ static inline RefPtr<Range> unionDOMRanges(Range* rangeA, Range* rangeB)
     if (!rangeA)
         return rangeB;
 
-    Range* start = rangeA->compareBoundaryPoints(Range::START_TO_START, *rangeB).releaseReturnValue() <= 0 ? rangeA : rangeB;
-    Range* end = rangeA->compareBoundaryPoints(Range::END_TO_END, *rangeB).releaseReturnValue() <= 0 ? rangeB : rangeA;
+    auto startToStartComparison = rangeA->compareBoundaryPoints(Range::START_TO_START, *rangeB);
+    if (startToStartComparison.hasException())
+        return nullptr;
+
+    auto endToEndComparison = rangeA->compareBoundaryPoints(Range::END_TO_END, *rangeB);
+    if (endToEndComparison.hasException())
+        return nullptr;
+
+    auto* start = startToStartComparison.releaseReturnValue() <= 0 ? rangeA : rangeB;
+    auto* end = endToEndComparison.releaseReturnValue() <= 0 ? rangeB : rangeA;
 
     return Range::create(rangeA->ownerDocument(), &start->startContainer(), start->startOffset(), &end->endContainer(), end->endOffset());
 }
@@ -2396,7 +2404,9 @@ void WebPage::getPositionInformation(const InteractionInformationRequest& reques
                                     FloatSize bitmapSize = scaledSize.width() < image->size().width() ? scaledSize : image->size();
                                     // FIXME: Only select ExtendedColor on images known to need wide gamut
                                     ShareableBitmap::Flags flags = ShareableBitmap::SupportsAlpha;
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000
                                     flags |= screenSupportsExtendedColor() ? ShareableBitmap::SupportsExtendedColor : 0;
+#endif
                                     if (RefPtr<ShareableBitmap> sharedBitmap = ShareableBitmap::createShareable(IntSize(bitmapSize), flags)) {
                                         auto graphicsContext = sharedBitmap->createGraphicsContext();
                                         graphicsContext->drawImage(*image, FloatRect(0, 0, bitmapSize.width(), bitmapSize.height()));

@@ -19,7 +19,7 @@ ONE_TEST(si_11_update_data)
 ONE_TEST(si_12_item_stress)
 ONE_TEST(si_13_item_system)
 ONE_TEST(si_14_dateparse)
-ONE_TEST(si_15_delete_access_group)
+DISABLED_ONE_TEST(si_15_delete_access_group)
 ONE_TEST(si_17_item_system_bluetooth)
 DISABLED_ONE_TEST(si_30_keychain_upgrade) //obsolete, needs updating
 DISABLED_ONE_TEST(si_31_keychain_bad)

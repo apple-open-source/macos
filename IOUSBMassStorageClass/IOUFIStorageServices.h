@@ -48,8 +48,8 @@ protected:
 	UInt64							fMaxReadBlocks;
 	UInt64							fMaxWriteBlocks;
 	
-	virtual bool	attach ( IOService * provider );
-	virtual void	detach ( IOService * provider );
+	virtual bool	attach ( IOService * provider ) APPLE_KEXT_OVERRIDE;
+	virtual void	detach ( IOService * provider ) APPLE_KEXT_OVERRIDE;
 	
     // Reserve space for future expansion.
     struct IOUFIStorageServicesExpansionData { };
@@ -57,7 +57,7 @@ protected:
 	
 public:
 
-	virtual IOReturn 	message ( UInt32 type, IOService * provider, void * argument );
+	virtual IOReturn 	message ( UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
 
 	static void 		AsyncReadWriteComplete ( void * 			clientData,
                                 				 IOReturn			status,
@@ -73,44 +73,44 @@ public:
                                             UInt64                  block, 
                                             UInt64                  nblks,
                                             IOStorageAttributes *   attributes,
-                                            IOStorageCompletion *   completion );
+                                            IOStorageCompletion *   completion ) APPLE_KEXT_OVERRIDE;
 
 	virtual IOReturn	doSyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 											UInt32					block,
 											UInt32					nblks );
 
-    virtual IOReturn	doEjectMedia ( void );
+    virtual IOReturn	doEjectMedia ( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	doFormatMedia ( UInt64 byteCapacity );
+    virtual IOReturn	doFormatMedia ( UInt64 byteCapacity ) APPLE_KEXT_OVERRIDE;
 
     virtual UInt32		doGetFormatCapacities ( UInt64 *	capacities,
-    											UInt32		capacitiesMaxCount ) const;
+    											UInt32		capacitiesMaxCount ) const APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	doSynchronizeCache ( void );
+    virtual IOReturn	doSynchronizeCache ( void ) APPLE_KEXT_OVERRIDE;
         
-    virtual char *		getVendorString ( void );
+    virtual char *		getVendorString ( void ) APPLE_KEXT_OVERRIDE;
     
-    virtual char *		getProductString ( void );
+    virtual char *		getProductString ( void ) APPLE_KEXT_OVERRIDE;
     
-    virtual char *		getRevisionString ( void );
+    virtual char *		getRevisionString ( void ) APPLE_KEXT_OVERRIDE;
     
-    virtual char *		getAdditionalDeviceInfoString ( void );
+    virtual char *		getAdditionalDeviceInfoString ( void ) APPLE_KEXT_OVERRIDE;
     
-    virtual IOReturn	reportBlockSize ( UInt64 * blockSize );
+    virtual IOReturn	reportBlockSize ( UInt64 * blockSize ) APPLE_KEXT_OVERRIDE;
     
-    virtual IOReturn	reportEjectability ( bool * isEjectable );
+    virtual IOReturn	reportEjectability ( bool * isEjectable ) APPLE_KEXT_OVERRIDE;
     
-    virtual IOReturn	reportMediaState ( bool * mediaPresent, bool * changed );
+    virtual IOReturn	reportMediaState ( bool * mediaPresent, bool * changed ) APPLE_KEXT_OVERRIDE;
     
-    virtual IOReturn	reportMaxValidBlock ( UInt64 * maxBlock );
+    virtual IOReturn	reportMaxValidBlock ( UInt64 * maxBlock ) APPLE_KEXT_OVERRIDE;
     
-    virtual IOReturn	reportRemovability ( bool * isRemovable );
+    virtual IOReturn	reportRemovability ( bool * isRemovable ) APPLE_KEXT_OVERRIDE;
     
-    virtual IOReturn	reportWriteProtection ( bool * isWriteProtected );
+    virtual IOReturn	reportWriteProtection ( bool * isWriteProtected ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	getWriteCacheState ( bool * enabled );
+    virtual IOReturn	getWriteCacheState ( bool * enabled ) APPLE_KEXT_OVERRIDE;
 	
-	virtual IOReturn	setWriteCacheState ( bool enabled );
+	virtual IOReturn	setWriteCacheState ( bool enabled ) APPLE_KEXT_OVERRIDE;
     
 	// Space reserved for future expansion.
     OSMetaClassDeclareReservedUnused( IOUFIStorageServices, 1 );

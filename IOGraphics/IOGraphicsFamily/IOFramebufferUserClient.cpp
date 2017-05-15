@@ -78,12 +78,6 @@ IOReturn IOFramebufferUserClient::registerNotificationPort(
     return (owner->extRegisterNotificationPort(port, type, refCon));
 }
 
-IOReturn IOFramebufferUserClient::getNotificationSemaphore(
-    UInt32 interruptType, semaphore_t * semaphore )
-{
-    return (owner->getNotificationSemaphore(interruptType, semaphore));
-}
-
 // The window server is going away.
 
 IOReturn IOFramebufferUserClient::clientClose( void )
@@ -305,9 +299,4 @@ IOReturn IOFramebufferSharedUserClient::clientMemoryForType( UInt32 type,
     return (err);
 }
 
-IOReturn IOFramebufferSharedUserClient::getNotificationSemaphore(
-    UInt32 interruptType, semaphore_t * semaphore )
-{
-    return (owner->getNotificationSemaphore(interruptType, semaphore));
-}
 

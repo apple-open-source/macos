@@ -112,7 +112,7 @@ _pthread_atfork_prepare_handlers(void)
 // Take pthread-internal locks.
 // Called last in libSystem_atfork_prepare().
 void
-_pthread_fork_prepare(void)
+_pthread_atfork_prepare(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 
@@ -125,7 +125,7 @@ _pthread_fork_prepare(void)
 // Release pthread-internal locks
 // Called first in libSystem_atfork_parent().
 void
-_pthread_fork_parent(void)
+_pthread_atfork_parent(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 
@@ -155,7 +155,7 @@ _pthread_atfork_parent_handlers(void)
 // Make the current thread the main thread.
 // Called first in libSystem_atfork_child() (after _dyld_fork_child)
 void
-_pthread_fork_child(void)
+_pthread_atfork_child(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 	_PTHREAD_LOCK_INIT(globals->psaved_self_global_lock);
@@ -180,7 +180,27 @@ _pthread_atfork_child_handlers(void)
 	_PTHREAD_LOCK_INIT(globals->pthread_atfork_lock);
 }
 
-// Preserve legacy symbol in case somebody depends on it
+// Preserve legacy symbols for older iOS simulators
+void
+_pthread_fork_prepare(void)
+{
+	_pthread_atfork_prepare_handlers();
+	_pthread_atfork_prepare();
+}
+
+void
+_pthread_fork_parent(void)
+{
+	_pthread_atfork_parent();
+	_pthread_atfork_parent_handlers();
+}
+
+void
+_pthread_fork_child(void)
+{
+	_pthread_atfork_child();
+}
+
 void
 _pthread_fork_child_postinit(void)
 {

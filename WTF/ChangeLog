@@ -1,3 +1,46 @@
+2017-03-22  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214125. rdar://problem/30921831
+
+    2017-03-17  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            Time channel attack on SVG Filters
+            https://bugs.webkit.org/show_bug.cgi?id=118689
+
+            Reviewed by Simon Fraser.
+
+            Performing arithmetic operations on subnormal floating-point numbers is
+            very expensive. Normalizing the floating-point number to the minimum normal
+            value should accelerate the calculations and there won't be a noticeable
+            difference in the result since all the subnormal values and the minimum
+            normal value are all very close to zero.
+
+            * wtf/MathExtras.h:
+            (normalizedFloat):
+
+2017-02-21  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r212692. rdar://problem/30635854
+
+    2017-02-20  Mark Lam  <mark.lam@apple.com>
+
+            [Re-landing] CachedCall should let GC know to keep its arguments alive.
+            https://bugs.webkit.org/show_bug.cgi?id=168567
+            <rdar://problem/30475767>
+
+            Reviewed by Saam Barati.
+
+            Added a WTF_FORBID_HEAP_ALLOCATION that will cause a compilation failure if
+            a class declared with it is malloced.
+
+            While this doesn't prevent that class declared WTF_FORBID_HEAP_ALLOCATION from
+            being embedded in another class that is heap allocated, it does at minimum
+            document the intent and gives the users of this class a chance to do the
+            right thing.
+
+            * WTF.xcodeproj/project.pbxproj:
+            * wtf/ForbidHeapAllocation.h: Added.
+
 2017-02-17  JF Bastien  <jfbastien@apple.com>
 
         A/B test concurrent GC

@@ -1376,6 +1376,8 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 #define kIOPMSleepServicesKey                           "SleepServices"
 // units - CFNumber 0/1
 #define kIOPMUnifiedSleepSliderPrefKey                  "UnifiedSleepSliderPref"
+// units - CFNumber 0/1
+#define kIOPMTCPKeepAlivePrefKey                        "TCPKeepAlivePref"
 
 
 #define kIOPMUpdateDarkWakeBGSettingKey                 "Update DarkWakeBG Setting"

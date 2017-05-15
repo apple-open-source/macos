@@ -50,6 +50,7 @@ enum {
     kHIDPage_AppleVendorIRInterface             = 0xff10,
     kHIDPage_AppleVendorDFR                     = 0xff11,
     kHIDPage_AppleVendorDFRBrightness           = 0xff12,
+    kHIDPage_AppleVendorSenderID                = 0xff13,
     kHIDPage_AppleVendorFilteredEvent           = 0xff50,
     kHIDPage_AppleVendorMultitouch              = 0xff60,
     kHIDPage_AppleVendorDisplay                 = 0xff92,
@@ -198,7 +199,8 @@ enum
 
 /* AppleVendor DFR (0xff11) */
 enum {
-    kHIDUsage_AppleVendorDFR_TouchTimestamp    = 0x1
+    kHIDUsage_AppleVendorDFR_TouchTimestamp             = 0x0001,
+    kHIDUsage_AppleVendorDFR_TouchGenerationCount       = 0x0002
 };
 
 /* AppleVendor DFR Brightness (0xff12) */
@@ -230,5 +232,15 @@ enum {
     
     kHIDUsage_AppleVendorDFRBrightness_DFRBurninCounterUpdate       = 0x0050,
     kHIDUsage_AppleVendorDFRBrightness_DFRBurninCounterValue        = 0x0051,
+};
+
+/* AppleVendor Sender ID (0xff13) */
+enum {
+    /* Transports */
+    kHIDUsage_AppleVendorSenderID_IR                                = 0x0001,
+    kHIDUsage_AppleVendorSenderID_CEC                               = 0x0002,
+    
+    /* Applications */
+    kHIDUsage_AppleVendorSenderID_MediaRemote                       = 0x0010,
 };
 #endif /* _APPLEHIDUSAGETABLES_H */

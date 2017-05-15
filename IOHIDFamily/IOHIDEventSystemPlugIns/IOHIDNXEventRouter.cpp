@@ -524,6 +524,7 @@ void IOHIDNXEventRouter::scheduleWithDispatchQueue(dispatch_queue_t dispatchQueu
 void IOHIDNXEventRouter::unscheduleFromDispatchQueue(dispatch_queue_t queue __unused)
 {
     if ( _asyncEventSource ) {
+        dispatch_source_cancel(_asyncEventSource);
         dispatch_release(_asyncEventSource);
         _asyncEventSource = NULL;
     }

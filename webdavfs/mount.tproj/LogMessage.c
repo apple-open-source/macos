@@ -60,7 +60,7 @@ void LogMessage(u_int32_t level, char *format, ...)
 		bufPtr = buffer;
 
         va_start(arglist, format);
-        vsnprintf ( buffer, 300, format, arglist);
+        vsnprintf ( (char*)buffer, 300, format, arglist);
 
         if (level & kSysLog) {
             syslog(LOG_DEBUG, "webdavfs: %s", buffer);

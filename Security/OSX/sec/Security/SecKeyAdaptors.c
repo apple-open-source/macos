@@ -127,7 +127,7 @@ const SecKeyAlgorithm kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512 = CFSTR(
 const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionAKSSmartCard = CFSTR("algid:encrypt:ECIES:ECDH:SHA256:2PubKeys");
 
 void SecKeyOperationContextDestroy(SecKeyOperationContext *context) {
-    CFReleaseSafe(context->algorithm);
+    CFReleaseNull(context->algorithm);
 }
 
 static void PerformWithCFDataBuffer(CFIndex size, void (^operation)(uint8_t *buffer, CFDataRef data)) {

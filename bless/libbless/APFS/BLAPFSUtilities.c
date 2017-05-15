@@ -93,10 +93,19 @@ int MountPrebootVolume(BLContextPtr context, const char *bsdName, char *mntPoint
     char    vartmpLoc[MAXPATHLEN];
     char	fulldevpath[MNAMELEN];
     char	*newargv[10];
+    char    *installEnv;
     
-    if (!confstr(_CS_DARWIN_USER_TEMP_DIR, vartmpLoc, sizeof vartmpLoc)) {
-        // We couldn't get our path in /var/folders, so just try /var/tmp.
-        strlcpy(vartmpLoc, "/var/tmp/", sizeof vartmpLoc);
+    installEnv = getenv("__OSINSTALL_ENVIRONMENT");
+    if (installEnv && (atoi(installEnv) > 0 || strcasecmp(installEnv, "yes") == 0 || strcasecmp(installEnv, "true") == 0)) {
+        strlcpy(vartmpLoc, "/var/tmp/RecoveryTemp", sizeof vartmpLoc);
+    } else {
+        if (!confstr(_CS_DARWIN_USER_TEMP_DIR, vartmpLoc, sizeof vartmpLoc)) {
+            // We couldn't get our path in /var/folders, so just try /var/tmp.
+            strlcpy(vartmpLoc, "/var/tmp/", sizeof vartmpLoc);
+        }
+    }
+    if (access(vartmpLoc, W_OK) < 0) {
+        contextprintf(context, kBLLogLevelError, "Temporary directory \"%s\" is not writable.\n", vartmpLoc);
     }
     snprintf(mntPoint, mntPtStrSize, "%sbless.XXXX", vartmpLoc);
     if (!mkdtemp(mntPoint)) {

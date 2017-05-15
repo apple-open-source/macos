@@ -237,7 +237,7 @@ void AppleBacklightDisplay::stop( IOService * provider )
     fadeAbort();
     if (fFadeTimer)
     {
-    	fFadeTimer->disable();
+        fFadeTimer->disable();
         getConnection()->getFramebuffer()->getControllerWorkLoop()->removeEventSource(fFadeTimer);
         fFadeTimer->release();
 	    fFadeTimer = 0;
@@ -509,69 +509,69 @@ void AppleBacklightDisplay::fadeAbort(void)
 void AppleBacklightDisplay::fadeWork(IOTimerEventSource * sender)
 {
     OSDictionary * displayParams;
-	SInt32 fade, gamma, point;
-    
-	DEBGFADE("AppleBacklight: fadeWork(fFadeStateEnd %d, fFadeState %d, %d, fFadeStateEnd %d)\n", 
-			fFadeStateEnd, fFadeState & 0xffff, fFadeState >> 24, fFadeStateEnd);
+    SInt32 fade, gamma, point;
 
-	if (kFadeIdle == fFadeState) return;
-	displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
-	if (!displayParams) return;
+    DEBGFADE("AppleBacklight: fadeWork(fFadeStateEnd %d, fFadeState %d, %d, fFadeStateEnd %d)\n",
+             fFadeStateEnd, fFadeState & 0xffff, fFadeState >> 24, fFadeStateEnd);
+
+    if (kFadeIdle == fFadeState) return;
+    displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+    if (!displayParams) return;
 
     fFadeAbort = (fFadeDown && !fDisplayPMVars->displayIdle);
 
-	if (fFadeAbort) fadeAbort();
-	else if (fFadeState <= fFadeStateEnd)
+    if (fFadeAbort) fadeAbort();
+    else if (fFadeState <= fFadeStateEnd)
     {
-		point = fFadeState;
-		if (!fFadeDown) point = (fFadeStateEnd - point);
-		if (fFadeBacklight)
-		{
-			if (!fFadeDown && !point) fade = 0;
-			else if (fFadeStateFadeMax > 0x8000)
-			{
-				fade = fFadeDown ? fFadeStateFadeMax : 0;
-				fFadeBacklight = false;
-			}
-			else
-			{
-				fade = ((point * fFadeStateFadeDelta) / fFadeStateEnd);
-				fade = fFadeStateFadeMin + fade;
-			}
-			DEBGFADE("AppleBacklight: backlight: %d\n", fade);
-			doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, fade);
-		}
-		if (fFadeGamma)
-		{
-			gamma = 65536 - ((point * 65536) / fFadeStateEnd);
-			DEBGFADE("AppleBacklight: gamma: %d\n", gamma);
-			doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
-			doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
-		}
+        point = fFadeState;
+        if (!fFadeDown) point = (fFadeStateEnd - point);
+        if (fFadeBacklight)
+        {
+            if (!fFadeDown && !point) fade = 0;
+            else if (fFadeStateFadeMax > 0x8000)
+            {
+                fade = fFadeDown ? fFadeStateFadeMax : 0;
+                fFadeBacklight = false;
+            }
+            else
+            {
+                fade = ((point * fFadeStateFadeDelta) / fFadeStateEnd);
+                fade = fFadeStateFadeMin + fade;
+            }
+            DEBGFADE("AppleBacklight: backlight: %d\n", fade);
+            doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, fade);
+        }
+        if (fFadeGamma)
+        {
+            gamma = 65536 - ((point * 65536) / fFadeStateEnd);
+            DEBGFADE("AppleBacklight: gamma: %d\n", gamma);
+            doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
+            doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
+        }
 
-		fFadeState++;
-		if (fFadeState > fFadeStateEnd) 
-		{
-			if (fFadeDown) updatePowerParam();
-			fFadeState = kFadePostDelay;
-			clock_interval_to_absolutetime_interval(500, kMillisecondScale, &fFadeInterval);
-		}
-	}
-	else if (kFadePostDelay == fFadeState)
-	{
-		fFadeState = kFadeIdle;
-	}
+        fFadeState++;
+        if (fFadeState > fFadeStateEnd) 
+        {
+            if (fFadeDown) updatePowerParam();
+            fFadeState = kFadePostDelay;
+            clock_interval_to_absolutetime_interval(500, kMillisecondScale, &fFadeInterval);
+        }
+    }
+    else if (kFadePostDelay == fFadeState)
+    {
+        fFadeState = kFadeIdle;
+    }
 
-	if (kFadeIdle == fFadeState)
-	{
-	    DEBGFADE("AppleBacklight: fadeWork ack\n");
-	    if (fFadeDown)  acknowledgeSetPowerState();
-	}
-	else
-	{
-		ADD_ABSOLUTETIME(&fFadeDeadline, &fFadeInterval);
-		fFadeTimer->wakeAtTime(fFadeDeadline);
-	}
+    if (kFadeIdle == fFadeState)
+    {
+        DEBGFADE("AppleBacklight: fadeWork ack\n");
+        if (fFadeDown)  acknowledgeSetPowerState();
+    }
+    else
+    {
+        ADD_ABSOLUTETIME(&fFadeDeadline, &fFadeInterval);
+        fFadeTimer->wakeAtTime(fFadeDeadline);
+    }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -765,9 +765,9 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
 {
     if ((kIOFBNotifyDidWake == event) && (info))
     {
-	    fProviderPower = true;
-//		fCurrentPowerState = kIODisplayMaxPowerState;
-//		updatePowerParam();
+        fProviderPower = true;
+        //		fCurrentPowerState = kIODisplayMaxPowerState;
+        //		updatePowerParam();
     }
     else if (kIOFBNotifyClamshellChange == event)
     {
@@ -794,12 +794,12 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
     }
     else if (kIOFBNotifyDisplayDimsChange == event)
     {
-		UInt8 newValue = (info != NULL);
-		if (newValue != fDisplayDims)
-		{
-			fDisplayDims = newValue;
-			if (fDeferredEvents)
-				fDeferredEvents->interruptOccurred(0, 0, 0);
+        UInt8 newValue = (info != NULL);
+        if (newValue != fDisplayDims)
+        {
+            fDisplayDims = newValue;
+            if (fDeferredEvents)
+                fDeferredEvents->interruptOccurred(0, 0, 0);
 		}
     }
 

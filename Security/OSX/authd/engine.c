@@ -1040,7 +1040,7 @@ static bool _verify_sandbox(engine_t engine, const char * right)
     }
     
     pid = auth_token_get_pid(engine->auth);
-    if (auth_token_get_sandboxed(engine->auth) && sandbox_check(pid, "authorization-right-obtain", SANDBOX_FILTER_RIGHT_NAME, right)) {
+    if (auth_token_get_sandboxed(engine->auth) && sandbox_check_by_audit_token(auth_token_get_audit_info(engine->auth)->opaqueToken, "authorization-right-obtain", SANDBOX_FILTER_RIGHT_NAME, right)) {
         LOGE("Sandbox denied authorizing right '%s' for authorization created by '%s' [%d]", right, auth_token_get_code_url(engine->auth), pid);
         return false;
     }

@@ -30,6 +30,7 @@
 #include "SystemLoad.h"
 
 __private_extern__ CFAbsoluteTime   get_SleepFromUserWakeTime();
+static bool userPrefForTcpka();
 
 __private_extern__ TCPKeepAliveStruct   *gTCPKeepAlive = NULL;
 
@@ -87,7 +88,7 @@ __private_extern__ CFTimeInterval getTcpkaTurnOffTime( )
 {
 
     if ((!gTCPKeepAlive) || (gTCPKeepAlive->state != kActive) ||
-        (gTCPKeepAlive->ts_turnoff == 0)) 
+        (gTCPKeepAlive->ts_turnoff == 0) || (userPrefForTcpka() == false))
         return 0;
 
     // Add additional 60 secs, just to make sure dispatch timer is expired 
@@ -103,7 +104,9 @@ __private_extern__ void cancelTCPKeepAliveExpTimer( )
 }
 __private_extern__ void startTCPKeepAliveExpTimer( )
 {
-    if ((!gTCPKeepAlive) || (gTCPKeepAlive->state != kActive)) return;
+    if ((!gTCPKeepAlive) || (gTCPKeepAlive->state != kActive) ||
+            (userPrefForTcpka() == false)) return;
+
 
     if (!gTCPKeepAlive->expiration) {
         gTCPKeepAlive->expiration = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0,
@@ -147,6 +150,11 @@ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
         return kNotSupported;
     }
 
+    if (userPrefForTcpka() == false) {
+        if (buf) snprintf(buf, buflen, "disabled");
+        return kInactive;
+    }
+
     if ((gTCPKeepAlive->state == kActive) && pushConnectionActive) {
         state = kActive;
         if (buf) snprintf(buf, buflen, "active");
@@ -157,6 +165,27 @@ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
     }
     return state;
 
+}
+
+/*
+ * userPrefForTcpka - Returns user preference for TCPKA
+ * Returns false if user has opted out.
+ */
+static bool userPrefForTcpka()
+{
+    IOReturn rc;
+    int64_t pref = 1;
+
+    rc = GetPMSettingNumber(CFSTR(kIOPMTCPKeepAlivePrefKey), &pref);
+    if ((rc != kIOReturnSuccess) || (pref == 1)) {
+        // Preference defaults to enabled
+        DEBUG_LOG("User Prefs for TCPKeepAlive is set to enabled\n");
+        return true;
+    }
+    else {
+        DEBUG_LOG("User Prefs for TCPKeepAlive is set to disabled\n");
+        return false;
+    }
 }
 
 __private_extern__ long getTCPKeepAliveOverrideSec( )
@@ -171,6 +200,9 @@ __private_extern__ void enableTCPKeepAlive()
 {
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
         return;
+    if (userPrefForTcpka() == false)
+        return;
+
     cancelTCPKeepAliveExpTimer();
     gTCPKeepAlive->state = kActive;
 
@@ -181,6 +213,9 @@ __private_extern__ void disableTCPKeepAlive()
 {
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
         return;
+    if (userPrefForTcpka() == false)
+        return;
+
     cancelTCPKeepAliveExpTimer();
     gTCPKeepAlive->state = kInactive;
 

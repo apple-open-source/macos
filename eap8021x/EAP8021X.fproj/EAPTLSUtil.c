@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,6 +54,7 @@
 #include <Security/oidsalg.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecPolicySearch.h>
+#include <Security/SecTrustSettingsPriv.h>
 #endif /* TARGET_OS_EMBEDDED */
 #include <Security/SecTrustPriv.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -1422,6 +1423,103 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 
 #else /* TARGET_OS_EMBEDDED */
 
+static CFStringRef
+create_certhash_str_from_data(const void *cert, size_t certLen)
+{
+    char hexChars[16] = {
+	'0', '1', '2', '3', '4', '5', '6', '7',
+	'8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+    };
+    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+    char asciiDigest[(2 * CC_SHA1_DIGEST_LENGTH) + 1];
+    unsigned dex;
+    char *outp = asciiDigest;
+    unsigned char *inp = digest;
+    if(cert == NULL) {
+	return NULL;
+    }
+    CC_SHA1(cert, (CC_LONG)certLen, digest);
+    for(dex = 0; dex < CC_SHA1_DIGEST_LENGTH; dex++) {
+	unsigned c = *inp++;
+	outp[1] = hexChars[c & 0xf];
+	c >>= 4;
+	outp[0] = hexChars[c];
+	outp += 2;
+    }
+    *outp = 0;
+    return CFStringCreateWithCString(NULL, asciiDigest, kCFStringEncodingASCII);
+}
+
+static Boolean
+has_trust_settings(SecCertificateRef certificate) {
+    OSStatus 			status = errSecParam;
+    CFDataRef 			cert_data = NULL;
+    CFStringRef 		hash_str = NULL;
+    Boolean 			ret = FALSE;
+    bool 			foundMatch = false;
+    bool 			foundAny = false;
+    CSSM_RETURN 		*errors = NULL;
+    uint32 			errorCount = 0;
+    SecTrustSettingsResult 	result;
+    SecTrustSettingsDomain 	domain;
+    Boolean			isSelfSigned = FALSE;
+    bool			isRootCert = false;
+
+
+    cert_data = SecCertificateCopyData(certificate);
+    if (cert_data == NULL) {
+	return FALSE;
+    }
+    hash_str = create_certhash_str_from_data(CFDataGetBytePtr(cert_data), CFDataGetLength(cert_data));
+    if (hash_str == NULL) {
+	goto done;
+    }
+    status = SecCertificateIsSelfSigned(certificate, &isSelfSigned);
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_ERR, "SecCertificateIsSelfSigned failed");
+	goto done;
+    }
+    isRootCert = (isSelfSigned == TRUE) ? true : false;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
+    status = SecTrustSettingsEvaluateCert(hash_str, &CSSMOID_APPLE_TP_EAP, NULL, 0, 0, isRootCert,
+					  &domain, &errors, &errorCount, &result, &foundMatch, &foundAny);
+#pragma GCC diagnostic pop
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_ERR, "SecTrustSettingsEvaluateCert failed");
+	goto done;
+    }
+    if (domain == kSecTrustSettingsDomainSystem) {
+	goto done;
+    }
+    if (isSelfSigned == TRUE) {
+	ret = (result == kSecTrustSettingsResultTrustRoot);
+    } else {
+	ret = (result == kSecTrustSettingsResultTrustAsRoot);
+    }
+done:
+    my_CFRelease(&cert_data);
+    my_CFRelease(&hash_str);
+    if (errors != NULL) {
+	free(errors);
+    }
+    return ret;
+}
+
+static Boolean
+evaluate_trust_settings(CFArrayRef server_certs) {
+    CFIndex	count = CFArrayGetCount(server_certs);
+    Boolean	ret = FALSE;
+
+    for (int i = 0; i < count; i++) {
+	ret = has_trust_settings((SecCertificateRef)CFArrayGetValueAtIndex(server_certs, i));
+	if (ret == TRUE) {
+	    break;
+	}
+    }
+    return ret;
+}
+
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
 				   CFArrayRef server_certs, 
@@ -1532,9 +1630,22 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     is_recoverable = FALSE;
     switch (trust_result) {
     case kSecTrustResultProceed:
-    case kSecTrustResultUnspecified:
 	client_status = kEAPClientStatusOK;
 	break;
+    case kSecTrustResultUnspecified:
+	if (allow_trust_decisions == FALSE) {
+	    client_status = kEAPClientStatusOK;
+	    break;
+	} else {
+	    /* rdar://problem/31547046 */
+	    Boolean found_trust_setttings = evaluate_trust_settings(server_certs);
+	    if (found_trust_setttings == TRUE) {
+		/* found trust settings for the certificate */
+		client_status = kEAPClientStatusOK;
+		break;
+	    }
+	}
+	/* FALL THROUGH */
     case kSecTrustResultRecoverableTrustFailure:
 	is_recoverable = TRUE;
 	break;

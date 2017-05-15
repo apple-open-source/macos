@@ -60,9 +60,9 @@ extern void __stack_logging_early_finished(void); // form libsystem_c.dylib
 extern void _pthread_clear_qos_tsd(mach_port_t) __attribute__((weak_import));
 
 // system library atfork handlers
-extern void _pthread_fork_prepare(void);
-extern void _pthread_fork_parent(void);
-extern void _pthread_fork_child(void);
+extern void _pthread_atfork_prepare(void);
+extern void _pthread_atfork_parent(void);
+extern void _pthread_atfork_child(void);
 extern void _pthread_atfork_prepare_handlers();
 extern void _pthread_atfork_parent_handlers(void);
 extern void _pthread_atfork_child_handlers(void);
@@ -217,7 +217,7 @@ libSystem_atfork_prepare(void)
 	xpc_atfork_prepare();
 	dispatch_atfork_prepare();
 	_malloc_fork_prepare();
-	_pthread_fork_prepare();
+	_pthread_atfork_prepare();
 }
 
 void
@@ -225,7 +225,7 @@ libSystem_atfork_parent(void)
 {
 	// first call hardwired fork parent handlers for Libsystem components
 	// in the order of library initalization above
-	_pthread_fork_parent();
+	_pthread_atfork_parent();
 	_malloc_fork_parent();
 	dispatch_atfork_parent();
 	xpc_atfork_parent();
@@ -241,7 +241,7 @@ libSystem_atfork_child(void)
 	// first call hardwired fork child handlers for Libsystem components
 	// in the order of library initalization above
 	_dyld_fork_child();
-	_pthread_fork_child();
+	_pthread_atfork_child();
 	_mach_fork_child();
 	_malloc_fork_child();
 	_libc_fork_child(); // _arc4_fork_child calls malloc

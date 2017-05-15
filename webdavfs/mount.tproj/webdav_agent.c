@@ -615,6 +615,33 @@ static boolean_t readCredentialsFromFile(int fd, char *userName, char *userPassw
 			return FALSE;
 		}
 	}
+
+	// read Certificate Chain
+	rlen = read(fd, &be_len, sizeof(be_len));
+	if (rlen != sizeof(be_len)) {
+		return FALSE;
+	}
+	len1 = ntohl(be_len);
+	syslog(LOG_DEBUG,"%s: certs_data length=(%ld)", __FUNCTION__, len1);
+	// CFArray of CFData (certs_data)
+	// read certs_data (if length not zero)
+	if (len1) {
+		char *certs_data = malloc(len1);
+
+		rlen = read(fd, certs_data, len1);
+		if (rlen < 0) {
+			free(certs_data);
+			return FALSE;
+		}
+		CFDataRef certs_cfdata = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)certs_data, len1);
+		free(certs_data);
+		if (certs_cfdata) {
+			certs_init(certs_cfdata);
+			CFRelease(certs_cfdata);
+		} else {
+			syslog(LOG_ERR,"%s: CFDataCreate failed", __FUNCTION__);
+		}
+	}
 	
 	/* zero contents of file and close it if
 	 * fd is not STDIN_FILENO, STDOUT_FILENO or STDERR_FILENO

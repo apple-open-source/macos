@@ -25,6 +25,7 @@
 #define __WEBDAVLIB_H__
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreServices/CoreServicesPriv.h>
 
 enum WEBDAVLIBAuthStatus
 {
@@ -33,6 +34,22 @@ enum WEBDAVLIBAuthStatus
 	WEBDAVLIB_ServerAuth = 2,
 	WEBDAVLIB_UnexpectedStatus = 3,
 	WEBDAVLIB_IOError = 4
+};
+
+/*
+ * The session ref structure for webdav
+ *
+ * Note: According to Guy Harris, the first element of webdav_ctx does *NOT* have
+ * to have the schema as a CFStringRef, despite comments in NFS and SMBs plugin.
+ */
+struct webdav_ctx {
+	pthread_mutex_t mutex;
+	CFStringRef     ct_user;
+	CFStringRef     ct_pass;
+	CFStringRef     ct_proxy_user;
+	CFStringRef     ct_proxy_pass;
+	CFURLRef		ct_url;
+	CFMutableDictionaryRef ct_sslproperties;
 };
 
 //
@@ -72,7 +89,7 @@ enum WEBDAVLIBAuthStatus
 #define kWebDAVLibProxyPortKey			CFSTR("ProxyPort")
 #define kWebDAVLibProxySchemeKey		CFSTR("ProxyScheme")	// http or https
 
-extern enum WEBDAVLIBAuthStatus queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error);
+extern enum WEBDAVLIBAuthStatus queryForProxy(struct webdav_ctx *session_ref, CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error);
 
 
 //
@@ -119,6 +136,10 @@ extern enum WEBDAVLIBAuthStatus queryForProxy(CFURLRef a_url, CFMutableDictionar
 #define kWebDAVLibProxyUserNameKey	CFSTR("ProxyUserName")
 #define kWebDAVLibProxyPasswordKey	CFSTR("ProxyPassword")
 
-extern enum WEBDAVLIBAuthStatus connectToServer(CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLogin, int *error);
+extern enum WEBDAVLIBAuthStatus connectToServer(struct webdav_ctx *session_ref, CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLogin, int *error);
+
+CFDataRef SecCertificateCreateCFData(SecCertificateRef cert);
+CFArrayRef SecCertificateArrayCreateCFDataArray(CFArrayRef certs);
+
 
 #endif

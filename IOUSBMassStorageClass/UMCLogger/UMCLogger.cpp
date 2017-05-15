@@ -812,7 +812,7 @@ PrintSCSICommand ( void )
 			TRANSFER_LENGTH <<= 8;
 			TRANSFER_LENGTH  |= fullCDB [8];
 			
-			printf ( "kSCSICmd_READ_10, LBA = %p, length = %p\n", ( void * ) LOGICAL_BLOCK_ADDRESS, ( void * ) TRANSFER_LENGTH );
+			printf ( "kSCSICmd_READ_10, LBA = 0x%X, length = 0x%X\n", LOGICAL_BLOCK_ADDRESS, TRANSFER_LENGTH );
 			
 		}
 		break;
@@ -835,7 +835,7 @@ PrintSCSICommand ( void )
 			TRANSFER_LENGTH <<= 8;
 			TRANSFER_LENGTH  |= fullCDB [8];
 			
-			printf ( "kSCSICmd_WRITE_10, LBA = %p, length = %p\n", ( void * ) LOGICAL_BLOCK_ADDRESS, ( void * ) TRANSFER_LENGTH );
+			printf ( "kSCSICmd_WRITE_10, LBA = 0x%X, length = 0x%X\n", LOGICAL_BLOCK_ADDRESS, TRANSFER_LENGTH );
 			
 		}
 		break;
@@ -1496,7 +1496,7 @@ ParseKernelTracePoint ( kd_buf inTracePoint )
             
             if ( ( type >= 0x05278800 ) && ( type <= 0x05278BFC ) )
             {
-                printf ( "[%10p] ??? - UNEXPECTED USB TRACE POINT - %p\n", ( void * ) inTracePoint.arg1, ( void * ) type );
+                printf ( "[%10p] ??? - UNEXPECTED USB TRACE POINT - 0x%X\n", ( void * ) inTracePoint.arg1, type );
             }
             
         }
@@ -1602,94 +1602,94 @@ StringFromReturnCode ( unsigned int returnCode )
 	const char *	string = "UNKNOWN";
 	unsigned int	i;
 	
-	static ReturnCodeSpec	sReturnCodeSpecs[] =
-	{
-		
-		//	USB Return codes
-		{ kIOUSBUnknownPipeErr,								"kIOUSBUnknownPipeErr" },
-		{ kIOUSBTooManyPipesErr,							"kIOUSBTooManyPipesErr" },
-		{ kIOUSBNoAsyncPortErr,								"kIOUSBNoAsyncPortErr" },
-		{ kIOUSBNotEnoughPipesErr,							"kIOUSBNotEnoughPipesErr" },
-		{ kIOUSBNotEnoughPowerErr,							"kIOUSBNotEnoughPowerErr" },
-		{ kIOUSBEndpointNotFound,							"kIOUSBEndpointNotFound" },
-		{ kIOUSBConfigNotFound,								"kIOUSBConfigNotFound" },
-		{ kIOUSBTransactionTimeout,							"kIOUSBTransactionTimeout" },
-		{ kIOUSBTransactionReturned,						"kIOUSBTransactionReturned" },
-		{ kIOUSBPipeStalled,								"kIOUSBPipeStalled" },
-		{ kIOUSBInterfaceNotFound,							"kIOUSBInterfaceNotFound" },
-		{ kIOUSBLowLatencyBufferNotPreviouslyAllocated,		"kIOUSBLowLatencyBufferNotPreviouslyAllocated" },
-		{ kIOUSBLowLatencyFrameListNotPreviouslyAllocated,	"kIOUSBLowLatencyFrameListNotPreviouslyAllocated" },
-		{ kIOUSBHighSpeedSplitError,						"kIOUSBHighSpeedSplitError" },
-		{ kIOUSBSyncRequestOnWLThread,						"kIOUSBSyncRequestOnWLThread" },
-		{ kIOUSBDeviceNotHighSpeed,							"kIOUSBDeviceNotHighSpeed" },
-		{ kIOUSBLinkErr,									"kIOUSBLinkErr" },
-		{ kIOUSBNotSent2Err,								"kIOUSBNotSent2Err" },
-		{ kIOUSBNotSent1Err,								"kIOUSBNotSent1Err" },
-		{ kIOUSBBufferUnderrunErr,							"kIOUSBBufferUnderrunErr" },
-		{ kIOUSBBufferOverrunErr,							"kIOUSBBufferOverrunErr" },
-		{ kIOUSBReserved2Err,								"kIOUSBReserved2Err" },
-		{ kIOUSBReserved1Err,								"kIOUSBReserved1Err" },
-		{ kIOUSBWrongPIDErr,								"kIOUSBWrongPIDErr" },
-		{ kIOUSBPIDCheckErr,								"kIOUSBPIDCheckErr" },
-		{ kIOUSBDataToggleErr,								"kIOUSBDataToggleErr" },
-		{ kIOUSBBitstufErr,									"kIOUSBBitstufErr" },
-		{ kIOUSBCRCErr,										"kIOUSBCRCErr" },
-		
-		//	IOReturn codes
-		{ kIOReturnSuccess,									"kIOReturnSuccess" },
-		{ kIOReturnError,									"kIOReturnError" },
-		{ kIOReturnNoMemory,								"kIOReturnNoMemory" },
-		{ kIOReturnNoResources,								"kIOReturnNoResources" },
-		{ kIOReturnIPCError,								"kIOReturnIPCError" },
-		{ kIOReturnNoDevice,								"kIOReturnNoDevice" },
-		{ kIOReturnNotPrivileged,							"kIOReturnNotPrivileged" },
-		{ kIOReturnBadArgument,								"kIOReturnBadArgument" },
-		{ kIOReturnLockedRead,								"kIOReturnLockedRead" },
-		{ kIOReturnLockedWrite,								"kIOReturnLockedWrite" },
-		{ kIOReturnExclusiveAccess,							"kIOReturnExclusiveAccess" },
-		{ kIOReturnBadMessageID,							"kIOReturnBadMessageID" },
-		{ kIOReturnUnsupported,								"kIOReturnUnsupported" },
-		{ kIOReturnVMError,									"kIOReturnVMError" },
-		{ kIOReturnInternalError,							"kIOReturnInternalError" },
-		{ kIOReturnIOError,									"kIOReturnIOError" },
-		{ kIOReturnCannotLock,								"kIOReturnCannotLock" },
-		{ kIOReturnNotOpen,									"kIOReturnNotOpen" },
-		{ kIOReturnNotReadable,								"kIOReturnNotReadable" },
-		{ kIOReturnNotWritable,								"kIOReturnNotWritable" },
-		{ kIOReturnNotAligned,								"kIOReturnNotAligned" },
-		{ kIOReturnBadMedia,								"kIOReturnBadMedia" },
-		{ kIOReturnStillOpen,								"kIOReturnStillOpen" },
-		{ kIOReturnRLDError,								"kIOReturnRLDError" },
-		{ kIOReturnDMAError,								"kIOReturnDMAError" },
-		{ kIOReturnBusy,									"kIOReturnBusy" },
-		{ kIOReturnTimeout,									"kIOReturnTimeout" },
-		{ kIOReturnOffline,									"kIOReturnOffline" },
-		{ kIOReturnNotReady,								"kIOReturnNotReady" },
-		{ kIOReturnNotAttached,								"kIOReturnNotAttached" },
-		{ kIOReturnNoChannels,								"kIOReturnNoChannels" },
-		{ kIOReturnNoSpace,									"kIOReturnNoSpace" },
-		{ kIOReturnPortExists,								"kIOReturnPortExists" },
-		{ kIOReturnCannotWire,								"kIOReturnCannotWire" },
-		{ kIOReturnNoInterrupt,								"kIOReturnNoInterrupt" },
-		{ kIOReturnNoFrames,								"kIOReturnNoFrames" },
-		{ kIOReturnMessageTooLarge,							"kIOReturnMessageTooLarge" },
-		{ kIOReturnNotPermitted,							"kIOReturnNotPermitted" },
-		{ kIOReturnNoPower,									"kIOReturnNoPower" },
-		{ kIOReturnNoMedia,									"kIOReturnNoMedia" },
-		{ kIOReturnUnformattedMedia,						"kIOReturnUnformattedMedia" },
-		{ kIOReturnUnsupportedMode,							"kIOReturnUnsupportedMode" },
-		{ kIOReturnUnderrun,								"kIOReturnUnderrun" },
-		{ kIOReturnOverrun,									"kIOReturnOverrun" },
-		{ kIOReturnDeviceError,								"kIOReturnDeviceError" },
-		{ kIOReturnNoCompletion,							"kIOReturnNoCompletion" },
-		{ kIOReturnAborted,									"kIOReturnAborted" },
-		{ kIOReturnNoBandwidth,								"kIOReturnNoBandwidth" },
-		{ kIOReturnNotResponding,							"kIOReturnNotResponding" },
-		{ kIOReturnIsoTooOld,								"kIOReturnIsoTooOld" },
-		{ kIOReturnIsoTooNew,								"kIOReturnIsoTooNew" },
-		{ kIOReturnNotFound,								"kIOReturnNotFound" },
-		{ kIOReturnInvalid,									"kIOReturnInvalid" }
-	};
+    static ReturnCodeSpec	sReturnCodeSpecs[] =
+    {
+        
+        //	USB Return codes
+        { ( unsigned int ) kIOUSBUnknownPipeErr,                            "kIOUSBUnknownPipeErr" },
+        { ( unsigned int ) kIOUSBTooManyPipesErr,                           "kIOUSBTooManyPipesErr" },
+        { ( unsigned int ) kIOUSBNoAsyncPortErr,                            "kIOUSBNoAsyncPortErr" },
+        { ( unsigned int ) kIOUSBNotEnoughPipesErr,                         "kIOUSBNotEnoughPipesErr" },
+        { ( unsigned int ) kIOUSBNotEnoughPowerErr,                         "kIOUSBNotEnoughPowerErr" },
+        { ( unsigned int ) kIOUSBEndpointNotFound,                          "kIOUSBEndpointNotFound" },
+        { ( unsigned int ) kIOUSBConfigNotFound,                            "kIOUSBConfigNotFound" },
+        { ( unsigned int ) kIOUSBTransactionTimeout,                        "kIOUSBTransactionTimeout" },
+        { ( unsigned int ) kIOUSBTransactionReturned,                       "kIOUSBTransactionReturned" },
+        { ( unsigned int ) kIOUSBPipeStalled,                               "kIOUSBPipeStalled" },
+        { ( unsigned int ) kIOUSBInterfaceNotFound,                         "kIOUSBInterfaceNotFound" },
+        { ( unsigned int ) kIOUSBLowLatencyBufferNotPreviouslyAllocated,    "kIOUSBLowLatencyBufferNotPreviouslyAllocated" },
+        { ( unsigned int ) kIOUSBLowLatencyFrameListNotPreviouslyAllocated, "kIOUSBLowLatencyFrameListNotPreviouslyAllocated" },
+        { ( unsigned int ) kIOUSBHighSpeedSplitError,                       "kIOUSBHighSpeedSplitError" },
+        { ( unsigned int ) kIOUSBSyncRequestOnWLThread,                     "kIOUSBSyncRequestOnWLThread" },
+        { ( unsigned int ) kIOUSBDeviceNotHighSpeed,                        "kIOUSBDeviceNotHighSpeed" },
+        { ( unsigned int ) kIOUSBLinkErr,                                   "kIOUSBLinkErr" },
+        { ( unsigned int ) kIOUSBNotSent2Err,                               "kIOUSBNotSent2Err" },
+        { ( unsigned int ) kIOUSBNotSent1Err,                               "kIOUSBNotSent1Err" },
+        { ( unsigned int ) kIOUSBBufferUnderrunErr,                         "kIOUSBBufferUnderrunErr" },
+        { ( unsigned int ) kIOUSBBufferOverrunErr,                          "kIOUSBBufferOverrunErr" },
+        { ( unsigned int ) kIOUSBReserved2Err,                              "kIOUSBReserved2Err" },
+        { ( unsigned int ) kIOUSBReserved1Err,                              "kIOUSBReserved1Err" },
+        { ( unsigned int ) kIOUSBWrongPIDErr,                               "kIOUSBWrongPIDErr" },
+        { ( unsigned int ) kIOUSBPIDCheckErr,                               "kIOUSBPIDCheckErr" },
+        { ( unsigned int ) kIOUSBDataToggleErr,                             "kIOUSBDataToggleErr" },
+        { ( unsigned int ) kIOUSBBitstufErr,                                "kIOUSBBitstufErr" },
+        { ( unsigned int ) kIOUSBCRCErr,                                    "kIOUSBCRCErr" },
+        
+        //	IOReturn codes
+        { ( unsigned int ) kIOReturnSuccess,                                "kIOReturnSuccess" },
+        { ( unsigned int ) kIOReturnError,                                  "kIOReturnError" },
+        { ( unsigned int ) kIOReturnNoMemory,                               "kIOReturnNoMemory" },
+        { ( unsigned int ) kIOReturnNoResources,                            "kIOReturnNoResources" },
+        { ( unsigned int ) kIOReturnIPCError,                               "kIOReturnIPCError" },
+        { ( unsigned int ) kIOReturnNoDevice,                               "kIOReturnNoDevice" },
+        { ( unsigned int ) kIOReturnNotPrivileged,                          "kIOReturnNotPrivileged" },
+        { ( unsigned int ) kIOReturnBadArgument,                            "kIOReturnBadArgument" },
+        { ( unsigned int ) kIOReturnLockedRead,                             "kIOReturnLockedRead" },
+        { ( unsigned int ) kIOReturnLockedWrite,                            "kIOReturnLockedWrite" },
+        { ( unsigned int ) kIOReturnExclusiveAccess,                        "kIOReturnExclusiveAccess" },
+        { ( unsigned int ) kIOReturnBadMessageID,                           "kIOReturnBadMessageID" },
+        { ( unsigned int ) kIOReturnUnsupported,                            "kIOReturnUnsupported" },
+        { ( unsigned int ) kIOReturnVMError,                                "kIOReturnVMError" },
+        { ( unsigned int ) kIOReturnInternalError,                          "kIOReturnInternalError" },
+        { ( unsigned int ) kIOReturnIOError,                                "kIOReturnIOError" },
+        { ( unsigned int ) kIOReturnCannotLock,                             "kIOReturnCannotLock" },
+        { ( unsigned int ) kIOReturnNotOpen,                                "kIOReturnNotOpen" },
+        { ( unsigned int ) kIOReturnNotReadable,                            "kIOReturnNotReadable" },
+        { ( unsigned int ) kIOReturnNotWritable,                            "kIOReturnNotWritable" },
+        { ( unsigned int ) kIOReturnNotAligned,                             "kIOReturnNotAligned" },
+        { ( unsigned int ) kIOReturnBadMedia,                               "kIOReturnBadMedia" },
+        { ( unsigned int ) kIOReturnStillOpen,                              "kIOReturnStillOpen" },
+        { ( unsigned int ) kIOReturnRLDError,                               "kIOReturnRLDError" },
+        { ( unsigned int ) kIOReturnDMAError,                               "kIOReturnDMAError" },
+        { ( unsigned int ) kIOReturnBusy,                                   "kIOReturnBusy" },
+        { ( unsigned int ) kIOReturnTimeout,                                "kIOReturnTimeout" },
+        { ( unsigned int ) kIOReturnOffline,                                "kIOReturnOffline" },
+        { ( unsigned int ) kIOReturnNotReady,                               "kIOReturnNotReady" },
+        { ( unsigned int ) kIOReturnNotAttached,                            "kIOReturnNotAttached" },
+        { ( unsigned int ) kIOReturnNoChannels,                             "kIOReturnNoChannels" },
+        { ( unsigned int ) kIOReturnNoSpace,                                "kIOReturnNoSpace" },
+        { ( unsigned int ) kIOReturnPortExists,                             "kIOReturnPortExists" },
+        { ( unsigned int ) kIOReturnCannotWire,                             "kIOReturnCannotWire" },
+        { ( unsigned int ) kIOReturnNoInterrupt,                            "kIOReturnNoInterrupt" },
+        { ( unsigned int ) kIOReturnNoFrames,                               "kIOReturnNoFrames" },
+        { ( unsigned int ) kIOReturnMessageTooLarge,                        "kIOReturnMessageTooLarge" },
+        { ( unsigned int ) kIOReturnNotPermitted,                           "kIOReturnNotPermitted" },
+        { ( unsigned int ) kIOReturnNoPower,                                "kIOReturnNoPower" },
+        { ( unsigned int ) kIOReturnNoMedia,                                "kIOReturnNoMedia" },
+        { ( unsigned int ) kIOReturnUnformattedMedia,                       "kIOReturnUnformattedMedia" },
+        { ( unsigned int ) kIOReturnUnsupportedMode,                        "kIOReturnUnsupportedMode" },
+        { ( unsigned int ) kIOReturnUnderrun,                               "kIOReturnUnderrun" },
+        { ( unsigned int ) kIOReturnOverrun,                                "kIOReturnOverrun" },
+        { ( unsigned int ) kIOReturnDeviceError,                            "kIOReturnDeviceError" },
+        { ( unsigned int ) kIOReturnNoCompletion,                           "kIOReturnNoCompletion" },
+        { ( unsigned int ) kIOReturnAborted,                                "kIOReturnAborted" },
+        { ( unsigned int ) kIOReturnNoBandwidth,                            "kIOReturnNoBandwidth" },
+        { ( unsigned int ) kIOReturnNotResponding,                          "kIOReturnNotResponding" },
+        { ( unsigned int ) kIOReturnIsoTooOld,                              "kIOReturnIsoTooOld" },
+        { ( unsigned int ) kIOReturnIsoTooNew,                              "kIOReturnIsoTooNew" },
+        { ( unsigned int ) kIOReturnNotFound,                               "kIOReturnNotFound" },
+        { ( unsigned int ) kIOReturnInvalid,                                "kIOReturnInvalid" }
+    };
 	
 	for ( i = 0; i < ( sizeof ( sReturnCodeSpecs ) / sizeof ( sReturnCodeSpecs[0] ) ); i++ )
 	{

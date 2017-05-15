@@ -31,6 +31,8 @@
 #include <pthread.h>
 #include <syslog.h>
 #include <sys/sysctl.h>
+#include <utilities/SecCFWrappers.h>
+
 
 #include "SecCode.h"
 #include "SecCodePriv.h"
@@ -43,15 +45,17 @@
 struct __SecTask {
 	CFRuntimeBase base;
 
-	pid_t pid;
+	pid_t pid_self;
 
-	audit_token_t *token;
-	audit_token_t token_storage;
+	audit_token_t token;
 
 	/* Track whether we've loaded entitlements independently since after the
 	 * load, entitlements may legitimately be NULL */
 	Boolean entitlementsLoaded;
 	CFDictionaryRef entitlements;
+
+    /* for debugging only, shown by debugDescription */
+    int lastFailure;
 };
 
 enum {
@@ -64,11 +68,7 @@ CFTypeID _kSecTaskTypeID = _kCFRuntimeNotATypeID;
 static void SecTaskFinalize(CFTypeRef cfTask)
 {
 	SecTaskRef task = (SecTaskRef) cfTask;
-
-	if (task->entitlements != NULL) {
-		CFRelease(task->entitlements);
-		task->entitlements = NULL;
-	}
+    CFReleaseNull(task->entitlements);
 }
 
 
@@ -78,8 +78,16 @@ static void SecTaskFinalize(CFTypeRef cfTask)
 static CFStringRef SecTaskCopyDebugDescription(CFTypeRef cfTask)
 {
     SecTaskRef task = (SecTaskRef) cfTask;
+    pid_t pid;
+
+    if (task->pid_self==-1) {
+        audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+    } else {
+        pid = task->pid_self;
+    }
+
     const char *task_name;
-    int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, task->pid};
+    int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
     struct kinfo_proc kp;
     size_t len = sizeof(kp);
     if (sysctl(mib, 4, &kp, &len, NULL, 0) == -1 || len == 0)
@@ -87,7 +95,7 @@ static CFStringRef SecTaskCopyDebugDescription(CFTypeRef cfTask)
     else
         task_name = kp.kp_proc.p_comm;
 
-    return CFStringCreateWithFormat(CFGetAllocator(task), NULL, CFSTR("%s[%" PRIdPID "]"), task_name, task->pid);
+    return CFStringCreateWithFormat(CFGetAllocator(task), NULL, CFSTR("%s[%" PRIdPID "]"), task_name, pid);
 }
 
 static void SecTaskRegisterClass(void)
@@ -117,37 +125,38 @@ CFTypeID SecTaskGetTypeID(void)
 	return _kSecTaskTypeID;
 }
 
-static SecTaskRef SecTaskCreateWithPID(CFAllocatorRef allocator, pid_t pid)
+static SecTaskRef init_task_ref(CFAllocatorRef allocator)
 {
-	CFIndex extra = sizeof(struct __SecTask) - sizeof(CFRuntimeBase);
-	SecTaskRef task = (SecTaskRef) _CFRuntimeCreateInstance(allocator, SecTaskGetTypeID(), extra, NULL);
-	if (task != NULL) {
-		task->pid = pid;
-		task->entitlementsLoaded = false;
-		task->entitlements = NULL;
-	}
-
-	return task;
+    CFIndex extra = sizeof(struct __SecTask) - sizeof(CFRuntimeBase);
+    return (SecTaskRef) _CFRuntimeCreateInstance(allocator, SecTaskGetTypeID(), extra, NULL);
 }
 
 SecTaskRef SecTaskCreateWithAuditToken(CFAllocatorRef allocator, audit_token_t token)
 {
-	SecTaskRef task;
+    SecTaskRef task = init_task_ref(allocator);
+    if (task != NULL) {
 
-	task = SecTaskCreateWithPID(allocator, audit_token_to_pid(token));
-	if (task != NULL) {
-#if 0
-		task->token_storage = token;
-		task->token = &task->token_storage;
-#endif
-	}
+        memcpy(&task->token, &token, sizeof(token));
+        task->entitlementsLoaded = false;
+        task->entitlements = NULL;
+        task->pid_self = -1;
+    }
 
-	return task;
+    return task;
 }
 
 SecTaskRef SecTaskCreateFromSelf(CFAllocatorRef allocator)
 {
-	return SecTaskCreateWithPID(allocator, getpid());
+    SecTaskRef task = init_task_ref(allocator);
+    if (task != NULL) {
+
+        memset(&task->token, 0, sizeof(task->token));
+        task->entitlementsLoaded = false;
+        task->entitlements = NULL;
+        task->pid_self = getpid();
+    }
+
+    return task;
 }
 
 /*
@@ -159,25 +168,33 @@ SecTaskValidateForRequirement(SecTaskRef task, CFStringRef requirement)
     OSStatus status;
     SecCodeRef code = NULL;
     SecRequirementRef req = NULL;
-    pid_t pid = task->pid;
-    if (pid <= 0) {
-        return errSecParam;
+    CFDataRef auditData = NULL;
+    CFNumberRef pidRef = NULL;
+
+    CFMutableDictionaryRef codeDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if(task->pid_self==-1) {
+        auditData = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)&task->token, sizeof(audit_token_t));
+        CFDictionarySetValue(codeDict, kSecGuestAttributeAudit, auditData);
+    } else {
+        pidRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &task->pid_self);
+        CFDictionarySetValue(codeDict, kSecGuestAttributePid, pidRef);
     }
-    status = SecCodeCreateWithPID(pid, kSecCSDefaultFlags, &code);
-    //syslog(LOG_NOTICE, "SecTaskValidateForRequirement: SecCodeCreateWithPID=%d", status);
+
+    status = SecCodeCopyGuestWithAttributes(NULL, codeDict, kSecCSDefaultFlags, &code);
+    CFReleaseNull(codeDict);
+    CFReleaseNull(auditData);
+    CFReleaseNull(pidRef);
+
     if (!status) {
         status = SecRequirementCreateWithString(requirement,
                                                 kSecCSDefaultFlags, &req);
-        //syslog(LOG_NOTICE, "SecTaskValidateForRequirement: SecRequirementCreateWithString=%d", status);
     }
     if (!status) {
         status = SecCodeCheckValidity(code, kSecCSDefaultFlags, req);
-        //syslog(LOG_NOTICE, "SecTaskValidateForRequirement: SecCodeCheckValidity=%d", status);
     }
-    if (req)
-        CFRelease(req);
-    if (code)
-        CFRelease(code);
+
+    CFReleaseNull(req);
+    CFReleaseNull(code);
 
     return status;
 }
@@ -194,12 +211,16 @@ struct csheader {
 static int
 csops_task(SecTaskRef task, int ops, void *blob, size_t size)
 {
-#if 0
-	if (task->token)
-		return csops_audittoken(task->pid, ops, blob, size, task->token);
-	else
-#endif
-		return csops(task->pid, ops, blob, size);
+    int rc;
+    if (task->pid_self==-1) {
+        pid_t pid;
+        audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+        rc = csops_audittoken(pid, ops, blob, size, &task->token);
+    }
+    else
+        rc = csops(task->pid_self, ops, blob, size);
+    task->lastFailure = (rc == -1) ? errno : 0;
+    return rc;
 }
 
 static int SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)

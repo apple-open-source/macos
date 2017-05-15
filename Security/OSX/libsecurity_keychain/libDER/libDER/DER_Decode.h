@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2017 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,11 +69,31 @@ DERReturn DERDecodeItem(
  *
  * No malloc or copy of the contents is performed; the returned
  * content->content.data is a pointer into the incoming der data.
+ *
+ * WARNING: Using a partial buffer can return a DERDecodedInfo object with
+ * a length larger than the buffer.  It is recommended to instead use
+ * DERDecodeItemPartialBufferGetLength if you need partial buffers.
+ *
  */
 DERReturn DERDecodeItemPartialBuffer(
     const DERItem        *der,                        /* data to decode */
     DERDecodedInfo        *decoded,       /* RETURNED */
     bool allowPartialBuffer);
+
+/*
+ * Same as above, but returns a DERDecodedInfo with a length no larger than the buffer.
+ * The actual encoded length can be retrieved from encodedLength parameter.
+ * encodedLength can be NULL to achieve the same behavior as DERDecodeItemPartialBuffer,
+ * with allowPartialBuffer=false
+ *
+ * NOTE: The DERDecoded length will never be larger than the input buffer.
+ * This is a key difference from DERDecodeItemPartialBuffer which could return invalid length.
+ *
+ */
+DERReturn DERDecodeItemPartialBufferGetLength(
+    const DERItem	*der,			/* data to decode */
+    DERDecodedInfo	*decoded,       /* RETURNED */
+    DERSize         *encodedLength);
 
 /* 
  * Given a BIT_STRING, in the form of its raw content bytes, 

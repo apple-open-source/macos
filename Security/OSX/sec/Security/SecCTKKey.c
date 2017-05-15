@@ -52,12 +52,12 @@ typedef struct {
 
 static void SecCTKKeyDestroy(SecKeyRef key) {
     SecCTKKeyData *kd = key->key;
-    CFReleaseSafe(kd->token);
-    CFReleaseSafe(kd->token_id);
-    CFReleaseSafe(kd->objectID);
-    CFReleaseSafe(kd->auth_params.mutable_dictionary);
-    CFReleaseSafe(kd->attributes.mutable_dictionary);
-    CFReleaseSafe(kd->params);
+    CFReleaseNull(kd->token);
+    CFReleaseNull(kd->token_id);
+    CFReleaseNull(kd->objectID);
+    CFReleaseNull(kd->auth_params.mutable_dictionary);
+    CFReleaseNull(kd->attributes.mutable_dictionary);
+    CFReleaseNull(kd->params);
 }
 
 static CFIndex SecCTKGetAlgorithmID(SecKeyRef key) {

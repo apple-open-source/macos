@@ -1,4 +1,76 @@
-2017-03-03  Matthew Hanson  <matthew_hanson@apple.com>
+2017-04-12  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick 214376. rdar://problem/31502340
+
+    2017-03-24  Alex Christensen  <achristensen@webkit.org>
+
+            Fix assertions after r214358.
+            https://bugs.webkit.org/show_bug.cgi?id=169167
+
+            * UIProcess/API/APIContentExtensionStore.cpp:
+            (API::ContentExtensionStore::compileContentExtension):
+            AtomicString::init must be called for the first time from the main thread.
+            We were calling it for the first time from a non-main thread sometimes.
+            Call it from the main thread before initiating compiling on another thread.
+
+2017-04-03  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r211601. rdar://problem/31387958
+
+    2017-02-02  Megan Gardner  <megan_gardner@apple.com>
+
+            Don't attempt wide gammut on older OSes
+            https://bugs.webkit.org/show_bug.cgi?id=167754
+            <rdar://problem/29931587>
+
+            Reviewed by Tim Horton.
+
+            We need to guard our extended color checks the same way throughout the code, or we will attempt to set up
+            support for wide gamut partially, which causes crashes when using sharable bitmap.
+
+            * WebProcess/WebCoreSupport/mac/WebDragClientMac.mm:
+            (WebKit::convertImageToBitmap):
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::getPositionInformation):
+
+2017-04-02  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r214559. rdar://problem/31371683
+
+    2017-03-29  Antti Koivisto  <antti@apple.com>
+
+            Increment the last stable network cache version on Mac
+            https://bugs.webkit.org/show_bug.cgi?id=170248
+            <rdar://problem/31326040>
+
+            Reviewed by Chris Dumez.
+
+            Bump to the latest release.
+
+            * NetworkProcess/cache/NetworkCacheStorage.h:
+
+2017-03-30  Jason Marcell  <jmarcell@apple.com>
+
+        Merge r214003. rdar://problem/31331131
+
+    2017-03-15  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            WebContent crash due to bad variant access in WebKit: WebKit::WebPage::expandedRangeFromHandle
+            https://bugs.webkit.org/show_bug.cgi?id=169657
+            <rdar://problem/30631070>
+
+            Reviewed by Tim Horton.
+
+            In WebPageIOS.mm, the call to unionDOMRanges from WebPage::expandedRangeFromHandle invokes
+            Range::compareBoundaryPoints, assuming that the return value is not an exception, and then attempts to perform
+            integer comparison on the result. This is one speculative cause of the web content crash in the radar.
+
+            There isn't a known way to reproduce this crash.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::unionDOMRanges):
+
+2017-03-20  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r213253. rdar://problem/30773140
 
@@ -17,49 +89,57 @@
             * UIProcess/Downloads/DownloadProxy.cpp:
             (WebKit::DownloadProxy::decideDestinationWithSuggestedFilename):
 
-2017-03-03  Matthew Hanson  <matthew_hanson@apple.com>
+2017-03-16  Jason Marcell  <jmarcell@apple.com>
 
-        Rollout r213374. rdar://problem/30773140
+        Merge r212726. rdar://problem/30921822
 
-2017-03-03  Matthew Hanson  <matthew_hanson@apple.com>
+    2017-02-21  Maureen Daum  <mdaum@apple.com>
 
-        Merge r213253. rdar://problem/30773140
+            Check what LocalStorage data exists in deleteDatabasesModifiedSince() before attempting deletion.
+            https://bugs.webkit.org/show_bug.cgi?id=168659
+            rdar://problem/22781730
 
-    2017-03-01  Chris Dumez  <cdumez@apple.com>
+            Reviewed by Brady Eidson.
 
-            [WK2][!NETWORK_SESSION] Failure to download when using a download attribute with no value on an anchor
-            https://bugs.webkit.org/show_bug.cgi?id=169060
-            <rdar://problem/30773140>
+            Check what LocalStorage data exists in deleteDatabasesModifiedSince() before attempting deletion.
+            It is possible that another process has caused information to be added to LocalStorage
+            after we created this LocalStorageDatabaseTracker instance, so we should update our
+            internal state by checking the contents of StorageTracker.db and the other local
+            storage files so we know what databases actually exist. By calling importOriginIdentifiers()
+            at the start of deleteDatabasesModifiedSince(), m_origins will now have the up-to-date
+            list of origins LocalStorage contains data for.
 
-            Reviewed by Darin Adler.
+            * UIProcess/Storage/LocalStorageDatabaseTracker.cpp:
+            (WebKit::LocalStorageDatabaseTracker::deleteDatabasesModifiedSince):
 
-            In the !NETWORK_SESSION code path, we were failing to use the suggested filename coming from the
-            network layer in the case where the download attribute is present but has no value. We were ending
-            up passing an empty string as suggested filename to Safari which is not handled properly.
+2017-02-24  Matthew Hanson  <matthew_hanson@apple.com>
 
-            * UIProcess/Downloads/DownloadProxy.cpp:
-            (WebKit::DownloadProxy::decideDestinationWithSuggestedFilename):
+        Rollout r212537. rdar://problem/30699480
 
-2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
+2017-02-28  Matthew Hanson  <matthew_hanson@apple.com>
 
-        Merge r213010. rdar://problem/30704432
+        Merge r213078. rdar://problem/30704432
 
-    2017-02-26  Chris Dumez  <cdumez@apple.com>
+    2017-02-27  Matthew Hanson  <matthew_hanson@apple.com>
 
-            HitTestResult's linkSuggestedFilename should sanitize download attribute
-            https://bugs.webkit.org/show_bug.cgi?id=168856
-            <rdar://problem/30683109>
+            Merge r213010. rdar://problem/30704432
 
-            Reviewed by Antti Koivisto.
+        2017-02-26  Chris Dumez  <cdumez@apple.com>
 
-            HitTestResult's linkSuggestedFilename should sanitize download attribute.
-            This is used by the context menu's "Download Linked File" & "Download Linked
-            File As..." actions.
+                HitTestResult's linkSuggestedFilename should sanitize download attribute
+                https://bugs.webkit.org/show_bug.cgi?id=168856
+                <rdar://problem/30683109>
 
-            * Shared/WebHitTestResultData.cpp:
-            (WebKit::WebHitTestResultData::WebHitTestResultData):
-            * WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp:
-            (WebKit::InjectedBundleHitTestResult::linkSuggestedFilename):
+                Reviewed by Antti Koivisto.
+
+                HitTestResult's linkSuggestedFilename should sanitize download attribute.
+                This is used by the context menu's "Download Linked File" & "Download Linked
+                File As..." actions.
+
+                * Shared/WebHitTestResultData.cpp:
+                (WebKit::WebHitTestResultData::WebHitTestResultData):
+                * WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp:
+                (WebKit::InjectedBundleHitTestResult::linkSuggestedFilename):
 
 2017-02-17  JF Bastien  <jfbastien@apple.com>
 

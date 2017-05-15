@@ -293,6 +293,7 @@ CFArrayRef SecCertificateExtensionGetContentArrayP(SecCertificateExtensionRef ex
 void appendPropertyP(CFMutableArrayRef properties,
     CFStringRef propertyType, CFStringRef label, CFTypeRef value);
 
+#if 0
 /* Utility functions. */
 CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator,
     const DERItem *oid);
@@ -304,6 +305,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
    NULL_TIME otherwise. */
 CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
     size_t length);
+#endif
 
 #if defined(__cplusplus)
 }

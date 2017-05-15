@@ -248,8 +248,9 @@ IOUSBMassStorageClass::CBIGetStatusEndpointStatus(
 						UInt32					nextExecutionState )
 {
 
-	IOReturn 			status;
-	
+	IOReturn					status				= kIOReturnError;
+	IOBufferMemoryDescriptor *	bufferCBIPhaseDesc	= NULL;
+	void *						cbiGetStatusBuffer	= NULL;
 	
 	if( targetPipe == NULL )
 	{
@@ -260,9 +261,15 @@ IOUSBMassStorageClass::CBIGetStatusEndpointStatus(
 	
 	// Set the next state to be executed
 	cbiRequestBlock->currentState = nextExecutionState;
-	
+
+	// Ensure we still have a valid IOBufferMemoryDescriptor.
+	bufferCBIPhaseDesc = OSDynamicCast(IOBufferMemoryDescriptor, cbiRequestBlock->cbiPhaseDesc);
+	require ( ( bufferCBIPhaseDesc != NULL ), ErrorExit );
+
+	cbiGetStatusBuffer = bufferCBIPhaseDesc->getBytesNoCopy ( );
+
 	// Call the default GetStatusEndpointStatus method
-	status = GetStatusEndpointStatus ( targetPipe, &cbiRequestBlock->cbiGetStatusBuffer, &cbiRequestBlock->cbiCompletion );
+	status = GetStatusEndpointStatus ( targetPipe, cbiGetStatusBuffer, &cbiRequestBlock->cbiCompletion );
    	STATUS_LOG ( ( 5, "%s[%p]: CBIGetStatusEndpointStatus returned %x", getName(), this, status ) );
 	
 	
@@ -336,6 +343,14 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		
 	}
 #endif // EMBEDDED
+
+	// Copy newly read data from separate IOBufferMemoryDescriptor buffer into cbiGetStatusBuffer
+	IOBufferMemoryDescriptor * bufferCBIPhaseDesc = OSDynamicCast(IOBufferMemoryDescriptor, cbiRequestBlock->cbiPhaseDesc);
+	require ( ( bufferCBIPhaseDesc != NULL ), Exit );
+
+	bcopy ( bufferCBIPhaseDesc->getBytesNoCopy ( ),
+		    cbiRequestBlock->cbiGetStatusBuffer,
+		    kUSBStorageAutoStatusSize );
 
 	if ( ( cbiRequestBlock->request == NULL ) || ( fCBICommandStructInUse == false ) )
 	{

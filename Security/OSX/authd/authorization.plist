@@ -484,6 +484,10 @@ See remaining rules for examples.
 			<true/>
 			<key>timeout</key>
 			<integer>0</integer>
+			<key>password-only</key>
+			<true/>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 		<key>com.apple.library-repair</key>
 		<dict>

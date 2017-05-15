@@ -399,8 +399,8 @@ static int set_global_stream_properties(CFReadStreamRef readStreamRef)
 	mutexerror = pthread_mutex_lock(&gNetworkGlobals_lock);
 	require_noerr_action(mutexerror, pthread_mutex_lock, error = mutexerror; webdav_kill(-1));
 	
-	error = (CFReadStreamSetProperty(readStreamRef, kCFStreamPropertyHTTPProxy, gProxyDict) == TRUE) ? 0 : 1;
-	
+	error = (CFReadStreamSetProperty(readStreamRef, kCFStreamPropertyHTTPUseSystemProxySettings, kCFBooleanTrue) == TRUE) ? 0 : 1;
+
 	mutexerror = pthread_mutex_unlock(&gNetworkGlobals_lock);
 	require_noerr_action(mutexerror, pthread_mutex_unlock, error = mutexerror; webdav_kill(-1));
 	
@@ -1023,6 +1023,85 @@ static int translate_status_to_error(UInt32 statusCode)
 	return ( result );
 }
 
+/*
+ * CFDataArrayCreateSecCertificateArray
+ *
+ * Convert a CFArray[CFData] to CFArray[SecCertificate].
+ */
+static CFArrayRef CFDataArrayCreateSecCertificateArray(CFArrayRef certs)
+{
+	CFMutableArrayRef array;
+	CFIndex count;
+	int i;
+
+	count = CFArrayGetCount(certs);
+	array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+	require(array != NULL, CFArrayCreateMutable);
+
+	for (i = 0; i < count; ++i)
+	{
+		SecCertificateRef cert_secref;
+		CFDataRef cert_cfdata;
+
+		cert_cfdata = CFArrayGetValueAtIndex(certs, i);
+		require(cert_cfdata != NULL, CFArrayGetValueAtIndex);
+
+		cert_secref = SecCertificateCreateWithData(kCFAllocatorDefault, cert_cfdata);
+		require(cert_secref != NULL, SecCertificateCreateWithData);
+
+		CFArrayAppendValue(array, cert_secref);
+		CFRelease(cert_secref);
+	}
+
+	return (array);
+
+	/************/
+
+SecCertificateCreateWithData:
+CFArrayGetValueAtIndex:
+	CFRelease(array);
+CFArrayCreateMutable:
+
+	return (NULL);
+}
+
+int certs_init(CFDataRef certs)
+{
+	int result = -1;
+	CFErrorRef error;
+	CFPropertyListRef certs_cfpropertylistref = NULL;
+	CFArrayRef certs_secref = NULL;
+
+	syslog(LOG_DEBUG, "%s:", __FUNCTION__);
+
+	certs_cfpropertylistref = CFPropertyListCreateWithData(kCFAllocatorDefault, certs, kCFPropertyListMutableContainersAndLeaves, NULL, &error);
+	if (certs_cfpropertylistref) {
+		syslog(LOG_DEBUG, "%s: CFPropertyListCreateWithData SUCCESS", __FUNCTION__);
+	} else {
+		syslog(LOG_ERR, "%s: CFPropertyListCreateWithData FAILED", __FUNCTION__);
+		return result;
+	}
+	// TODO: export and link against SecAddTrustedCerts from webdavlib.c
+	certs_secref = CFDataArrayCreateSecCertificateArray(certs_cfpropertylistref);
+	if (certs_secref) {
+		if ( gSSLPropertiesDict == NULL )
+		{
+			gSSLPropertiesDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			require(gSSLPropertiesDict != NULL, CFDictionaryCreateMutable);
+		}
+		CFDictionarySetValue(gSSLPropertiesDict, _kCFStreamSSLTrustedLeafCertificates, certs_secref);
+		result = 0;
+	} else {
+		syslog(LOG_ERR, "%s: CFDataArrayCreateSecCertificateArray failed", __FUNCTION__);
+	}
+CFDictionaryCreateMutable:
+	if (certs_cfpropertylistref)
+		CFRelease(certs_cfpropertylistref);
+	if (certs_secref)
+		CFRelease(certs_secref);
+	return result;
+}
+
 /******************************************************************************/
 
 /* returns TRUE if SSL properties were correctly applied (or were not needed) */
@@ -1122,7 +1201,47 @@ pthread_mutex_lock:
 
 	return;
 }
+static void log_ssl_error(SInt32 error)
+{
+	switch (error)
+	{
+		case errSSLProtocol:
+			syslog(LOG_ERR, "%s: errSSLProtocol", __FUNCTION__);
+			break;
+		case errSSLCrypto:
+			syslog(LOG_ERR, "%s: errSSLCrypto", __FUNCTION__);
+			break;
+		case errSSLPeerBadCert:
+			syslog(LOG_ERR, "%s: errSSLPeerBadCert", __FUNCTION__);
+			break;
+		case errSSLIllegalParam:
+			syslog(LOG_ERR, "%s: errSSLIllegalParam", __FUNCTION__);
+			break;
+		case errSSLPeerAccessDenied:
+			syslog(LOG_ERR, "%s: errSSLPeerAccessDenied", __FUNCTION__);
+			break;
 
+		case errSSLCertExpired:
+			syslog(LOG_ERR, "%s: errSSLCertExpired", __FUNCTION__);
+			break;
+		case errSSLCertNotYetValid:
+			syslog(LOG_ERR, "%s: errSSLCertNotYetValid", __FUNCTION__);
+			break;
+		case errSSLHostNameMismatch:
+			syslog(LOG_ERR, "%s: errSSLHostNameMismatch", __FUNCTION__);
+			break;
+		case errSSLUnknownRootCert:
+			syslog(LOG_ERR, "%s: errSSLUnknownRootCert", __FUNCTION__);
+			break;
+		case errSSLNoRootCert:
+			syslog(LOG_ERR, "%s: errSSLNoRootCert", __FUNCTION__);
+			break;
+		default:
+			syslog(LOG_ERR, "%s: unknown (%d)", __FUNCTION__, (int)error);
+			break;
+	}
+
+}
 /******************************************************************************/
 
 /*
@@ -1142,7 +1261,7 @@ static int HandleSSLErrors(CFReadStreamRef readStreamRef)
 	if ( streamError.domain == kCFStreamErrorDomainSSL )
 	{
 		error = streamError.error;
-		
+		log_ssl_error(error);
 		if ( gSSLPropertiesDict == NULL )
 		{
 			gSSLPropertiesDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -1158,6 +1277,8 @@ static int HandleSSLErrors(CFReadStreamRef readStreamRef)
 				 ((error <= errSSLPeerAccessDenied) && (error > errSSLLast))) )
 		{
 			/* retry with fall back from TLS to SSL */
+			syslog(LOG_DEBUG, "%s: retry with fall back from TLS to SSL -  error (%d)", __FUNCTION__, (int)error);
+
 			CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLLevel, kCFStreamSocketSecurityLevelSSLv3);
 			result = EAGAIN;
 		}
@@ -1167,34 +1288,19 @@ static int HandleSSLErrors(CFReadStreamRef readStreamRef)
 			{
 				case errSSLCertExpired:
 				case errSSLCertNotYetValid:
-					if ( (CFDictionaryGetValue(gSSLPropertiesDict, kCFStreamSSLAllowsExpiredCertificates) == NULL) )
-					{
-						// We are just trying to check for a proxy server, so it's okay to continue
-						CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLAllowsExpiredCertificates, kCFBooleanTrue);
-						CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLAllowsExpiredRoots, kCFBooleanTrue);
-					}
-					result=EAGAIN;
+					result=ECANCELED;
 					break;
 					
 				case errSSLBadCert:
 				case errSSLXCertChainInvalid:
 				case errSSLHostNameMismatch:
 					/* The certificate for this server is invalid */
-					if ( (CFDictionaryGetValue(gSSLPropertiesDict, kCFStreamSSLValidatesCertificateChain) == NULL) )
-					{
-						CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLValidatesCertificateChain, kCFBooleanFalse);
-					}
-					result=EAGAIN;
+					result=ECANCELED;
 					break;
 					
 				case errSSLUnknownRootCert:
 				case errSSLNoRootCert:
-					/* The certificate for this server was signed by an unknown certifying authority */
-					if ( (CFDictionaryGetValue(gSSLPropertiesDict, kCFStreamSSLAllowsAnyRoot) == NULL) )
-					{
-						CFDictionarySetValue(gSSLPropertiesDict, kCFStreamSSLAllowsAnyRoot, kCFBooleanTrue);
-					}
-					result=EAGAIN;
+					result=ECANCELED;
 					break;
 					
 				default:
@@ -2394,7 +2500,8 @@ static int network_getDAVLevel(
 	};
 		
 	*dav_level = 0;
-		
+	syslog(LOG_ERR, "%s: ", __FUNCTION__);
+
 	/* send request to the server and get the response */
 	error = send_transaction(uid, urlRef, NULL, CFSTR("OPTIONS"), NULL,
 		headerCount, headers, REDIRECT_MANUAL, NULL, NULL, &response);
@@ -5098,7 +5205,7 @@ int network_lock(
 	char* locktokentofree = NULL;
 	uid_t file_locktoken_uid = 0;
 	UInt8 *xmlString = NULL;
-	const UInt8 xmlStringExclusive[] =
+	UInt8 xmlStringExclusive[] =
 		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 		"<D:lockinfo xmlns:D=\"DAV:\">\n"
 			"<D:lockscope><D:exclusive/></D:lockscope>\n"
@@ -5107,7 +5214,7 @@ int network_lock(
 				"<D:href>http://www.apple.com/webdav_fs/</D:href>\n" /* this used to be "default-owner" instead of the url */
 			"</D:owner>\n"
 		"</D:lockinfo>\n";
-	const UInt8 xmlStringShared[] =
+	UInt8 xmlStringShared[] =
 	"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 	"<D:lockinfo xmlns:D=\"DAV:\">\n"
 	"<D:lockscope><D:shared/></D:lockscope>\n"

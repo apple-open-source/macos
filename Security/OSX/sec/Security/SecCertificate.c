@@ -234,29 +234,33 @@ static CFStringRef SecCertificateCopyDescription(CFTypeRef cf) {
 
 static void SecCertificateDestroy(CFTypeRef cf) {
     SecCertificateRef certificate = (SecCertificateRef)cf;
-    if (certificate->_certificatePolicies.policies)
+    if (certificate->_certificatePolicies.policies) {
         free(certificate->_certificatePolicies.policies);
+        certificate->_certificatePolicies.policies = NULL;
+    }
     if (certificate->_policyMappings.mappings) {
         free(certificate->_policyMappings.mappings);
+        certificate->_policyMappings.mappings = NULL;
     }
-    CFReleaseSafe(certificate->_crlDistributionPoints);
-    CFReleaseSafe(certificate->_ocspResponders);
-    CFReleaseSafe(certificate->_caIssuers);
+    CFReleaseNull(certificate->_crlDistributionPoints);
+    CFReleaseNull(certificate->_ocspResponders);
+    CFReleaseNull(certificate->_caIssuers);
     if (certificate->_extensions) {
         free(certificate->_extensions);
+        certificate->_extensions = NULL;
     }
-    CFReleaseSafe(certificate->_pubKey);
-    CFReleaseSafe(certificate->_der_data);
-    CFReleaseSafe(certificate->_properties);
-    CFReleaseSafe(certificate->_serialNumber);
-    CFReleaseSafe(certificate->_normalizedIssuer);
-    CFReleaseSafe(certificate->_normalizedSubject);
-    CFReleaseSafe(certificate->_authorityKeyID);
-    CFReleaseSafe(certificate->_subjectKeyID);
-    CFReleaseSafe(certificate->_sha1Digest);
-    CFReleaseSafe(certificate->_keychain_item);
-    CFReleaseSafe(certificate->_permittedSubtrees);
-    CFReleaseSafe(certificate->_excludedSubtrees);
+    CFReleaseNull(certificate->_pubKey);
+    CFReleaseNull(certificate->_der_data);
+    CFReleaseNull(certificate->_properties);
+    CFReleaseNull(certificate->_serialNumber);
+    CFReleaseNull(certificate->_normalizedIssuer);
+    CFReleaseNull(certificate->_normalizedSubject);
+    CFReleaseNull(certificate->_authorityKeyID);
+    CFReleaseNull(certificate->_subjectKeyID);
+    CFReleaseNull(certificate->_sha1Digest);
+    CFReleaseNull(certificate->_keychain_item);
+    CFReleaseNull(certificate->_permittedSubtrees);
+    CFReleaseNull(certificate->_excludedSubtrees);
 }
 
 static Boolean SecCertificateEqual(CFTypeRef cf1, CFTypeRef cf2) {
@@ -1488,6 +1492,7 @@ CFDataRef createNormalizedX501Name(CFAllocatorRef allocator,
             atvTagLocation += atvTLLength + atvContentLength;
             atvTag = atvSeq.nextItem;
 		}
+        require_quiet(drtn == DR_EndOfSequence, badDER);
         rdnTagLocation += rdnTLLength + rdnContentLength;
         rdnTag = rdnSeq.nextItem;
 	}
@@ -3403,6 +3408,7 @@ static void appendCertificatePolicies(CFMutableArrayRef properties,
                     &pqi.qualifier);
             }
         }
+        require_quiet(drtn == DR_EndOfSequence, badDER);
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
 	return;
