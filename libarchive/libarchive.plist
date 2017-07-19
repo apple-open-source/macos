@@ -30,6 +30,7 @@
 		<string>libarchive/archive_write_disk.c: 28270358 (dc1882e, 1fa9c7b)</string>
 		<string>tar/util.c: 29009783 (e37b620f)</string>
 		<string>libarchive/archive_write_disk.c: 28270432, 28270519 (dfd6b54c)</string>
+		<string>libarchive/archive_read_support_format_ar.c: 30881387</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

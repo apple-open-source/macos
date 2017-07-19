@@ -1,0 +1,38 @@
+SAX.setDocumentLocator()
+SAX.startDocument()
+SAX.internalSubset(html, -//W3C//DTD XHTML 1.0 Transitional//EN, http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd)
+SAX.externalSubset(html, -//W3C//DTD XHTML 1.0 Transitional//EN, http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd)
+SAX.startElement(html, lang='ja', xml:lang='ja', xmlns='http://www.w3.org/1999/xhtml')
+SAX.characters(
+, 1)
+SAX.startElement(head)
+SAX.characters(
+, 1)
+SAX.startElement(meta, http-equiv='content-type', content='text/html; charset=UTF-8')
+SAX.endElement(meta)
+SAX.characters(
+, 1)
+SAX.startElement(meta, http-equiv='content-style-type', content='text/css')
+SAX.endElement(meta)
+SAX.characters(
+, 1)
+SAX.startElement(meta, http-equiv='content-script-type', content='text/javascript')
+SAX.endElement(meta)
+SAX.characters(
+, 1)
+SAX.startElement(title)
+SAX.characters(ソフトバンクWi-Fiスポ�, 35)
+SAX.endElement(title)
+SAX.characters(
+, 1)
+SAX.endElement(head)
+SAX.characters(
+, 1)
+SAX.startElement(body)
+SAX.characters(
+, 1)
+SAX.endElement(body)
+SAX.characters(
+, 1)
+SAX.endElement(html)
+SAX.endDocument()

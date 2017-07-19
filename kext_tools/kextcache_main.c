@@ -353,6 +353,13 @@ int main(int argc, char * const * argv)
             goto finish;
         }
 
+        /* Since volumeRootURL is controlled by the caller and may point to an insecure location,
+         * we must determine if we want to enforce kext signing for the volume once and refer
+         * to this value in the future.  If this function is used again directly, the return value
+         * may change and make any security checks susceptible to TOCTOU issues.
+         */
+        toolArgs.enforceKextSigningPolicy = isValidKextSigningTargetVolume(toolArgs.volumeRootURL);
+
        /* Create/update the prelinked kernel as explicitly requested, or
         * for the running kernel.
         */
@@ -1935,17 +1942,14 @@ ExitStatus filterKextsForCache(
     CFMutableArrayRef   firstPassArray = NULL;
     OSKextRequiredFlags requiredFlags;
     CFIndex             count, i;
-    Boolean             kextSigningOnVol = false;
     Boolean             earlyBoot = false;
 
     if (!createCFMutableArray(&firstPassArray, &kCFTypeArrayCallBacks)) {
         OSKextLogMemError();
         goto finish;
     }
-  
-    kextSigningOnVol = isValidKextSigningTargetVolume(toolArgs->volumeRootURL);
-    
-   /*****
+
+    /*****
     * Apply filters to select the kexts.
     *
     * If kexts have been specified by identifier, those are the only kexts we are going to use.
@@ -2133,7 +2137,7 @@ ExitStatus filterKextsForCache(
                 }
             }
  
-            if (kextSigningOnVol
+            if (toolArgs->enforceKextSigningPolicy
                 && (sigResult = checkKextSignature(theKext, true, earlyBoot)) != 0 ) {
                 
                 if (isInvalidSignatureAllowed()) {
@@ -2258,21 +2262,38 @@ static void _appendIfNewest(CFMutableArrayRef theArray, OSKextRef theKext)
  */
 static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
 {
-    Boolean             myResult          = false;
+    Boolean             myResult          = true;   // default to enforcement
     char                volRoot[PATH_MAX];
     struct bootCaches  *caches            = NULL;   // release
     CFDictionaryRef     myDict            = NULL;   // do not release
     CFDictionaryRef     postBootPathsDict = NULL;   // do not release
-    
-    if (!CFURLGetFileSystemRepresentation(theVolRootURL, /* resolve */ true,
-                                          (UInt8*)volRoot, sizeof(volRoot))) {
-        OSKextLogStringError(NULL);
-        goto finish;
+
+    // For safer behavior since theVolRootURL is attacker controlled,
+    // assume we want kext signing on the target volume for any errors
+    // until we actually find a bootcache.
+
+    if (theVolRootURL) {
+        if (!CFURLGetFileSystemRepresentation(theVolRootURL, /* resolve */ true,
+                                              (UInt8*)volRoot, sizeof(volRoot))) {
+            OSKextLogStringError(NULL);
+            goto finish;
+        }
+    } else {
+        // A NULL volume root url implies the system root.
+        strcpy(volRoot, "/");
     }
+
     caches = readBootCaches(volRoot, kBROptsNone);
     if (!caches)                goto finish;
     myDict = caches->cacheinfo;
     if (myDict) {
+        // At this point, we will trust the bootcache that was read to allow disabling
+        // codesigning.  This still represents a security hazard, since an attacker
+        // could easily point to a fake bootcaches that disables signing.  There is a
+        // safety net in the prelinked kernel generation path that ensures kext signing
+        // is enabled if the output prelinked kernel is in a SIP protected location.
+        myResult = false;
+
         postBootPathsDict = (CFDictionaryRef)
         CFDictionaryGetValue(myDict, kBCPostBootKey);
         
@@ -2284,11 +2305,7 @@ static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
             }
         }
     }
-    else {
-        // smells like foul play, always check signatures
-        myResult = true;
-    }
-    
+
 finish:
     if (caches)     destroyCaches(caches);
 
@@ -2796,6 +2813,17 @@ createPrelinkedKernel(
                       kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
                       "Invalid kernel path '%s': only kernels from /System/Library/Kernels can be used when writing SIP-protected prelinked kernels",
                       toolArgs->kernelPath);
+            goto finish;
+        }
+        /*
+         * Codesigning must be enforced if we are writing to a protected location.
+         */
+        if (!toolArgs->enforceKextSigningPolicy) {
+            result = EX_NOPERM;
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                              CFSTR("Invalid to write to a protected prelinked kernel without codesigning enforced on volume: %@"),
+                              toolArgs->volumeRootURL);
             goto finish;
         }
     } else {

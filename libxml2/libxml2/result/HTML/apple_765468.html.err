@@ -20,7 +20,7 @@
 <!DOCTYPE a[<!ATTLIST  a N<!--n#(<Z<!nZ<?OTATION (`|b\x00) #	--RÌEQUIRED>]><!DO
                                                             	               ^
 error : input conversion failed due to input error, bytes 0xA0 0x68 0x3C 0x3B
-./test/HTML/apple_765468.html:2: parser error : switching encoding: encoder error
+./test/HTML/apple_765468.html:2: HTML parser error : htmlCheckEncoding: error switching to encoding 'html'
  h<;h2>PUBLIC "-'/W3Å/C/DTDcXHTML 0.0 Strict/)EN"
 ^
 ./test/HTML/apple_765468.html:2: parser error : Input is not proper UTF-8, indicate encoding !

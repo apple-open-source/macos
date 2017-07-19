@@ -304,7 +304,6 @@ static int dprintf_Pass1(const char *format, va_stack_t *vto, char **endpos,
           flags |= FLAGS_ALT;
           break;
         case '.':
-          flags |= FLAGS_PREC;
           if('*' == *fmt) {
             /* The precision is picked from a specified parameter */
 
@@ -503,7 +502,7 @@ static int dprintf_Pass1(const char *format, va_stack_t *vto, char **endpos,
         (mp_intmax_t)va_arg(arglist, int);
     }
 
-    switch (vto[i].type) {
+    switch(vto[i].type) {
     case FORMAT_STRING:
       vto[i].data.str = va_arg(arglist, char *);
       break;
@@ -693,7 +692,7 @@ static int dprintf_formatf(
 
     is_alt = (p->flags & FLAGS_ALT) ? 1 : 0;
 
-    switch (p->type) {
+    switch(p->type) {
     case FORMAT_INT:
       num = p->data.num.as_unsigned;
       if(p->flags & FLAGS_CHAR) {
@@ -936,7 +935,7 @@ static int dprintf_formatf(
           }
 
           if(prec > (long)maxprec)
-            prec = maxprec-1;
+            prec = (long)maxprec-1;
           /* RECURSIVE USAGE */
           len = curl_msnprintf(fptr, left, ".%ld", prec);
           fptr += len;
@@ -1097,8 +1096,7 @@ char *curl_maprintf(const char *format, ...)
     info.buffer[info.len] = 0; /* we terminate this with a zero byte */
     return info.buffer;
   }
-  else
-    return strdup("");
+  return strdup("");
 }
 
 char *curl_mvaprintf(const char *format, va_list ap_save)
@@ -1122,8 +1120,7 @@ char *curl_mvaprintf(const char *format, va_list ap_save)
     info.buffer[info.len] = 0; /* we terminate this with a zero byte */
     return info.buffer;
   }
-  else
-    return strdup("");
+  return strdup("");
 }
 
 static int storebuffer(int output, FILE *data)

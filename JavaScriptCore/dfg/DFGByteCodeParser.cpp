@@ -623,7 +623,7 @@ private:
         if (!inlineStackEntry->m_inlineCallFrame && m_graph.needsFlushedThis())
             flushDirect(virtualRegisterForArgument(0));
         if (m_graph.needsScopeRegister())
-            flush(m_codeBlock->scopeRegister());
+            flushDirect(m_codeBlock->scopeRegister());
     }
 
     void flushForTerminal()
@@ -4857,8 +4857,8 @@ bool ByteCodeParser::parseBlock(unsigned limit)
             LAST_OPCODE(op_throw);
             
         case op_throw_static_error:
-            addToGraph(Phantom, get(VirtualRegister(currentInstruction[1].u.operand))); // Keep argument live.
             addToGraph(ThrowStaticError);
+            addToGraph(Phantom, get(VirtualRegister(currentInstruction[1].u.operand))); // Keep argument live.
             flushForTerminal();
             addToGraph(Unreachable);
             LAST_OPCODE(op_throw_static_error);
@@ -5327,6 +5327,11 @@ bool ByteCodeParser::parseBlock(unsigned limit)
         case op_watchdog: {
             addToGraph(CheckWatchdogTimer);
             NEXT_OPCODE(op_watchdog); 
+        }
+
+        case op_nop: {
+            addToGraph(Check); // We add a nop here so that basic block linking doesn't break.
+            NEXT_OPCODE(op_nop);
         }
             
         case op_create_lexical_environment: {

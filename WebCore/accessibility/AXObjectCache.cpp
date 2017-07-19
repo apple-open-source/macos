@@ -708,8 +708,6 @@ void AXObjectCache::remove(RenderObject* renderer)
     AXID axID = m_renderObjectMapping.get(renderer);
     remove(axID);
     m_renderObjectMapping.remove(renderer);
-    if (is<RenderBlock>(*renderer))
-        m_deferredIsIgnoredChangeList.remove(downcast<RenderBlock>(renderer));
 }
 
 void AXObjectCache::remove(Node* node)
@@ -717,6 +715,9 @@ void AXObjectCache::remove(Node* node)
     if (!node)
         return;
 
+    if (is<Element>(*node))
+        m_deferredRecomputeIsIgnoredList.remove(downcast<Element>(node));
+    m_deferredTextChangedList.remove(node);
     removeNodeForUse(node);
 
     // This is all safe even if we didn't have a mapping.
@@ -1389,7 +1390,7 @@ void AXObjectCache::handleAttributeChanged(const QualifiedName& attrName, Elemen
     if (attrName == roleAttr)
         handleAriaRoleChanged(element);
     else if (attrName == altAttr || attrName == titleAttr)
-        textChanged(element);
+        deferTextChangedIfNeeded(element);
     else if (attrName == forAttr && is<HTMLLabelElement>(*element))
         labelChanged(element);
 
@@ -1403,7 +1404,7 @@ void AXObjectCache::handleAttributeChanged(const QualifiedName& attrName, Elemen
     else if (attrName == aria_valuenowAttr || attrName == aria_valuetextAttr)
         postNotification(element, AXObjectCache::AXValueChanged);
     else if (attrName == aria_labelAttr || attrName == aria_labeledbyAttr || attrName == aria_labelledbyAttr)
-        textChanged(element);
+        deferTextChangedIfNeeded(element);
     else if (attrName == aria_checkedAttr)
         checkedStateChanged(element);
     else if (attrName == aria_selectedAttr)
@@ -1446,7 +1447,7 @@ void AXObjectCache::labelChanged(Element* element)
 {
     ASSERT(is<HTMLLabelElement>(*element));
     HTMLElement* correspondingControl = downcast<HTMLLabelElement>(*element).control();
-    textChanged(correspondingControl);
+    deferTextChangedIfNeeded(correspondingControl);
 }
 
 void AXObjectCache::recomputeIsIgnored(RenderObject* renderer)
@@ -2620,16 +2621,45 @@ bool AXObjectCache::nodeIsTextControl(const Node* node)
     return axObject && axObject->isTextControl();
 }
     
-void AXObjectCache::performDeferredIsIgnoredChange()
+void AXObjectCache::performDeferredCacheUpdate()
 {
-    for (auto* renderer : m_deferredIsIgnoredChangeList)
-        recomputeIsIgnored(renderer);
-    m_deferredIsIgnoredChangeList.clear();
+    for (auto* node : m_deferredTextChangedList)
+        textChanged(node);
+    m_deferredTextChangedList.clear();
+
+    for (auto* element : m_deferredRecomputeIsIgnoredList) {
+        if (auto* renderer = element->renderer())
+            recomputeIsIgnored(renderer);
+    }
+    m_deferredRecomputeIsIgnoredList.clear();
 }
 
-void AXObjectCache::recomputeDeferredIsIgnored(RenderBlock& renderer)
+void AXObjectCache::deferRecomputeIsIgnored(Element* element)
 {
-    m_deferredIsIgnoredChangeList.add(&renderer);
+    if (!element)
+        return;
+
+    if (element->renderer() && element->renderer()->beingDestroyed())
+        return;
+
+    m_deferredRecomputeIsIgnoredList.add(element);
+}
+
+void AXObjectCache::deferTextChangedIfNeeded(Node* node)
+{
+    if (!node)
+        return;
+
+    if (node->renderer() && node->renderer()->beingDestroyed())
+        return;
+
+    auto& document = node->document();
+    // FIXME: We should just defer all text changes.
+    if (document.needsStyleRecalc() || document.inRenderTreeUpdate() || (document.view() && document.view()->isInRenderTreeLayout())) {
+        m_deferredTextChangedList.add(node);
+        return;
+    }
+    textChanged(node);
 }
 
 bool isNodeAriaVisible(Node* node)

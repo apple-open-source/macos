@@ -305,6 +305,7 @@ enum EventThrottlingBehavior {
 
     [MayThrowException] void setUseFixedLayout(boolean useFixedLayout);
     [MayThrowException] void setFixedLayoutSize(long width, long height);
+    void setPrinting(long width, long height);
 
     [MayThrowException] void setViewExposedRect(unrestricted float x, unrestricted float y, unrestricted float width, unrestricted float height);
 
@@ -467,7 +468,7 @@ enum EventThrottlingBehavior {
 
     void setShowAllPlugins(boolean showAll);
 
-    [Conditional=READABLE_STREAM_API, CallWith=ScriptState] boolean isReadableStreamDisturbed(any stream);
+    [Conditional=STREAMS_API, CallWith=ScriptState] boolean isReadableStreamDisturbed(any stream);
 
     DOMString resourceLoadStatisticsForOrigin(DOMString domain);
     void setResourceLoadStatisticsEnabled(boolean enable);

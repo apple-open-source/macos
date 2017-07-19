@@ -2213,15 +2213,13 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 
             res = fread(chars, 1, 4, f);
             if (res > 0) {
-                int ret = 0;
                 ctxt = htmlCreatePushParserCtxt(NULL, NULL,
                             chars, res, filename, XML_CHAR_ENCODING_NONE);
                 xmlCtxtUseOptions(ctxt, options);
-                while ((res = fread(chars, 1, pushsize, f)) > 0 && ret == 0) {
-                    ret = htmlParseChunk(ctxt, chars, res, 0);
+                while ((res = fread(chars, 1, pushsize, f)) > 0) {
+                    htmlParseChunk(ctxt, chars, res, 0);
                 }
-                if (ret == 0)
-                    htmlParseChunk(ctxt, chars, 0, 1);
+                htmlParseChunk(ctxt, chars, 0, 1);
                 doc = ctxt->myDoc;
                 htmlFreeParserCtxt(ctxt);
             }
@@ -2278,7 +2276,7 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 #endif
 	    }
 	    if (f != NULL) {
-		int ret = 0;
+	        int ret;
 	        int res, size = 1024;
 	        char chars[1024];
                 xmlParserCtxtPtr ctxt;
@@ -2289,11 +2287,10 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 		    ctxt = xmlCreatePushParserCtxt(NULL, NULL,
 		                chars, res, filename);
 		    xmlCtxtUseOptions(ctxt, options);
-		    while ((res = fread(chars, 1, size, f)) > 0 && ret == 0) {
-			ret = xmlParseChunk(ctxt, chars, res, 0);
+		    while ((res = fread(chars, 1, size, f)) > 0) {
+			xmlParseChunk(ctxt, chars, res, 0);
 		    }
-		    if (ret == 0)
-			xmlParseChunk(ctxt, chars, 0, 1);
+		    xmlParseChunk(ctxt, chars, 0, 1);
 		    doc = ctxt->myDoc;
 		    ret = ctxt->wellFormed;
 		    xmlFreeParserCtxt(ctxt);

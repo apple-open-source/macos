@@ -96,7 +96,7 @@ void ImageFrameCache::destroyDecodedData(size_t frameCount, size_t excludeFrame)
     for (size_t index = 0; index < frameCount; ++index) {
         if (index == excludeFrame)
             continue;
-        decodedSize += m_frames[index++].clearImage();
+        decodedSize += m_frames[index].clearImage();
     }
 
     decodedSizeReset(decodedSize);
@@ -173,8 +173,9 @@ void ImageFrameCache::didDecodeProperties(unsigned decodedPropertiesSize)
 void ImageFrameCache::growFrames()
 {
     ASSERT(isSizeAvailable());
-    ASSERT(m_frames.size() <= frameCount());
-    m_frames.grow(frameCount());
+    auto newSize = frameCount();
+    if (newSize > m_frames.size())
+        m_frames.grow(newSize);
 }
 
 void ImageFrameCache::setNativeImage(NativeImagePtr&& nativeImage)

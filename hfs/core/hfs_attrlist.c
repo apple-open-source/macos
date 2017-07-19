@@ -1128,7 +1128,9 @@ hfs_attrblksize(struct attrlist *attrlist)
 
 	hfs_assert((attrlist->fileattr & ~ATTR_FILE_VALIDMASK) == 0);
 
-	hfs_assert((attrlist->forkattr & ~ATTR_FORK_VALIDMASK) == 0);
+	// disable this for build machines
+	// it's not useful and will break every time we add new _CMNEXT_ bits
+	// hfs_assert((attrlist->forkattr & ~ATTR_FORK_VALIDMASK) == 0);
 
 	size = 0;
 	

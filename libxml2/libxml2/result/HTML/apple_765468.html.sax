@@ -15,7 +15,7 @@ SAX.error: htmlParseStartTag: invalid element name
 SAX.error: Invalid char in CDATA 0x1
 SAX.characters(]&gt;, 2)
 SAX.error: Misplaced DOCTYPE declaration
-SAX.error: switching encoding: encoder error
+SAX.error: htmlCheckEncoding: error switching to encoding 'html'
 SAX.error: Input is not proper UTF-8, indicate encoding !
 Bytes: 0xA0 0x68 0x3C 0x3B
 SAX.error: htmlParseDocTypeDecl : no DOCTYPE name !

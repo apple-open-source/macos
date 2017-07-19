@@ -1,0 +1,31 @@
+0 10 html 0 0
+0 1 html 0 0
+1 14 #text 0 1 
+
+1 1 head 0 0
+2 14 #text 0 1 
+
+2 1 meta 1 0
+2 14 #text 0 1 
+
+2 1 meta 1 0
+2 14 #text 0 1 
+
+2 1 meta 1 0
+2 14 #text 0 1 
+
+2 1 title 0 0
+3 3 #text 0 1 ソフトバンクWi-Fiスポット
+2 15 title 0 0
+2 14 #text 0 1 
+
+1 15 head 0 0
+1 14 #text 0 1 
+
+1 1 body 0 0
+2 14 #text 0 1 
+
+1 15 body 0 0
+1 14 #text 0 1 
+
+0 15 html 0 0

@@ -359,6 +359,12 @@ static bool markerTypesFrom(const String& markerType, DocumentMarker::MarkerType
     return true;
 }
 
+static std::unique_ptr<PrintContext>& printContextForTesting()
+{
+    static NeverDestroyed<std::unique_ptr<PrintContext>> context;
+    return context;
+}
+
 const char* Internals::internalsId = "internals";
 
 Ref<Internals> Internals::create(Document& document)
@@ -430,6 +436,8 @@ void Internals::resetToConsistentState(Page& page)
 #endif
 
     page.setShowAllPlugins(false);
+
+    printContextForTesting() = nullptr;
 }
 
 Internals::Internals(Document& document)
@@ -2347,6 +2355,12 @@ ExceptionOr<void> Internals::setViewExposedRect(float x, float y, float width, f
     return { };
 }
 
+void Internals::setPrinting(int width, int height)
+{
+    printContextForTesting() = std::make_unique<PrintContext>(frame());
+    printContextForTesting()->begin(width, height);
+}
+
 void Internals::setHeaderHeight(float height)
 {
     Document* document = contextDocument();
@@ -3492,7 +3506,7 @@ void Internals::setShowAllPlugins(bool show)
     page->setShowAllPlugins(show);
 }
 
-#if ENABLE(READABLE_STREAM_API)
+#if ENABLE(STREAMS_API)
 
 bool Internals::isReadableStreamDisturbed(JSC::ExecState& state, JSValue stream)
 {

@@ -283,9 +283,15 @@
 /* Define to 1 if you have a working gmtime_r function. */
 #define HAVE_GMTIME_R 1
 
+/* Define to 1 if you have the `gnutls_alpn_set_protocols' function. */
+/* #undef HAVE_GNUTLS_ALPN_SET_PROTOCOLS */
+
 /* Define to 1 if you have the `gnutls_certificate_set_x509_key_file2'
    function. */
 /* #undef HAVE_GNUTLS_CERTIFICATE_SET_X509_KEY_FILE2 */
+
+/* Define to 1 if you have the `gnutls_ocsp_req_init' function. */
+/* #undef HAVE_GNUTLS_OCSP_REQ_INIT */
 
 /* if you have the function gnutls_srp_verifier */
 /* #undef HAVE_GNUTLS_SRP */
@@ -516,12 +522,6 @@
 
 /* Define to 1 if you have the `RAND_egd' function. */
 /* #undef HAVE_RAND_EGD */
-
-/* Define to 1 if you have the `RAND_screen' function. */
-/* #undef HAVE_RAND_SCREEN */
-
-/* Define to 1 if you have the `RAND_status' function. */
-/* #undef HAVE_RAND_STATUS */
 
 /* Define to 1 if you have the recv function. */
 #define HAVE_RECV 1
@@ -982,6 +982,9 @@
 
 /* if you want POSIX threaded DNS lookup */
 #define USE_THREADS_POSIX 1
+
+/* if you want Win32 threaded DNS lookup */
+/* #undef USE_THREADS_WIN32 */
 
 /* Use TLS-SRP authentication */
 /* #undef USE_TLS_SRP */

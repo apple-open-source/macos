@@ -245,6 +245,7 @@ public:
 
     // IWebPreferencesPrivate4
     virtual HRESULT STDMETHODCALLTYPE setApplicationId(BSTR);
+
     virtual HRESULT STDMETHODCALLTYPE allowsPageCacheWithWindowOpener(_Out_ BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setAllowsPageCacheWithWindowOpener(BOOL);
 

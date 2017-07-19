@@ -1,0 +1,10 @@
+error : input conversion failed due to input error, bytes 0x3C 0x2F 0x74 0x69
+./test/HTML/encoding-incorrect-shift_jis.html:4: HTML parser error : htmlCheckEncoding: error switching to encoding 'Shift_JIS'
+</title>
+^
+./test/HTML/encoding-incorrect-shift_jis.html:4: HTML parser error : Couldn't find end of Start Tag meta
+</title>
+^
+./test/HTML/encoding-incorrect-shift_jis.html:4: HTML parser error : Unexpected end tag : title
+</title>
+        ^

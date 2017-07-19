@@ -1,0 +1,3 @@
+error : input conversion failed due to input error, bytes 0x3C 0x2F 0x74 0x69
+I/O error : encoder error
+./test/errors/encoding-incorrect-shift_jis.xml : failed to parse

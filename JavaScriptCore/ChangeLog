@@ -1,3 +1,312 @@
+2017-07-13  Mark Lam  <mark.lam@apple.com>
+
+        JSArray::appendMemcpy() needs to handle copying from Undecided indexing type too.
+        https://bugs.webkit.org/show_bug.cgi?id=170896
+        <rdar://problem/31651319>
+
+        Reviewed by JF Bastien and Keith Miller.
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::appendMemcpy):
+
+2017-06-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r216459. rdar://problem/32119857
+
+    2017-05-08  Mark Lam  <mark.lam@apple.com>
+
+            op_throw_static_error's use of its first operand should be reflected in DFG BytecodeUseDef as well.
+            https://bugs.webkit.org/show_bug.cgi?id=171786
+            <rdar://problem/32051023>
+
+            Reviewed by Saam Barati.
+
+            * bytecode/BytecodeDumper.cpp:
+            (JSC::BytecodeDumper<Block>::dumpBytecode):
+            - Fix BytecodeDumper to dump op_throw_static_error correctly.  Previously,
+              it was expecting op1 to always be a constant.  r206870 changed it to take a
+              variable string as well.
+
+            * bytecode/BytecodeUseDef.h:
+            (JSC::computeUsesForBytecodeOffset):
+            - Fix the bug.
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::parseBlock):
+            - Move the Phantom of op1 after the ThrowStaticError node, because technically,
+              the ThrowStaticError represents op_throw_static_error, and op_throw_static_error
+              uses op1.  In practice, this probably doesn't matter, but let's have the code
+              accurately communicate the behavior we're expecting.
+
+2017-05-25  Saam Barati  <sbarati@apple.com>
+
+        Cherry-pick r217438. rdar://problem/32385704
+
+        * bytecode/BytecodeList.json:
+        * bytecode/BytecodeUseDef.h:
+        (JSC::computeUsesForBytecodeOffset):
+        (JSC::computeDefsForBytecodeOffset):
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dumpBytecode):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitGetByVal):
+        (JSC::BytecodeGenerator::popIndexedForInScope):
+        (JSC::BytecodeGenerator::popStructureForInScope):
+        (JSC::BytecodeGenerator::invalidateForInContextForLocal):
+        (JSC::StructureForInContext::finalize):
+        (JSC::IndexedForInContext::finalize):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::StructureForInContext::addGetInst):
+        (JSC::IndexedForInContext::addGetInst):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        * dfg/DFGCapabilities.cpp:
+        (JSC::DFG::capabilityLevel):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_nop):
+        * llint/LowLevelInterpreter.asm:
+
+2017-05-24  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r217016. rdar://problem/32380054
+
+    2017-05-17  Filip Pizlo  <fpizlo@apple.com>
+
+            JSC: Incorrect LoadVarargs handling in ArgumentsEliminationPhase::transform
+            https://bugs.webkit.org/show_bug.cgi?id=172208
+
+            Reviewed by Saam Barati.
+
+            * dfg/DFGArgumentsEliminationPhase.cpp:
+
+2017-05-17  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r211063. rdar://problem/32228083
+
+    2017-01-23  Mark Lam  <mark.lam@apple.com>
+
+            ObjCCallbackFunction::destroy() should not use jsCast().
+            https://bugs.webkit.org/show_bug.cgi?id=167322
+
+            Reviewed by Filip Pizlo.
+
+            Since r210829, it is no longer correct for object destructors to use jsCast().
+            Fixed ObjCCallbackFunction::destroy() to use a static_cast instead.
+
+            * API/ObjCCallbackFunction.mm:
+            (JSC::ObjCCallbackFunction::destroy):
+
+2017-04-13  Oliver Hunt  <oliver@apple.com>
+
+        allocationSize should use safe arithmetic by default
+        https://bugs.webkit.org/show_bug.cgi?id=170804
+
+        Reviewed by JF Bastien.
+
+        Make all allocationSize() functions work in terms
+        of Checked<size_t>
+
+        * runtime/DirectArguments.h:
+        (JSC::DirectArguments::offsetOfSlot):
+        (JSC::DirectArguments::allocationSize):
+        * runtime/HashMapImpl.h:
+        (JSC::HashMapBuffer::allocationSize):
+        * runtime/JSArray.h:
+        (JSC::JSArray::allocationSize):
+        * runtime/JSArrayBufferView.h:
+        (JSC::JSArrayBufferView::allocationSize):
+        * runtime/JSAsyncFunction.h:
+        (JSC::JSAsyncFunction::allocationSize):
+        * runtime/JSFixedArray.h:
+        (JSC::JSFixedArray::allocationSize):
+        * runtime/JSFunction.h:
+        (JSC::JSFunction::allocationSize):
+        * runtime/JSGeneratorFunction.h:
+        (JSC::JSGeneratorFunction::allocationSize):
+        * runtime/JSModuleNamespaceObject.h:
+        * runtime/JSObject.h:
+        (JSC::JSFinalObject::allocationSize):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::allocationSize):
+        * runtime/ScopedArguments.h:
+        (JSC::ScopedArguments::allocationSize):
+        * runtime/VM.h:
+        (JSC::ScratchBuffer::allocationSize):
+        * wasm/js/JSWebAssemblyCodeBlock.h:
+        (JSC::JSWebAssemblyCodeBlock::offsetOfImportStubs):
+        (JSC::JSWebAssemblyCodeBlock::allocationSize):
+        * wasm/js/JSWebAssemblyInstance.h:
+        (JSC::JSWebAssemblyInstance::allocationSize):
+
+2017-05-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r215429. rdar://problem/32057106
+
+    2017-04-17  Youenn Fablet  <youenn@apple.com>
+
+            Disable outdated WritableStream API
+            https://bugs.webkit.org/show_bug.cgi?id=170749
+            <rdar://problem/31446233>
+
+            Reviewed by Alex Christensen.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2017-05-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r215250. rdar://problem/32057106
+
+    2017-04-11  Dean Jackson  <dino@apple.com>
+
+            Disable outdated WritableStream API
+            https://bugs.webkit.org/show_bug.cgi?id=170749
+            <rdar://problem/31446233>
+
+            Reviewed by Tim Horton.
+
+            The API we implement is no longer accurate. Disable it until we
+            are compatible with the new specification
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2017-05-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r216279. rdar://problem/31967829
+
+    2017-05-05  Saam Barati  <sbarati@apple.com>
+
+            putDirectIndex does not properly do defineOwnProperty
+            https://bugs.webkit.org/show_bug.cgi?id=171591
+            <rdar://problem/31735695>
+
+            Reviewed by Geoffrey Garen.
+
+            This patch fixes putDirectIndex and its JIT implementations to be
+            compatible with the ES6 spec. I think our code became out of date
+            when we implemented ArraySpeciesCreate since ArraySpeciesCreate may
+            return arbitrary objects. We perform putDirectIndex on that arbitrary
+            object. The behavior we want is as if we performed defineProperty({configurable:true, enumerable:true, writable:true}).
+            However, we weren't doing this. putDirectIndex assumed it could just splat
+            data into any descendent of JSObject's butterfly. For example, this means
+            we'd just splat into the butterfly of a typed array, even though a typed
+            array doesn't use its butterfly to store its indexed properties in the usual
+            way. Also, typed array properties are non-configurable, so this operation
+            should throw. This also means if we saw a ProxyObject, we'd just splat
+            into its butterfly, but this is obviously wrong because ProxyObject should
+            intercept the defineProperty operation.
+
+            This patch fixes this issue by adding a whitelist of cell types that can
+            go down putDirectIndex's fast path. Anything not in that whitelist will
+            simply call into defineOwnProperty.
+
+            * bytecode/ByValInfo.h:
+            (JSC::jitArrayModePermitsPutDirect):
+            * dfg/DFGArrayMode.cpp:
+            (JSC::DFG::ArrayMode::refine):
+            * jit/JITOperations.cpp:
+            * runtime/ArrayPrototype.cpp:
+            (JSC::arrayProtoFuncSplice):
+            * runtime/ClonedArguments.cpp:
+            (JSC::ClonedArguments::createStructure):
+            * runtime/JSGenericTypedArrayViewInlines.h:
+            (JSC::JSGenericTypedArrayView<Adaptor>::defineOwnProperty):
+            * runtime/JSObject.cpp:
+            (JSC::canDoFastPutDirectIndex):
+            (JSC::JSObject::defineOwnIndexedProperty):
+            (JSC::JSObject::putDirectIndexSlowOrBeyondVectorLength):
+            (JSC::JSObject::putDirectIndexBeyondVectorLength): Deleted.
+            * runtime/JSObject.h:
+            (JSC::JSObject::putDirectIndex):
+            (JSC::JSObject::canSetIndexQuicklyForPutDirect): Deleted.
+            * runtime/JSType.h:
+
+2017-05-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r215748. rdar://problem/31971413
+
+    2017-04-25  Mark Lam  <mark.lam@apple.com>
+
+            Local CSE wrongly CSEs array accesses with different result types.
+            https://bugs.webkit.org/show_bug.cgi?id=170990
+            <rdar://problem/31705945>
+
+            Reviewed by Saam Barati.
+
+            The fix is to use different LocationKind enums for the different type of array
+            result types.  This makes the HeapLocation values different based on the result
+            types, and allows CSE to discern between them.
+
+            * dfg/DFGCSEPhase.cpp:
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+            * dfg/DFGHeapLocation.cpp:
+            (WTF::printInternal):
+            * dfg/DFGHeapLocation.h:
+            (JSC::DFG::indexedPropertyLocForResultType):
+
+2017-05-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r216309. rdar://problem/31971364
+
+    2017-05-05  Keith Miller  <keith_miller@apple.com>
+
+            Put does not properly consult the prototype chain
+            https://bugs.webkit.org/show_bug.cgi?id=171754
+
+            Reviewed by Saam Barati.
+
+            We should do a follow up that cleans up the rest of put. See:
+            https://bugs.webkit.org/show_bug.cgi?id=171759
+
+            * runtime/JSCJSValue.cpp:
+            (JSC::JSValue::putToPrimitive):
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::putInlineSlow):
+            * runtime/JSObjectInlines.h:
+            (JSC::JSObject::canPerformFastPutInline):
+
+2017-05-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r215596. rdar://problem/31971150
+
+    2017-04-20  Mark Lam  <mark.lam@apple.com>
+
+            virtualThunkFor() needs to materialize its of tagMaskRegister for tail calls.
+            https://bugs.webkit.org/show_bug.cgi?id=171079
+            <rdar://problem/31684756>
+
+            Reviewed by Saam Barati.
+
+            This is needed because tail calls would restore callee saved registers (and
+            therefore, potentially clobber the tag registers) before jumping to the thunk.
+
+            * jit/ThunkGenerators.cpp:
+            (JSC::virtualThunkFor):
+
+2017-05-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r215351. rdar://problem/31631922
+
+    2017-04-13  Mark Lam  <mark.lam@apple.com>
+
+            Should use flushDirect() when flushing the scopeRegister due to needsScopeRegister().
+            https://bugs.webkit.org/show_bug.cgi?id=170661
+            <rdar://problem/31579046>
+
+            Reviewed by Filip Pizlo.
+
+            Previously, we were using flush() to flush the outermost frame's scopeRegister.
+            This is incorrect because flush() expects the VirtualRegister value passed to
+            it to be that of the top most inlined frame.  In the event that we reach a
+            terminal condition while inside an inlined frame, flush() will end up flushing
+            the wrong register.  The fix is simply to use flushDirect() instead.
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::flush):
+
 2017-04-14  Jason Marcell  <jmarcell@apple.com>
 
         Cherry-pick r214637. rdar://problem/31615783

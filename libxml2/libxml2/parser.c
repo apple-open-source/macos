@@ -39,6 +39,7 @@
 #define XML_DIR_SEP '/'
 #endif
 
+#include <assert.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
@@ -12781,6 +12782,7 @@ void
 xmlStopParser(xmlParserCtxtPtr ctxt) {
     if (ctxt == NULL)
         return;
+    assert(!ctxt->html);
     xmlHaltParser(ctxt);
     ctxt->errNo = XML_ERR_USER_STOP;
 }

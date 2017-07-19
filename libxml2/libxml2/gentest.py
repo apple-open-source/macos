@@ -263,6 +263,57 @@ extra_post_call = {
    "xmlBufferSetAllocationScheme": "if ((buf != NULL) && (scheme == XML_BUFFER_ALLOC_IMMUTABLE) && (buf->content != NULL) && (buf->content != static_buf_content)) { xmlFree(buf->content); buf->content = NULL;}"
 }
 
+#
+# Arguments that should use strlen() instead of gen_int()
+#
+use_strlen = {
+    "htmlCreateMemoryParserCtxt": {"size": "buffer"},
+    "htmlCreatePushParserCtxt": {"size": "chunk"},
+    "htmlCtxtReadMemory": {"size": "buffer"},
+    "htmlParseChunk": {"size": "chunk"},
+    "htmlReadMemory": {"size": "buffer"},
+    "xmlDictExists": {"len": "name"},
+    "xmlDictLookup": {"len": "name"},
+    "xmlCreatePushParserCtxt": {"size": "chunk"},
+    "xmlCtxtReadMemory": {"size": "buffer"},
+    "xmlCtxtResetPush": {"size": "chunk"},
+    "xmlParseChunk": {"size": "chunk"},
+    "xmlParseInNodeContext": {"datalen": "data"},
+    "xmlParseMemory": {"size": "buffer"},
+    "xmlReadMemory": {"size": "buffer"},
+    "xmlRecoverMemory": {"size": "buffer"},
+    "xmlSAXParseMemory": {"size": "buffer"},
+    "xmlSAXParseMemoryWithData": {"size": "buffer"},
+    "xmlSAXUserParseMemory": {"size": "buffer"},
+    "xmlCreateMemoryParserCtxt": {"size": "buffer"},
+    "xmlRelaxNGNewMemParserCtxt": {"size": "buffer"},
+    "xmlBufferAdd": {"len": "str"},
+    "xmlBufferAddHead": {"len": "str"},
+    "xmlBuildQName": {"len": "memory"},
+    "xmlNewCDataBlock": {"len": "content"},
+    "xmlNewDocTextLen": {"len": "content"},
+    "xmlNewTextLen": {"len": "content"},
+    "xmlNodeAddContentLen": {"len": "content"},
+    "xmlNodeSetContentLen": {"len": "content"},
+    "xmlStringLenGetNodeList": {"len": "value"},
+    "xmlTextConcat": {"len": "content"},
+    "xmlOutputBufferWrite": {"len": "buf", "-reorder-length": True},
+    "xmlParserInputBufferCreateMem": {"size": "mem"},
+    "xmlParserInputBufferCreateStatic": {"size": "mem"},
+    "xmlParserInputBufferPush": {"len": "buf", "-reorder-length": True},
+    "xmlReaderForMemory": {"size": "buffer"},
+    "xmlReaderNewMemory": {"size": "buffer"},
+    "xmlSchemaNewMemParserCtxt": {"size": "buffer"},
+    "xmlCharStrndup": {"len": "cur"},
+    "xmlStrncatNew": {"len": "str2"},
+    "xmlStrncmp": {"len": "str2"},
+    "xmlStrndup": {"len": "cur"},
+    "xmlStrsub": {"len": "str", "-compute-length": "start"},
+    "xmlTextWriterWriteBase64": {"len": "data", "-compute-length": "start"},
+    "xmlTextWriterWriteBinHex": {"len": "data", "-compute-length": "start"},
+    "xmlTextWriterWriteRawLen": {"len": "content"},
+}
+
 modules = []
 
 def is_skipped_module(name):
@@ -758,29 +809,49 @@ test_%s(void) {
     # Declare the arguments
     for arg in t_args:
         (nam, type, rtype, crtype, info) = arg;
-	# add declaration
-	test.write("    %s %s; /* %s */\n" % (crtype, nam, info))
-	test.write("    int n_%s;\n" % (nam))
+        # add declaration
+        test.write("    %s %s; /* %s */\n" % (crtype, nam, info))
+        if name in use_strlen and nam in use_strlen[name]:
+            continue
+        test.write("    int n_%s;\n" % (nam))
     test.write("\n")
 
     # Cascade loop on of each argument list of values
     for arg in t_args:
-        (nam, type, rtype, crtype, info) = arg;
-	#
-	test.write("    for (n_%s = 0;n_%s < gen_nb_%s;n_%s++) {\n" % (
-	           nam, nam, type, nam))
+        (nam, type, rtype, crtype, info) = arg
+        if name in use_strlen and nam in use_strlen[name]:
+            continue
+        #
+        test.write("    for (n_%s = 0;n_%s < gen_nb_%s;n_%s++) {\n" % (
+                   nam, nam, type, nam))
     
     # log the memory usage
     if no_mem == 0:
 	test.write("        mem_base = xmlMemBlocks();\n");
 
     # prepare the call
-    i = 0;
+    i = 0
+    swap_statement = None
     for arg in t_args:
-        (nam, type, rtype, crtype, info) = arg;
-	#
-	test.write("        %s = gen_%s(n_%s, %d);\n" % (nam, type, nam, i))
-	i = i + 1;
+        (nam, type, rtype, crtype, info) = arg
+        #
+        if name in use_strlen and nam in use_strlen[name]:
+            buffer_arg = use_strlen[name][nam]
+            statement = "        %s = %s ? strlen((const char *)%s) : 0;\n" % (nam, buffer_arg, buffer_arg)
+            if "-reorder-length" in use_strlen[name]:
+                swap_statement = {buffer_arg: statement}
+            else:
+                test.write(statement)
+                if "-compute-length" in use_strlen[name]:
+                    start_arg = use_strlen[name]["-compute-length"]
+                    test.write("        %s = ((%s > 0) && (%s > %s)) ? (%s - %s) : 0;\n" % (
+                               nam, nam, nam, start_arg, nam, start_arg))
+        else:
+            test.write("        %s = gen_%s(n_%s, %d);\n" % (nam, type, nam, i))
+        if swap_statement and nam in swap_statement:
+            test.write(swap_statement[nam])
+            swap_statement = None
+        i = i + 1
 
     # do the call, and clanup the result
     if extra_pre_call.has_key(name):
@@ -820,35 +891,42 @@ test_%s(void) {
     test.write("        call_tests++;\n");
 
     # Free the arguments
-    i = 0;
+    i = 0
     for arg in t_args:
         (nam, type, rtype, crtype, info) = arg;
-	# This is a hack to prevent generating a destructor for the
-	# 'input' argument in xmlTextReaderSetup.  There should be
-	# a better, more generic way to do this!
-	if string.find(info, 'destroy') == -1:
-	    test.write("        des_%s(n_%s, " % (type, nam))
-	    if rtype != crtype:
-	        test.write("(%s)" % rtype)
-	    test.write("%s, %d);\n" % (nam, i))
-	i = i + 1;
+        if name in use_strlen and nam in use_strlen[name]:
+            i = i + 1
+            continue
+        # This is a hack to prevent generating a destructor for the
+        # 'input' argument in xmlTextReaderSetup.  There should be
+        # a better, more generic way to do this!
+        if string.find(info, 'destroy') == -1:
+            test.write("        des_%s(n_%s, " % (type, nam))
+            if rtype != crtype:
+                test.write("(%s)" % rtype)
+            test.write("%s, %d);\n" % (nam, i))
+        i = i + 1
 
     test.write("        xmlResetLastError();\n");
     # Check the memory usage
     if no_mem == 0:
-	test.write("""        if (mem_base != xmlMemBlocks()) {
+        test.write("""        if (mem_base != xmlMemBlocks()) {
             printf("Leak of %%d blocks found in %s",
 	           xmlMemBlocks() - mem_base);
 	    test_ret++;
 """ % (name));
-	for arg in t_args:
-	    (nam, type, rtype, crtype, info) = arg;
-	    test.write("""            printf(" %%d", n_%s);\n""" % (nam))
-	test.write("""            printf("\\n");\n""")
-	test.write("        }\n")
+        for arg in t_args:
+            (nam, type, rtype, crtype, info) = arg
+            if name in use_strlen and nam in use_strlen[name]:
+                continue
+            test.write("""            printf(" %%d", n_%s);\n""" % (nam))
+        test.write("""            printf("\\n");\n""")
+        test.write("        }\n")
 
     for arg in t_args:
-	test.write("    }\n")
+        if name in use_strlen and arg[0] in use_strlen[name]:
+            continue
+        test.write("    }\n")
 
     test.write("    function_tests++;\n")
     #

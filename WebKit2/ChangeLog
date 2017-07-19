@@ -1,3 +1,208 @@
+2017-06-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r212173.
+
+2017-06-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r218206. rdar://problem/32751025
+
+    2017-06-13  Brent Fulgham  <bfulgham@apple.com>
+
+            [WK2][macOS] Allow AppleEvents in Citrix View Plugin
+            https://bugs.webkit.org/show_bug.cgi?id=173280
+            <rdar://problem/31913624>
+
+            Reviewed by Alexey Proskuryakov.
+
+            A slightly better fix: Allow AppleEvents for non-sandboxed plugins. This should
+            avoid inadvertently breaking custom plugins, etc.
+
+            * PluginProcess/mac/PluginProcessMac.mm:
+            (WebKit::PluginProcess::platformInitializeProcess): Switch check from a specific Citrix
+            test, to just allowing non-sandboxed plugins to use AppleEvents.
+
+2017-06-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r218187. rdar://problem/32751025
+
+    2017-06-13  Brent Fulgham  <bfulgham@apple.com>
+
+            [WK2][macOS] Allow AppleEvents in Citrix View Plugin
+            https://bugs.webkit.org/show_bug.cgi?id=173280
+            <rdar://problem/31913624>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Allow the Citrix Viewer plugin to issue Apple Events.
+
+            * PluginProcess/mac/PluginProcessMac.mm:
+            (WebKit::PluginProcess::platformInitializeProcess): Allow AppleEvents for the Citrix Viewer plugin.
+
+2017-06-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r212173. rdar://problem/32080671
+
+    2017-02-10  Daniel Bates  <dabates@apple.com>
+
+            Detach frame from document when entering page cache
+            https://bugs.webkit.org/show_bug.cgi?id=166774
+            <rdar://problem/29904368>
+
+            Reviewed by Chris Dumez.
+
+            * Shared/WebPreferencesDefinitions.h:
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetAllowsPageCacheWithWindowOpener): Deleted.
+            (WKPreferencesGetAllowsPageCacheWithWindowOpener): Deleted.
+            * UIProcess/API/C/WKPreferencesRefPrivate.h:
+            * WebProcess/InjectedBundle/InjectedBundle.cpp:
+            (WebKit::InjectedBundle::overrideBoolPreferenceForTestRunner):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updatePreferences):
+
+2017-05-18  Dean Jackson  <dino@apple.com>
+
+        Restrict SVG filters to accessible security origins
+        https://bugs.webkit.org/show_bug.cgi?id=118689
+        <rdar://problem/27362159>
+
+        Reviewed by Brent Fulgham.
+
+        Update parameter lists.
+
+        * WebProcess/Plugins/PluginView.cpp:
+        (WebKit::PluginView::paint):
+        * WebProcess/Plugins/PluginView.h:
+
+2017-05-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r215429. rdar://problem/32057106
+
+    2017-04-17  Youenn Fablet  <youenn@apple.com>
+
+            Disable outdated WritableStream API
+            https://bugs.webkit.org/show_bug.cgi?id=170749
+            <rdar://problem/31446233>
+
+            Reviewed by Alex Christensen.
+
+            Replacing READABLE_STREAM_API, READABLE_BYTE_STREAM_API and WRITABLE_STREAM_API compilation flag by:
+            - A STREAMS_API compilation flag.
+            - A ReadableByteStreamAPI and WritableStreamAPI runtime flags, turned off except for RWT and DRT.
+
+            * Configurations/FeatureDefines.xcconfig:
+            * WebProcess/InjectedBundle/InjectedBundle.cpp:
+            (WebKit::InjectedBundle::overrideBoolPreferenceForTestRunner):
+
+2017-05-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r215250. rdar://problem/32057106
+
+    2017-04-11  Dean Jackson  <dino@apple.com>
+
+            Disable outdated WritableStream API
+            https://bugs.webkit.org/show_bug.cgi?id=170749
+            <rdar://problem/31446233>
+
+            Reviewed by Tim Horton.
+
+            The API we implement is no longer accurate. Disable it until we
+            are compatible with the new specification
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2017-05-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r216352. rdar://problem/32057098
+
+    2017-05-07  Simon Fraser  <simon.fraser@apple.com>
+
+            [iOS] REGRESSION (r209409): getBoundingClientRect is wrong for fixed-position elements in resize/orientationchange
+            https://bugs.webkit.org/show_bug.cgi?id=171140
+            rdar://problem/31765167
+
+            Reviewed by Sam Weinig.
+
+            WebPage::dynamicViewportSizeUpdate() is called during rotation, and does a layout which needs to have
+            an up-to-date layout viewport, since the layout viewport state is detectable in orientationchange and
+            resize events via fetching the client rect of fixed elements. Normally we send in the layout viewport
+            from the UI process, but in this case we need to compute one in the web process. So factor code
+            into FrameView to do the computation, called from both places.
+
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/ios/RemoteScrollingCoordinatorProxyIOS.mm:
+            (WebKit::RemoteScrollingCoordinatorProxy::customFixedPositionRect):
+            * UIProcess/ios/WKContentView.mm:
+            (-[WKContentView didUpdateVisibleRect:unobscuredRect:unobscuredRectInScrollViewCoordinates:obscuredInsets:unobscuredSafeAreaInsets:inputViewBounds:scale:minimumScale:inStableState:isChangingObscuredInsetsInteractively:enclosedInScrollableAncestorView:]):
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::computeCustomFixedPositionRect):
+            * UIProcess/mac/RemoteLayerTreeDrawingAreaProxy.mm:
+            (WebKit::RemoteLayerTreeDrawingAreaProxy::commitLayerTree):
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::dynamicViewportSizeUpdate):
+
+2017-05-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Cherry-pick r211379. rdar://problem/32057099
+
+    2017-01-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Fixed elements should not rubber-band in WK2, nor remain at negative offsets
+            https://bugs.webkit.org/show_bug.cgi?id=167484
+            rdar://problem/29453068
+
+            Reviewed by Dean Jackson.
+
+            Pass in StickToViewportBounds as we did before visual viewports.
+
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::computeCustomFixedPositionRect):
+
+2017-05-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r216104. rdar://problem/32057088
+
+    2017-05-02  Simon Fraser  <simon.fraser@apple.com>
+
+            Dynamically added position:fixed element is in the wrong place
+            https://bugs.webkit.org/show_bug.cgi?id=170280
+            rdar://problem/31374008
+
+            Reviewed by Tim Horton.
+
+            Layers for position:fixed elements have their positions reconciled after scrolls
+            via AsyncScrollingCoordinator::reconcileViewportConstrainedLayerPositions() and GraphicsLayerCA::syncPosition(),
+            which updates the GraphicsLayer's position, but does not push it to the PlatformCALayer.
+
+            This bug was a case where a position:fixed element gained a fixed ancestor, so had a GraphicsLayerCA whose
+            position had been updated via syncPosition() in the past. A subsequent layout updated the GraphicsLayerCA position,
+            but to a value that was the same as its pre-sync position, so the PlatformCALayerRemote's position didn't change,
+            but there was no signal to the UI process to restore the layer's pre-scrolled position.
+
+            Fix by avoiding the early return in PlatformCALayerRemote::setPosition(), to ensure that GraphicsLayerCA
+            geometry updates in the web process always send new positions to the UI process.
+
+            * WebProcess/WebPage/mac/PlatformCALayerRemote.cpp:
+            (WebKit::PlatformCALayerRemote::setPosition):
+
+2017-05-09  Jason Marcell  <jmarcell@apple.com>
+
+        Cherry-pick r215197. rdar://problem/31971401
+
+    2017-04-10  Brent Fulgham  <bfulgham@apple.com>
+
+            [WK2][macOS] Block access to Apple Events before launch.
+            https://bugs.webkit.org/show_bug.cgi?id=170626
+            <rdar://problem/16079334>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Clear the environment of the AppleEvent server name before initializing
+            AppKit so we never bother connecting.
+
+            * Shared/EntryPointUtilities/mac/XPCService/XPCServiceMain.mm:
+            (main):
+
 2017-04-12  Jason Marcell  <jmarcell@apple.com>
 
         Cherry-pick 214376. rdar://problem/31502340

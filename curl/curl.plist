@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.51.0</string>
+	<string>7.54.0</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.haxx.se/</string>
 	<key>OpenSourceURL</key>
-	<string>http://curl.haxx.se/download/curl-7.51.0.tar.bz2</string>
+	<string>http://curl.haxx.se/download/curl-7.54.0.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>f02a14bbe580d2a8cf3bf45a79d39eb595220ac7</string>
+	<string>be5b7f10fc34722e324e8c552fcdfe120e164836</string>
 	<key>OpenSourceImportDate</key>
-	<string>2016-11-02</string>
+	<string>2017-05-15</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>curl-config.in: remove -I, -L, and static library info</string>

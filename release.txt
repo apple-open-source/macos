@@ -1,4 +1,4 @@
-# macOS 10.12.5
+# macOS 10.12.6
 AppleFileSystemDriver	21
 AppleRAID	8.50.1
 AppleUSBIrDA	145.2.4
@@ -13,7 +13,7 @@ CrackLib	37765
 Csu	85
 DiskArbitration	288.60.1
 Heimdal	498.50.8
-ICU	57165.0.1
+ICU	57166.0.1
 IOATAFamily	254.50.1
 IOATAPIProtocolTransport	350.0.3
 IOAudioFamily	205.15
@@ -36,7 +36,7 @@ IOSCSIParallelFamily	300.0.2
 IOSerialFamily	91
 IOStorageFamily	210.30.1
 IOUSBMassStorageClass	406.60.1
-JavaScriptCore	7603.2.4
+JavaScriptCore	7603.3.8
 KerberosHelper	154
 Libc	1158.50.2
 Libinfo	503.50.4
@@ -59,11 +59,11 @@ SecurityTokend	55111
 SmartcardCCID	55013.30.1
 TimeZoneData	84
 UserNotification	29
-WTF	7603.2.4
-WebCore	7603.2.4
-WebInspectorUI	7603.2.4
-WebKit	7603.2.4
-WebKit2	7603.2.4
+WTF	7603.3.8
+WebCore	7603.3.8
+WebInspectorUI	7603.3.8
+WebKit	7603.3.8
+WebKit2	7603.3.8
 adv_cmds	168
 apache	812.2
 apache_mod_hfs_apple	15
@@ -78,7 +78,7 @@ basic_cmds	55
 bc	21
 bind9	45.101
 bless	134
-bmalloc	7603.2.4
+bmalloc	7603.3.8
 bootp	343.50.1
 bootstrap_cmds	96.20.2
 bzip2	38
@@ -89,7 +89,7 @@ coreTLS	121.50.4
 cron	39
 crontabs	52
 cups	450
-curl	95.50.2
+curl	95.70.1
 cxxfilt	11.2
 dcerpc	63
 diskdev_cmds	589
@@ -110,15 +110,15 @@ gpatch	3
 gpt	18
 groff	40
 gssd	73.50.1
-hfs	366.50.19
+hfs	366.70.1
 hunspell	10
 iodbc	42.5
 ipsec	305.20.1
-kext_tools	460.61.1
+kext_tools	460.70.2
 keymgr	28
 ksh	23
 less	29
-libarchive	41.50.2
+libarchive	41.70.1
 libauto	187
 libclosure	67
 libdispatch	703.50.37
@@ -137,7 +137,7 @@ libstdcxx	104.1
 libtelnet	13
 libunwind	35.3
 libutil	47.30.1
-libxml2	30.16
+libxml2	30.17
 libxslt	15.9
 llvmCore	3425.0.36
 lsof	60
@@ -156,7 +156,7 @@ netcat	41
 network_cmds	511.50.3
 ntfs	91.50.2
 ntp	124.60.2
-objc4	709
+objc4	709.1
 pam_modules	159.50.4
 passwordserver_sasl	209
 patch_cmds	17
@@ -198,7 +198,7 @@ uucp	11
 vim	62.50.1
 webdavfs	373.60.2
 xar	357
-xnu	3789.60.24
+xnu	3789.70.16
 zip	16
 zlib	67
 zsh	70

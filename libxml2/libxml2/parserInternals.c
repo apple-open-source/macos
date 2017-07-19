@@ -1114,9 +1114,9 @@ xmlSwitchEncoding(xmlParserCtxtPtr ctxt, xmlCharEncoding enc)
 	return(-1);
     ctxt->charset = XML_CHAR_ENCODING_UTF8;
     ret = xmlSwitchToEncodingInt(ctxt, handler, len);
-    if ((ret < 0) || (ctxt->errNo == XML_I18N_CONV_FAILED)) {
+    if (((ret < 0) || (ctxt->errNo == XML_I18N_CONV_FAILED)) && !(ctxt->html)) {
         /*
-	 * on encoding conversion errors, stop the parser
+	 * on XML encoding conversion errors, stop the parser
 	 */
         xmlStopParser(ctxt);
 	ctxt->errNo = XML_I18N_CONV_FAILED;
@@ -1245,9 +1245,11 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
             }
             xmlBufResetInput(input->buf->buffer, input);
             if (nbchars < 0) {
-                xmlErrInternal(ctxt,
-                               "switching encoding: encoder error\n",
-                               NULL);
+                if (!ctxt->html) {
+                    xmlErrInternal(ctxt,
+                                   "switching encoding: encoder error\n",
+                                   NULL);
+                }
                 return (-1);
             }
         }

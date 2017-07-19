@@ -261,6 +261,8 @@ typedef struct {
     struct timeval     extensionsDirTimes[2];   // access and mod times of extensions directory with most recent change
     Boolean     compress;
     Boolean     uncompress;
+
+    Boolean            enforceKextSigningPolicy;
 } KextcacheArgs;
 
 #pragma mark Function Prototypes

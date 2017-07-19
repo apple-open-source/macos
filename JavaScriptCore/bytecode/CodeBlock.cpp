@@ -1388,6 +1388,10 @@ void CodeBlock::dumpBytecode(
             printLocationAndOp(out, exec, location, it, "watchdog");
             break;
         }
+        case op_nop: {
+            printLocationAndOp(out, exec, location, it, "nop");
+            break;
+        }
         case op_log_shadow_chicken_prologue: {
             int r0 = (++it)->u.operand;
             printLocationAndOp(out, exec, location, it, "log_shadow_chicken_prologue");
@@ -1668,10 +1672,10 @@ void CodeBlock::dumpBytecode(
             break;
         }
         case op_throw_static_error: {
-            int k0 = (++it)->u.operand;
+            int r0 = (++it)->u.operand;
             ErrorType k1 = static_cast<ErrorType>((++it)->u.unsignedValue);
             printLocationAndOp(out, exec, location, it, "throw_static_error");
-            out.printf("%s, ", constantName(k0).data());
+            out.printf("%s, ", registerName(r0).data());
             out.print(k1);
             break;
         }

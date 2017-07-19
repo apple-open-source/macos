@@ -1,4 +1,0 @@
-error : input conversion failed due to input error, bytes 0x3C 0x2F 0x74 0x69
-./test/HTML/encoding-shift_jis.html:4: parser error : switching encoding: encoder error
-</title>
-^

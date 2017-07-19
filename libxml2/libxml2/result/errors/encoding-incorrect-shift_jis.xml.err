@@ -1,0 +1,11 @@
+error : input conversion failed due to input error, bytes 0x3C 0x2F 0x74 0x69
+I/O error : encoder error
+./test/errors/encoding-incorrect-shift_jis.xml:3: parser error : AttValue: ' expected
+<html lang="ja" xml:lang="ja" xmlns="http://www.w3.org/
+                                                       ^
+./test/errors/encoding-incorrect-shift_jis.xml:3: parser error : attributes construct error
+<html lang="ja" xml:lang="ja" xmlns="http://www.w3.org/
+                                                       ^
+./test/errors/encoding-incorrect-shift_jis.xml:3: parser error : Couldn't find end of Start Tag html line 3
+<html lang="ja" xml:lang="ja" xmlns="http://www.w3.org/
+                                                       ^
